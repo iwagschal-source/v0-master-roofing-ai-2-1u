@@ -1,0 +1,103 @@
+"use client"
+
+import type React from "react"
+
+import { Home, Clock, Settings, Mail } from "lucide-react"
+import Image from "next/image"
+
+interface NavigationRailProps {
+  activeMode: string
+  onModeChange: (mode: string) => void
+  visible: boolean
+}
+
+export function NavigationRail({ activeMode, onModeChange, visible }: NavigationRailProps) {
+  const navItems = [
+    { id: "home", icon: Home, label: "KO Home", type: "lucide" as const },
+    { id: "history", icon: Clock, label: "History", type: "lucide" as const },
+    {
+      id: "powerbi",
+      icon: "/images/cfe66c72-cb69-46b5-8988-3b574f5aeca8.png",
+      label: "Power BI",
+      type: "image" as const,
+    },
+    {
+      id: "hubspot",
+      icon: "/images/hubspot.png",
+      label: "HubSpot",
+      type: "image" as const,
+    },
+    {
+      id: "messages",
+      icon: "/images/whatsapp.png",
+      label: "Messages",
+      type: "image" as const,
+    },
+    { id: "email", icon: Mail, label: "Email", type: "lucide" as const },
+    {
+      id: "zoom",
+      icon: "/images/zoom-2.png",
+      label: "Zoom",
+      type: "image" as const,
+    },
+    {
+      id: "documents",
+      icon: "/images/folder-1.png",
+      label: "Documents",
+      type: "image" as const,
+    },
+  ]
+
+  if (!visible) return null
+
+  return (
+    <nav className="w-16 flex flex-col bg-sidebar border-r border-sidebar-border">
+      {/* Top Navigation Items */}
+      <div className="flex-1 flex flex-col items-center py-4 gap-2">
+        {navItems.map((item) => {
+          const isActive = activeMode === item.id
+
+          return (
+            <div key={item.id} className="relative flex flex-col items-center">
+              <button
+                onClick={() => onModeChange(item.id)}
+                className="w-12 h-12 flex items-center justify-center rounded-lg transition-all duration-300 hover:bg-muted/20"
+                aria-label={item.label}
+              >
+                {item.type === "image" && item.icon ? (
+                  <Image
+                    src={item.icon || "/placeholder.svg"}
+                    alt={item.label}
+                    width={24}
+                    height={24}
+                    className="object-contain opacity-60"
+                  />
+                ) : item.type === "lucide" && item.icon ? (
+                  (() => {
+                    const Icon = item.icon as React.ComponentType<{ className?: string }>
+                    return <Icon className="w-6 h-6 text-foreground-secondary" />
+                  })()
+                ) : null}
+              </button>
+              {isActive && <div className="absolute bottom-0 w-8 h-0.5 bg-primary rounded-full" />}
+            </div>
+          )
+        })}
+      </div>
+
+      {/* Bottom Section - Settings */}
+      <div className="flex flex-col items-center py-4 border-t border-sidebar-border">
+        <div className="relative flex flex-col items-center">
+          <button
+            onClick={() => onModeChange("settings")}
+            className="w-12 h-12 flex items-center justify-center rounded-lg transition-all duration-300 hover:bg-muted/20"
+            aria-label="Settings"
+          >
+            <Settings className="w-6 h-6 text-foreground-secondary" />
+          </button>
+          {activeMode === "settings" && <div className="absolute bottom-0 w-8 h-0.5 bg-primary rounded-full" />}
+        </div>
+      </div>
+    </nav>
+  )
+}

@@ -1,0 +1,210 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+
+@custom-variant dark (&:is(.dark *));
+
+/* LIGHT THEME - Clean, calm, business-grade, warm-neutral */
+:root {
+  /* Updated backgrounds per spec */
+  /* Primary app background - not stark white */
+  --background: #f8f9fb;
+
+  /* Updated text hierarchy per spec */
+  /* Text hierarchy - three-tier system */
+  --foreground: #111827; /* Primary text - very dark gray, not pure black */
+  --foreground-secondary: #4b5563; /* Secondary text for labels, helper text, metadata */
+  --foreground-tertiary: #9ca3af; /* Muted text for timestamps, disabled states */
+
+  /* Updated card/panel backgrounds */
+  /* Card and panel backgrounds - pure white for elevated surfaces */
+  --card: #ffffff;
+  --card-foreground: #111827;
+
+  --popover: #ffffff;
+  --popover-foreground: #111827;
+
+  /* Brand accent - Master Roofing red */
+  --primary: #e63232;
+  --primary-foreground: #ffffff;
+
+  /* Updated secondary surfaces */
+  /* Secondary surfaces - subtle elevated */
+  --secondary: #f2f3f6;
+  --secondary-foreground: #111827;
+
+  --muted: #f2f3f6;
+  --muted-foreground: #4b5563;
+
+  --accent: #f2f3f6;
+  --accent-foreground: #111827;
+
+  --destructive: #dc2626;
+  --destructive-foreground: #ffffff;
+
+  /* Updated border system per spec */
+  /* Border system - thin and understated */
+  --border: #e4e6eb; /* Default borders/dividers */
+  --border-strong: #d5d7dd; /* Stronger dividers for tables, section breaks */
+
+  /* Updated input styling per spec */
+  /* Input styling */
+  --input: #d1d5db; /* Input border default */
+  --input-hover: #9ca3af; /* Input border hover/focus */
+  --input-background: #ffffff;
+  --input-disabled-bg: #f3f4f6;
+  --input-disabled-text: #9ca3af;
+
+  --ring: #e63232;
+
+  /* Charts */
+  --chart-1: #e63232;
+  --chart-2: #27ae60;
+  --chart-3: #3498db;
+  --chart-4: #f1c40f;
+  --chart-5: #9b59b6;
+
+  /* Updated sidebar tokens */
+  /* Sidebar tokens */
+  --sidebar: #ffffff;
+  --sidebar-foreground: #111827;
+  --sidebar-primary: #e63232;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #f2f3f6;
+  --sidebar-accent-foreground: #111827;
+  --sidebar-border: #e4e6eb;
+  --sidebar-ring: #e63232;
+
+  /* Added subtle shadow for cards */
+  --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.04), 0 2px 6px rgba(0, 0, 0, 0.06);
+
+  --radius: 0.75rem;
+}
+
+/* DARK THEME - ChatGPT-inspired dark UI with Master Roofing brand red */
+.dark {
+  /* Primary background - darker tone */
+  --background: #0f0f10;
+
+  /* Text hierarchy - three-tier system */
+  --foreground: #ededed; /* Primary text */
+  --foreground-secondary: #a1a1aa; /* Secondary text for labels, helper text */
+  --foreground-tertiary: #71717a; /* Muted text for timestamps, disabled states */
+
+  /* Card and panel backgrounds */
+  --card: #18181b;
+  --card-foreground: #ededed;
+
+  --popover: #18181b;
+  --popover-foreground: #ededed;
+
+  /* Brand accent - Master Roofing red */
+  --primary: #e63232;
+  --primary-foreground: #ffffff;
+
+  /* Secondary surfaces */
+  --secondary: #18181b;
+  --secondary-foreground: #ededed;
+
+  --muted: #18181b;
+  --muted-foreground: #a1a1aa;
+
+  --accent: #18181b;
+  --accent-foreground: #ededed;
+
+  --destructive: #e63232;
+  --destructive-foreground: #ffffff;
+
+  /* Border system - subtle depth */
+  --border: #2a2a2e; /* Default borders */
+  --border-strong: #323236; /* Stronger dividers */
+
+  /* Input styling */
+  --input: #2a2a2e;
+  --input-hover: #3f3f46;
+  --input-background: #18181b;
+  --input-disabled-bg: #27272a;
+  --input-disabled-text: #71717a;
+
+  --ring: #e63232;
+
+  /* Charts */
+  --chart-1: #e63232;
+  --chart-2: #27ae60;
+  --chart-3: #3498db;
+  --chart-4: #f1c40f;
+  --chart-5: #9b59b6;
+
+  /* Sidebar tokens */
+  --sidebar: #0f0f10;
+  --sidebar-foreground: #ededed;
+  --sidebar-primary: #e63232;
+  --sidebar-primary-foreground: #ededed;
+  --sidebar-accent: #18181b;
+  --sidebar-accent-foreground: #ededed;
+  --sidebar-border: #2a2a2e;
+  --sidebar-ring: #e63232;
+
+  /* No shadow in dark mode */
+  --shadow-card: none;
+
+  --radius: 0.75rem;
+}
+
+@theme inline {
+  --font-sans: "Geist", "Geist Fallback";
+  --font-mono: "Geist Mono", "Geist Mono Fallback";
+
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-foreground-secondary: var(--foreground-secondary);
+  --color-foreground-tertiary: var(--foreground-tertiary);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-border-strong: var(--border-strong);
+  --color-input: var(--input);
+  --color-input-hover: var(--input-hover);
+  --color-input-background: var(--input-background);
+  --color-ring: var(--ring);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --shadow-card: var(--shadow-card);
+
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+}
