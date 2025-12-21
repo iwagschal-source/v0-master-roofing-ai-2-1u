@@ -2,12 +2,11 @@
 
 import Image from "next/image"
 
-interface VoiceToggleProps {
-  isActive: boolean
-  onToggle: () => void
-}
+/** @typedef {Object} VoiceToggleProps */
 
-export function VoiceToggle({ isActive, onToggle }: VoiceToggleProps) {
+/** @param {any} props */
+/** @param {any} props */
+export function VoiceToggle({ isActive, onToggle }) {
   return (
     <button
       onClick={onToggle}

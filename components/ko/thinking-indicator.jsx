@@ -2,12 +2,11 @@
 
 import { useEffect, useState } from "react"
 
-interface ThinkingIndicatorProps {
-  isActive: boolean
-  showReasoning?: boolean
-}
+/** @typedef {Object} ThinkingIndicatorProps */
 
-export function ThinkingIndicator({ isActive, showReasoning = false }: ThinkingIndicatorProps) {
+/** @param {any} props */
+/** @param {any} props */
+export function ThinkingIndicator({ isActive, showReasoning = false }) {
   const [frame, setFrame] = useState(0)
 
   useEffect(() => {
@@ -26,13 +25,13 @@ export function ThinkingIndicator({ isActive, showReasoning = false }: ThinkingI
   const colors = ["#E2463D", "#EA7269", "#F1A4A0", "#F8DAD8"]
 
   // Wave animation: each slash pulses up and down in sequence
-  const getSlashOpacity = (index: number) => {
+  const getSlashOpacity = (index) => {
     const offset = (frame - index * 3) % 16
     if (offset < 0 || offset > 8) return 0.3
     return 0.3 + Math.sin((offset / 8) * Math.PI) * 0.7
   }
 
-  const getSlashTransform = (index: number) => {
+  const getSlashTransform = (index) => {
     const offset = (frame - index * 3) % 16
     if (offset < 0 || offset > 8) return "translateY(0px)"
     const yOffset = Math.sin((offset / 8) * Math.PI) * -2

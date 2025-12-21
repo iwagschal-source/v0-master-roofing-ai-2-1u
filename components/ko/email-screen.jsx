@@ -5,18 +5,10 @@ import { Paperclip, Mic, Send, Sparkles } from "lucide-react"
 import { ThinkingIndicator } from "./thinking-indicator"
 import { VoiceToggle } from "./voice-toggle"
 
-interface Email {
-  id: string
-  sender: string
-  subject: string
-  preview: string
-  timestamp: string
-  read: boolean
-  body: string
-  attachments?: string[]
-}
+/** @typedef {Object} Email */
 
-const MOCK_EMAILS: Email[] = [
+/** @type {Email[]} */
+const MOCK_EMAILS = [
   {
     id: "1",
     sender: "John Mitchell",
@@ -68,7 +60,7 @@ Team Lead`,
     subject: "Re: Installation Schedule Conflict",
     preview: "Thanks for flagging this. I've coordinated with the warehouse team and we can shift...",
     timestamp: "Yesterday",
-    read: true,
+    read: false,
     body: `Thanks for flagging this. I've coordinated with the warehouse team and we can shift the installation to the following week.
 
 New proposed dates:
@@ -86,7 +78,7 @@ Mike`,
     subject: "Customer Feedback - Johnson Residence",
     preview: "Just received amazing feedback from the Johnson project. They specifically mentioned...",
     timestamp: "Yesterday",
-    read: true,
+    read: false,
     body: `Hi,
 
 Just received amazing feedback from the Johnson project. They specifically mentioned the professionalism of our crew and the quality of the work.
@@ -100,8 +92,9 @@ Customer Success`,
   },
 ]
 
+/** @param {any} props */
 export function EmailScreen() {
-  const [selectedEmail, setSelectedEmail] = useState<Email | null>(MOCK_EMAILS[0])
+  const [selectedEmail, setSelectedEmail] = useState(MOCK_EMAILS[0])
   const [inputValue, setInputValue] = useState("")
   const [isRecording, setIsRecording] = useState(false)
   const [isVoiceEnabled, setIsVoiceEnabled] = useState(false)
@@ -133,8 +126,7 @@ export function EmailScreen() {
           "Check the revised timeline against current schedule",
           "Approve or provide feedback by Thursday EOD",
         ],
-        strategy:
-          "This is a time-sensitive request from a project manager. Respond promptly with specific feedback or approval to keep the project moving forward.",
+        strategy: "This is a time-sensitive request from a project manager. Respond promptly with specific feedback or approval to keep the project moving forward.",
         draftReply: `Hi John,
 
 Thanks for the updated proposal. I've reviewed the changes and they look good. The revised timeline works well with our schedule, and the additional material options give the client good flexibility.

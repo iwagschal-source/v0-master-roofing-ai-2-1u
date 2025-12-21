@@ -3,12 +3,11 @@
 import { useState } from "react"
 import { ChevronDown, ChevronUp, Brain } from "lucide-react"
 
-interface ReasoningIndicatorProps {
-  reasoning?: string[]
-  isActive: boolean
-}
+/** @typedef {Object} ReasoningIndicatorProps */
 
-export function ReasoningIndicator({ reasoning = [], isActive }: ReasoningIndicatorProps) {
+/** @param {any} props */
+/** @param {any} props */
+export function ReasoningIndicator({ reasoning = [], isActive }) {
   const [isExpanded, setIsExpanded] = useState(false)
 
   if (!reasoning.length && !isActive) return null

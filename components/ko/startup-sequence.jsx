@@ -4,13 +4,12 @@ import { useEffect, useState } from "react"
 import Image from "next/image"
 import { useTheme } from "@/components/theme-provider"
 
-interface StartupSequenceProps {
-  onComplete: () => void
-  isShuttingDown?: boolean
-}
+/** @typedef {Object} StartupSequenceProps */
 
-export function StartupSequence({ onComplete, isShuttingDown = false }: StartupSequenceProps) {
-  const [stage, setStage] = useState<"hidden" | "fading-in" | "stabilizing" | "pulsing" | "settling" | "complete">(
+/** @param {any} props */
+/** @param {any} props */
+export function StartupSequence({ onComplete, isShuttingDown = false }) {
+  const [stage, setStage] = useState(
     "hidden",
   )
   const { resolvedTheme } = useTheme()
@@ -94,7 +93,7 @@ export function StartupSequence({ onComplete, isShuttingDown = false }: StartupS
       className={`fixed inset-0 z-50 flex items-center justify-center ${bgColor} transition-opacity`}
       style={{
         opacity: stage === "hidden" ? 0 : 1,
-        transitionDuration: isShuttingDown ? "800ms" : "1200ms",
+        transitionDuration: stage === "fading-in" ? "800ms" : "1200ms",
         transitionTimingFunction: "cubic-bezier(0.4, 0.0, 0.2, 1)",
       }}
     >

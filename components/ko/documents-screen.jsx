@@ -3,12 +3,12 @@
 import Image from "next/image"
 import { useState } from "react"
 
-interface DocumentsScreenProps {
-  onBack: () => void
-}
+/** @typedef {Object} DocumentsScreenProps */
 
-export function DocumentsScreen({ onBack }: DocumentsScreenProps) {
-  const [selectedDocType, setSelectedDocType] = useState<string | null>(null)
+/** @param {any} props */
+/** @param {any} props */
+export function DocumentsScreen({ onBack }) {
+  const [selectedDocType, setSelectedDocType] = useState(null)
   const [searchQuery, setSearchQuery] = useState("")
 
   const documentTypes = [
@@ -32,7 +32,7 @@ export function DocumentsScreen({ onBack }: DocumentsScreenProps) {
     },
   ]
 
-  const handleDocTypeClick = (typeId: string) => {
+  const handleDocTypeClick = (typeId) => {
     setSelectedDocType(typeId)
     setSearchQuery("")
   }

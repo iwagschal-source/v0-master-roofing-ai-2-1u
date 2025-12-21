@@ -1,23 +1,12 @@
 "use client"
 
-interface Message {
-  id: string
-  role: "user" | "assistant"
-  content: string
-  timestamp: Date
-  source?: {
-    itemId: string
-    label: string
-  }
-  reasoning?: string[]
-}
+/** @typedef {Object} Message */
 
-interface ChatMessageProps {
-  message: Message
-  onSourceClick?: (itemId: string) => void
-}
+/** @typedef {Object} ChatMessageProps */
 
-export function ChatMessage({ message, onSourceClick }: ChatMessageProps) {
+/** @param {any} props */
+/** @param {any} props */
+export function ChatMessage({ message, onSourceClick }) {
   const isAssistant = message.role === "assistant"
 
   return (
@@ -29,7 +18,7 @@ export function ChatMessage({ message, onSourceClick }: ChatMessageProps) {
             <>
               {" "}
               <button
-                onClick={() => onSourceClick?.(message.source!.itemId)}
+                onClick={() => onSourceClick?.(message.source?.itemId)}
                 className="text-primary hover:underline inline-flex items-center text-xs"
               >
                 [{message.source.label}]

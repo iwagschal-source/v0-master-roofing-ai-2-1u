@@ -1,10 +1,10 @@
 "use client"
 
-interface MobileMenuToggleProps {
-  onClick: () => void
-}
+/** @typedef {Object} MobileMenuToggleProps */
 
-export function MobileMenuToggle({ onClick }: MobileMenuToggleProps) {
+/** @param {any} props */
+/** @param {any} props */
+export function MobileMenuToggle({ onClick }) {
   return (
     <button
       onClick={onClick}

@@ -12,7 +12,7 @@ import { EmailScreen } from "@/components/ko/email-screen"
 import { SettingsScreen } from "@/components/ko/settings-screen"
 import { ZoomScreen } from "@/components/ko/zoom-screen"
 import { MobileMenuToggle } from "@/components/ko/mobile-menu-toggle"
-import type { HistoryItem } from "@/types/history"
+import { HistoryItem } from "@/types/history"
 
 export default function HomePage() {
   const [isStartupComplete, setIsStartupComplete] = useState(false)
@@ -27,17 +27,16 @@ export default function HomePage() {
   const [showZoom, setShowZoom] = useState(false)
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
   const [topPaneHeight, setTopPaneHeight] = useState(0)
-  const [koState, setKoState] = useState<"idle" | "listening" | "thinking" | "speaking">("idle")
-  const [selectedHistoryItem, setSelectedHistoryItem] = useState<HistoryItem | undefined>()
+  const [koState, setKoState] = useState("idle")
+  const [selectedHistoryItem, setSelectedHistoryItem] = useState()
 
-  const [historyItems] = useState<HistoryItem[]>([
+  const [historyItems] = useState([
     {
       id: "q3-2025-report",
       type: "pdf",
       label: "Q3-2025-Report",
       source: "Vertex AI",
-      content:
-        "Q3 2025 Sales Report\n\nExecutive Summary:\nThis quarter showed strong performance across all metrics.\n\nWin Rate: 18% (up from 15% in Q2)\nTotal Deals Closed: 47\nAverage Deal Size: $125,000\n\nKey Insights:\n- Enterprise segment grew 22%\n- Customer retention at 94%\n- Pipeline value increased to $5.2M",
+      content: "Q3 2025 Sales Report\n\nExecutive Summary:\nThis quarter showed strong performance across all metrics.\n\nWin Rate: 18% (up from 15% in Q2)\nTotal Deals Closed: 47\nAverage Deal Size: $125,000\n\nKey Insights:\n- Enterprise segment grew 22%\n- Customer retention at 94%\n- Pipeline value increased to $5.2M",
       preview: "Q3 2025 sales performance showing 18% win rate and 47 closed deals.",
       timestamp: new Date(Date.now() - 86400000),
     },
@@ -46,8 +45,7 @@ export default function HomePage() {
       type: "chart",
       label: "Pipeline-Chart-November",
       source: "Power BI",
-      content:
-        "Sales Pipeline Data - November 2025\n\nStage breakdown:\nProspecting: $2.1M\nQualification: $1.5M\nProposal: $980K\nNegotiation: $620K",
+      content: "Sales Pipeline Data - November 2025\n\nStage breakdown:\nProspecting: $2.1M\nQualification: $1.5M\nProposal: $980K\nNegotiation: $620K",
       preview: "November pipeline analysis with stage-by-stage breakdown.",
       timestamp: new Date(Date.now() - 172800000),
     },
@@ -55,7 +53,7 @@ export default function HomePage() {
 
   const isWorkspaceVisible = selectedHistoryItem !== undefined || koState === "thinking" || koState === "speaking"
 
-  const handleSelectHistoryItem = (item: HistoryItem) => {
+  const handleSelectHistoryItem = (item) => {
     setSelectedHistoryItem(item)
   }
 
@@ -83,7 +81,7 @@ export default function HomePage() {
     setShowZoom(false)
   }
 
-  const handleModeChange = (mode: string) => {
+  const handleModeChange = (mode) => {
     setIsMobileMenuOpen(false)
 
     if (mode === "home") {

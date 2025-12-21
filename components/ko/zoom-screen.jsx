@@ -3,8 +3,9 @@
 import { useState } from "react"
 import { Video, Play, Users, Calendar, Search, Clock, ChevronLeft, ChevronRight } from "lucide-react"
 
+/** @param {any} props */
 export function ZoomScreen() {
-  const [activeTab, setActiveTab] = useState<"live" | "recordings" | "calendar">("calendar")
+  const [activeTab, setActiveTab] = useState("calendar")
   const [currentDate, setCurrentDate] = useState(new Date(2025, 11, 12)) // Dec 12, 2025
 
   const recordings = [
@@ -13,8 +14,7 @@ export function ZoomScreen() {
       title: "Q4 Sales Strategy Session",
       date: "Dec 10, 2025",
       duration: "1h 23m",
-      participants: 12,
-      host: "Sarah Chen",
+      participants: { host: "Sarah Chen" },
       thumbnail: "/video-meeting-thumbnail.jpg",
     },
     {
@@ -22,8 +22,7 @@ export function ZoomScreen() {
       title: "Client Onboarding - Vertex Solutions",
       date: "Dec 9, 2025",
       duration: "45m",
-      participants: 5,
-      host: "Marcus Reid",
+      participants: { host: "Marcus Reid" },
       thumbnail: "/business-meeting-thumbnail.png",
     },
     {
@@ -31,8 +30,7 @@ export function ZoomScreen() {
       title: "Weekly Team Sync",
       date: "Dec 8, 2025",
       duration: "32m",
-      participants: 8,
-      host: "Jessica Park",
+      participants: { host: "Jessica Park" },
       thumbnail: "/team-meeting-thumbnail.jpg",
     },
   ]
@@ -44,9 +42,8 @@ export function ZoomScreen() {
       date: "Dec 12, 2025",
       time: "10:00 AM",
       duration: "1h",
-      participants: 8,
-      host: "Sarah Chen",
-      status: "upcoming" as const,
+      participants: { host: "Sarah Chen" },
+      status: "upcoming",
     },
     {
       id: 2,
@@ -54,9 +51,8 @@ export function ZoomScreen() {
       date: "Dec 12, 2025",
       time: "2:30 PM",
       duration: "45m",
-      participants: 4,
-      host: "Marcus Reid",
-      status: "upcoming" as const,
+      participants: { host: "Marcus Reid" },
+      status: "upcoming",
     },
     {
       id: 3,
@@ -64,9 +60,8 @@ export function ZoomScreen() {
       date: "Dec 13, 2025",
       time: "9:00 AM",
       duration: "2h",
-      participants: 15,
-      host: "Jessica Park",
-      status: "upcoming" as const,
+      participants: { host: "Jessica Park" },
+      status: "upcoming",
     },
     {
       id: 4,
@@ -74,9 +69,8 @@ export function ZoomScreen() {
       date: "Dec 13, 2025",
       time: "3:00 PM",
       duration: "30m",
-      participants: 2,
-      host: "Alex Johnson",
-      status: "upcoming" as const,
+      participants: { host: "Alex Johnson" },
+      status: "upcoming",
     },
     {
       id: 5,
@@ -84,21 +78,20 @@ export function ZoomScreen() {
       date: "Dec 15, 2025",
       time: "11:00 AM",
       duration: "1h",
-      participants: 45,
-      host: "CEO Office",
-      status: "upcoming" as const,
+      participants: { host: "CEO Office" },
+      status: "upcoming",
     },
   ]
 
-  const getDaysInMonth = (date: Date) => {
+  const getDaysInMonth = (date) => {
     return new Date(date.getFullYear(), date.getMonth() + 1, 0).getDate()
   }
 
-  const getFirstDayOfMonth = (date: Date) => {
+  const getFirstDayOfMonth = (date) => {
     return new Date(date.getFullYear(), date.getMonth(), 1).getDay()
   }
 
-  const formatMonthYear = (date: Date) => {
+  const formatMonthYear = (date) => {
     return date.toLocaleDateString("en-US", { month: "long", year: "numeric" })
   }
 
@@ -110,7 +103,7 @@ export function ZoomScreen() {
     setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() + 1))
   }
 
-  const getMeetingsForDate = (day: number) => {
+  const getMeetingsForDate = (day) => {
     const dateStr = new Date(currentDate.getFullYear(), currentDate.getMonth(), day).toLocaleDateString("en-US", {
       month: "short",
       day: "numeric",

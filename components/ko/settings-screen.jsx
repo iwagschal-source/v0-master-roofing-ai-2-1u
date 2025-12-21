@@ -4,6 +4,7 @@ import { useTheme } from "@/components/theme-provider"
 import { Moon, Sun, Monitor } from "lucide-react"
 import { useEffect, useState } from "react"
 
+/** @param {any} props */
 export function SettingsScreen() {
   const { theme, setTheme, resolvedTheme } = useTheme()
   const [mounted, setMounted] = useState(false)
@@ -21,9 +22,9 @@ export function SettingsScreen() {
   }
 
   const themeOptions = [
-    { value: "light" as const, label: "Light", icon: Sun },
-    { value: "dark" as const, label: "Dark", icon: Moon },
-    { value: "system" as const, label: "System", icon: Monitor },
+    { value: "light", label: "Light", icon },
+    { value: "dark", label: "Dark", icon },
+    { value: "system", label: "System", icon },
   ]
 
   return (

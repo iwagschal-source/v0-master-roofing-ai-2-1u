@@ -1,14 +1,13 @@
 "use client"
 
 import { X } from "lucide-react"
-import type { HistoryItem } from "@/types/history"
+import { HistoryItem } from "@/types/history"
 
-interface SourceViewerProps {
-  item: HistoryItem
-  onClose: () => void
-}
+/** @typedef {Object} SourceViewerProps */
 
-export function SourceViewer({ item, onClose }: SourceViewerProps) {
+/** @param {any} props */
+/** @param {any} props */
+export function SourceViewer({ item, onClose }) {
   return (
     <div className="w-full h-full flex flex-col bg-card">
       {/* Header */}

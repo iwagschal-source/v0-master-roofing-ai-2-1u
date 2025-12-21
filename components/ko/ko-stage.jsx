@@ -2,15 +2,13 @@
 
 import { KOGlyph } from "./ko-glyph"
 import { SourceViewer } from "./source-viewer"
-import type { HistoryItem } from "@/types/history"
+import { HistoryItem } from "@/types/history"
 
-interface KOStageProps {
-  activeMode: string
-  selectedHistoryItem?: HistoryItem
-  onCloseViewer?: () => void
-}
+/** @typedef {Object} KOStageProps */
 
-export function KOStage({ activeMode, selectedHistoryItem, onCloseViewer }: KOStageProps) {
+/** @param {any} props */
+/** @param {any} props */
+export function KOStage({ activeMode, selectedHistoryItem, onCloseViewer }) {
   if (selectedHistoryItem && onCloseViewer) {
     return <SourceViewer item={selectedHistoryItem} onClose={onCloseViewer} />
   }

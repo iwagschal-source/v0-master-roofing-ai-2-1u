@@ -1,18 +1,13 @@
 "use client"
 
-import type React from "react"
+import * as React from "react"
 
 import { FileText, BarChart3, Users, Mail, FileJson, File } from "lucide-react"
-import type { HistoryItem, SourceType } from "@/types/history"
 import { Badge } from "@/components/ui/badge"
 
-interface HistoryListProps {
-  items: HistoryItem[]
-  selectedId?: string
-  onSelectItem: (item: HistoryItem) => void
-}
+/** @typedef {Object} HistoryListProps */
 
-const iconMap: Record<SourceType, React.ReactNode> = {
+const iconMap = {
   pdf: <FileText className="w-4 h-4" />,
   chart: <BarChart3 className="w-4 h-4" />,
   hubspot: <Users className="w-4 h-4" />,
@@ -21,7 +16,7 @@ const iconMap: Record<SourceType, React.ReactNode> = {
   document: <FileJson className="w-4 h-4" />,
 }
 
-const sourceBadgeColors: Record<string, string> = {
+const sourceBadgeColors = {
   "Vertex AI": "bg-blue-500/10 text-blue-400 border-blue-500/30",
   "Power BI": "bg-yellow-500/10 text-yellow-400 border-yellow-500/30",
   HubSpot: "bg-orange-500/10 text-orange-400 border-orange-500/30",
@@ -29,7 +24,11 @@ const sourceBadgeColors: Record<string, string> = {
   "Local File": "bg-gray-500/10 text-gray-400 border-gray-500/30",
 }
 
-export function HistoryList({ items, selectedId, onSelectItem }: HistoryListProps) {
+/**
+ * HistoryList props
+ * @param {{items:any[], selectedId?:string, onSelectItem:function}} props
+ */
+export function HistoryList({ items, selectedId, onSelectItem }) {
   return (
     <div className="flex-1 overflow-y-auto p-4">
       <div className="space-y-2">

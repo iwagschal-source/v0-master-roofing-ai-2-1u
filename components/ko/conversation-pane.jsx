@@ -1,6 +1,6 @@
 "use client"
 
-import type React from "react"
+import * as React from "react"
 import { useState } from "react"
 import { Paperclip, Mic, Send } from "lucide-react"
 import { ChatMessage } from "./chat-message"
@@ -8,17 +8,12 @@ import { HistoryList } from "./history-list"
 import { ThinkingIndicator } from "./thinking-indicator"
 import { ReasoningIndicator } from "./reasoning-indicator"
 import { VoiceToggle } from "./voice-toggle"
-import type { HistoryItem } from "@/types/history"
+import { HistoryItem } from "@/types/history"
 
-interface ConversationPaneProps {
-  activeMode: string
-  onExpandStage: () => void
-  onKoStateChange: (state: "idle" | "listening" | "thinking" | "speaking") => void
-  historyItems: HistoryItem[]
-  onSelectHistoryItem: (item: HistoryItem) => void
-  selectedHistoryId?: string
-}
+/** @typedef {Object} ConversationPaneProps */
 
+/** @param {any} props */
+/** @param {any} props */
 export function ConversationPane({
   activeMode,
   onExpandStage,
@@ -26,30 +21,30 @@ export function ConversationPane({
   historyItems,
   onSelectHistoryItem,
   selectedHistoryId,
-}: ConversationPaneProps) {
+}) {
   const [inputValue, setInputValue] = useState("")
   const [isRecording, setIsRecording] = useState(false)
   const [isVoiceEnabled, setIsVoiceEnabled] = useState(false)
-  const [koState, setKoState] = useState<"idle" | "listening" | "thinking" | "speaking">("idle")
+  const [koState, setKoState] = useState("idle")
   const [showReasoning, setShowReasoning] = useState(false)
 
   // Mock conversation history with source citations
   const messages = [
     {
       id: "1",
-      role: "assistant" as const,
+      role: "assistant",
       content: "Good morning! I'm KO, your Chief Agent Officer. How can I assist you today?",
       timestamp: new Date(Date.now() - 3600000),
     },
     {
       id: "2",
-      role: "user" as const,
+      role: "user",
       content: "What's our Win Rate for the last 30 days?",
       timestamp: new Date(Date.now() - 3000000),
     },
     {
       id: "3",
-      role: "assistant" as const,
+      role: "assistant",
       content: "I've reviewed the Q3 report and your Win Rate for the last 30 days is 18%.",
       timestamp: new Date(Date.now() - 2900000),
       source: {
@@ -86,7 +81,7 @@ export function ConversationPane({
     }
   }
 
-  const handleKeyPress = (e: React.KeyboardEvent) => {
+  const handleKeyPress = (e) => {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault()
       handleSend()
@@ -121,7 +116,7 @@ export function ConversationPane({
     }
   }
 
-  const handleSourceClick = (itemId: string) => {
+  const handleSourceClick = (itemId) => {
     const item = historyItems.find((h) => h.id === itemId)
     if (item) {
       onSelectHistoryItem(item)

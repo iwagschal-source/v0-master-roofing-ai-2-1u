@@ -1,50 +1,50 @@
 "use client"
 
-import type React from "react"
+import * as React from "react"
 
 import { Home, Clock, Settings, Mail } from "lucide-react"
 import Image from "next/image"
 
-interface NavigationRailProps {
-  activeMode: string
-  onModeChange: (mode: string) => void
-  visible: boolean
-}
+/** @typedef {Object} NavigationRailProps */
 
-export function NavigationRail({ activeMode, onModeChange, visible }: NavigationRailProps) {
+/** @param {any} props */
+/** @param {any} props */
+export function NavigationRail({ activeMode, onModeChange, visible }) {
   const navItems = [
-    { id: "home", icon: Home, label: "KO Home", type: "lucide" as const },
-    { id: "history", icon: Clock, label: "History", type: "lucide" as const },
+    { id: "home", icon: Home, label: "KO Home", type: "lucide" },
+    { id: "history", icon: Clock, label: "History", type: "lucide" },
     {
       id: "powerbi",
       icon: "/images/cfe66c72-cb69-46b5-8988-3b574f5aeca8.png",
       label: "Power BI",
-      type: "image" as const,
+      type: "image",
     },
+
     {
       id: "hubspot",
       icon: "/images/hubspot.png",
       label: "HubSpot",
-      type: "image" as const,
+      type: "image",
     },
     {
       id: "messages",
       icon: "/images/whatsapp.png",
       label: "Messages",
-      type: "image" as const,
+      type: "image",
     },
-    { id: "email", icon: Mail, label: "Email", type: "lucide" as const },
+    { id: "email", icon: Mail, label: "Email", type: "lucide" },
+
     {
       id: "zoom",
       icon: "/images/zoom-2.png",
       label: "Zoom",
-      type: "image" as const,
+      type: "image",
     },
     {
       id: "documents",
       icon: "/images/folder-1.png",
       label: "Documents",
-      type: "image" as const,
+      type: "image",
     },
   ]
 
@@ -74,7 +74,7 @@ export function NavigationRail({ activeMode, onModeChange, visible }: Navigation
                   />
                 ) : item.type === "lucide" && item.icon ? (
                   (() => {
-                    const Icon = item.icon as React.ComponentType<{ className?: string }>
+                    const Icon = item.icon
                     return <Icon className="w-6 h-6 text-foreground-secondary" />
                   })()
                 ) : null}

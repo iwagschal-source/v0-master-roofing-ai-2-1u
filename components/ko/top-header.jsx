@@ -5,12 +5,11 @@ import Image from "next/image"
 import { useTheme } from "@/components/theme-provider"
 import { useEffect, useState } from "react"
 
-interface TopHeaderProps {
-  onShutdown?: () => void
-  isPoweredOn?: boolean
-}
+/** @typedef {Object} TopHeaderProps */
 
-export function TopHeader({ onShutdown, isPoweredOn = true }: TopHeaderProps) {
+/** @param {any} props */
+/** @param {any} props */
+export function TopHeader({ onShutdown, isPoweredOn = true }) {
   const { resolvedTheme } = useTheme()
   const [mounted, setMounted] = useState(false)
 
@@ -18,7 +17,7 @@ export function TopHeader({ onShutdown, isPoweredOn = true }: TopHeaderProps) {
     setMounted(true)
   }, [])
 
-  // Use dark logo as default until mounted
+  // Use dark logo
   const logoSrc = mounted && resolvedTheme === "light" ? "/images/logo-light.png" : "/images/new-logo-white.png"
 
   return (

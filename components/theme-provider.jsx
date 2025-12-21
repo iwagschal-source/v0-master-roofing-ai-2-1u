@@ -1,25 +1,24 @@
 "use client"
 
-import type * as React from "react"
+import * as React from "react"
 import { createContext, useContext, useEffect, useState } from "react"
 
-type Theme = "light" | "dark" | "system"
+/** @typedef {"light"|"dark"|"system"} Theme */
+/** @typedef {{ theme: string, setTheme: function, resolvedTheme: string }} ThemeContextType */
 
-interface ThemeContextType {
-  theme: Theme
-  setTheme: (theme: Theme) => void
-  resolvedTheme: "light" | "dark"
-}
+const ThemeContext = createContext(undefined)
 
-const ThemeContext = createContext<ThemeContextType | undefined>(undefined)
-
-export function ThemeProvider({ children }: { children: React.ReactNode }) {
-  const [theme, setThemeState] = useState<Theme>("dark")
-  const [resolvedTheme, setResolvedTheme] = useState<"light" | "dark">("dark")
+/**
+ * Theme provider
+ * @param {{children:any}} props
+ */
+export function ThemeProvider({ children }) {
+  const [theme, setThemeState] = useState("dark")
+  const [resolvedTheme, setResolvedTheme] = useState("dark")
 
   // Initialize theme from localStorage on mount
   useEffect(() => {
-    const stored = localStorage.getItem("ko-theme") as Theme | null
+    const stored = localStorage.getItem("ko-theme")
     if (stored && ["light", "dark", "system"].includes(stored)) {
       setThemeState(stored)
     }
@@ -27,7 +26,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
 
   // Update resolved theme and document class when theme changes
   useEffect(() => {
-    let resolved: "light" | "dark" = "dark"
+    let resolved = "dark"
 
     if (theme === "system") {
       resolved = window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light"
@@ -50,7 +49,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     if (theme !== "system") return
 
     const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)")
-    const handler = (e: MediaQueryListEvent) => {
+    const handler = (e) => {
       const resolved = e.matches ? "dark" : "light"
       setResolvedTheme(resolved)
       document.documentElement.classList.remove("light", "dark")
@@ -61,7 +60,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     return () => mediaQuery.removeEventListener("change", handler)
   }, [theme])
 
-  const setTheme = (newTheme: Theme) => {
+  const setTheme = (newTheme) => {
     setThemeState(newTheme)
     localStorage.setItem("ko-theme", newTheme)
     console.log("[v0] Theme set to:", newTheme)
@@ -70,6 +69,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   return <ThemeContext.Provider value={{ theme, setTheme, resolvedTheme }}>{children}</ThemeContext.Provider>
 }
 
+/** @param {any} props */
 export function useTheme() {
   const context = useContext(ThemeContext)
   if (!context) {

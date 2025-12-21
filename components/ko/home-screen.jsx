@@ -1,6 +1,6 @@
 "use client"
 
-import type React from "react"
+import * as React from "react"
 
 import { useState } from "react"
 import Image from "next/image"
@@ -8,12 +8,11 @@ import { Paperclip, Mic, Send } from "lucide-react"
 import { ThinkingIndicator } from "./thinking-indicator"
 import { VoiceToggle } from "./voice-toggle"
 
-interface HomeScreenProps {
-  onStartChat: () => void
-  onNavigateToFiles: () => void
-}
+/** @typedef {Object} HomeScreenProps */
 
-export function HomeScreen({ onStartChat, onNavigateToFiles }: HomeScreenProps) {
+/** @param {any} props */
+/** @param {any} props */
+export function HomeScreen({ onStartChat, onNavigateToFiles }) {
   const [inputValue, setInputValue] = useState("")
   const [isRecording, setIsRecording] = useState(false)
   const [isVoiceEnabled, setIsVoiceEnabled] = useState(false)
@@ -51,7 +50,7 @@ export function HomeScreen({ onStartChat, onNavigateToFiles }: HomeScreenProps) 
     },
   ]
 
-  const handleActionClick = (action: string) => {
+  const handleActionClick = (action) => {
     if (action === "files") {
       onNavigateToFiles()
     } else {
@@ -66,7 +65,7 @@ export function HomeScreen({ onStartChat, onNavigateToFiles }: HomeScreenProps) 
     }
   }
 
-  const handleKeyPress = (e: React.KeyboardEvent) => {
+  const handleKeyPress = (e) => {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault()
       handleSend()

@@ -2,12 +2,11 @@
 
 import { useEffect, useState } from "react"
 
-interface KOGlyphProps {
-  size?: "small" | "medium" | "large"
-  state?: "idle" | "listening" | "thinking" | "speaking"
-}
+/** @typedef {Object} KOGlyphProps */
 
-export function KOGlyph({ size = "medium", state = "idle" }: KOGlyphProps) {
+/** @param {any} props */
+/** @param {any} props */
+export function KOGlyph({ size = "medium", state = "idle" }) {
   const [pulseOpacity, setPulseOpacity] = useState(1)
 
   const sizeMap = {

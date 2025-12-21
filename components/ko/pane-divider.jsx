@@ -2,12 +2,11 @@
 
 import { useState, useCallback } from "react"
 
-interface PaneDividerProps {
-  topPaneHeight: number
-  onHeightChange: (height: number) => void
-}
+/** @typedef {Object} PaneDividerProps */
 
-export function PaneDivider({ topPaneHeight, onHeightChange }: PaneDividerProps) {
+/** @param {any} props */
+/** @param {any} props */
+export function PaneDivider({ topPaneHeight, onHeightChange }) {
   const [isDragging, setIsDragging] = useState(false)
 
   const handleMouseDown = useCallback(() => {
@@ -15,7 +14,7 @@ export function PaneDivider({ topPaneHeight, onHeightChange }: PaneDividerProps)
   }, [])
 
   const handleMouseMove = useCallback(
-    (e: MouseEvent) => {
+    (e) => {
       if (!isDragging) return
 
       const windowHeight = window.innerHeight
