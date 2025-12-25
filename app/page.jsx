@@ -13,6 +13,7 @@ import { SettingsScreen } from "@/components/ko/settings-screen"
 import { ZoomScreen } from "@/components/ko/zoom-screen"
 import { MobileMenuToggle } from "@/components/ko/mobile-menu-toggle"
 import { HistoryItem } from "@/types/history"
+import { ChatShell } from "@/components/ko/chat-shell"
 
 export default function HomePage() {
   const [isStartupComplete, setIsStartupComplete] = useState(false)
@@ -135,23 +136,23 @@ export default function HomePage() {
     setHasStartedChat(true)
   }
 
-  if (!isStartupComplete || isShuttingDown) {
-    return (
-      <StartupSequence
-        onComplete={() => {
-          if (isShuttingDown) {
-            setIsShuttingDown(false)
-            setIsStartupComplete(true)
-            console.log("[v0] App shutdown complete")
-          } else {
-            setIsStartupComplete(true)
-            setIsPoweredOn(true)
-          }
-        }}
-        isShuttingDown={isShuttingDown}
-      />
-    )
-  }
+  /*   if (!isStartupComplete || isShuttingDown) {
+      return (
+        <StartupSequence
+          onComplete={() => {
+            if (isShuttingDown) {
+              setIsShuttingDown(false)
+              setIsStartupComplete(true)
+              console.log("[v0] App shutdown complete")
+            } else {
+              setIsStartupComplete(true)
+              setIsPoweredOn(true)
+            }
+          }}
+          isShuttingDown={isShuttingDown}
+        />
+      )
+    } */
 
   const showHomeScreen =
     !hasStartedChat && activeMode === "home" && !showFiles && !showEmail && !showSettings && !showZoom
@@ -183,9 +184,7 @@ export default function HomePage() {
           </div>
         </div>
 
-        {showHomeScreen ? (
-          <HomeScreen onStartChat={handleStartChat} onNavigateToFiles={handleNavigateToFiles} />
-        ) : showFiles ? (
+        {showFiles ? (
           <DocumentsScreen onBack={() => setShowFiles(false)} />
         ) : showEmail ? (
           <EmailScreen />
@@ -196,20 +195,23 @@ export default function HomePage() {
         ) : (
           <div className="flex-1 flex flex-col md:flex-row overflow-hidden">
             <div className="flex-1 md:w-[40%] flex flex-col">
-              <ConversationPane
+              <ChatShell
                 activeMode={activeMode}
-                onExpandStage={() => {}}
+                onExpandStage={() => { }}
                 onKoStateChange={setKoState}
                 historyItems={historyItems}
                 onSelectHistoryItem={handleSelectHistoryItem}
                 selectedHistoryId={selectedHistoryItem?.id}
+                onNavigateToFiles={handleNavigateToFiles}
+
+                // ✅ allow home only when you’re truly on home mode
+                allowHome={activeMode === "home"}
               />
             </div>
 
             {isWorkspaceVisible && (
               <>
                 <div className="hidden md:block w-px bg-border" />
-
                 <div className="hidden md:flex md:w-[60%] flex-col">
                   <KOStage
                     activeMode={activeMode}
@@ -217,7 +219,6 @@ export default function HomePage() {
                     onCloseViewer={handleCloseViewer}
                   />
                 </div>
-
                 <div className="md:hidden fixed inset-0 z-50 bg-background">
                   <KOStage
                     activeMode={activeMode}
@@ -229,6 +230,7 @@ export default function HomePage() {
             )}
           </div>
         )}
+
       </div>
     </div>
   )

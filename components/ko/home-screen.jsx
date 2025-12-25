@@ -4,16 +4,13 @@ import * as React from "react"
 
 import { useState } from "react"
 import Image from "next/image"
-import { Paperclip, Mic, Send } from "lucide-react"
-import { ThinkingIndicator } from "./thinking-indicator"
-import { VoiceToggle } from "./voice-toggle"
+import { MessageInput } from "./message-input"
 
 /** @typedef {Object} HomeScreenProps */
 
 /** @param {any} props */
 /** @param {any} props */
-export function HomeScreen({ onStartChat, onNavigateToFiles }) {
-  const [inputValue, setInputValue] = useState("")
+export function HomeScreen({ onSubmit, onStartChat, onNavigateToFiles }) {
   const [isRecording, setIsRecording] = useState(false)
   const [isVoiceEnabled, setIsVoiceEnabled] = useState(false)
 
@@ -59,18 +56,10 @@ export function HomeScreen({ onStartChat, onNavigateToFiles }) {
   }
 
   const handleSend = () => {
-    if (inputValue.trim()) {
-      onStartChat()
-      setInputValue("")
-    }
+    onStartChat()
   }
 
-  const handleKeyPress = (e) => {
-    if (e.key === "Enter" && !e.shiftKey) {
-      e.preventDefault()
-      handleSend()
-    }
-  }
+
 
   const handleMicToggle = () => {
     const newRecordingState = !isRecording
@@ -115,49 +104,16 @@ export function HomeScreen({ onStartChat, onNavigateToFiles }) {
       </div>
 
       <div className="p-4 border-t border-border">
-        <div className="flex items-center gap-3 bg-card rounded-xl px-4 py-3 border border-input shadow-sm max-w-4xl mx-auto">
-          {/* Attachment Button */}
-          <button
-            className="text-foreground-secondary hover:text-foreground transition-colors"
-            aria-label="Attach file"
-          >
-            <Paperclip className="w-5 h-5" />
-          </button>
-
-          {/* Thinking Indicator */}
-          <ThinkingIndicator isActive={isRecording} />
-
-          {/* Text Input */}
-          <input
-            type="text"
-            value={inputValue}
-            onChange={(e) => setInputValue(e.target.value)}
-            onKeyDown={handleKeyPress}
+        <div className="max-w-4xl mx-auto">
+          <MessageInput
+            onSubmit={onSubmit}
+            isRecording={isRecording}
+            onMicToggle={handleMicToggle}
+            isVoiceEnabled={isVoiceEnabled}
+            onToggleVoice={() => setIsVoiceEnabled(!isVoiceEnabled)}
+            isThinking={isRecording}
             placeholder="Ask KO…"
-            className="flex-1 bg-transparent outline-none text-foreground placeholder:text-foreground-secondary"
           />
-
-          {/* Voice Toggle */}
-          <VoiceToggle isActive={isVoiceEnabled} onToggle={() => setIsVoiceEnabled(!isVoiceEnabled)} />
-
-          {/* Microphone Button */}
-          <button
-            onClick={handleMicToggle}
-            className={`transition-colors ${isRecording ? "text-primary" : "text-foreground-secondary hover:text-foreground"}`}
-            aria-label={isRecording ? "Stop recording and send" : "Start recording"}
-          >
-            <Mic className="w-5 h-5" />
-          </button>
-
-          {/* Send Button */}
-          <button
-            onClick={handleSend}
-            disabled={!inputValue.trim()}
-            className="text-primary hover:text-primary/80 disabled:opacity-40 disabled:cursor-not-allowed transition-all"
-            aria-label="Send message"
-          >
-            <Send className="w-5 h-5" />
-          </button>
         </div>
       </div>
     </div>
