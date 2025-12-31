@@ -11,9 +11,11 @@ import { DocumentsScreen } from "@/components/ko/documents-screen"
 import { EmailScreen } from "@/components/ko/email-screen"
 import { SettingsScreen } from "@/components/ko/settings-screen"
 import { ZoomScreen } from "@/components/ko/zoom-screen"
+import { ReportsScreen } from "@/components/ko/reports-screen"
 import { MobileMenuToggle } from "@/components/ko/mobile-menu-toggle"
 import { HistoryItem } from "@/types/history"
 import { ChatShell } from "@/components/ko/chat-shell"
+import { HistoryScreen } from "@/components/ko/history-screen"
 
 export default function HomePage() {
   const [isStartupComplete, setIsStartupComplete] = useState(false)
@@ -22,10 +24,12 @@ export default function HomePage() {
 
   const [hasStartedChat, setHasStartedChat] = useState(false)
   const [activeMode, setActiveMode] = useState("home")
+  const [showHistory, setShowHistory] = useState(false)
   const [showFiles, setShowFiles] = useState(false)
   const [showEmail, setShowEmail] = useState(false)
   const [showSettings, setShowSettings] = useState(false)
   const [showZoom, setShowZoom] = useState(false)
+  const [showReports, setShowReports] = useState(false)
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
   const [topPaneHeight, setTopPaneHeight] = useState(0)
   const [koState, setKoState] = useState("idle")
@@ -52,10 +56,26 @@ export default function HomePage() {
     },
   ])
 
+  const [powerbiCustomView, setPowerbiCustomView] = useState(null)
+  const [powerbiOriginalQuestion, setPowerbiOriginalQuestion] = useState("")
+  const [chatContext, setChatContext] = useState(null)
+
+  const openPowerBICustomView = (customViewPayload, originalQuestion) => {
+    setPowerbiCustomView(customViewPayload)
+    setPowerbiOriginalQuestion(originalQuestion || "")
+    setShowReports(true)
+    setShowFiles(false)
+    setShowEmail(false)
+    setShowSettings(false)
+    setShowZoom(false)
+    setHasStartedChat(true)
+  }
+
   const isWorkspaceVisible = selectedHistoryItem !== undefined || koState === "thinking" || koState === "speaking"
 
   const handleSelectHistoryItem = (item) => {
     setSelectedHistoryItem(item)
+    handleStartChat("chat")
   }
 
   const handleCloseViewer = () => {
@@ -73,16 +93,19 @@ export default function HomePage() {
     }
   }
 
-  const handleStartChat = () => {
+  const handleStartChat = (mode) => {
     setHasStartedChat(true)
-    setActiveMode("home")
+    setActiveMode(mode)
+    setShowHistory(false)
     setShowFiles(false)
     setShowEmail(false)
     setShowSettings(false)
     setShowZoom(false)
+    setShowReports(false)
   }
 
   const handleModeChange = (mode) => {
+    console.log("Navigating to mode:", mode)
     setIsMobileMenuOpen(false)
 
     if (mode === "home") {
@@ -92,37 +115,72 @@ export default function HomePage() {
       setShowEmail(false)
       setShowSettings(false)
       setShowZoom(false)
+      setShowReports(false)
+      setShowHistory(false)
       setSelectedHistoryItem(undefined)
     } else if (mode === "email") {
       setShowEmail(true)
       setShowFiles(false)
       setShowSettings(false)
       setShowZoom(false)
+      setShowReports(false)
       setHasStartedChat(true)
+      setShowHistory(false)
+
     } else if (mode === "documents") {
       setShowFiles(true)
       setShowEmail(false)
       setShowSettings(false)
       setShowZoom(false)
+      setShowReports(false)
       setHasStartedChat(true)
+      setShowHistory(false)
+
     } else if (mode === "settings") {
       setShowSettings(true)
       setShowFiles(false)
       setShowEmail(false)
       setShowZoom(false)
+      setShowReports(false)
       setHasStartedChat(true)
+      setShowHistory(false)
+
     } else if (mode === "zoom") {
       setShowZoom(true)
       setShowFiles(false)
       setShowEmail(false)
       setShowSettings(false)
+      setShowReports(false)
       setHasStartedChat(true)
-    } else {
+      setShowHistory(false)
+
+    }
+    else if (mode === "powerbi") {
+      setShowReports(true)
+      setShowZoom(false)
+      setShowFiles(false)
+      setShowEmail(false)
+      setShowSettings(false)
+      setHasStartedChat(true)
+      setShowHistory(false)
+
+    }
+    else if (mode === "history") {
+      setShowHistory(true)
+      setShowFiles(false)
+      setShowEmail(false)
+      setShowSettings(false)
+      setShowZoom(false)
+      setShowReports(false)
+      setHasStartedChat(true)
+    }
+    else {
       setActiveMode(mode)
       setShowFiles(false)
       setShowEmail(false)
       setShowSettings(false)
       setShowZoom(false)
+      setShowReports(false)
       if (!hasStartedChat) {
         setHasStartedChat(true)
       }
@@ -133,6 +191,7 @@ export default function HomePage() {
     setShowFiles(true)
     setShowEmail(false)
     setShowSettings(false)
+    setShowReports(false)
     setHasStartedChat(true)
   }
 
@@ -155,7 +214,7 @@ export default function HomePage() {
     } */
 
   const showHomeScreen =
-    !hasStartedChat && activeMode === "home" && !showFiles && !showEmail && !showSettings && !showZoom
+    !hasStartedChat && activeMode === "home" && !showFiles && !showEmail && !showSettings && !showZoom && !showReports
 
   return (
     <div className="flex h-screen bg-background text-foreground">
@@ -169,7 +228,7 @@ export default function HomePage() {
       <div className={`${isMobileMenuOpen ? "fixed left-0 top-0 bottom-0 z-50" : "hidden"} md:block`}>
         <NavigationRail
           activeMode={
-            showEmail ? "email" : showFiles ? "documents" : showSettings ? "settings" : showZoom ? "zoom" : activeMode
+            showEmail ? "email" : showFiles ? "documents" : showSettings ? "settings" : showZoom ? "zoom" : showReports ? "powerbi" : showHistory ? "history" : activeMode
           }
           onModeChange={handleModeChange}
           visible={true}
@@ -184,52 +243,70 @@ export default function HomePage() {
           </div>
         </div>
 
-        {showFiles ? (
-          <DocumentsScreen onBack={() => setShowFiles(false)} />
-        ) : showEmail ? (
-          <EmailScreen />
-        ) : showSettings ? (
-          <SettingsScreen />
-        ) : showZoom ? (
-          <ZoomScreen />
-        ) : (
-          <div className="flex-1 flex flex-col md:flex-row overflow-hidden">
-            <div className="flex-1 md:w-[40%] flex flex-col">
-              <ChatShell
-                activeMode={activeMode}
-                onExpandStage={() => { }}
-                onKoStateChange={setKoState}
-                historyItems={historyItems}
-                onSelectHistoryItem={handleSelectHistoryItem}
-                selectedHistoryId={selectedHistoryItem?.id}
-                onNavigateToFiles={handleNavigateToFiles}
+        {
+          showHistory ? (
+            <HistoryScreen
+              historyItems={historyItems}
+              onSelectHistoryItem={handleSelectHistoryItem}
+              selectedHistoryId={selectedHistoryItem?.id}
+            />
+          ) : showFiles ? (
+            <DocumentsScreen onBack={() => setShowFiles(false)} />
+          ) : showEmail ? (
+            <EmailScreen />
+          ) : showSettings ? (
+            <SettingsScreen />
+          ) : showZoom ? (
+            <ZoomScreen />
+          ) : showReports ? (
+            <ReportsScreen
+              initialViewMode="custom"
+              initialCustomView={powerbiCustomView}
+              initialOriginalQuestion={powerbiOriginalQuestion}
+              onExitReports={() => setShowReports(false)}
+              onAskFollowUp={(context) => {
+                setChatContext(context)
+                setShowReports(false) // go back to chat
+              }}
+            />
+          ) : (
+            <div className="flex-1 flex flex-col md:flex-row overflow-hidden">
+              <div className="flex-1 md:w-[40%] flex flex-col">
+                <ChatShell
+                  activeMode={activeMode}
+                  onExpandStage={() => { }}
+                  onKoStateChange={setKoState}
+                  onNavigateToFiles={handleNavigateToFiles}
+                  onOpenPowerBICustomView={openPowerBICustomView}
+                  initialContext={chatContext}
+                  onClearContext={() => setChatContext(null)}
+                  historyItem={selectedHistoryItem}
+                  // ✅ allow home only when you’re truly on home mode
+                  allowHome={activeMode === "home"}
+                />
+              </div>
 
-                // ✅ allow home only when you’re truly on home mode
-                allowHome={activeMode === "home"}
-              />
+              {/* {isWorkspaceVisible && (
+                <>
+                  <div className="hidden md:block w-px bg-border" />
+                  <div className="hidden md:flex md:w-[60%] flex-col">
+                    <KOStage
+                      activeMode={activeMode}
+                      selectedHistoryItem={selectedHistoryItem}
+                      onCloseViewer={handleCloseViewer}
+                    />
+                  </div>
+                  <div className="md:hidden fixed inset-0 z-50 bg-background">
+                    <KOStage
+                      activeMode={activeMode}
+                      selectedHistoryItem={selectedHistoryItem}
+                      onCloseViewer={handleCloseViewer}
+                    />
+                  </div>
+                </>
+              )} */}
             </div>
-
-            {isWorkspaceVisible && (
-              <>
-                <div className="hidden md:block w-px bg-border" />
-                <div className="hidden md:flex md:w-[60%] flex-col">
-                  <KOStage
-                    activeMode={activeMode}
-                    selectedHistoryItem={selectedHistoryItem}
-                    onCloseViewer={handleCloseViewer}
-                  />
-                </div>
-                <div className="md:hidden fixed inset-0 z-50 bg-background">
-                  <KOStage
-                    activeMode={activeMode}
-                    selectedHistoryItem={selectedHistoryItem}
-                    onCloseViewer={handleCloseViewer}
-                  />
-                </div>
-              </>
-            )}
-          </div>
-        )}
+          )}
 
       </div>
     </div>

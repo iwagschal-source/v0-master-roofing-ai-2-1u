@@ -1,7 +1,6 @@
 "use client"
 
-import * as React from "react"
-import { useState } from "react"
+import { useState, useEffect, useRef } from "react"
 import { ChatMessage } from "./chat-message"
 import { HistoryList } from "./history-list"
 import { ReasoningIndicator } from "./reasoning-indicator"
@@ -18,14 +17,19 @@ export function ConversationPane({
   activeMode,
   onExpandStage,
   onKoStateChange,
-  historyItems,
-  onSelectHistoryItem,
-  selectedHistoryId,
+  // historyItems,
+  // onSelectHistoryItem,
+//  selectedHistoryId,
   showReasoning
 }) {
   const [isRecording, setIsRecording] = useState(false)
   const [isVoiceEnabled, setIsVoiceEnabled] = useState(false)
   const [koState, setKoState] = useState("idle")
+  const bottomRef = useRef(null)
+
+  useEffect(() => {
+    bottomRef.current?.scrollIntoView({ behavior: "smooth" })
+  }, [messages])
 
   const handleMicToggle = () => {
     const newRecordingState = !isRecording
@@ -56,23 +60,11 @@ export function ConversationPane({
   }
 
   const handleSourceClick = (itemId) => {
-    const item = historyItems.find((h) => h.id === itemId)
+/*     const item = historyItems.find((h) => h.id === itemId)
     if (item) {
       onSelectHistoryItem(item)
       onExpandStage()
-    }
-  }
-
-  if (activeMode === "history") {
-    return (
-      <div className="flex flex-col h-full bg-background">
-        <div className="p-4 border-b border-border">
-          <h2 className="text-lg font-medium text-foreground">History</h2>
-          <p className="text-xs text-muted-foreground mt-1">All sources cited by KO</p>
-        </div>
-        <HistoryList items={historyItems} selectedId={selectedHistoryId} onSelectItem={onSelectHistoryItem} />
-      </div>
-    )
+    } */
   }
 
   return (
@@ -95,6 +87,8 @@ export function ConversationPane({
             </div>
           </div>
         )}
+        <div ref={bottomRef} />
+
       </div>
 
       {/* Input Bar */}

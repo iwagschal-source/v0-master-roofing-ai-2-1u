@@ -3,7 +3,6 @@
 import { useState } from "react"
 import { Video, Play, Users, Calendar, Search, Clock, ChevronLeft, ChevronRight } from "lucide-react"
 
-/** @param {any} props */
 export function ZoomScreen() {
   const [activeTab, setActiveTab] = useState("calendar")
   const [currentDate, setCurrentDate] = useState(new Date(2025, 11, 12)) // Dec 12, 2025
@@ -14,7 +13,8 @@ export function ZoomScreen() {
       title: "Q4 Sales Strategy Session",
       date: "Dec 10, 2025",
       duration: "1h 23m",
-      participants: { host: "Sarah Chen" },
+      participants: 12,
+      host: "Sarah Chen",
       thumbnail: "/video-meeting-thumbnail.jpg",
     },
     {
@@ -22,7 +22,8 @@ export function ZoomScreen() {
       title: "Client Onboarding - Vertex Solutions",
       date: "Dec 9, 2025",
       duration: "45m",
-      participants: { host: "Marcus Reid" },
+      participants: 5,
+      host: "Marcus Reid",
       thumbnail: "/business-meeting-thumbnail.png",
     },
     {
@@ -30,7 +31,8 @@ export function ZoomScreen() {
       title: "Weekly Team Sync",
       date: "Dec 8, 2025",
       duration: "32m",
-      participants: { host: "Jessica Park" },
+      participants: 8,
+      host: "Jessica Park",
       thumbnail: "/team-meeting-thumbnail.jpg",
     },
   ]
@@ -42,7 +44,8 @@ export function ZoomScreen() {
       date: "Dec 12, 2025",
       time: "10:00 AM",
       duration: "1h",
-      participants: { host: "Sarah Chen" },
+      participants: 8,
+      host: "Sarah Chen",
       status: "upcoming",
     },
     {
@@ -51,7 +54,8 @@ export function ZoomScreen() {
       date: "Dec 12, 2025",
       time: "2:30 PM",
       duration: "45m",
-      participants: { host: "Marcus Reid" },
+      participants: 4,
+      host: "Marcus Reid",
       status: "upcoming",
     },
     {
@@ -60,7 +64,8 @@ export function ZoomScreen() {
       date: "Dec 13, 2025",
       time: "9:00 AM",
       duration: "2h",
-      participants: { host: "Jessica Park" },
+      participants: 15,
+      host: "Jessica Park",
       status: "upcoming",
     },
     {
@@ -69,7 +74,8 @@ export function ZoomScreen() {
       date: "Dec 13, 2025",
       time: "3:00 PM",
       duration: "30m",
-      participants: { host: "Alex Johnson" },
+      participants: 2,
+      host: "Alex Johnson",
       status: "upcoming",
     },
     {
@@ -78,11 +84,11 @@ export function ZoomScreen() {
       date: "Dec 15, 2025",
       time: "11:00 AM",
       duration: "1h",
-      participants: { host: "CEO Office" },
+      participants: 45,
+      host: "CEO Office",
       status: "upcoming",
     },
   ]
-
   const getDaysInMonth = (date) => {
     return new Date(date.getFullYear(), date.getMonth() + 1, 0).getDate()
   }
@@ -130,31 +136,28 @@ export function ZoomScreen() {
       <div className="flex items-center gap-1 px-6 py-3 border-b border-border bg-background">
         <button
           onClick={() => setActiveTab("calendar")}
-          className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-            activeTab === "calendar"
+          className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${activeTab === "calendar"
               ? "bg-card text-foreground border border-border"
               : "text-foreground-secondary hover:text-foreground hover:bg-card/50"
-          }`}
+            }`}
         >
           Calendar
         </button>
         <button
           onClick={() => setActiveTab("live")}
-          className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-            activeTab === "live"
+          className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${activeTab === "live"
               ? "bg-card text-foreground border border-border"
               : "text-foreground-secondary hover:text-foreground hover:bg-card/50"
-          }`}
+            }`}
         >
           Live Meetings
         </button>
         <button
           onClick={() => setActiveTab("recordings")}
-          className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-            activeTab === "recordings"
+          className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${activeTab === "recordings"
               ? "bg-card text-foreground border border-border"
               : "text-foreground-secondary hover:text-foreground hover:bg-card/50"
-          }`}
+            }`}
         >
           Recordings
         </button>
@@ -210,11 +213,10 @@ export function ZoomScreen() {
                     return (
                       <div
                         key={day}
-                        className={`aspect-square p-2 rounded-lg border transition-colors ${
-                          isToday
+                        className={`aspect-square p-2 rounded-lg border transition-colors ${isToday
                             ? "bg-primary/10 border-primary text-foreground"
                             : "border-border hover:border-border-strong hover:bg-muted"
-                        }`}
+                          }`}
                       >
                         <div className="text-sm font-medium mb-1">{day}</div>
                         {meetingsOnDay.length > 0 && (

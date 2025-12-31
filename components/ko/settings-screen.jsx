@@ -22,9 +22,9 @@ export function SettingsScreen() {
   }
 
   const themeOptions = [
-    { value: "light", label: "Light", icon },
-    { value: "dark", label: "Dark", icon },
-    { value: "system", label: "System", icon },
+    { value: "light", label: "Light", icon: Sun },
+    { value: "dark", label: "Dark", icon: Moon },
+    { value: "system", label: "System", icon: Monitor },
   ]
 
   return (
@@ -54,10 +54,9 @@ export function SettingsScreen() {
                     onClick={() => setTheme(option.value)}
                     className={`
                       flex flex-col items-center gap-3 p-4 rounded-lg border-2 transition-all
-                      ${
-                        isSelected
-                          ? "border-primary bg-primary/10"
-                          : "border-border hover:border-muted-foreground/50 hover:bg-muted/30"
+                      ${isSelected
+                        ? "border-primary bg-primary/10"
+                        : "border-border hover:border-muted-foreground/50 hover:bg-muted/30"
                       }
                     `}
                   >

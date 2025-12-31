@@ -12,31 +12,25 @@ export function ReasoningIndicator({ reasoning = [], isActive }) {
 
   if (!reasoning.length && !isActive) return null
 
-  const defaultReasoning = [
-    "Analyzing Q3 report data...",
-    "Calculating win rate metrics...",
-    "Cross-referencing with historical data...",
-  ]
-
-  const displayReasoning = reasoning.length > 0 ? reasoning : defaultReasoning
+  const displayReasoning = reasoning.length > 0 ? reasoning : false
 
   return (
     <div className="mt-2 rounded-lg border border-border bg-card/50">
       {/* Header - Always visible */}
       <button
-        onClick={() => setIsExpanded(!isExpanded)}
+        onClick={() => displayReasoning && setIsExpanded(!isExpanded)}
         className="w-full flex items-center justify-between px-3 py-2 hover:bg-muted/50 transition-colors rounded-lg"
       >
         <div className="flex items-center gap-2">
           <Brain className="w-3.5 h-3.5 text-primary" />
-          <span className="text-xs font-medium text-foreground">Reasoning</span>
+          {displayReasoning && <span className="text-xs font-medium text-foreground">Reasoning</span>}
           {isActive && <span className="text-xs text-muted-foreground animate-pulse">Processing...</span>}
         </div>
-        {isExpanded ? (
+        {displayReasoning && (isExpanded ? (
           <ChevronUp className="w-3.5 h-3.5 text-muted-foreground" />
         ) : (
           <ChevronDown className="w-3.5 h-3.5 text-muted-foreground" />
-        )}
+        ))}
       </button>
 
       {/* Expandable content */}

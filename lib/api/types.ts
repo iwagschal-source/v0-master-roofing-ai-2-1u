@@ -10,6 +10,7 @@
 export interface ChatRequest {
   message: string;
   context?: Record<string, any>;
+  session_id?: string;
 }
 
 export interface ToolTrace {
@@ -36,6 +37,64 @@ export interface ChatResponse {
   answer: string;
   traces: ToolTrace[];
   stub_mode: StubMode;
+  session_id?: string;
+}
+
+export interface Source {
+  id: string;
+  title: string;
+  url: string;
+  snippet?: string;
+}
+
+
+// NEW: Session types
+export interface SessionSummary {
+  session_id: string;
+  user_id?: string;
+  created_at: string;
+  updated_at: string;
+  message_count: number;
+  preview: string;
+}
+
+export interface SessionListResponse {
+  sessions: SessionSummary[];
+  total: number;
+}
+
+export interface SessionMessage {
+  message_id: string;
+  role: 'user' | 'assistant';
+  content: string;
+  timestamp: string;
+  metadata?: {
+    sources?: Source[];
+    reasoning?: string;
+    traces?: ToolTrace[];
+  };
+}
+
+export interface Session {
+  session_id: string;
+  user_id?: string;
+  created_at: string;
+  updated_at: string;
+  messages: SessionMessage[];
+  metadata: Record<string, any>;
+}
+
+export interface SessionMessagesResponse {
+  session_id: string;
+  messages: SessionMessage[];
+}
+
+/**
+ * Response from creating a new session
+ */
+export interface SessionCreateResponse {
+  session_id: string;
+  created_at: string;
 }
 
 // ============================================================================

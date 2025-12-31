@@ -4,7 +4,7 @@
  */
 
 import { api } from './client';
-import { DashboardsListResponse, OpenDashboardResponse } from './types';
+import { DashboardsListResponse, OpenDashboardResponse, Session, SessionCreateResponse, SessionListResponse, SessionMessagesResponse } from './types';
 
 
 // ============================================================================
@@ -56,6 +56,58 @@ export const chatAPI = {
   },
 };
 
+export const sessionAPI = {
+  /**
+   * List all chat sessions
+   */
+  list: async (params?: {
+    user_id?: string;
+    limit?: number
+  }): Promise<SessionListResponse> => {
+    const searchParams = new URLSearchParams();
+    if (params?.user_id) searchParams.set('user_id', params.user_id);
+    if (params?.limit) searchParams.set('limit', params.limit.toString());
+
+    const query = searchParams.toString();
+    return api.get<SessionListResponse>(`/sessions${query ? `?${query}` : ''}`);
+  },
+
+  /**
+   * Get a specific session with all messages
+   */
+  get: async (sessionId: string): Promise<Session> => {
+    return api.get<Session>(`/sessions/${sessionId}`);
+  },
+
+  /**
+   * Get messages from a specific session
+   */
+  getMessages: async (
+    sessionId: string,
+    limit?: number
+  ): Promise<SessionMessagesResponse> => {
+    const query = limit ? `?limit=${limit}` : '';
+    return api.get<SessionMessagesResponse>(`/sessions/${sessionId}/messages${query}`);
+  },
+
+  /**
+   * Create a new chat session
+   */
+  create: async (userId?: string): Promise<SessionCreateResponse> => {
+    return api.post<SessionCreateResponse>('/sessions', {
+      user_id: userId,
+    });
+  },
+
+  /**
+   * Delete a chat session
+   */
+  delete: async (sessionId: string): Promise<{ message: string }> => {
+    return api.delete<{ message: string }>(`/sessions/${sessionId}`);
+  },
+};
+
+
 // ============================================================================
 // System Endpoints
 // ============================================================================
@@ -88,37 +140,64 @@ export const systemAPI = {
 
 export const historyAPI = {
   /**
-   * Get chat history
+   * Get chat history (maps to /v1/sessions)
+   * 
+   * Note: Backend doesn't support pagination yet, but params are kept
+   * for future compatibility. Currently uses 'limit' parameter.
    */
-  getHistory: async (params) => {
+  getHistory: async (params?: {
+    page?: number;
+    page_size?: number;
+    user_id?: string;
+  }): Promise<SessionListResponse> => {
     const searchParams = new URLSearchParams();
-    if (params?.page) searchParams.set('page', params.page.toString());
-    if (params?.page_size) searchParams.set('page_size', params.page_size.toString());
+
+    // Map page_size to limit for backend compatibility
+    const limit = params?.page_size || (params?.page ? params.page * 20 : undefined);
+    if (limit) searchParams.set('limit', limit.toString());
     if (params?.user_id) searchParams.set('user_id', params.user_id);
 
     const query = searchParams.toString();
-    return api.get(`/history${query ? `?${query}` : ''}`);
+    return api.get<SessionListResponse>(`/sessions${query ? `?${query}` : ''}`);
   },
 
   /**
-   * Get specific conversation
+   * Get specific conversation (maps to /v1/sessions/{session_id})
    */
-  getConversation: async (conversationId) => {
-    return api.get(`/history/${conversationId}`);
+  getConversation: async (conversationId: string): Promise<Session> => {
+    return api.get<Session>(`/sessions/${conversationId}`);
   },
 
   /**
-   * Delete conversation
+   * Delete conversation (maps to /v1/sessions/{session_id})
    */
-  deleteConversation: async (conversationId) => {
-    return api.delete(`/history/${conversationId}`);
+  deleteConversation: async (conversationId: string): Promise<{ message: string }> => {
+    return api.delete<{ message: string }>(`/sessions/${conversationId}`);
   },
 
   /**
    * Clear all history
+   * 
+   * Note: Backend doesn't have a "clear all" endpoint yet.
+   * This method lists all sessions and deletes them individually.
+   * Consider adding a bulk delete endpoint to the backend for better performance.
    */
-  clearHistory: async (userId) => {
-    return api.delete(`/history${userId ? `?user_id=${userId}` : ''}`);
+  clearHistory: async (userId?: string): Promise<{ deleted_count: number }> => {
+    // Get all sessions for the user
+    const { sessions } = await api.get<SessionListResponse>(
+      `/sessions${userId ? `?user_id=${userId}` : ''}`
+    );
+
+    // Delete each session
+    const deletePromises = sessions.map(session =>
+      api.delete(`/sessions/${session.session_id}`)
+    );
+
+    await Promise.all(deletePromises);
+
+    return {
+      deleted_count: sessions.length,
+    };
   },
 };
 
@@ -170,8 +249,10 @@ export const authAPI = {
 export const apiClient = {
   chat: chatAPI,
   system: systemAPI,
+  powerbi: powerbiAPI,
   history: historyAPI,
   auth: authAPI,
+  sessions: sessionAPI,
 };
 
 // Re-export for convenience

@@ -51,15 +51,9 @@ export function HomeScreen({ onSubmit, onStartChat, onNavigateToFiles }) {
     if (action === "files") {
       onNavigateToFiles()
     } else {
-      onStartChat()
+      //onStartChat()
     }
   }
-
-  const handleSend = () => {
-    onStartChat()
-  }
-
-
 
   const handleMicToggle = () => {
     const newRecordingState = !isRecording
@@ -67,7 +61,7 @@ export function HomeScreen({ onSubmit, onStartChat, onNavigateToFiles }) {
 
     if (!newRecordingState) {
       // Stop recording - automatically start chat
-      onStartChat()
+      //onStartChat()
     }
   }
 
