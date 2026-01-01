@@ -1,18 +1,30 @@
 "use client"
 
-import { act, useEffect, useRef, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { HomeScreen } from "./home-screen"
 import { ConversationPane } from "./conversation-pane"
-import { useChat } from "@/hooks/useChat"
+import { useWebSocketChat } from "@/hooks/useWebSocketChat"
 import apiClient from "@/lib/api"
-import { set } from "zod"
 
 export function ChatShell({ onOpenPowerBICustomView, initialContext, onClearContext, historyItem, activeMode, ...props }) {
   const [view, setView] = useState(activeMode) // "home" | "chat"
-  console.log("ChatShell current view:", view)
   const [messages, setMessages] = useState([])
 
-  const { sendMessage, sessionId, response, error, setSessionId, startNewSession } = useChat()
+  // WebSocket streaming hook
+  const {
+    isConnected,
+    phases,
+    currentPhase,
+    tools,
+    streamingText,
+    isStreaming,
+    isComplete: isStreamingComplete,
+    sources: streamingSources,
+    error: wsError,
+    sendMessage: wsSendMessage,
+    reset: wsReset,
+  } = useWebSocketChat()
+
   const [isThinking, setIsThinking] = useState(false)
   const [showReasoning, setShowReasoning] = useState(false)
 
@@ -21,35 +33,40 @@ export function ChatShell({ onOpenPowerBICustomView, initialContext, onClearCont
 
   const lastUserQuestionRef = useRef("")
 
-
+  // Handle activeMode changes
   useEffect(() => {
-    console.log("checking view",view)
+    console.log("ChatShell view:", view, "activeMode:", activeMode)
     if (activeMode === "home") {
-      startNewSession()
       setMessages([])
+      wsReset()
     }
     setView(activeMode)
-  }, [activeMode])
+  }, [activeMode, wsReset])
 
+  // Load history item
   useEffect(() => {
     const loadSession = async () => {
-      setSessionId(historyItem.session_id);
-      const session = await apiClient.history.getConversation(historyItem.session_id);
-      if (session.messages) {
-        setMessages(session.messages.map(msg => ({
-          ...msg,
-          id: msg.message_id,
-          timestamp: new Date(msg.timestamp),
-          sources: msg.metadata.sources || [],
-          reasoning: msg.metadata.reasoning || null,
-        })))
+      try {
+        const session = await apiClient.history.getConversation(historyItem.session_id)
+        if (session.messages) {
+          setMessages(session.messages.map(msg => ({
+            ...msg,
+            id: msg.message_id,
+            timestamp: new Date(msg.timestamp),
+            sources: msg.metadata?.sources || [],
+            reasoning: msg.metadata?.reasoning || null,
+          })))
+        }
+      } catch (e) {
+        console.error("Failed to load session:", e)
       }
     }
     if (historyItem) {
-      loadSession();
+      loadSession()
     }
   }, [historyItem])
 
+  // Handle initial context
   useEffect(() => {
     if (initialContext) {
       setView("chat")
@@ -61,50 +78,58 @@ export function ChatShell({ onOpenPowerBICustomView, initialContext, onClearCont
     }
   }, [initialContext])
 
+  // When streaming completes, add the response to messages
   useEffect(() => {
-    if (response?.answer) {
+    if (isStreamingComplete && streamingText) {
+      console.log("Streaming complete, adding message to history")
+
       setMessages((prev) => [
         ...prev,
         {
           id: crypto.randomUUID?.() ?? String(Date.now() + 1),
           role: "assistant",
-          content: response.answer,
-          sources: response.sources ?? [],
-          reasoning: response.reasoning
-            ? [response.reasoning]
-            : null,                            // keep your existing UI
+          content: streamingText,
+          sources: streamingSources ?? [],
+          reasoning: null,
           timestamp: new Date(),
         },
       ])
 
-      const pbiTrace = Array.isArray(response.traces)
-        ? response.traces.find(
-          (t) => t?.tool === "powerbi" && t?.output?.action === "open_custom_view"
-        )
-        : null
+      setIsThinking(false)
+      setShowReasoning(false)
 
-      if (pbiTrace?.output && onOpenPowerBICustomView) {
-        onOpenPowerBICustomView(pbiTrace.output, lastUserQuestionRef.current)
-      }
+      // Reset streaming state after adding message
+      setTimeout(() => {
+        wsReset()
+      }, 100)
     }
-    else if (error) {
+  }, [isStreamingComplete, streamingText, streamingSources, wsReset])
+
+  // Handle WebSocket errors
+  useEffect(() => {
+    if (wsError) {
+      console.error("WebSocket error:", wsError)
       setMessages((prev) => [
         ...prev,
         {
           id: crypto.randomUUID?.() ?? String(Date.now() + 1),
           role: "assistant",
-          content: error.message,
+          content: `Error: ${wsError}`,
           timestamp: new Date(),
         },
       ])
+      setIsThinking(false)
+      wsReset()
     }
-  }, [response, error, onOpenPowerBICustomView])
+  }, [wsError, wsReset])
 
+  // Submit handler
   const submit = async (text) => {
+    if (!text.trim()) return
 
     lastUserQuestionRef.current = text
 
-    // 1) add user message immediately
+    // 1) Add user message immediately
     setMessages((prev) => [
       ...prev,
       {
@@ -115,43 +140,45 @@ export function ChatShell({ onOpenPowerBICustomView, initialContext, onClearCont
       },
     ])
 
-    // 2) switch view to chat
+    // 2) Switch view to chat
     setView("chat")
 
-    // 3) fetch assistant response
+    // 3) Start thinking state
     setIsThinking(true)
     setShowReasoning(true)
 
-    await sendMessage(
-      text,
-      followUpContext
-        ? {
+    // 4) Send via WebSocket
+    const context = followUpContext
+      ? {
           previous_visualization: {
             type: followUpContext.type,
             data: followUpContext.chartData,
             original_question: followUpContext.originalQuestion,
           },
         }
-        : undefined
-    )
-    // 4) clear follow-up context after sending
+      : undefined
+
+    wsSendMessage(text, context)
+
+    // 5) Clear follow-up context after sending
     if (followUpContext) {
       setFollowUpContext(null)
       setContextBanner(null)
       onClearContext?.()
     }
-    setShowReasoning(false)
-    setIsThinking(false)
-
   }
+
+  // Connection status indicator (optional, for debugging)
+  const connectionStatus = isConnected ? "connected" : "disconnected"
 
   return view === "home" ? (
     <HomeScreen
       {...props}
-      onSubmit={submit}              // ✅ same submit function
+      onSubmit={submit}
     />
   ) : (
     <>
+      {/* Context banner */}
       {contextBanner && (
         <div className="bg-primary/5 border-b border-primary/10 px-4 py-3">
           <p className="text-sm font-medium">{contextBanner.message}</p>
@@ -162,14 +189,30 @@ export function ChatShell({ onOpenPowerBICustomView, initialContext, onClearCont
           )}
         </div>
       )}
+
+      {/* Connection status (only show when disconnected) */}
+      {!isConnected && (
+        <div className="bg-yellow-500/10 border-b border-yellow-500/20 px-4 py-2">
+          <p className="text-xs text-yellow-600 dark:text-yellow-400">
+            Reconnecting to server...
+          </p>
+        </div>
+      )}
+
       <ConversationPane
         {...props}
-        messages={messages}            // ✅ conversation renders from parent state
+        messages={messages}
         isThinking={isThinking}
-        onSubmit={submit}              // ✅ same submit function
+        onSubmit={submit}
         showReasoning={showReasoning}
+        // Streaming props
+        phases={phases}
+        tools={tools}
+        currentPhase={currentPhase}
+        streamingText={streamingText}
+        isStreaming={isStreaming}
+        isStreamingComplete={isStreamingComplete}
       />
     </>
-
   )
 }

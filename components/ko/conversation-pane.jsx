@@ -5,6 +5,8 @@ import { ChatMessage } from "./chat-message"
 import { HistoryList } from "./history-list"
 import { ReasoningIndicator } from "./reasoning-indicator"
 import { MessageInput } from "./message-input"
+import { PhaseTracker } from "./phase-tracker"
+import { StreamingResponse } from "./streaming-response"
 
 /** @typedef {Object} ConversationPaneProps */
 
@@ -17,19 +19,24 @@ export function ConversationPane({
   activeMode,
   onExpandStage,
   onKoStateChange,
-  // historyItems,
-  // onSelectHistoryItem,
-//  selectedHistoryId,
-  showReasoning
+  showReasoning,
+  // New streaming props
+  phases = [],
+  tools = [],
+  currentPhase = null,
+  streamingText = "",
+  isStreaming = false,
+  isStreamingComplete = false,
 }) {
   const [isRecording, setIsRecording] = useState(false)
   const [isVoiceEnabled, setIsVoiceEnabled] = useState(false)
   const [koState, setKoState] = useState("idle")
   const bottomRef = useRef(null)
 
+  // Auto-scroll when messages change or streaming updates
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" })
-  }, [messages])
+  }, [messages, streamingText])
 
   const handleMicToggle = () => {
     const newRecordingState = !isRecording
@@ -38,39 +45,37 @@ export function ConversationPane({
     if (newRecordingState) {
       // Start recording - set listening state
       setKoState("listening")
-      onKoStateChange("listening")
+      onKoStateChange?.("listening")
     } else {
       // Stop recording - automatically send message
       setKoState("thinking")
-      onKoStateChange("thinking")
-      // setShowReasoning(true)
+      onKoStateChange?.("thinking")
 
       setTimeout(() => {
         setKoState("speaking")
-        onKoStateChange("speaking")
-        onExpandStage()
+        onKoStateChange?.("speaking")
+        onExpandStage?.()
 
         setTimeout(() => {
           setKoState("idle")
-          onKoStateChange("idle")
-          // setShowReasoning(false)
+          onKoStateChange?.("idle")
         }, 2000)
       }, 1500)
     }
   }
 
   const handleSourceClick = (itemId) => {
-/*     const item = historyItems.find((h) => h.id === itemId)
-    if (item) {
-      onSelectHistoryItem(item)
-      onExpandStage()
-    } */
+    // Source click handling
   }
+
+  // Check if we should show streaming UI
+  const showStreamingUI = isStreaming || (phases.some(p => p.status === 'active' || p.status === 'complete') && !isStreamingComplete)
 
   return (
     <div className="flex flex-col h-full bg-background">
       {/* Chat History */}
       <div className="flex-1 overflow-y-auto p-4 space-y-4">
+        {/* Existing messages */}
         {messages.map((message) => (
           <div key={message.id}>
             <ChatMessage message={message} onSourceClick={handleSourceClick} />
@@ -80,15 +85,39 @@ export function ConversationPane({
           </div>
         ))}
 
-        {showReasoning && isThinking && (
+        {/* Streaming Progress UI */}
+        {showStreamingUI && (
+          <div className="flex justify-start">
+            <div className="max-w-[85%] space-y-3">
+              {/* Phase Tracker */}
+              <PhaseTracker
+                phases={phases}
+                tools={tools}
+                currentPhase={currentPhase}
+              />
+
+              {/* Streaming Response Text */}
+              {streamingText && (
+                <StreamingResponse
+                  text={streamingText}
+                  isStreaming={isStreaming && currentPhase === 'response'}
+                  isComplete={isStreamingComplete}
+                />
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Legacy reasoning indicator (fallback) */}
+        {showReasoning && isThinking && !showStreamingUI && (
           <div className="flex justify-start">
             <div className="max-w-[80%]">
               <ReasoningIndicator isActive={true} />
             </div>
           </div>
         )}
-        <div ref={bottomRef} />
 
+        <div ref={bottomRef} />
       </div>
 
       {/* Input Bar */}
@@ -99,8 +128,9 @@ export function ConversationPane({
           onMicToggle={handleMicToggle}
           isVoiceEnabled={isVoiceEnabled}
           onToggleVoice={() => setIsVoiceEnabled(!isVoiceEnabled)}
-          isThinking={isRecording || koState === "thinking" || koState === "speaking"}
+          isThinking={isStreaming || isRecording || koState === "thinking" || koState === "speaking"}
           placeholder="Ask KO…"
+          disabled={isStreaming}
         />
       </div>
     </div>
