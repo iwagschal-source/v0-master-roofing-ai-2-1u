@@ -6,7 +6,7 @@ import { ConversationPane } from "./conversation-pane"
 import { useWebSocketChat } from "@/hooks/useWebSocketChat"
 import apiClient from "@/lib/api"
 
-export function ChatShell({ onOpenPowerBICustomView, initialContext, onClearContext, historyItem, activeMode, ...props }) {
+export function ChatShell({ onOpenPowerBICustomView, initialContext, onClearContext, historyItem, activeMode, onSourceClick, ...props }) {
   const [view, setView] = useState(activeMode) // "home" | "chat"
   const [messages, setMessages] = useState([])
 
@@ -205,6 +205,7 @@ export function ChatShell({ onOpenPowerBICustomView, initialContext, onClearCont
         isThinking={isThinking}
         onSubmit={submit}
         showReasoning={showReasoning}
+        onSourceClick={onSourceClick}
         // Streaming props
         phases={phases}
         tools={tools}

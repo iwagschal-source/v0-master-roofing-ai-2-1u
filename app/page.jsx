@@ -34,6 +34,7 @@ export default function HomePage() {
   const [topPaneHeight, setTopPaneHeight] = useState(0)
   const [koState, setKoState] = useState("idle")
   const [selectedHistoryItem, setSelectedHistoryItem] = useState()
+  const [selectedSource, setSelectedSource] = useState(null)
 
   const [historyItems] = useState([
     {
@@ -71,7 +72,7 @@ export default function HomePage() {
     setHasStartedChat(true)
   }
 
-  const isWorkspaceVisible = selectedHistoryItem !== undefined || koState === "thinking" || koState === "speaking"
+  const isWorkspaceVisible = selectedHistoryItem !== undefined || selectedSource !== null || koState === "thinking" || koState === "speaking"
 
   const handleSelectHistoryItem = (item) => {
     setSelectedHistoryItem(item)
@@ -80,6 +81,22 @@ export default function HomePage() {
 
   const handleCloseViewer = () => {
     setSelectedHistoryItem(undefined)
+    setSelectedSource(null)
+  }
+
+  const handleSourceClick = (source) => {
+    // Convert source to format expected by SourceViewer
+    const sourceItem = {
+      id: source.id || source.url,
+      type: source.type || (source.url?.endsWith('.pdf') ? 'pdf' : 'document'),
+      label: source.title || 'Document',
+      source: source.source || 'Vertex AI',
+      url: source.url,
+      content: source.snippet || source.content || '',
+      timestamp: new Date(),
+    }
+    setSelectedSource(sourceItem)
+    setSelectedHistoryItem(undefined) // Clear history item if any
   }
 
   const handleShutdown = () => {
@@ -271,7 +288,7 @@ export default function HomePage() {
             />
           ) : (
             <div className="flex-1 flex flex-col md:flex-row overflow-hidden">
-              <div className="flex-1 md:w-[40%] flex flex-col">
+              <div className={`flex-1 ${isWorkspaceVisible ? 'md:w-[40%]' : ''} flex flex-col`}>
                 <ChatShell
                   activeMode={activeMode}
                   onExpandStage={() => { }}
@@ -281,30 +298,30 @@ export default function HomePage() {
                   initialContext={chatContext}
                   onClearContext={() => setChatContext(null)}
                   historyItem={selectedHistoryItem}
-                  // ✅ allow home only when you’re truly on home mode
+                  onSourceClick={handleSourceClick}
                   allowHome={activeMode === "home"}
                 />
               </div>
 
-              {/* {isWorkspaceVisible && (
+              {isWorkspaceVisible && (
                 <>
                   <div className="hidden md:block w-px bg-border" />
                   <div className="hidden md:flex md:w-[60%] flex-col">
                     <KOStage
                       activeMode={activeMode}
-                      selectedHistoryItem={selectedHistoryItem}
+                      selectedHistoryItem={selectedHistoryItem || selectedSource}
                       onCloseViewer={handleCloseViewer}
                     />
                   </div>
                   <div className="md:hidden fixed inset-0 z-50 bg-background">
                     <KOStage
                       activeMode={activeMode}
-                      selectedHistoryItem={selectedHistoryItem}
+                      selectedHistoryItem={selectedHistoryItem || selectedSource}
                       onCloseViewer={handleCloseViewer}
                     />
                   </div>
                 </>
-              )} */}
+              )}
             </div>
           )}
 

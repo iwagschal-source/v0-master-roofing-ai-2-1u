@@ -1,60 +1,171 @@
 "use client"
 
-import { X } from "lucide-react"
-import { HistoryItem } from "@/types/history"
+import { X, ExternalLink, FileText, BarChart2, Users, Mail, File } from "lucide-react"
 
-/** @typedef {Object} SourceViewerProps */
+const TYPE_ICONS = {
+  pdf: FileText,
+  chart: BarChart2,
+  hubspot: Users,
+  powerbi: BarChart2,
+  email: Mail,
+  document: File,
+}
 
-/** @param {any} props */
-/** @param {any} props */
+const TYPE_LABELS = {
+  pdf: "PDF Document",
+  chart: "Chart",
+  hubspot: "HubSpot Record",
+  powerbi: "Power BI Report",
+  email: "Email",
+  document: "Document",
+}
+
+/**
+ * SourceViewer - Side panel for viewing documents, PDFs, and other sources
+ * Supports:
+ * - PDF files via iframe (from GCS or other URLs)
+ * - Text content preview
+ * - Various document types
+ */
 export function SourceViewer({ item, onClose }) {
+  const Icon = TYPE_ICONS[item.type] || File
+  const typeLabel = TYPE_LABELS[item.type] || "Document"
+
+  // Check if we have a URL that can be embedded
+  const hasEmbeddableUrl = item.url && (
+    item.url.endsWith('.pdf') ||
+    item.url.includes('storage.googleapis.com') ||
+    item.url.includes('storage.cloud.google.com')
+  )
+
+  // Format timestamp safely
+  const formatTimestamp = (timestamp) => {
+    if (!timestamp) return ''
+    try {
+      const date = timestamp instanceof Date ? timestamp : new Date(timestamp)
+      return date.toLocaleDateString([], { month: "long", day: "numeric", year: "numeric" })
+    } catch {
+      return ''
+    }
+  }
+
   return (
     <div className="w-full h-full flex flex-col bg-card">
       {/* Header */}
       <div className="flex items-center justify-between p-4 border-b border-border">
-        <div className="flex-1 min-w-0">
-          <h2 className="text-lg font-medium text-foreground truncate">{item.label}</h2>
-          <p className="text-xs text-muted-foreground mt-1">
-            {item.source} • {item.timestamp.toLocaleDateString([], { month: "long", day: "numeric", year: "numeric" })}
-          </p>
+        <div className="flex items-center gap-3 flex-1 min-w-0">
+          <div className="p-2 rounded-lg bg-primary/10">
+            <Icon className="w-5 h-5 text-primary" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <h2 className="text-lg font-medium text-foreground truncate">{item.label}</h2>
+            <div className="flex items-center gap-2 text-xs text-muted-foreground mt-0.5">
+              <span className="px-1.5 py-0.5 rounded bg-muted">{typeLabel}</span>
+              {item.source && <span>• {item.source}</span>}
+              {item.timestamp && <span>• {formatTimestamp(item.timestamp)}</span>}
+            </div>
+          </div>
         </div>
-        <button
-          onClick={onClose}
-          className="ml-4 text-muted-foreground hover:text-foreground transition-colors"
-          aria-label="Close viewer"
-        >
-          <X className="w-5 h-5" />
-        </button>
+
+        <div className="flex items-center gap-2 ml-4">
+          {/* Open in new tab button */}
+          {item.url && (
+            <a
+              href={item.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="p-2 text-muted-foreground hover:text-foreground hover:bg-muted rounded-lg transition-colors"
+              title="Open in new tab"
+            >
+              <ExternalLink className="w-4 h-4" />
+            </a>
+          )}
+
+          {/* Close button */}
+          <button
+            onClick={onClose}
+            className="p-2 text-muted-foreground hover:text-foreground hover:bg-muted rounded-lg transition-colors"
+            aria-label="Close viewer"
+          >
+            <X className="w-5 h-5" />
+          </button>
+        </div>
       </div>
 
       {/* Content Area */}
-      <div className="flex-1 overflow-y-auto p-6">
-        {item.type === "pdf" && (
-          <div className="prose prose-invert max-w-none">
+      <div className="flex-1 overflow-hidden">
+        {/* PDF with embeddable URL - show in iframe */}
+        {item.type === "pdf" && hasEmbeddableUrl && (
+          <iframe
+            src={item.url}
+            className="w-full h-full border-0"
+            title={item.label}
+          />
+        )}
+
+        {/* PDF without URL or non-embeddable - show text content */}
+        {item.type === "pdf" && !hasEmbeddableUrl && (
+          <div className="h-full overflow-y-auto p-6">
+            <div className="prose prose-sm dark:prose-invert max-w-none">
+              <div className="bg-background/50 rounded-lg p-6 border border-border">
+                <p className="text-sm text-muted-foreground mb-4">PDF Content Preview</p>
+                <div className="text-foreground whitespace-pre-wrap">{item.content}</div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Chart data */}
+        {item.type === "chart" && (
+          <div className="h-full overflow-y-auto p-6">
             <div className="bg-background/50 rounded-lg p-6 border border-border">
-              <p className="text-sm text-muted-foreground mb-4">PDF Content Preview</p>
+              <p className="text-sm text-muted-foreground mb-4">Chart Data</p>
               <div className="text-foreground whitespace-pre-wrap">{item.content}</div>
             </div>
           </div>
         )}
 
-        {item.type === "chart" && (
-          <div className="bg-background/50 rounded-lg p-6 border border-border">
-            <p className="text-sm text-muted-foreground mb-4">Chart Data</p>
-            <div className="text-foreground">{item.content}</div>
-          </div>
-        )}
-
+        {/* HubSpot record */}
         {item.type === "hubspot" && (
-          <div className="bg-background/50 rounded-lg p-6 border border-border">
-            <p className="text-sm text-muted-foreground mb-4">HubSpot Record</p>
-            <div className="text-foreground">{item.content}</div>
+          <div className="h-full overflow-y-auto p-6">
+            <div className="bg-background/50 rounded-lg p-6 border border-border">
+              <p className="text-sm text-muted-foreground mb-4">HubSpot Record</p>
+              <div className="text-foreground whitespace-pre-wrap">{item.content}</div>
+            </div>
           </div>
         )}
 
+        {/* Other document types */}
         {["powerbi", "email", "document"].includes(item.type) && (
-          <div className="bg-background/50 rounded-lg p-6 border border-border">
-            <div className="text-foreground whitespace-pre-wrap">{item.content}</div>
+          <div className="h-full overflow-y-auto p-6">
+            {/* If we have a URL that might be viewable */}
+            {item.url && !hasEmbeddableUrl && (
+              <div className="mb-4 p-4 bg-primary/5 rounded-lg border border-primary/10">
+                <p className="text-sm text-muted-foreground mb-2">Document URL:</p>
+                <a
+                  href={item.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-sm text-primary hover:underline break-all"
+                >
+                  {item.url}
+                </a>
+              </div>
+            )}
+
+            {/* Content preview */}
+            {item.content && (
+              <div className="bg-background/50 rounded-lg p-6 border border-border">
+                <div className="text-foreground whitespace-pre-wrap">{item.content}</div>
+              </div>
+            )}
+
+            {/* No content message */}
+            {!item.content && !item.url && (
+              <div className="flex items-center justify-center h-full text-muted-foreground">
+                <p>No preview available</p>
+              </div>
+            )}
           </div>
         )}
       </div>

@@ -14,22 +14,17 @@ export function ChatMessage({ message, onSourceClick }) {
             <p className="text-xs text-muted-foreground mb-2">Sources</p>
             <div className="flex flex-col gap-2">
               {sources.map((s) => (
-                <a
-                  key={s.id}
-                  href={s.url}
-                  target="_blank"
-                  className="text-left text-xs text-primary hover:underline"
-                >
-                  {s.title}
-                </a>
-                /* <button
+                <button
                   key={s.id}
                   onClick={() => onSourceClick?.(s)}
-                  className="text-left text-xs text-primary hover:underline"
+                  className="text-left text-xs text-primary hover:underline flex items-center gap-1"
                   title={s.url}
                 >
-                  {s.title}
-                </button> */
+                  <span className="truncate">{s.title}</span>
+                  <svg className="w-3 h-3 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                  </svg>
+                </button>
               ))}
             </div>
           </div>

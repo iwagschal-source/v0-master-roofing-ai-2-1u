@@ -20,6 +20,7 @@ export function ConversationPane({
   onExpandStage,
   onKoStateChange,
   showReasoning,
+  onSourceClick,
   // New streaming props
   phases = [],
   tools = [],
@@ -64,10 +65,7 @@ export function ConversationPane({
     }
   }
 
-  const handleSourceClick = (itemId) => {
-    // Source click handling
-  }
-
+  
   // Check if we should show streaming UI
   const showStreamingUI = isStreaming || (phases.some(p => p.status === 'active' || p.status === 'complete') && !isStreamingComplete)
 
@@ -78,7 +76,7 @@ export function ConversationPane({
         {/* Existing messages */}
         {messages.map((message) => (
           <div key={message.id}>
-            <ChatMessage message={message} onSourceClick={handleSourceClick} />
+            <ChatMessage message={message} onSourceClick={onSourceClick} />
             {message.role === "assistant" && message.reasoning && (
               <ReasoningIndicator reasoning={message.reasoning} isActive={false} />
             )}
