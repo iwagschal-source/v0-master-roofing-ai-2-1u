@@ -1,10 +1,19 @@
+import { TTSPlayButton } from "./tts-play-button"
+
 export function ChatMessage({ message, onSourceClick }) {
   const isAssistant = message.role === "assistant"
   const sources = Array.isArray(message.sources) ? message.sources : []
 
   return (
-    <div className={`flex ${isAssistant ? "justify-start" : "justify-end"}`}>
-      <div className="max-w-[80%] rounded-lg px-4 py-3 bg-card border border-border" data-role={message.role}>
+    <div className={`flex ${isAssistant ? "justify-start" : "justify-end"} group`}>
+      <div className="max-w-[80%] rounded-lg px-4 py-3 bg-card border border-border relative" data-role={message.role}>
+        {/* TTS Play Button for assistant messages */}
+        {isAssistant && message.content && (
+          <div className="absolute -right-8 top-2">
+            <TTSPlayButton text={message.content} />
+          </div>
+        )}
+
         <p className="text-sm leading-relaxed whitespace-pre-wrap">
           {message.content}
         </p>
