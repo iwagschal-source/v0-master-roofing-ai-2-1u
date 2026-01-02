@@ -33,7 +33,6 @@ export function useAudioCapture(): UseAudioCaptureReturn {
   ) => {
     try {
       setError(null);
-      console.log('[Audio] Requesting microphone access...');
 
       // Request microphone access
       const stream = await navigator.mediaDevices.getUserMedia({
@@ -44,7 +43,6 @@ export function useAudioCapture(): UseAudioCaptureReturn {
         }
       });
 
-      console.log('[Audio] Microphone access granted');
       mediaStreamRef.current = stream;
 
       // Create audio context - browser will resample as needed
@@ -53,10 +51,8 @@ export function useAudioCapture(): UseAudioCaptureReturn {
 
       // Resume audio context if suspended (required by browser autoplay policy)
       if (audioContext.state === 'suspended') {
-        console.log('[Audio] Resuming suspended AudioContext...');
         await audioContext.resume();
       }
-      console.log('[Audio] AudioContext state:', audioContext.state, 'sampleRate:', audioContext.sampleRate);
 
       // Create source from microphone stream
       const source = audioContext.createMediaStreamSource(stream);
@@ -67,7 +63,6 @@ export function useAudioCapture(): UseAudioCaptureReturn {
       const processor = audioContext.createScriptProcessor(4096, 1, 1);
       processorRef.current = processor;
 
-      let chunkCount = 0;
       processor.onaudioprocess = (e) => {
         const float32Data = e.inputBuffer.getChannelData(0);
 
@@ -86,11 +81,6 @@ export function useAudioCapture(): UseAudioCaptureReturn {
         const rms = Math.sqrt(sum / float32Data.length);
         setAudioLevel(Math.min(1, rms * 5)); // Scale for visualization
 
-        chunkCount++;
-        if (chunkCount <= 3 || chunkCount % 10 === 0) {
-          console.log(`[Audio] Chunk ${chunkCount}, RMS: ${rms.toFixed(4)}, bytes: ${int16Data.buffer.byteLength}`);
-        }
-
         // Send chunk to callback
         onAudioChunk(int16Data.buffer);
       };
@@ -100,7 +90,6 @@ export function useAudioCapture(): UseAudioCaptureReturn {
       processor.connect(audioContext.destination);
 
       setIsRecording(true);
-      console.log('[Audio] Recording started successfully');
 
     } catch (err) {
       console.error('[Audio] Failed to start recording:', err);
@@ -136,7 +125,6 @@ export function useAudioCapture(): UseAudioCaptureReturn {
 
     setIsRecording(false);
     setAudioLevel(0);
-    console.log('[Audio] Recording stopped');
   }, []);
 
   return {

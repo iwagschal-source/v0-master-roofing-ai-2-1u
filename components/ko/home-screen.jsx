@@ -2,17 +2,41 @@
 
 import * as React from "react"
 
-import { useState } from "react"
+import { useState, useCallback, useEffect } from "react"
 import Image from "next/image"
 import { MessageInput } from "./message-input"
+import { VoiceIndicator } from "./voice-indicator"
+import { useVoiceWebSocket } from "@/hooks/useVoiceWebSocket"
 
 /** @typedef {Object} HomeScreenProps */
 
 /** @param {any} props */
 /** @param {any} props */
 export function HomeScreen({ onSubmit, onStartChat, onNavigateToFiles }) {
-  const [isRecording, setIsRecording] = useState(false)
   const [isVoiceEnabled, setIsVoiceEnabled] = useState(false)
+
+  // Voice WebSocket hook - same as ConversationPane
+  const {
+    isConnected: isVoiceConnected,
+    isRecording,
+    audioLevel,
+    transcript,
+    isTranscribing,
+    streamingText: voiceStreamingText,
+    isStreaming: isVoiceStreaming,
+    isComplete: isVoiceComplete,
+    error: voiceError,
+    connect: connectVoice,
+    startVoice,
+    stopVoice,
+  } = useVoiceWebSocket()
+
+  // Submit transcript as a message when voice ends
+  useEffect(() => {
+    if (transcript && !isTranscribing && !isRecording) {
+      onSubmit?.(transcript)
+    }
+  }, [transcript, isTranscribing, isRecording, onSubmit])
 
   const quickActions = [
     {
@@ -55,18 +79,36 @@ export function HomeScreen({ onSubmit, onStartChat, onNavigateToFiles }) {
     }
   }
 
-  const handleMicToggle = () => {
-    const newRecordingState = !isRecording
-    setIsRecording(newRecordingState)
-
-    if (!newRecordingState) {
-      // Stop recording - automatically start chat
-      //onStartChat()
+  const handleMicToggle = useCallback(async () => {
+    try {
+      if (isRecording) {
+        stopVoice()
+      } else {
+        // Auto-enable voice mode and connect if needed
+        if (!isVoiceEnabled) {
+          setIsVoiceEnabled(true)
+        }
+        if (!isVoiceConnected) {
+          connectVoice()
+          // Wait a bit for connection
+          await new Promise(resolve => setTimeout(resolve, 500))
+        }
+        await startVoice()
+      }
+    } catch (err) {
+      console.error('[Voice] Mic error:', err)
     }
-  }
+  }, [isRecording, isVoiceEnabled, isVoiceConnected, connectVoice, startVoice, stopVoice])
 
   return (
     <div className="flex flex-col h-full bg-background">
+      {/* Voice Recording Indicator */}
+      <VoiceIndicator
+        isRecording={isRecording}
+        audioLevel={audioLevel}
+        transcript={transcript}
+        isTranscribing={isTranscribing}
+      />
       {/* Main content area */}
       <div className="flex-1 flex flex-col items-center justify-center px-8">
         {/* Centered Welcome Section */}

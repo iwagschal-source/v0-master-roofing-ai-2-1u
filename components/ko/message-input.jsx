@@ -87,10 +87,7 @@ export function MessageInput({
 
       {/* Microphone Button */}
       <button
-        onClick={() => {
-          console.log('[MIC BTN] Clicked! onMicToggle:', typeof onMicToggle)
-          onMicToggle && onMicToggle()
-        }}
+        onClick={() => onMicToggle?.()}
         className={`transition-colors ${isRecording ? "text-primary" : "text-foreground-secondary hover:text-foreground"}`}
         aria-label={isRecording ? "Stop recording and send" : "Start recording"}
       >

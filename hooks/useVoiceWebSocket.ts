@@ -252,11 +252,8 @@ export function useVoiceWebSocket(): UseVoiceWebSocketReturn {
 
   // Start voice recording
   const startVoice = useCallback(async () => {
-    console.log('[Voice] startVoice called, wsRef:', !!wsRef.current, 'state:', wsRef.current?.readyState);
-
     if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) {
       setError('Not connected to server');
-      console.error('[Voice] Cannot start - not connected');
       return;
     }
 
@@ -265,10 +262,8 @@ export function useVoiceWebSocket(): UseVoiceWebSocketReturn {
     setIsTranscribing(true);
 
     // Send voice_start message
-    console.log('[Voice] Sending voice_start');
     wsRef.current.send(JSON.stringify({ type: 'voice_start' }));
 
-    let chunksSent = 0;
     // Start audio capture and stream chunks
     try {
       await startRecording((chunk: ArrayBuffer) => {
@@ -281,11 +276,6 @@ export function useVoiceWebSocket(): UseVoiceWebSocketReturn {
           }
           const base64 = btoa(binary);
 
-          chunksSent++;
-          if (chunksSent <= 3 || chunksSent % 10 === 0) {
-            console.log(`[Voice] Sending chunk ${chunksSent}, size: ${base64.length}`);
-          }
-
           // Send audio chunk
           wsRef.current.send(JSON.stringify({
             type: 'audio_chunk',
@@ -293,7 +283,6 @@ export function useVoiceWebSocket(): UseVoiceWebSocketReturn {
           }));
         }
       });
-      console.log('[Voice] Audio capture started');
     } catch (err) {
       console.error('[Voice] Failed to start audio capture:', err);
       setError('Failed to access microphone');
