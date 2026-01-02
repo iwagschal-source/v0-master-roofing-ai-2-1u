@@ -234,7 +234,7 @@ export default function HomePage() {
     !hasStartedChat && activeMode === "home" && !showFiles && !showEmail && !showSettings && !showZoom && !showReports
 
   return (
-    <div className="flex h-screen bg-background text-foreground">
+    <div className="flex h-dvh bg-background text-foreground">
       {isMobileMenuOpen && (
         <div
           className="md:hidden fixed inset-0 bg-background/80 backdrop-blur-sm z-40"
