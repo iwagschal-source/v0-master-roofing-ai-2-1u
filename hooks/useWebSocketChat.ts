@@ -15,8 +15,18 @@
 
 import { useState, useCallback, useRef, useEffect } from 'react';
 
-// WebSocket URL - defaults to production, can be overridden
-const WS_URL = process.env.NEXT_PUBLIC_WS_URL || 'ws://34.95.128.208:8000/ws/chat';
+// WebSocket URL - auto-detect protocol and host for same-origin deployment
+const getWsUrl = () => {
+  if (process.env.NEXT_PUBLIC_WS_URL) {
+    return process.env.NEXT_PUBLIC_WS_URL;
+  }
+  if (typeof window !== 'undefined') {
+    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    return `${protocol}//${window.location.host}/ws/chat`;
+  }
+  return 'wss://34.95.128.208/ws/chat';
+};
+const WS_URL = typeof window !== 'undefined' ? getWsUrl() : 'wss://34.95.128.208/ws/chat';
 
 // Event types from backend
 type WSEventType =

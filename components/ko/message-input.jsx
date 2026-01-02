@@ -1,9 +1,8 @@
 "use client"
 
 import { Paperclip, Mic, Send } from "lucide-react"
-import { ThinkingIndicator } from "./thinking-indicator"
 import { VoiceToggle } from "./voice-toggle"
-import { useEffect, useState } from "react"
+import { useState } from "react"
 
 /** @typedef {Object} MessageInputProps */
 
@@ -72,9 +71,6 @@ export function MessageInput({
       >
         <Paperclip className="w-5 h-5" />
       </button>
-
-      {/* Thinking Indicator */}
-      <ThinkingIndicator isActive={isThinking} />
 
       {/* Text Input */}
       <input

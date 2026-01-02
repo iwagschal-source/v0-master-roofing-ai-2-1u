@@ -8,8 +8,17 @@
 
 import { useState, useRef, useCallback } from 'react';
 
-// API URL - defaults to production
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://34.95.128.208';
+// API URL - auto-detect for same-origin deployment
+const getApiUrl = () => {
+  if (process.env.NEXT_PUBLIC_API_URL) {
+    return process.env.NEXT_PUBLIC_API_URL;
+  }
+  if (typeof window !== 'undefined') {
+    return `${window.location.protocol}//${window.location.host}`;
+  }
+  return 'https://34.95.128.208';
+};
+const API_URL = typeof window !== 'undefined' ? getApiUrl() : 'https://34.95.128.208';
 
 interface UseTTSPlaybackReturn {
   isPlaying: boolean;

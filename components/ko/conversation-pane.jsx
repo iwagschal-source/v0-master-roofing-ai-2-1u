@@ -112,16 +112,34 @@ export function ConversationPane({
   }, [isVoiceStreaming, isVoiceComplete, onKoStateChange])
 
   const handleMicToggle = useCallback(async () => {
-    if (isRecording) {
-      setKoState("thinking")
-      onKoStateChange?.("thinking")
-      stopVoice()
-    } else {
-      setKoState("listening")
-      onKoStateChange?.("listening")
-      await startVoice()
+    console.log('[MIC] Toggle clicked, isRecording:', isRecording)
+    try {
+      if (isRecording) {
+        setKoState("thinking")
+        onKoStateChange?.("thinking")
+        stopVoice()
+      } else {
+        // Auto-enable voice mode and connect if needed
+        if (!isVoiceEnabled) {
+          setIsVoiceEnabled(true)
+        }
+        if (!isVoiceConnected) {
+          console.log('[MIC] Connecting to voice WebSocket...')
+          connectVoice()
+          // Wait a bit for connection
+          await new Promise(resolve => setTimeout(resolve, 500))
+        }
+        console.log('[MIC] Starting voice recording...')
+        setKoState("listening")
+        onKoStateChange?.("listening")
+        await startVoice()
+        console.log('[MIC] Voice recording started')
+      }
+    } catch (err) {
+      console.error('[MIC] Error:', err)
+      alert('Mic error: ' + (err?.message || err))
     }
-  }, [isRecording, startVoice, stopVoice, onKoStateChange])
+  }, [isRecording, isVoiceEnabled, isVoiceConnected, connectVoice, startVoice, stopVoice, onKoStateChange])
 
   
   // Check if we should show streaming UI (text or voice)
@@ -155,6 +173,18 @@ export function ConversationPane({
             )}
           </div>
         ))}
+
+        {/* Voice transcript as user message - show when we have a transcript and voice is processing */}
+        {transcript && (isTranscribing || isVoiceStreaming || voicePhases.some(p => p.status === 'active' || p.status === 'complete') || voiceStreamingText) && (
+          <div className="flex justify-end">
+            <div className="max-w-[80%] rounded-lg px-4 py-3 bg-primary text-primary-foreground">
+              <p className="text-sm leading-relaxed">{transcript}</p>
+              <p className="text-xs opacity-70 mt-2">
+                {new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+              </p>
+            </div>
+          </div>
+        )}
 
         {/* Streaming Progress UI */}
         {showStreamingUI && (

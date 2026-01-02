@@ -20,8 +20,18 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { useAudioCapture } from './useAudioCapture';
 
-// WebSocket URL - defaults to production
-const WS_VOICE_URL = process.env.NEXT_PUBLIC_WS_VOICE_URL || 'wss://34.95.128.208/ws/voice';
+// WebSocket URL - auto-detect for same-origin deployment
+const getWsVoiceUrl = () => {
+  if (process.env.NEXT_PUBLIC_WS_VOICE_URL) {
+    return process.env.NEXT_PUBLIC_WS_VOICE_URL;
+  }
+  if (typeof window !== 'undefined') {
+    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    return `${protocol}//${window.location.host}/ws/voice`;
+  }
+  return 'wss://34.95.128.208/ws/voice';
+};
+const WS_VOICE_URL = typeof window !== 'undefined' ? getWsVoiceUrl() : 'wss://34.95.128.208/ws/voice';
 
 interface Phase {
   name: string;
