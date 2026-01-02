@@ -72,7 +72,7 @@ export default function HomePage() {
     setHasStartedChat(true)
   }
 
-  const isWorkspaceVisible = selectedHistoryItem !== undefined || selectedSource !== null || koState === "thinking" || koState === "speaking"
+  const isWorkspaceVisible = selectedHistoryItem !== undefined || selectedSource !== null
 
   const handleSelectHistoryItem = (item) => {
     setSelectedHistoryItem(item)
