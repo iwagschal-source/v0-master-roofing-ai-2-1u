@@ -42,7 +42,7 @@ Internal IP: 10.158.0.2
 ```
 
 ```
-/home/muddassir/apps/multi-agent-mvp/backend/
+/home/iwagschal/aeyecorp/
 ├── app/
 │   ├── __init__.py
 │   ├── main.py                  # FastAPI app, endpoints
@@ -343,12 +343,12 @@ curl http://34.95.128.208:8000/health
 
 ### View logs on VM
 ```bash
-ssh iwagschal@34.95.128.208 "tail -50 /home/muddassir/apps/multi-agent-mvp/backend/uvicorn.log"
+ssh iwagschal@34.95.128.208 "tail -50 /home/iwagschal/aeyecorp/uvicorn.log"
 ```
 
 ### Restart server on VM
 ```bash
-ssh iwagschal@34.95.128.208 "sudo fuser -k 8000/tcp; sleep 2; cd /home/muddassir/apps/multi-agent-mvp/backend && nohup ./start.sh > uvicorn.log 2>&1 &"
+ssh iwagschal@34.95.128.208 "sudo fuser -k 8000/tcp; sleep 2; cd /home/iwagschal/aeyecorp && nohup ./start.sh > uvicorn.log 2>&1 &"
 ```
 
 ### Query BigQuery

@@ -16,10 +16,10 @@
 | VM Host | `34.95.128.208` |
 | VM User | `iwagschal` |
 | Internal IP | `10.158.0.2` |
-| Backend Path | `/home/muddassir/apps/multi-agent-mvp/backend` |
+| Backend Path | `/home/iwagschal/aeyecorp` |
 | Service Port | `8000` (uvicorn) |
 | HTTPS Port | `443` (nginx reverse proxy) |
-| Python Env | `/home/muddassir/apps/multi-agent-mvp/backend/.venv` |
+| Python Env | `/home/iwagschal/aeyecorp/.venv` |
 | Frontend Repo | `iwagschal-source/v0-master-roofing-ai-2-1u` |
 | Vercel Project | `v0-master-roofing-ai-2-1u` |
 
@@ -125,17 +125,17 @@ npx vercel env ls --token d0WR4GGv4kamiirHKX3Vv6yC
 gcloud compute ssh mr-dev-box-01 --zone=southamerica-east1-b --command="ps aux | grep uvicorn | grep -v grep"
 
 # Kill and restart (replace PID)
-gcloud compute ssh mr-dev-box-01 --zone=southamerica-east1-b --command="sudo kill <PID>; sleep 2; cd /home/muddassir/apps/multi-agent-mvp/backend && sudo -u muddassir bash -c 'source .venv/bin/activate && nohup uvicorn app.main:app --reload --host 0.0.0.0 --port 8000 >/dev/null 2>&1 &'"
+gcloud compute ssh mr-dev-box-01 --zone=southamerica-east1-b --command="sudo kill <PID>; sleep 2; cd /home/iwagschal/aeyecorp && sudo -u iwagschal bash -c 'source .venv/bin/activate && nohup uvicorn app.main:app --reload --host 0.0.0.0 --port 8000 >/dev/null 2>&1 &'"
 ```
 
 ### Update Backend .env
 
 ```bash
 # View current config
-gcloud compute ssh mr-dev-box-01 --zone=southamerica-east1-b --command="cat /home/muddassir/apps/multi-agent-mvp/backend/.env"
+gcloud compute ssh mr-dev-box-01 --zone=southamerica-east1-b --command="cat /home/iwagschal/aeyecorp/.env"
 
 # Update OpenAI model
-gcloud compute ssh mr-dev-box-01 --zone=southamerica-east1-b --command="sed -i 's/OPENAI_MODEL=.*/OPENAI_MODEL=gpt-5-mini/' /home/muddassir/apps/multi-agent-mvp/backend/.env"
+gcloud compute ssh mr-dev-box-01 --zone=southamerica-east1-b --command="sed -i 's/OPENAI_MODEL=.*/OPENAI_MODEL=gpt-5-mini/' /home/iwagschal/aeyecorp/.env"
 ```
 
 ### HTTPS/SSL Configuration (Nginx)
@@ -235,7 +235,7 @@ gcloud compute ssh mr-dev-box-01 --zone=southamerica-east1-b
 
 ### Error: Can't kill uvicorn process (permission denied)
 
-**Cause:** Process owned by `muddassir` user
+**Cause:** Process owned by `iwagschal` user
 
 **Solution:** Use sudo:
 ```bash
@@ -280,7 +280,7 @@ gcloud compute firewall-rules create allow-port-XXXX --allow=tcp:XXXX
 | `.env.local` | Local env vars (gitignored) |
 | `vercel.json` | Vercel build config |
 
-### Backend (VM: `/home/muddassir/apps/multi-agent-mvp/backend/`)
+### Backend (VM: `/home/iwagschal/aeyecorp/`)
 
 | File | Purpose |
 |------|---------|
@@ -357,7 +357,7 @@ gcloud compute ssh mr-dev-box-01 --zone=southamerica-east1-b --command="ps aux |
                               ▼
 ┌─────────────────────────────────────────────────────────────┐
 │                    UVICORN (Port 8000)                       │
-│  /home/muddassir/apps/multi-agent-mvp/backend               │
+│  /home/iwagschal/aeyecorp               │
 │                                                              │
 │  ┌─────────────────────────────────────────────────────┐    │
 │  │ Phase 0: Project Resolution (Gemini)                │    │

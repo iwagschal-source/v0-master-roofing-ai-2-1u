@@ -57,7 +57,7 @@ gcloud compute ssh mr-dev-box-01 --zone=southamerica-east1-b --command="<command
 Host: 34.95.128.208
 Internal IP: 10.158.0.2
 User: iwagschal
-Backend Path: /home/muddassir/apps/multi-agent-mvp/backend
+Backend Path: /home/iwagschal/aeyecorp
 Port: 8000 (uvicorn with --reload)
 HTTPS Port: 443 (nginx reverse proxy with SSL termination)
 ```
@@ -81,7 +81,7 @@ location /ws/ {
 ```
 
 ### OpenAI Model Configuration
-- **Model**: `gpt-5-mini` (configured in `/home/muddassir/apps/multi-agent-mvp/backend/.env`)
+- **Model**: `gpt-5-mini` (configured in `/home/iwagschal/aeyecorp/.env`)
 - To change model: Edit `OPENAI_MODEL` in `.env` and restart uvicorn
 
 ### Local Development Machine
@@ -116,7 +116,7 @@ hubspot_v2.py                     →  app/tools/hubspot.py
 ./deploy.sh
 
 # Or manually via scp
-scp /home/iwagschal/chief_agent_v2.py iwagschal@34.95.128.208:/home/muddassir/apps/multi-agent-mvp/backend/app/chief_agent.py
+scp /home/iwagschal/chief_agent_v2.py iwagschal@34.95.128.208:/home/iwagschal/aeyecorp/app/chief_agent.py
 ```
 
 ---
@@ -126,7 +126,7 @@ scp /home/iwagschal/chief_agent_v2.py iwagschal@34.95.128.208:/home/muddassir/ap
 ### Phase 1: Backend WebSocket Foundation (3-4 hours)
 
 #### Step 1.1: Add websockets dependency
-**File:** VM `/home/muddassir/apps/multi-agent-mvp/backend/requirements.txt`
+**File:** VM `/home/iwagschal/aeyecorp/requirements.txt`
 ```
 # Add this line
 websockets>=12.0
@@ -134,13 +134,13 @@ websockets>=12.0
 
 Then on VM:
 ```bash
-cd /home/muddassir/apps/multi-agent-mvp/backend
+cd /home/iwagschal/aeyecorp
 source .venv/bin/activate
 pip install websockets
 ```
 
 #### Step 1.2: Create WebSocket Manager
-**File:** VM `/home/muddassir/apps/multi-agent-mvp/backend/app/ws_manager.py` (NEW)
+**File:** VM `/home/iwagschal/aeyecorp/app/ws_manager.py` (NEW)
 ```python
 """
 WebSocket Connection Manager
@@ -242,7 +242,7 @@ ws_manager = WebSocketManager()
 ```
 
 #### Step 1.3: Add Event Types to Schemas
-**File:** VM `/home/muddassir/apps/multi-agent-mvp/backend/app/schemas.py` (MODIFY)
+**File:** VM `/home/iwagschal/aeyecorp/app/schemas.py` (MODIFY)
 ```python
 # Add to existing schemas.py
 from enum import Enum
@@ -259,7 +259,7 @@ class WSEventType(str, Enum):
 ```
 
 #### Step 1.4: Add WebSocket Endpoint
-**File:** VM `/home/muddassir/apps/multi-agent-mvp/backend/app/main.py` (MODIFY)
+**File:** VM `/home/iwagschal/aeyecorp/app/main.py` (MODIFY)
 
 Add these imports at top:
 ```python
@@ -325,7 +325,7 @@ async def websocket_chat(websocket: WebSocket):
 ### Phase 2: Streaming Chief Agent (4-5 hours)
 
 #### Step 2.1-2.5: Create Streaming Version
-**File:** VM `/home/muddassir/apps/multi-agent-mvp/backend/app/chief_agent.py` (MODIFY)
+**File:** VM `/home/iwagschal/aeyecorp/app/chief_agent.py` (MODIFY)
 
 Add this new function (keep existing `run_chief_agent` for backwards compatibility):
 

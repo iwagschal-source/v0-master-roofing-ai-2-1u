@@ -1,6 +1,6 @@
 # CLAUDE.md - KO Project Context
 
-> **Auto-generated from ~/KO_Session_State/ on 2026-01-07 10:40**
+> **Auto-generated from ~/KO_Session_State/ on 2026-01-07 13:29**
 > **Regenerate:** `python3 ~/generate_claude_md.py`
 
 ---
@@ -26,7 +26,7 @@
 
 ### Backend (Separate VM)
 - **Framework:** Python FastAPI
-- **Location:** `mr-dev-box-01:/home/muddassir/apps/multi-agent-mvp/backend/`
+- **Location:** `mr-dev-box-01:/home/iwagschal/aeyecorp/`
 - **URL:** https://34.95.128.208
 - **WebSocket:** wss://34.95.128.208/ws/chat
 
@@ -167,43 +167,44 @@ Full project state is maintained in `~/KO_Session_State/`.
 ### In Progress
 # In Progress
 
-## Current Session: 2026-01-07 (Day 4 of Phase 1, Session 12)
+## Current Session: 2026-01-07 (Day 4 of Phase 1, Session 13)
 
 ### Active Work
 | Task | Status | Notes |
 |------|--------|-------|
-| Structured Takeoff Journey | DONE | V1-V7 tracking by official line item |
-| project_llm Enhancement | DONE | Added takeoff journey columns |
-| Revision Tracking Fixes | DONE | GOOD matches + REMOVED tracking |
+| Power BI Live KPI Integration | DONE | Backend serving live BigQuery KPIs |
+| Power BI Views | DONE | 5 views created in mr_agent |
+| Service Account Setup | DONE | workspace-ingest.json on VM |
 
 ### Completed This Session
 
-#### 1. Fixed Revision Tracking Gaps
-- **Added GOOD matches** to `revision_takeoff_links` (was EXACT only)
-  - Before: 489 links
-  - After: 584 links (+95)
-- **Fixed REMOVED tracking** in `revision_line_diffs`
-  - Before: Only ADDED and CHANGED
-  - After: ADDED (5,625), REMOVED (5,792), CHANGED (9,815)
-- Filtered out generic sheets (Sheet1, Breakdown, Template)
+#### 1. Created 5 Power BI BigQuery Views
+| View | Rows | Purpose |
+|------|------|---------|
+| `v_pbi_fact_proposal` | 1,529 | Proposal facts with time dimensions |
+| `v_pbi_fact_takeoff_agg` | 15,080 | Aggregated takeoff metrics by section |
+| `v_pbi_gc_scorecard` | 336 | GC metrics with win rates |
+| `v_pbi_project_360` | 1,529 | Complete project view |
+| `v_pbi_kpi_summary` | 1 | Live top-level KPI snapshot |
 
-#### 2. Created Structured Takeoff Journey Tables
-Built versioned takeoff tracking mapped to official template items (MR-*):
+#### 2. Enhanced v_pbi_kpi_summary
+Added new metrics:
+- `total_takeoff_value`: $2.43B total
+- `total_line_items`: 42,971 items
+- `projects_with_takeoffs`: 1,165 projects
+- `projects_with_risks`: 358 projects
+- `total_risk_alerts`: 2,059 alerts
+- `followups_last_30_days`: 297 recent followups
 
-| Table | Rows | Purpose |
-|-------|------|---------|
-| `project_takeoff_versioned` | 14,473 | All takeoff data by V1, V2, V3... |
-| `project_takeoff_item_diffs` | 4,982 | Structured diffs per official item |
-| `v_project_takeoff_journey` | View | Journey with top changes + LLM summaries |
+#### 3. Updated Backend powerbi.py
+New features:
+- **Live KPIs from BigQuery**: Fetches from v_pbi_kpi_summary every 5 min
+- **Service Account Auth**: Uses workspace-ingest.json for BigQuery access
+- **Dashboard Config**: 6 pre-configured dashboards with KPI mappings
+- **Query Templates**: 7 predefined queries for agent use
+- **Smart Routing**: Routes questions to appropriate dashboards
 
-**What's Tracked Per Item:**
-- `item_id` - Official template ID (MR-033TRAFFIC, MR-003BU2PLY, etc.)
-- `qty_delta` / `qty_pct_change` - Quantity changes
-- `rate_delta` / `rate_pct_change` - Unit rate changes
-- `cost_delta` / `cost_pct_change` - Total cost changes
-- `change_type` - ADDED, REMOVED, CHANGED
-
-#### 3. Updated project
+#### 4. Dashboard Gallery
 
 ---
 
@@ -327,7 +328,7 @@ git add -A && git commit -m "update" && git push origin dev:main --force
 gcloud compute ssh mr-dev-box-01 --zone=southamerica-east1-b
 
 # View backend logs
-gcloud compute ssh mr-dev-box-01 --zone=southamerica-east1-b --command="tail -50 /home/muddassir/apps/multi-agent-mvp/backend/uvicorn.log"
+gcloud compute ssh mr-dev-box-01 --zone=southamerica-east1-b --command="tail -50 /home/iwagschal/aeyecorp/uvicorn.log"
 
 # Regenerate this file
 python3 ~/generate_claude_md.py
