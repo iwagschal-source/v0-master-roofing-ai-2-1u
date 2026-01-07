@@ -31,6 +31,36 @@ export const powerbiAPI = {
       { filters }
     );
   },
+
+  /**
+   * Get CEO KPIs: velocity, stuck jobs, at-risk
+   */
+  getCeoKpis: async (): Promise<{
+    velocity: {
+      avg_days_rfp_to_proposal: number;
+      avg_days_to_award: number;
+      win_rate: number;
+      total_awarded: number;
+      total_decided: number;
+    };
+    stuck_jobs: {
+      count_180_plus: number;
+      count_90_180: number;
+      count_30_90: number;
+      active: number;
+      total_stuck_value: number;
+      scope_creep_risk: number;
+    };
+    at_risk: {
+      critical: number;
+      high: number;
+      medium: number;
+      total_alerts: number;
+      high_value_at_risk: number;
+    };
+  }> => {
+    return api.get('/powerbi/ceo-kpis');
+  },
 };
 
 // ============================================================================

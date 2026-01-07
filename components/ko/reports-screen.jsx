@@ -77,6 +77,8 @@ export function ReportsScreen({
   const [originalQuestion, setOriginalQuestion] = useState("")
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
+  const [ceoKpis, setCeoKpis] = useState(null)
+  const [kpisLoading, setKpisLoading] = useState(true)
 
   // Filter states
   const [dateRange, setDateRange] = useState("last-30")
@@ -143,10 +145,32 @@ export function ReportsScreen({
 
 
 
-  // Load dashboards on mount
+  // Load dashboards and CEO KPIs on mount
   useEffect(() => {
     loadDashboards()
+    loadCeoKpis()
   }, [])
+
+  const loadCeoKpis = async () => {
+    try {
+      setKpisLoading(true)
+      const response = await apiClient.powerbi.getCeoKpis()
+      setCeoKpis(response)
+    } catch (err) {
+      console.error("Failed to load CEO KPIs:", err)
+      // Don't set error - KPIs are optional, dashboards still work
+    } finally {
+      setKpisLoading(false)
+    }
+  }
+
+  const formatCurrency = (value) => {
+    if (!value) return "$0"
+    if (value >= 1000000000) return `$${(value / 1000000000).toFixed(1)}B`
+    if (value >= 1000000) return `$${(value / 1000000).toFixed(1)}M`
+    if (value >= 1000) return `$${(value / 1000).toFixed(0)}K`
+    return `$${value.toFixed(0)}`
+  }
 
   useEffect(() => {
     if (initialViewMode === "custom" && initialCustomView) {
@@ -495,6 +519,87 @@ export function ReportsScreen({
         {error && (
           <div className="mx-6 mt-4 px-4 py-3 bg-red-500/10 border border-red-500/20 rounded-lg">
             <p className="text-red-500 text-sm">{error}</p>
+          </div>
+        )}
+
+        {/* CEO KPIs Section */}
+        {ceoKpis && (
+          <div className="px-6 pt-4">
+            <h2 className="text-sm font-medium text-foreground-secondary uppercase tracking-wider mb-3">Executive KPIs</h2>
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+              {/* Velocity */}
+              <div className="bg-card rounded-lg p-3 border border-border/50">
+                <div className="flex items-center gap-2 mb-1">
+                  <span className="text-lg">⚡</span>
+                  <span className="text-xs text-foreground-tertiary uppercase">Velocity</span>
+                </div>
+                <div className="text-xl font-bold text-foreground tabular-nums">
+                  {ceoKpis.velocity?.avg_days_rfp_to_proposal?.toFixed(0) || 0}
+                  <span className="text-sm font-normal text-foreground-secondary ml-1">days</span>
+                </div>
+                <div className="text-[10px] text-foreground-tertiary">RFP → Proposal</div>
+              </div>
+
+              {/* Win Rate */}
+              <div className="bg-card rounded-lg p-3 border border-border/50">
+                <div className="flex items-center gap-2 mb-1">
+                  <span className="text-lg">🏆</span>
+                  <span className="text-xs text-foreground-tertiary uppercase">Win Rate</span>
+                </div>
+                <div className="text-xl font-bold text-green-500 tabular-nums">
+                  {((ceoKpis.velocity?.win_rate || 0) * 100).toFixed(0)}%
+                </div>
+                <div className="text-[10px] text-foreground-tertiary">{ceoKpis.velocity?.total_awarded || 0} won / {ceoKpis.velocity?.total_decided || 0} decided</div>
+              </div>
+
+              {/* Stuck Jobs */}
+              <div className="bg-card rounded-lg p-3 border border-red-500/20">
+                <div className="flex items-center gap-2 mb-1">
+                  <span className="text-lg">🔴</span>
+                  <span className="text-xs text-foreground-tertiary uppercase">Stuck 180+</span>
+                </div>
+                <div className="text-xl font-bold text-red-500 tabular-nums">
+                  {ceoKpis.stuck_jobs?.count_180_plus || 0}
+                </div>
+                <div className="text-[10px] text-foreground-tertiary">{formatCurrency(ceoKpis.stuck_jobs?.total_stuck_value)} at risk</div>
+              </div>
+
+              {/* Aging Jobs */}
+              <div className="bg-card rounded-lg p-3 border border-orange-500/20">
+                <div className="flex items-center gap-2 mb-1">
+                  <span className="text-lg">🟠</span>
+                  <span className="text-xs text-foreground-tertiary uppercase">Aging 90+</span>
+                </div>
+                <div className="text-xl font-bold text-orange-500 tabular-nums">
+                  {(ceoKpis.stuck_jobs?.count_90_180 || 0) + (ceoKpis.stuck_jobs?.count_180_plus || 0)}
+                </div>
+                <div className="text-[10px] text-foreground-tertiary">{ceoKpis.stuck_jobs?.count_30_90 || 0} aging 30-90</div>
+              </div>
+
+              {/* Critical Risk */}
+              <div className="bg-card rounded-lg p-3 border border-red-500/20">
+                <div className="flex items-center gap-2 mb-1">
+                  <span className="text-lg">⚠️</span>
+                  <span className="text-xs text-foreground-tertiary uppercase">Critical Risk</span>
+                </div>
+                <div className="text-xl font-bold text-red-500 tabular-nums">
+                  {ceoKpis.at_risk?.critical || 0}
+                </div>
+                <div className="text-[10px] text-foreground-tertiary">{ceoKpis.at_risk?.high || 0} high risk</div>
+              </div>
+
+              {/* At Risk Value */}
+              <div className="bg-card rounded-lg p-3 border border-yellow-500/20">
+                <div className="flex items-center gap-2 mb-1">
+                  <span className="text-lg">💰</span>
+                  <span className="text-xs text-foreground-tertiary uppercase">At Risk $</span>
+                </div>
+                <div className="text-xl font-bold text-yellow-500 tabular-nums">
+                  {formatCurrency(ceoKpis.at_risk?.high_value_at_risk)}
+                </div>
+                <div className="text-[10px] text-foreground-tertiary">{ceoKpis.at_risk?.total_alerts || 0} alerts</div>
+              </div>
+            </div>
           </div>
         )}
 
