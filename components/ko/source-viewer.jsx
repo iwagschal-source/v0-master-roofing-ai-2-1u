@@ -65,21 +65,38 @@ export function SourceViewer({ item, onClose }) {
   // Fetch signed URL for GCS files (Excel, etc.)
   useEffect(() => {
     const fetchSignedUrl = async () => {
-      if (!item.url) return
+      if (!item.url) {
+        console.log('[SourceViewer] No URL provided')
+        return
+      }
 
-      // For Excel files from GCS, we need a signed URL
-      if (isExcelFile(item.url) && isGcsUri(item.url)) {
+      console.log('[SourceViewer] Item URL:', item.url)
+      console.log('[SourceViewer] Is Excel:', isExcelFile(item.url))
+      console.log('[SourceViewer] Is GCS:', isGcsUri(item.url))
+      console.log('[SourceViewer] Actual type:', actualType)
+
+      // For Excel files, try to get a signed URL if it's a GCS URI
+      if (actualType === 'excel') {
         setLoading(true)
         setError(null)
         try {
-          const response = await api.post('/documents/signed-url', {
-            gcs_uri: item.url,
-            expiration_minutes: 60
-          })
-          setSignedUrl(response.signed_url)
+          // If it's already a signed URL or HTTP URL, use it directly
+          if (item.url.startsWith('https://') && !isGcsUri(item.url)) {
+            console.log('[SourceViewer] Using direct URL')
+            setSignedUrl(item.url)
+          } else {
+            // Otherwise, get a signed URL from the backend
+            console.log('[SourceViewer] Fetching signed URL from backend...')
+            const response = await api.post('/documents/signed-url', {
+              gcs_uri: item.url,
+              expiration_minutes: 60
+            })
+            console.log('[SourceViewer] Got signed URL:', response.signed_url?.substring(0, 50) + '...')
+            setSignedUrl(response.signed_url)
+          }
         } catch (err) {
-          console.error('Failed to get signed URL:', err)
-          setError('Failed to load document')
+          console.error('[SourceViewer] Failed to get signed URL:', err)
+          setError('Failed to load document: ' + (err.message || 'Unknown error'))
         } finally {
           setLoading(false)
         }
@@ -87,7 +104,7 @@ export function SourceViewer({ item, onClose }) {
     }
 
     fetchSignedUrl()
-  }, [item.url])
+  }, [item.url, actualType])
 
   // Format timestamp safely
   const formatTimestamp = (timestamp) => {
