@@ -81,36 +81,31 @@ export function SourceViewer({ item, onClose }) {
         return
       }
 
-      console.log('[SourceViewer] Item URL:', item.url)
-      console.log('[SourceViewer] Item type:', item.type)
-      console.log('[SourceViewer] Is PDF:', isPdfFile(item.url))
-      console.log('[SourceViewer] Is Excel:', isExcelFile(item.url))
-      console.log('[SourceViewer] Is GCS:', isGcsUri(item.url))
-      console.log('[SourceViewer] Actual type:', actualType)
-      console.log('[SourceViewer] Can embed PDF:', actualType === 'pdf' && item.url)
+      // Use gcs_uri if available (original gs:// format), otherwise fall back to url
+      const gcsUri = item.gcs_uri || item.url
 
-      // For Excel files, try to get a signed URL if it's a GCS URI
-      if (actualType === 'excel') {
+      console.log('[SourceViewer] Item URL:', item.url)
+      console.log('[SourceViewer] Item gcs_uri:', item.gcs_uri)
+      console.log('[SourceViewer] Using GCS URI:', gcsUri)
+      console.log('[SourceViewer] Actual type:', actualType)
+
+      // For Excel files, get a signed URL
+      if (actualType === 'excel' && gcsUri) {
         setLoading(true)
         setError(null)
         try {
-          // If it's already a signed URL or HTTP URL, use it directly
-          if (item.url.startsWith('https://') && !isGcsUri(item.url)) {
-            console.log('[SourceViewer] Using direct URL')
-            setSignedUrl(item.url)
-          } else {
-            // Otherwise, get a signed URL from the backend
-            console.log('[SourceViewer] Fetching signed URL from backend...')
-            const response = await api.post('/documents/signed-url', {
-              gcs_uri: item.url,
-              expiration_minutes: 60
-            })
-            console.log('[SourceViewer] Got signed URL:', response.signed_url?.substring(0, 50) + '...')
-            setSignedUrl(response.signed_url)
-          }
+          console.log('[SourceViewer] Fetching signed URL for Excel...')
+          const response = await api.post('/documents/signed-url', {
+            gcs_uri: gcsUri,
+            expiration_minutes: 60
+          })
+          console.log('[SourceViewer] Got signed URL:', response.signed_url?.substring(0, 80) + '...')
+          setSignedUrl(response.signed_url)
         } catch (err) {
           console.error('[SourceViewer] Failed to get signed URL:', err)
           setError('Failed to load document: ' + (err.message || 'Unknown error'))
+          // Fall back to original URL
+          setSignedUrl(item.url)
         } finally {
           setLoading(false)
         }
@@ -118,7 +113,7 @@ export function SourceViewer({ item, onClose }) {
     }
 
     fetchSignedUrl()
-  }, [item.url, actualType])
+  }, [item.url, item.gcs_uri, actualType])
 
   // Format timestamp safely
   const formatTimestamp = (timestamp) => {

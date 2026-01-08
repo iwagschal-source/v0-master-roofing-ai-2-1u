@@ -92,6 +92,7 @@ export default function HomePage() {
       label: source.title || 'Document',
       source: source.source || 'Vertex AI',
       url: source.url,
+      gcs_uri: source.gcs_uri, // Pass GCS URI for signed URL generation
       content: source.snippet || source.content || '',
       timestamp: new Date(),
     }
