@@ -31,6 +31,12 @@ const isExcelFile = (url) => {
   return lowerUrl.endsWith('.xlsx') || lowerUrl.endsWith('.xls') || lowerUrl.endsWith('.xlsm')
 }
 
+// Check if URL is a PDF file
+const isPdfFile = (url) => {
+  if (!url) return false
+  return url.toLowerCase().endsWith('.pdf')
+}
+
 // Check if URL is a GCS URI that needs a signed URL
 const isGcsUri = (url) => {
   if (!url) return false
@@ -50,16 +56,21 @@ export function SourceViewer({ item, onClose }) {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
 
-  // Determine actual type - check if it's an Excel file
-  const actualType = isExcelFile(item.url) ? 'excel' : item.type
+  // Determine actual type based on URL extension (overrides item.type if detectable)
+  const getActualType = () => {
+    if (isExcelFile(item.url)) return 'excel'
+    if (isPdfFile(item.url)) return 'pdf'
+    return item.type || 'document'
+  }
+  const actualType = getActualType()
   const Icon = TYPE_ICONS[actualType] || File
   const typeLabel = TYPE_LABELS[actualType] || "Document"
 
-  // Check if we have a URL that can be embedded
-  const hasEmbeddableUrl = item.url && (
-    item.url.endsWith('.pdf') ||
+  // Check if PDF can be embedded (GCS URLs work in iframes)
+  const canEmbedPdf = actualType === 'pdf' && item.url && (
     item.url.includes('storage.googleapis.com') ||
-    item.url.includes('storage.cloud.google.com')
+    item.url.includes('storage.cloud.google.com') ||
+    item.url.startsWith('https://')
   )
 
   // Fetch signed URL for GCS files (Excel, etc.)
@@ -71,9 +82,12 @@ export function SourceViewer({ item, onClose }) {
       }
 
       console.log('[SourceViewer] Item URL:', item.url)
+      console.log('[SourceViewer] Item type:', item.type)
+      console.log('[SourceViewer] Is PDF:', isPdfFile(item.url))
       console.log('[SourceViewer] Is Excel:', isExcelFile(item.url))
       console.log('[SourceViewer] Is GCS:', isGcsUri(item.url))
       console.log('[SourceViewer] Actual type:', actualType)
+      console.log('[SourceViewer] Can embed PDF:', actualType === 'pdf' && item.url)
 
       // For Excel files, try to get a signed URL if it's a GCS URI
       if (actualType === 'excel') {
@@ -163,7 +177,7 @@ export function SourceViewer({ item, onClose }) {
       {/* Content Area */}
       <div className="flex-1 overflow-hidden">
         {/* PDF with embeddable URL - show in iframe */}
-        {item.type === "pdf" && hasEmbeddableUrl && (
+        {actualType === "pdf" && canEmbedPdf && (
           <iframe
             src={item.url}
             className="w-full h-full border-0"
@@ -171,13 +185,21 @@ export function SourceViewer({ item, onClose }) {
           />
         )}
 
-        {/* PDF without URL or non-embeddable - show text content */}
-        {item.type === "pdf" && !hasEmbeddableUrl && (
+        {/* PDF without embeddable URL - show text content or link */}
+        {actualType === "pdf" && !canEmbedPdf && (
           <div className="h-full overflow-y-auto p-6">
             <div className="prose prose-sm dark:prose-invert max-w-none">
               <div className="bg-background/50 rounded-lg p-6 border border-border">
                 <p className="text-sm text-muted-foreground mb-4">PDF Content Preview</p>
-                <div className="text-foreground whitespace-pre-wrap">{item.content}</div>
+                {item.content ? (
+                  <div className="text-foreground whitespace-pre-wrap">{item.content}</div>
+                ) : item.url ? (
+                  <a href={item.url} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">
+                    Open PDF in new tab
+                  </a>
+                ) : (
+                  <p className="text-muted-foreground">No preview available</p>
+                )}
               </div>
             </div>
           </div>
@@ -233,31 +255,11 @@ export function SourceViewer({ item, onClose }) {
           </div>
         )}
 
-        {/* Chart data */}
-        {item.type === "chart" && (
+        {/* Other document types (excluding PDF and Excel which are handled above) */}
+        {["powerbi", "email", "document", "chart", "hubspot"].includes(actualType) && actualType !== "pdf" && actualType !== "excel" && (
           <div className="h-full overflow-y-auto p-6">
-            <div className="bg-background/50 rounded-lg p-6 border border-border">
-              <p className="text-sm text-muted-foreground mb-4">Chart Data</p>
-              <div className="text-foreground whitespace-pre-wrap">{item.content}</div>
-            </div>
-          </div>
-        )}
-
-        {/* HubSpot record */}
-        {item.type === "hubspot" && (
-          <div className="h-full overflow-y-auto p-6">
-            <div className="bg-background/50 rounded-lg p-6 border border-border">
-              <p className="text-sm text-muted-foreground mb-4">HubSpot Record</p>
-              <div className="text-foreground whitespace-pre-wrap">{item.content}</div>
-            </div>
-          </div>
-        )}
-
-        {/* Other document types (excluding Excel which is handled above) */}
-        {["powerbi", "email", "document"].includes(actualType) && (
-          <div className="h-full overflow-y-auto p-6">
-            {/* If we have a URL that might be viewable */}
-            {item.url && !hasEmbeddableUrl && (
+            {/* If we have a URL */}
+            {item.url && (
               <div className="mb-4 p-4 bg-primary/5 rounded-lg border border-primary/10">
                 <p className="text-sm text-muted-foreground mb-2">Document URL:</p>
                 <a
