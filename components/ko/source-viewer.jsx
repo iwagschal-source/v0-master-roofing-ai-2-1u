@@ -57,9 +57,20 @@ export function SourceViewer({ item, onClose }) {
   const [error, setError] = useState(null)
 
   // Determine actual type based on URL extension (overrides item.type if detectable)
+  // Check both url and gcs_uri since gcs_uri has the clean path
   const getActualType = () => {
-    if (isExcelFile(item.url)) return 'excel'
-    if (isPdfFile(item.url)) return 'pdf'
+    const urlToCheck = item.gcs_uri || item.url || ''
+    console.log('[SourceViewer] Type detection - checking URL:', urlToCheck)
+    console.log('[SourceViewer] Type detection - item.type:', item.type)
+    if (isExcelFile(urlToCheck)) {
+      console.log('[SourceViewer] Detected as Excel')
+      return 'excel'
+    }
+    if (isPdfFile(urlToCheck)) {
+      console.log('[SourceViewer] Detected as PDF')
+      return 'pdf'
+    }
+    console.log('[SourceViewer] Using item.type:', item.type || 'document')
     return item.type || 'document'
   }
   const actualType = getActualType()
