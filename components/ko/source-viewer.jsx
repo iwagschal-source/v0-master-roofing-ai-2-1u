@@ -166,50 +166,49 @@ export function SourceViewer({ item, onClose }) {
           </div>
         )}
 
-        {/* Excel files - use Google Docs Viewer with signed URL */}
+        {/* Excel files - show download option */}
         {actualType === "excel" && (
-          <div className="h-full flex flex-col">
+          <div className="h-full flex flex-col items-center justify-center p-8">
             {loading && (
-              <div className="flex-1 flex items-center justify-center">
+              <div className="flex items-center">
                 <Loader2 className="w-8 h-8 animate-spin text-primary" />
-                <span className="ml-3 text-muted-foreground">Loading spreadsheet...</span>
+                <span className="ml-3 text-muted-foreground">Preparing download...</span>
               </div>
             )}
 
             {error && (
-              <div className="flex-1 flex flex-col items-center justify-center p-6">
+              <div className="text-center">
                 <p className="text-destructive mb-4">{error}</p>
-                {item.url && (
-                  <a
-                    href={item.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-sm text-primary hover:underline"
-                  >
-                    Open in new tab
-                  </a>
-                )}
               </div>
             )}
 
             {signedUrl && !loading && !error && (
-              <div className="h-full flex flex-col">
-                {/* Try Microsoft Office Online viewer */}
-                <iframe
-                  src={`https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(signedUrl)}`}
-                  className="w-full flex-1 border-0"
-                  title={item.label}
-                />
-                {/* Fallback download link */}
-                <div className="p-3 border-t border-border bg-muted/50 flex items-center justify-between">
-                  <span className="text-xs text-muted-foreground">If the viewer doesn't load:</span>
+              <div className="text-center space-y-6">
+                <div className="w-20 h-20 mx-auto bg-green-500/10 rounded-2xl flex items-center justify-center">
+                  <FileSpreadsheet className="w-10 h-10 text-green-600" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-medium text-foreground mb-2">{item.label}</h3>
+                  <p className="text-sm text-muted-foreground mb-6">
+                    Excel files open best in Microsoft Excel or Google Sheets
+                  </p>
+                </div>
+                <div className="flex flex-col gap-3">
                   <a
                     href={signedUrl}
+                    download
+                    className="inline-flex items-center justify-center gap-2 px-6 py-3 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors font-medium"
+                  >
+                    <FileSpreadsheet className="w-5 h-5" />
+                    Download Excel File
+                  </a>
+                  <a
+                    href={`https://docs.google.com/spreadsheets/d/create?usp=sharing`}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="text-xs px-3 py-1 bg-primary/10 hover:bg-primary/20 text-primary rounded transition-colors"
+                    className="text-sm text-muted-foreground hover:text-primary transition-colors"
                   >
-                    Download File
+                    Or open Google Sheets to import
                   </a>
                 </div>
               </div>
