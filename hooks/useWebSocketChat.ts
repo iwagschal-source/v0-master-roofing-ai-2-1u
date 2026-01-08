@@ -45,7 +45,7 @@ interface WSEvent {
   tool?: string;
   summary?: string;
   content?: string;
-  sources?: Array<{ id: string; title: string; url: string; snippet?: string }>;
+  sources?: Array<{ id: string; title: string; url: string; snippet?: string; gcs_uri?: string }>;
   session_id?: string;
 }
 
@@ -69,6 +69,7 @@ export interface Source {
   title: string;
   url: string;
   snippet?: string;
+  gcs_uri?: string;
 }
 
 interface UseWebSocketChatReturn {
