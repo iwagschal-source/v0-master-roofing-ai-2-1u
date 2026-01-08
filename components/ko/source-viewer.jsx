@@ -193,11 +193,26 @@ export function SourceViewer({ item, onClose }) {
             )}
 
             {signedUrl && !loading && !error && (
-              <iframe
-                src={`https://docs.google.com/viewer?url=${encodeURIComponent(signedUrl)}&embedded=true`}
-                className="w-full h-full border-0"
-                title={item.label}
-              />
+              <div className="h-full flex flex-col">
+                {/* Try Microsoft Office Online viewer */}
+                <iframe
+                  src={`https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(signedUrl)}`}
+                  className="w-full flex-1 border-0"
+                  title={item.label}
+                />
+                {/* Fallback download link */}
+                <div className="p-3 border-t border-border bg-muted/50 flex items-center justify-between">
+                  <span className="text-xs text-muted-foreground">If the viewer doesn't load:</span>
+                  <a
+                    href={signedUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-xs px-3 py-1 bg-primary/10 hover:bg-primary/20 text-primary rounded transition-colors"
+                  >
+                    Download File
+                  </a>
+                </div>
+              </div>
             )}
           </div>
         )}
