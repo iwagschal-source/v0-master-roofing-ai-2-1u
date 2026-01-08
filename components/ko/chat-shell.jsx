@@ -23,6 +23,7 @@ export function ChatShell({ onOpenPowerBICustomView, initialContext, onClearCont
     error: wsError,
     sendMessage: wsSendMessage,
     reset: wsReset,
+    reconnect: wsReconnect,
   } = useWebSocketChat()
 
   const [isThinking, setIsThinking] = useState(false)
@@ -192,10 +193,16 @@ export function ChatShell({ onOpenPowerBICustomView, initialContext, onClearCont
 
       {/* Connection status (only show when disconnected) */}
       {!isConnected && (
-        <div className="bg-yellow-500/10 border-b border-yellow-500/20 px-4 py-2">
+        <div className="bg-yellow-500/10 border-b border-yellow-500/20 px-4 py-2 flex items-center justify-between">
           <p className="text-xs text-yellow-600 dark:text-yellow-400">
-            Reconnecting to server...
+            Disconnected from server
           </p>
+          <button
+            onClick={wsReconnect}
+            className="text-xs px-3 py-1 bg-yellow-500/20 hover:bg-yellow-500/30 text-yellow-700 dark:text-yellow-300 rounded transition-colors"
+          >
+            Reconnect
+          </button>
         </div>
       )}
 

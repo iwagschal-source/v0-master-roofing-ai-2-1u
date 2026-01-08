@@ -15,18 +15,16 @@
 
 import { useState, useCallback, useRef, useEffect } from 'react';
 
-// WebSocket URL - auto-detect protocol and host for same-origin deployment
+// WebSocket URL - use env var or hardcoded backend URL
 const getWsUrl = () => {
+  // Always prefer the environment variable
   if (process.env.NEXT_PUBLIC_WS_URL) {
     return process.env.NEXT_PUBLIC_WS_URL;
   }
-  if (typeof window !== 'undefined') {
-    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    return `${protocol}//${window.location.host}/ws/chat`;
-  }
+  // Fallback to hardcoded backend URL (not localhost)
   return 'wss://34.95.128.208/ws/chat';
 };
-const WS_URL = typeof window !== 'undefined' ? getWsUrl() : 'wss://34.95.128.208/ws/chat';
+const WS_URL = getWsUrl();
 
 // Event types from backend
 type WSEventType =
@@ -219,23 +217,35 @@ export function useWebSocketChat(): UseWebSocketChatReturn {
     }
   }, []);
 
+  // Reconnect attempt counter
+  const reconnectAttemptsRef = useRef(0);
+  const maxReconnectAttempts = 5;
+
   // Connect to WebSocket
   const connect = useCallback(() => {
     // Don't connect if already connected or connecting
     if (wsRef.current?.readyState === WebSocket.OPEN ||
         wsRef.current?.readyState === WebSocket.CONNECTING) {
+      console.log('[WS] Already connected or connecting, skipping');
       return;
     }
 
-    console.log('[WS] Connecting to:', WS_URL);
+    // Clear any existing timeout
+    if (reconnectTimeoutRef.current) {
+      clearTimeout(reconnectTimeoutRef.current);
+      reconnectTimeoutRef.current = null;
+    }
+
+    console.log('[WS] Connecting to:', WS_URL, '(attempt', reconnectAttemptsRef.current + 1, ')');
 
     try {
       const ws = new WebSocket(WS_URL);
 
       ws.onopen = () => {
-        console.log('[WS] Connected');
+        console.log('[WS] Connected successfully');
         setIsConnected(true);
         setError(null);
+        reconnectAttemptsRef.current = 0; // Reset on successful connection
       };
 
       ws.onmessage = (event) => {
@@ -248,28 +258,35 @@ export function useWebSocketChat(): UseWebSocketChatReturn {
       };
 
       ws.onclose = (event) => {
-        console.log('[WS] Disconnected, code:', event.code);
+        console.log('[WS] Disconnected, code:', event.code, 'reason:', event.reason);
         setIsConnected(false);
         wsRef.current = null;
 
-        // Auto-reconnect after 3 seconds (unless intentionally closed)
-        if (event.code !== 1000) {
+        // Auto-reconnect (unless intentionally closed with code 1000)
+        if (event.code !== 1000 && reconnectAttemptsRef.current < maxReconnectAttempts) {
+          reconnectAttemptsRef.current++;
+          const delay = Math.min(1000 * reconnectAttemptsRef.current, 5000); // Exponential backoff, max 5s
+          console.log('[WS] Will reconnect in', delay, 'ms');
           reconnectTimeoutRef.current = setTimeout(() => {
             console.log('[WS] Attempting reconnect...');
             connect();
-          }, 3000);
+          }, delay);
+        } else if (reconnectAttemptsRef.current >= maxReconnectAttempts) {
+          console.error('[WS] Max reconnect attempts reached');
+          setError('Unable to connect. Please click Reconnect or refresh the page.');
         }
       };
 
       ws.onerror = (error) => {
-        console.error('[WS] Error:', error);
-        setError('Connection error');
+        console.error('[WS] Connection error - this often means SSL certificate was rejected');
+        console.error('[WS] Try visiting https://34.95.128.208/health in a new tab and accepting the certificate');
+        // Don't set error here - onclose will be called next
       };
 
       wsRef.current = ws;
     } catch (e) {
       console.error('[WS] Failed to create WebSocket:', e);
-      setError('Failed to connect');
+      setError('Failed to connect - check console for details');
     }
   }, [handleEvent]);
 
@@ -288,10 +305,29 @@ export function useWebSocketChat(): UseWebSocketChatReturn {
     };
   }, [connect]);
 
-  // Send message
+  // Send message - with auto-reconnect attempt
   const sendMessage = useCallback((message: string, context?: Record<string, unknown>) => {
+    // If not connected, try to reconnect first
     if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) {
-      setError('Not connected to server');
+      console.log('[WS] Not connected, attempting reconnect before send...');
+
+      // Try to connect
+      connect();
+
+      // Wait a bit for connection, then retry
+      const retryTimeout = setTimeout(() => {
+        if (wsRef.current?.readyState === WebSocket.OPEN) {
+          // Connection succeeded, send the message
+          resetState();
+          setIsStreaming(true);
+          const payload = { message, context };
+          console.log('[WS] Sending after reconnect:', payload);
+          wsRef.current.send(JSON.stringify(payload));
+        } else {
+          setError('Unable to connect to server. Please check your connection and try again.');
+        }
+      }, 2000);
+
       return;
     }
 
@@ -303,7 +339,7 @@ export function useWebSocketChat(): UseWebSocketChatReturn {
     const payload = { message, context };
     console.log('[WS] Sending:', payload);
     wsRef.current.send(JSON.stringify(payload));
-  }, [resetState]);
+  }, [resetState, connect]);
 
   // Public reset (for external use)
   const reset = useCallback(() => {
@@ -322,8 +358,10 @@ export function useWebSocketChat(): UseWebSocketChatReturn {
     setIsConnected(false);
   }, []);
 
-  // Reconnect
+  // Reconnect (manual - reset attempts counter)
   const reconnect = useCallback(() => {
+    console.log('[WS] Manual reconnect triggered');
+    reconnectAttemptsRef.current = 0; // Reset attempts on manual reconnect
     disconnect();
     setTimeout(connect, 100);
   }, [disconnect, connect]);

@@ -1,9 +1,12 @@
 "use client"
 
-import { X, ExternalLink, FileText, BarChart2, Users, Mail, File } from "lucide-react"
+import { useState, useEffect } from "react"
+import { X, ExternalLink, FileText, BarChart2, Users, Mail, File, FileSpreadsheet, Loader2 } from "lucide-react"
+import { api } from "@/lib/api/client"
 
 const TYPE_ICONS = {
   pdf: FileText,
+  excel: FileSpreadsheet,
   chart: BarChart2,
   hubspot: Users,
   powerbi: BarChart2,
@@ -13,6 +16,7 @@ const TYPE_ICONS = {
 
 const TYPE_LABELS = {
   pdf: "PDF Document",
+  excel: "Excel Spreadsheet",
   chart: "Chart",
   hubspot: "HubSpot Record",
   powerbi: "Power BI Report",
@@ -20,16 +24,36 @@ const TYPE_LABELS = {
   document: "Document",
 }
 
+// Check if URL is an Excel file
+const isExcelFile = (url) => {
+  if (!url) return false
+  const lowerUrl = url.toLowerCase()
+  return lowerUrl.endsWith('.xlsx') || lowerUrl.endsWith('.xls') || lowerUrl.endsWith('.xlsm')
+}
+
+// Check if URL is a GCS URI that needs a signed URL
+const isGcsUri = (url) => {
+  if (!url) return false
+  return url.startsWith('gs://') || url.includes('storage.googleapis.com') || url.includes('storage.cloud.google.com')
+}
+
 /**
  * SourceViewer - Side panel for viewing documents, PDFs, and other sources
  * Supports:
  * - PDF files via iframe (from GCS or other URLs)
+ * - Excel files via Google Docs Viewer (with signed URLs)
  * - Text content preview
  * - Various document types
  */
 export function SourceViewer({ item, onClose }) {
-  const Icon = TYPE_ICONS[item.type] || File
-  const typeLabel = TYPE_LABELS[item.type] || "Document"
+  const [signedUrl, setSignedUrl] = useState(null)
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState(null)
+
+  // Determine actual type - check if it's an Excel file
+  const actualType = isExcelFile(item.url) ? 'excel' : item.type
+  const Icon = TYPE_ICONS[actualType] || File
+  const typeLabel = TYPE_LABELS[actualType] || "Document"
 
   // Check if we have a URL that can be embedded
   const hasEmbeddableUrl = item.url && (
@@ -37,6 +61,33 @@ export function SourceViewer({ item, onClose }) {
     item.url.includes('storage.googleapis.com') ||
     item.url.includes('storage.cloud.google.com')
   )
+
+  // Fetch signed URL for GCS files (Excel, etc.)
+  useEffect(() => {
+    const fetchSignedUrl = async () => {
+      if (!item.url) return
+
+      // For Excel files from GCS, we need a signed URL
+      if (isExcelFile(item.url) && isGcsUri(item.url)) {
+        setLoading(true)
+        setError(null)
+        try {
+          const response = await api.post('/documents/signed-url', {
+            gcs_uri: item.url,
+            expiration_minutes: 60
+          })
+          setSignedUrl(response.signed_url)
+        } catch (err) {
+          console.error('Failed to get signed URL:', err)
+          setError('Failed to load document')
+        } finally {
+          setLoading(false)
+        }
+      }
+    }
+
+    fetchSignedUrl()
+  }, [item.url])
 
   // Format timestamp safely
   const formatTimestamp = (timestamp) => {
@@ -115,6 +166,42 @@ export function SourceViewer({ item, onClose }) {
           </div>
         )}
 
+        {/* Excel files - use Google Docs Viewer with signed URL */}
+        {actualType === "excel" && (
+          <div className="h-full flex flex-col">
+            {loading && (
+              <div className="flex-1 flex items-center justify-center">
+                <Loader2 className="w-8 h-8 animate-spin text-primary" />
+                <span className="ml-3 text-muted-foreground">Loading spreadsheet...</span>
+              </div>
+            )}
+
+            {error && (
+              <div className="flex-1 flex flex-col items-center justify-center p-6">
+                <p className="text-destructive mb-4">{error}</p>
+                {item.url && (
+                  <a
+                    href={item.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-sm text-primary hover:underline"
+                  >
+                    Open in new tab
+                  </a>
+                )}
+              </div>
+            )}
+
+            {signedUrl && !loading && !error && (
+              <iframe
+                src={`https://docs.google.com/viewer?url=${encodeURIComponent(signedUrl)}&embedded=true`}
+                className="w-full h-full border-0"
+                title={item.label}
+              />
+            )}
+          </div>
+        )}
+
         {/* Chart data */}
         {item.type === "chart" && (
           <div className="h-full overflow-y-auto p-6">
@@ -135,8 +222,8 @@ export function SourceViewer({ item, onClose }) {
           </div>
         )}
 
-        {/* Other document types */}
-        {["powerbi", "email", "document"].includes(item.type) && (
+        {/* Other document types (excluding Excel which is handled above) */}
+        {["powerbi", "email", "document"].includes(actualType) && (
           <div className="h-full overflow-y-auto p-6">
             {/* If we have a URL that might be viewable */}
             {item.url && !hasEmbeddableUrl && (

@@ -14,6 +14,17 @@
 ### Core Principle
 > "Zero assumptions, audit everything" - All AI responses must be grounded in verifiable data.
 
+### CRITICAL: project_id is SACRED
+```
+project_id = MD5 HASH ONLY (32 lowercase hex chars)
+VALID:   43a686edd463a2a7c7af7876b883de48
+INVALID: PRJ-12345, UUID, anything else
+
+Generation: hashlib.md5(project_name.lower().strip().encode()).hexdigest()
+
+NEVER create non-canonical project_ids. Use different column names for other IDs.
+```
+
 ---
 
 ## Architecture
