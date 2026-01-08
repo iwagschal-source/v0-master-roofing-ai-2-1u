@@ -208,50 +208,36 @@ export function SourceViewer({ item, onClose }) {
         {/* Excel files - show download option */}
         {actualType === "excel" && (
           <div className="h-full flex flex-col items-center justify-center p-8">
-            {loading && (
-              <div className="flex items-center">
-                <Loader2 className="w-8 h-8 animate-spin text-primary" />
-                <span className="ml-3 text-muted-foreground">Preparing download...</span>
+            <div className="text-center space-y-6">
+              <div className="w-20 h-20 mx-auto bg-green-500/10 rounded-2xl flex items-center justify-center">
+                <FileSpreadsheet className="w-10 h-10 text-green-600" />
               </div>
-            )}
-
-            {error && (
-              <div className="text-center">
-                <p className="text-destructive mb-4">{error}</p>
+              <div>
+                <h3 className="text-lg font-medium text-foreground mb-2">{item.label}</h3>
+                <p className="text-sm text-muted-foreground mb-6">
+                  Excel files open best in Microsoft Excel or Google Sheets
+                </p>
               </div>
-            )}
-
-            {signedUrl && !loading && !error && (
-              <div className="text-center space-y-6">
-                <div className="w-20 h-20 mx-auto bg-green-500/10 rounded-2xl flex items-center justify-center">
-                  <FileSpreadsheet className="w-10 h-10 text-green-600" />
-                </div>
-                <div>
-                  <h3 className="text-lg font-medium text-foreground mb-2">{item.label}</h3>
-                  <p className="text-sm text-muted-foreground mb-6">
-                    Excel files open best in Microsoft Excel or Google Sheets
-                  </p>
-                </div>
-                <div className="flex flex-col gap-3">
-                  <a
-                    href={signedUrl}
-                    download
-                    className="inline-flex items-center justify-center gap-2 px-6 py-3 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors font-medium"
-                  >
-                    <FileSpreadsheet className="w-5 h-5" />
-                    Download Excel File
-                  </a>
-                  <a
-                    href={`https://docs.google.com/spreadsheets/d/create?usp=sharing`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-sm text-muted-foreground hover:text-primary transition-colors"
-                  >
-                    Or open Google Sheets to import
-                  </a>
-                </div>
+              <div className="flex flex-col gap-3">
+                {/* Use signed URL if available, otherwise use original URL */}
+                <a
+                  href={signedUrl || item.url}
+                  download
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center justify-center gap-2 px-6 py-3 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors font-medium"
+                >
+                  <FileSpreadsheet className="w-5 h-5" />
+                  Download Excel File
+                </a>
+                {loading && (
+                  <p className="text-xs text-muted-foreground">Preparing download link...</p>
+                )}
+                {error && (
+                  <p className="text-xs text-destructive">{error}</p>
+                )}
               </div>
-            )}
+            </div>
           </div>
         )}
 
