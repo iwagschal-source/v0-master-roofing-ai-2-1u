@@ -258,3 +258,50 @@ export interface AuthResponse {
     role: string;
   };
 }
+
+// ============================================================================
+// Customer Analytics Types
+// ============================================================================
+
+export interface CustomerSystem {
+  name: string;
+  percentage: number;
+  projects: number;
+}
+
+export interface CustomerItem {
+  id: string;
+  name: string;
+  count: number;
+  value: number;
+}
+
+export interface Customer {
+  rank: number;
+  name: string;
+  projects: number;
+  totalValue: number;
+  winRate: number;
+  avgProjectValue: number;
+  systems: CustomerSystem[];
+  topItems: CustomerItem[];
+}
+
+export interface SystemSummary {
+  name: string;
+  value: number;
+  projects: number;
+}
+
+export interface CustomerAnalyticsTotals {
+  totalCustomers: number;
+  totalProjects: number;
+  totalValue: number;
+  avgWinRate: number;
+}
+
+export interface TopCustomersResponse {
+  customers: Customer[];
+  totals: CustomerAnalyticsTotals;
+  systemsSummary: SystemSummary[];
+}

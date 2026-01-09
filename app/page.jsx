@@ -12,6 +12,7 @@ import { EmailScreen } from "@/components/ko/email-screen"
 import { SettingsScreen } from "@/components/ko/settings-screen"
 import { ZoomScreen } from "@/components/ko/zoom-screen"
 import { ReportsScreen } from "@/components/ko/reports-screen"
+import { CustomerDashboard } from "@/components/ko/customer-dashboard"
 import { MobileMenuToggle } from "@/components/ko/mobile-menu-toggle"
 import { HistoryItem } from "@/types/history"
 import { ChatShell } from "@/components/ko/chat-shell"
@@ -30,6 +31,7 @@ export default function HomePage() {
   const [showSettings, setShowSettings] = useState(false)
   const [showZoom, setShowZoom] = useState(false)
   const [showReports, setShowReports] = useState(false)
+  const [showCustomers, setShowCustomers] = useState(false)
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
   const [topPaneHeight, setTopPaneHeight] = useState(0)
   const [koState, setKoState] = useState("idle")
@@ -69,6 +71,7 @@ export default function HomePage() {
     setShowEmail(false)
     setShowSettings(false)
     setShowZoom(false)
+    setShowCustomers(false)
     setHasStartedChat(true)
   }
 
@@ -120,6 +123,7 @@ export default function HomePage() {
     setShowSettings(false)
     setShowZoom(false)
     setShowReports(false)
+    setShowCustomers(false)
   }
 
   const handleModeChange = (mode) => {
@@ -134,14 +138,25 @@ export default function HomePage() {
       setShowSettings(false)
       setShowZoom(false)
       setShowReports(false)
+      setShowCustomers(false)
       setShowHistory(false)
       setSelectedHistoryItem(undefined)
+    } else if (mode === "customers") {
+      setShowCustomers(true)
+      setShowFiles(false)
+      setShowEmail(false)
+      setShowSettings(false)
+      setShowZoom(false)
+      setShowReports(false)
+      setShowHistory(false)
+      setHasStartedChat(true)
     } else if (mode === "email") {
       setShowEmail(true)
       setShowFiles(false)
       setShowSettings(false)
       setShowZoom(false)
       setShowReports(false)
+      setShowCustomers(false)
       setHasStartedChat(true)
       setShowHistory(false)
 
@@ -151,6 +166,7 @@ export default function HomePage() {
       setShowSettings(false)
       setShowZoom(false)
       setShowReports(false)
+      setShowCustomers(false)
       setHasStartedChat(true)
       setShowHistory(false)
 
@@ -160,6 +176,7 @@ export default function HomePage() {
       setShowEmail(false)
       setShowZoom(false)
       setShowReports(false)
+      setShowCustomers(false)
       setHasStartedChat(true)
       setShowHistory(false)
 
@@ -169,6 +186,7 @@ export default function HomePage() {
       setShowEmail(false)
       setShowSettings(false)
       setShowReports(false)
+      setShowCustomers(false)
       setHasStartedChat(true)
       setShowHistory(false)
 
@@ -179,6 +197,7 @@ export default function HomePage() {
       setShowFiles(false)
       setShowEmail(false)
       setShowSettings(false)
+      setShowCustomers(false)
       setHasStartedChat(true)
       setShowHistory(false)
 
@@ -190,6 +209,7 @@ export default function HomePage() {
       setShowSettings(false)
       setShowZoom(false)
       setShowReports(false)
+      setShowCustomers(false)
       setHasStartedChat(true)
     }
     else {
@@ -199,6 +219,7 @@ export default function HomePage() {
       setShowSettings(false)
       setShowZoom(false)
       setShowReports(false)
+      setShowCustomers(false)
       if (!hasStartedChat) {
         setHasStartedChat(true)
       }
@@ -210,6 +231,7 @@ export default function HomePage() {
     setShowEmail(false)
     setShowSettings(false)
     setShowReports(false)
+    setShowCustomers(false)
     setHasStartedChat(true)
   }
 
@@ -232,7 +254,7 @@ export default function HomePage() {
     } */
 
   const showHomeScreen =
-    !hasStartedChat && activeMode === "home" && !showFiles && !showEmail && !showSettings && !showZoom && !showReports
+    !hasStartedChat && activeMode === "home" && !showFiles && !showEmail && !showSettings && !showZoom && !showReports && !showCustomers
 
   return (
     <div className="flex h-dvh bg-background text-foreground">
@@ -246,7 +268,7 @@ export default function HomePage() {
       <div className={`${isMobileMenuOpen ? "fixed left-0 top-0 bottom-0 z-50" : "hidden"} md:block`}>
         <NavigationRail
           activeMode={
-            showEmail ? "email" : showFiles ? "documents" : showSettings ? "settings" : showZoom ? "zoom" : showReports ? "powerbi" : showHistory ? "history" : activeMode
+            showEmail ? "email" : showFiles ? "documents" : showSettings ? "settings" : showZoom ? "zoom" : showReports ? "powerbi" : showCustomers ? "customers" : showHistory ? "history" : activeMode
           }
           onModeChange={handleModeChange}
           visible={true}
@@ -287,6 +309,8 @@ export default function HomePage() {
                 setShowReports(false) // go back to chat
               }}
             />
+          ) : showCustomers ? (
+            <CustomerDashboard onBack={() => setShowCustomers(false)} />
           ) : (
             <div className="flex-1 flex flex-col md:flex-row overflow-hidden">
               <div className={`flex-1 ${isWorkspaceVisible ? 'md:w-[40%]' : ''} flex flex-col`}>

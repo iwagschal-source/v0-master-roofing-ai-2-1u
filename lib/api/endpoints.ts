@@ -4,7 +4,7 @@
  */
 
 import { api } from './client';
-import { DashboardsListResponse, OpenDashboardResponse, Session, SessionCreateResponse, SessionListResponse, SessionMessagesResponse } from './types';
+import { DashboardsListResponse, OpenDashboardResponse, Session, SessionCreateResponse, SessionListResponse, SessionMessagesResponse, TopCustomersResponse } from './types';
 
 
 // ============================================================================
@@ -273,6 +273,33 @@ export const authAPI = {
 };
 
 // ============================================================================
+// Analytics Endpoints
+// ============================================================================
+
+export const analyticsAPI = {
+  /**
+   * Get top customers with systems and items breakdown
+   */
+  getTopCustomers: async (limit: number = 20): Promise<TopCustomersResponse> => {
+    return api.get<TopCustomersResponse>(`/analytics/top-customers?limit=${limit}`);
+  },
+
+  /**
+   * Get customer detail by name
+   */
+  getCustomerDetail: async (customerName: string): Promise<TopCustomersResponse['customers'][0]> => {
+    return api.get(`/analytics/customer/${encodeURIComponent(customerName)}`);
+  },
+
+  /**
+   * Get systems summary across all projects
+   */
+  getSystemsSummary: async (): Promise<TopCustomersResponse['systemsSummary']> => {
+    return api.get('/analytics/systems-summary');
+  },
+};
+
+// ============================================================================
 // Main API Export (Aggregated)
 // ============================================================================
 
@@ -283,6 +310,7 @@ export const apiClient = {
   history: historyAPI,
   auth: authAPI,
   sessions: sessionAPI,
+  analytics: analyticsAPI,
 };
 
 // Re-export for convenience
