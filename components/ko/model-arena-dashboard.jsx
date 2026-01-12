@@ -393,15 +393,26 @@ export function ModelArenaDashboard({ onBack }) {
 
   // Chart data for results
   const chartData = results
-    .filter(r => r.status === "completed" && r.score !== null)
+    .filter(r => r.status === "completed" && r.score !== null && r.score !== undefined)
     .slice(0, 10)
-    .map(r => ({
-      name: r.model_name?.substring(0, 15) || "Unknown",
-      score: r.score,
-      cost: (r.cost || 0) * 10000, // Scale up for visibility
-      time: r.time_seconds || 0,
-      provider: r.provider
-    }))
+    .map(r => {
+      // Normalize score to 0-100 range
+      let normalizedScore = r.score
+      if (normalizedScore > 0 && normalizedScore <= 1) {
+        // Score is a decimal (0-1), convert to percentage
+        normalizedScore = normalizedScore * 100
+      }
+      // Clamp to 0-100
+      normalizedScore = Math.max(0, Math.min(100, normalizedScore))
+
+      return {
+        name: r.model_name?.substring(0, 15) || "Unknown",
+        score: normalizedScore,
+        cost: (r.cost || 0) * 10000, // Scale up for visibility
+        time: r.time_seconds || 0,
+        provider: r.provider
+      }
+    })
 
   return (
     <div className="flex-1 flex flex-col overflow-hidden bg-gray-900">
@@ -602,7 +613,7 @@ export function ModelArenaDashboard({ onBack }) {
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={chartData} layout="vertical">
                   <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
-                  <XAxis type="number" domain={[0, 100]} stroke="#9CA3AF" />
+                  <XAxis type="number" domain={[0, 100]} stroke="#9CA3AF" allowDataOverflow={true} />
                   <YAxis type="category" dataKey="name" width={120} stroke="#9CA3AF" tick={{ fontSize: 11 }} />
                   <Tooltip
                     contentStyle={{ backgroundColor: "#1F2937", border: "1px solid #374151" }}
