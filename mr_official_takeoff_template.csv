@@ -1,0 +1,64 @@
+item_id,line_item,unit_rate,uom,section
+MR-033TRAFFIC,Traffic Coating,17.0,SF,Balconies
+MR-034DRIP,Aluminum Drip edge,22.0,LF,Balconies
+MR-035LFLASH,Liquid L Flashing,48.0,LF,Balconies
+MR-036DOORBAL,Doorpans - Balconies,550.0,EA,Balconies
+MR-022COPELO,Coping (Low Parapet) Gravel stop/ Edge Flashing,32.0,LF,Coping
+MR-023COPEHI,Coping (high Parapet),32.0,LF,Coping
+MR-024INSUCOPE,Insulation under Coping,4.0,LF,Coping
+MR-005SCUPPER,Scupper /gutter and leader,2500.0,EA,Details & Accessories
+MR-010DRAIN,Drains,550.0,EA,Details & Accessories
+MR-011DOORSTD,Doorpans - Standard,550.0,EA,Details & Accessories
+MR-012DOORLG,Doorpans - Large,850.0,EA,Details & Accessories
+MR-013HATCHSF,Roof hatch / Skylights (Area),,SF,Details & Accessories
+MR-014HATCHLF,Roof hatch / Skylights (Perimeter),48.0,LF,Details & Accessories
+MR-015PAD,Concrete Mechanical Pads/Walkway pads,,SF,Details & Accessories
+MR-016FENCE,Fence posts,250.0,EA,Details & Accessories
+MR-017RAIL,Railing Posts,250.0,EA,Details & Accessories
+MR-018PLUMB,Plumbing Penetrations,250.0,EA,Details & Accessories
+MR-019MECH,Mechanical Penetrations,250.0,EA,Details & Accessories
+MR-020DAVIT,Davits,150.0,EA,Details & Accessories
+MR-021AC,AC Units / Dunnage,550.0,EA,Details & Accessories
+MR-052SOFFIT,Soffit,33.19,SF,Details & Accessories
+MR-054PUMP,Pumpjacks,9390.67,EA,Details & Accessories
+MR-056GRACE,Grace Shields,236.59,EA,Details & Accessories
+MR-057HATCHLG,Roof Hatch - Large (30x36+),1700.0,EA,Details & Accessories
+MR-061MOLDING,Molding stucco,17.63,LF,Details & Accessories
+MR-062DOGHOUSE,Dog House,1237.5,EA,Details & Accessories
+MR-043EIFS,Eifs - Scope,,SF,Exterior
+MR-044OPNSTCEA,Openings at stucco areas (Count) < 32lf,250.0,EA,Exterior
+MR-045OPNSTCLF,Openings at stucco areas (LF) > 32lf/40lf,10.0,LF,Exterior
+MR-046STUCCO,Transistional stucco,17.0,LF,Exterior
+MR-004UO,up and over,12.0,LF,Flashing
+MR-007PMMA,PMMA (Liquid) or 2ply Torch@Building Wall,,LF,Flashing
+MR-008PMMA,PMMA (Liquid) or 2ply Torch@Parapet Wall,,LF,Flashing
+MR-009UOPMMA,up and over - PMMA,,LF,Flashing
+MR-025FLASHBLDG,Metal Flashing at building wall,24.0,LF,Flashing
+MR-026FLASHPAR,Metal Flashing at Parapet wall,24.0,LF,Flashing
+MR-029FLASHPAV,Metal Edge flashing at the paver Termination,24.0,LF,Flashing
+MR-031FLASHGRN,Metal Edge flashing at the Green Roof,24.0,LF,Flashing
+MR-047DRIPCAP,Drip cap,33.0,LF,Flashing
+MR-048SILL,Sills,33.0,LF,Flashing
+MR-027OBIRMA,Overburden for Irma Roof,14.0,SF,Overburden
+MR-028PAVER,Pavers,,SF,Pavers
+MR-001VB,Vapor Barrier or Temp waterproofing,6.95,SF,Roofing
+MR-002PITCH,"Upcharge for 1/4"" Pitch",1.5,SF,Roofing
+MR-003BU2PLY,Roofing - Builtup - 2 ply Scope,16.25,SF,Roofing
+MR-006IRMA,Roofing - IRMA,,SF,Roofing
+MR-030GREEN,Green Roof Scope,48.0,SF,Roofing
+MR-053UPWALL,"12"" up at wall",11.58,LF,Roofing
+MR-055CRICKET,Cricket,4.0,SF,Roofing
+MR-032RECESSWP,Recessed floor - Liquid Waterproofing,32.0,LF,Waterproofing
+MR-049TIEIN,Tie - In,48.0,LF,Waterproofing
+MR-050ADJHORZ,adj. building horizontal (Custom Metal Flashing),65.0,LF,Waterproofing
+MR-051ADJVERT,adj. building Vertical,,LF,Waterproofing
+MR-058VEHIC,Vehicular concrete,17.5,SF,Waterproofing
+MR-059GROOVE,V Grooves,8.63,LF,Waterproofing
+MR-060TANK,Detention/Elevator/Ejector Pit,24.5,SF,Waterproofing
+MR-063HARDSTUC,Hard coat stucco,11.71,SF,Waterproofing
+MR-037BRICKWP,Brick area - Waterproofing,5.25,SF,Waterproofing-Exterior
+MR-038OPNBRKEA,Openings at brick areas (Count) < 32lf,250.0,EA,Waterproofing-Exterior
+MR-039OPNBRKLF,Openings at brick areas (LF) > 32lf/40lf,10.0,LF,Waterproofing-Exterior
+MR-040PANELWP,Panel Area - Waterproofing,5.25,SF,Waterproofing-Exterior
+MR-041OPNPNLEA,Openings at panel Areas (Count) < 32lf,250.0,EA,Waterproofing-Exterior
+MR-042OPNPNLLF,Openings at panel Areas (LF) > 32lf/40lf,10.0,LF,Waterproofing-Exterior

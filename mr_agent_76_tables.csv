@@ -1,0 +1,228 @@
+active_bids,2026-01-08 03:54:58,project_id,observed_key,gc_name,gc_email,gc_contact,award_status,asana_assignee,rfp_date,proposal_total,takeoff_total,total_sf,variance_pct,primary_r_value,primary_insulation,proposal_versions,proposal_sections,takeoff_lines,matched_sections,specs_extracted,email_count,chat_count,last_comm_date,fact_count,has_proposal,has_takeoff,has_matches,has_specs,has_asana,asana_task_gid,bid_status,scope,is_new_from_asana,matched_sheet_name,match_confidence,match_variance,best_proposal_file,match_status,match_source,merged_from_count,created_at,sage_address,sage_billed_amount,sage_match_confidence,has_ledger_data,ledger_transaction_count,ledger_total_debits,ledger_total_credits,classification,classification_reason,classified_at
+active_bids,2026-01-08 03:54:58,45,44,34,23,17,44,44,44,44,44,44,45,44,35,44,44,44,44,44,44,1,0,45,0,45,34,34,34,34,44,34,44,45,32,32,34,35,14,44,44,,,,,,,,,,
+
+active_projects,2026-01-08 03:54:52,project_id,observed_key,gc_name,gc_email,gc_contact,award_status,asana_assignee,rfp_date,proposal_total,takeoff_total,total_sf,variance_pct,primary_r_value,primary_insulation,proposal_versions,proposal_sections,takeoff_lines,matched_sections,specs_extracted,email_count,chat_count,last_comm_date,fact_count,has_proposal,has_takeoff,has_matches,has_specs,has_asana,asana_task_gid,bid_status,scope,is_new_from_asana,matched_sheet_name,match_confidence,match_variance,best_proposal_file,match_status,match_source,merged_from_count,created_at,sage_address,sage_billed_amount,sage_match_confidence,has_ledger_data,ledger_transaction_count,ledger_total_debits,ledger_total_credits,classification,classification_reason,classified_at
+active_projects,2026-01-08 03:54:52,380,365,343,55,54,380,380,380,380,380,380,380,380,278,380,380,380,380,380,380,0,0,380,0,380,346,346,343,346,380,346,380,380,254,254,192,162,8,380,378,,,,,,,,,,
+
+asana_awards,2025-12-15 22:47:35,award_id,project_name_raw,gc_owner_raw,estimator_raw,created_at_date,completed_at_date,created_at_raw,completed_at_raw,award_status_raw,award_bid_status_raw,address_raw,customer_info_raw,signed_raw,contact_raw,roofing_warranty_manufacturer,raw_record_json,project_name_evidence,observed_key,project_id,container_id,is_ignored,resolution_status
+asana_awards,2025-12-15 22:47:35,ERR,ERR,ERR,ERR,ERR,ERR,ERR,ERR,ERR,ERR,ERR,ERR,ERR,ERR,ERR,ERR,ERR,ERR,ERR,ERR,ERR,ERR
+
+asana_bids,2025-12-15 22:47:35,bid_id,project_name_raw,gc_owner_raw,estimator_raw,created_at_raw,created_at_date,rfp_date_raw,date_of_rfp_raw,rfp_date,due_date_raw,due_date,bid_outcome_raw,bid_workflow_status_raw,bid_outcome_norm,scope_raw,pricing_hold_raw,sage_submissions,notes_1,notes_2,parent_task,assignee_email,parent_task_evidence,observed_key,project_id,container_id,is_ignored,resolution_status
+asana_bids,2025-12-15 22:47:35,ERR,ERR,ERR,ERR,ERR,ERR,ERR,ERR,ERR,ERR,ERR,ERR,ERR,ERR,ERR,ERR,ERR,ERR,ERR,ERR,ERR,ERR,ERR,ERR,ERR,ERR,ERR
+
+chat_facts_gemini_comparison,2026-01-06 19:20:16,fact_id,project_id,project_name,source_message_id,source_thread_id,fact_date,fact_type,fact_summary,source_quote,is_inferred,inference_reasoning,confidence_score,confidence_reasoning,system_category,gc_company,role_code,extracted_at,source_type,model,related_email_fact
+chat_facts_gemini_comparison,2026-01-06 20:25:44,252,0,252,0,0,0,0,252,252,252,0,252,252,252,252,0,252,252,252,252
+
+closed_projects,2026-01-08 03:54:55,project_id,observed_key,gc_name,gc_email,gc_contact,award_status,asana_assignee,rfp_date,proposal_total,takeoff_total,total_sf,variance_pct,primary_r_value,primary_insulation,proposal_versions,proposal_sections,takeoff_lines,matched_sections,specs_extracted,email_count,chat_count,last_comm_date,fact_count,has_proposal,has_takeoff,has_matches,has_specs,has_asana,asana_task_gid,bid_status,scope,is_new_from_asana,matched_sheet_name,match_confidence,match_variance,best_proposal_file,match_status,match_source,merged_from_count,created_at,sage_address,sage_billed_amount,sage_match_confidence,has_ledger_data,ledger_transaction_count,ledger_total_debits,ledger_total_credits,classification,classification_reason,classified_at
+closed_projects,2026-01-08 03:54:55,170,146,96,19,25,168,168,169,168,168,170,170,168,80,170,170,170,170,170,170,0,0,170,0,170,98,98,96,98,170,98,170,170,73,73,37,31,4,170,169,,,,,,,,,,
+
+document_index_v1,2026-01-08 02:37:38,project_id,observed_key,doc_type,version_number,file_name,gcs_uri,matched_sheet_name,match_confidence,variance_pct,indexed_at
+document_index_v1,2026-01-08 02:37:38,6451,6451,6451,6451,6451,5760,6451,6451,6451,6451
+
+email_attachments,2026-01-05 13:44:52,message_id,project_id,from_email,subject,email_date,direction,attachment_index,filename,file_extension,mime_type,size_bytes,is_pdf,is_proposal_likely,found_in_mailbox,extracted_at
+email_attachments,2026-01-07 05:33:49,109040,109040,109040,109040,109040,109040,100372,109040,109040,109040,109040,109040,109040,108982,109040
+
+extracted_facts_v2,2026-01-06 21:35:56,fact_id,project_id,project_name,source_thread_id,source_message_id,fact_date,fact_type,fact_summary,source_quote,is_inferred,confidence_score,extracted_at,source_type
+extracted_facts_v2,2026-01-07 01:47:19,68505,68498,68505,55280,68505,68505,65171,63312,64588,68504,68505,66647,68505
+
+lost_bids,2026-01-08 03:55:07,project_id,observed_key,gc_name,gc_email,gc_contact,award_status,asana_assignee,rfp_date,proposal_total,takeoff_total,total_sf,variance_pct,primary_r_value,primary_insulation,proposal_versions,proposal_sections,takeoff_lines,matched_sections,specs_extracted,email_count,chat_count,last_comm_date,fact_count,has_proposal,has_takeoff,has_matches,has_specs,has_asana,asana_task_gid,bid_status,scope,is_new_from_asana,matched_sheet_name,match_confidence,match_variance,best_proposal_file,match_status,match_source,merged_from_count,created_at,sage_address,sage_billed_amount,sage_match_confidence,has_ledger_data,ledger_transaction_count,ledger_total_debits,ledger_total_credits,classification,classification_reason,classified_at
+lost_bids,2026-01-08 03:55:07,107,107,99,42,42,107,107,107,107,107,107,107,107,93,107,107,107,107,107,107,0,0,107,0,107,99,99,99,99,107,99,107,107,92,92,67,59,0,107,107,,,,,,,,,,
+
+parsed_proposals_v2,2026-01-04 20:49:51,project_id,observed_key,file_name,doc_id,source_uri,gcs_uri,full_text,sections,line_items,page_count,parse_errors,extracted_at,project_id_corrected,original_project_id
+parsed_proposals_v2,2026-01-05 21:11:16,10024,10024,10024,10024,10024,10024,10024,10024,10024,10024,10024,10024,10024,10024
+
+project_active_risks,2026-01-07 09:55:24,project_id,active_risks,risk_count
+project_active_risks,2026-01-07 09:55:24,358,358,358
+
+project_email_summary_v2,2026-01-05 13:36:58,project_id,project_name,total_emails,email_threads,first_email_date,last_email_date,email_span_days,cdo_emails,chief_estimator_emails,senior_estimator_emails,proposal_coord_emails,controller_emails,external_emails,high_confidence_matches,medium_confidence_matches,low_confidence_matches,total_facts,followup_facts,technical_decision_facts,scope_boundary_facts,outcome_facts,gc_preference_facts,negotiation_facts,revision_facts,avg_fact_confidence,rfp_emails,proposal_emails,award_emails,takeoff_emails,scope_emails,billing_emails,rfi_emails,submittal_emails,negotiation_emails,scheduling_emails,summary_generated_at
+project_email_summary_v2,2026-01-05 13:36:58,1169,1169,1169,1169,1169,1169,1169,1169,1169,1169,1169,1169,1169,1169,1169,1169,1041,1169,1169,1169,1169,1169,1169,1169,1169,1169,1169,1169,1169,1169,1169,1169,1169,1169,1169,1169
+
+project_estimate,2025-12-23 01:02:37,project_id,project_name_primary,base_estimate,change_order_total,total_estimate,workbook_count,sheet_count,line_item_count,latest_estimate_date,has_contract_sheet,workbook_paths
+project_estimate,2025-12-23 01:02:37,ERR,ERR,ERR,ERR,ERR,ERR,ERR,ERR,ERR,ERR,ERR
+
+project_facts_summary_v2,2026-01-05 13:37:03,project_id,project_name,email_facts,chat_facts,total_facts,fact_types,earliest_fact,latest_fact,fact_types_list
+project_facts_summary_v2,2026-01-05 13:37:03,913,913,913,913,913,913,727,727,913
+
+project_key_decisions,2026-01-07 09:56:09,project_id,key_decisions,decision_count
+project_key_decisions,2026-01-07 09:56:09,814,814,814
+
+project_lifecycle_summary_v6,2026-01-05 16:52:24,project_id,first_rfp_date,first_proposal_date,latest_proposal_date,total_submissions,revision_count,award_date,days_rfp_to_proposal,days_proposal_to_award,lifecycle_stage
+project_lifecycle_summary_v6,2026-01-05 16:52:24,1015,262,706,706,706,706,18,218,17,1015
+
+project_llm,2026-01-07 10:33:35,project_id,project_name,gc_name,gc_contact,award_status,bid_status,match_status,proposal_total,takeoff_total,sage_billed_amount,variance_pct,total_sf,primary_r_value,primary_insulation,has_proposal,has_takeoff,has_matches,has_asana,has_ledger_data,proposal_versions,email_count,chat_count,fact_count,takeoff_lines,rfp_date,last_comm_date,gc_preferences,gc_tribal_knowledge,gc_negotiation_patterns,gc_process_insights,scope_included,scope_excluded,scope_ve_items,active_risks,risk_count,recent_activity,last_activity_date,key_decisions,decision_count,outcome_facts,contract_value_mentioned,revision_count,latest_revision_summary,latest_change_category,total_revision_delta,takeoff_revision_count,total_items_changed,total_items_added,total_items_removed,total_rate_changes,takeoff_avg_rate_change,takeoff_total_cost_delta,top_changed_items,segments_tracked,refreshed_at
+project_llm,2026-01-07 10:33:35,1529,920,1382,261,267,1529,1529,1529,1529,1529,1482,1529,1520,1482,1523,1486,59,693,1529,1529,1529,1529,895,1529,1529,1529,1529,358,1529,1051,1529,814,1529,603,526,24,1529,1497,1493,662,,,,,,,,,,,,,,,
+
+project_master,2026-01-05 19:29:34,project_id,observed_key,gc_name,gc_email,gc_contact,award_status,asana_assignee,rfp_date,proposal_total,takeoff_total,total_sf,variance_pct,primary_r_value,primary_insulation,proposal_versions,proposal_sections,takeoff_lines,matched_sections,specs_extracted,email_count,chat_count,last_comm_date,fact_count,has_proposal,has_takeoff,has_matches,has_specs,has_asana,asana_task_gid,bid_status,scope,is_new_from_asana,matched_sheet_name,match_confidence,match_variance,best_proposal_file,match_status,match_source,merged_from_count,created_at,sage_address,sage_billed_amount,sage_match_confidence,has_ledger_data,ledger_transaction_count,ledger_total_debits,ledger_total_credits
+project_master,2026-01-07 21:45:10,1502,1381,920,261,267,1482,1482,1485,1482,1482,1493,1502,1482,693,1494,1497,1497,1497,1497,1497,5,0,894,0,1502,937,937,920,937,1497,937,1497,1502,603,603,508,422,63,1497,1492,,,,,,,
+
+project_outcome,2026-01-07 09:56:48,project_id,outcome_facts,contract_value_mentioned
+project_outcome,2026-01-07 09:56:48,776,776,75
+
+project_recent_activity,2026-01-07 09:55:46,project_id,recent_activity,last_activity_date
+project_recent_activity,2026-01-07 09:55:46,1051,1051,1051
+
+project_scope_summary,2026-01-07 09:54:58,project_id,scope_included,scope_excluded,scope_ve_items,boundary_fact_count
+project_scope_summary,2026-01-07 09:54:58,832,832,832,832,832
+
+project_summary,2025-12-22 22:49:33,project_id,project_name_primary,project_name_variants,has_proposals,has_takeoffs,has_asana_bids,has_asana_awards,takeoff_workbooks,takeoff_line_items,estimated_project_cost,avg_line_item_cost,total_sqft,scope_types,earliest_takeoff_date,latest_takeoff_date,proposal_count,customers,proposal_scopes,earliest_proposal_date,latest_proposal_date,bid_count,gc_owners,bid_outcomes,latest_rfp_date,award_count,award_date,project_status,first_seen_date,last_activity_date,updated_at
+project_summary,2025-12-22 22:49:33,ERR,ERR,ERR,ERR,ERR,ERR,ERR,ERR,ERR,ERR,ERR,ERR,ERR,ERR,ERR,ERR,ERR,ERR,ERR,ERR,ERR,ERR,ERR,ERR,ERR,ERR,ERR,ERR,ERR,ERR
+
+project_system_bundling,2026-01-07 02:22:14,project_id,gc_name,system_id,system_price,bundled_items,bundling_style,notes,created_at
+project_system_bundling,2026-01-07 02:22:14,5688,4287,5688,5688,5688,5688,5688,5688
+
+project_takeoff,2026-01-07 03:42:18,project_id,item_id,location,section,qty,unit_cost,total_cost,uom,r_value,thickness_inches,material_type,membrane_type,manufacturer,pitch,source_sheet,scope_raw_original,mapping_confidence,extracted_at,system_id
+project_takeoff,2026-01-07 07:07:36,56975,0,0,0,0,56975,56975,9134,56975,39541,56975,22840,56975,49496,47120,48720,56975,4011,76
+
+project_takeoff_item_diffs,2026-01-07 10:30:43,project_id,scope_segment,from_revision,to_revision,from_version,to_version,from_date,to_date,from_sheet,to_sheet,item_id,section,official_scope_name,change_type,prev_qty,curr_qty,qty_delta,qty_pct_change,prev_rate,curr_rate,rate_delta,rate_pct_change,prev_cost,curr_cost,cost_delta,cost_pct_change,prev_r_value,curr_r_value,prev_thickness,curr_thickness,created_at
+project_takeoff_item_diffs,2026-01-07 10:30:43,4982,4982,4982,4982,4982,4060,3652,4982,4059,4059,3652,4982,4982,4059,4083,3673,4982,4083,3939,3536,3939,3536,4982,4982,4982,4982,4982,4982,4982,4982,4982
+
+project_takeoff_versioned,2026-01-07 10:29:40,project_id,scope_segment,revision_number,version_label,revision_date,sheet_name,proposal_total,item_id,section,official_scope_name,qty,unit_cost,total_cost,uom,default_unit_cost,r_value,thickness,insulation_type,raw_line_count,created_at
+project_takeoff_versioned,2026-01-07 10:29:40,14473,14364,14360,14473,14473,11483,14043,14043,14043,14473,14473,14473,14473,14473,14473,14473,14473,14473,14473,14473
+
+projects,2025-12-15 22:47:33,project_id,project_name_primary,project_name_variants,has_proposals,has_takeoffs,has_asana_bids,has_asana_awards,first_seen_date,last_activity_date,updated_at
+projects,2025-12-15 22:47:33,ERR,ERR,ERR,ERR,ERR,ERR,ERR,ERR,ERR,ERR
+
+projects_pending_gc,2026-01-08 03:54:48,project_id,observed_key,gc_name,gc_email,gc_contact,award_status,asana_assignee,rfp_date,proposal_total,takeoff_total,total_sf,variance_pct,primary_r_value,primary_insulation,proposal_versions,proposal_sections,takeoff_lines,matched_sections,specs_extracted,email_count,chat_count,last_comm_date,fact_count,has_proposal,has_takeoff,has_matches,has_specs,has_asana,asana_task_gid,bid_status,scope,is_new_from_asana,matched_sheet_name,match_confidence,match_variance,best_proposal_file,match_status,match_source,merged_from_count,created_at,sage_address,sage_billed_amount,sage_match_confidence,has_ledger_data,ledger_transaction_count,ledger_total_debits,ledger_total_credits,classification,classification_reason,classified_at
+projects_pending_gc,2026-01-08 03:54:48,216,173,86,28,31,210,210,211,210,210,214,216,210,30,215,215,215,215,215,215,1,0,1,0,216,95,95,86,95,215,95,215,216,2,2,36,15,2,215,213,,,,,,,,,,
+
+proposal_revisions,2026-01-07 09:07:00,project_id,observed_key,proposal_file,proposal_total,proposal_date,scope_segment,revision_number,version_label,previous_proposal_file,previous_total,previous_date,total_change_from_previous,pct_change_from_previous,days_since_previous,created_at
+proposal_revisions,2026-01-07 22:05:21,1057,275,275,275,275,584,1057,1057,584,1057,1057,1057,1057,275,275
+
+proposal_revisions_v3,2026-01-05 16:51:08,project_id,message_id,submission_number,submission_date,proposal_filename,subject,days_since_prev_submission,submission_type
+proposal_revisions_v3,2026-01-05 16:51:08,5256,5256,5256,5256,5256,5256,4550,5256
+
+proposal_sheet_matches_v2,2026-01-05 13:36:51,project_id,observed_key,proposal_file,proposal_total,section_totals,proposal_date,sheet_name,takeoff_date,takeoff_total,line_count,amount_diff,pct_diff,days_apart,match_rank
+proposal_sheet_matches_v2,2026-01-05 13:36:51,4586,4586,4586,1542,4586,4586,4586,4586,4586,2005,4586,3455,4586,4586
+
+proposal_takeoff_line_matches_v2,2026-01-05 13:36:45,project_id,observed_key,proposal_file,proposal_total,proposal_date,sheet_name,takeoff_date,takeoff_total,pct_diff,match_rank,line_item_id,scope_raw,unit_cost,total_measurements,total_cost,row_index,block_label,match_quality
+proposal_takeoff_line_matches_v2,2026-01-05 13:36:45,37177,37177,37177,36784,36155,37177,37177,37177,37177,37177,37177,37177,16719,37177,29739,37177,37177,37177
+
+proposal_takeoff_matches,2026-01-04 17:11:58,match_id,project_id,observed_key,proposal_id,proposal_file,proposal_total,sheet_name,takeoff_total,diff
+proposal_takeoff_matches,2026-01-04 17:11:58,1353,1353,1353,1353,1353,1353,1353,1353,1353
+
+proposal_takeoff_matches_v8,2026-01-04 22:36:44,project_id,observed_key,proposal_file,proposal_total,sheet_id,sheet_name,sheet_total,amount_diff,variance_pct,match_confidence,matched_at,match_source
+proposal_takeoff_matches_v8,2026-01-04 22:36:44,4430,4430,4430,4430,4430,4430,4073,4430,4430,4430,4398,4430
+
+proposal_takeoff_matches_v9,2026-01-05 13:36:21,project_id,observed_key,proposal_file,proposal_total,sheet_id,sheet_name,sheet_total,amount_diff,variance_pct,match_confidence,matched_at,match_source
+proposal_takeoff_matches_v9,2026-01-05 13:36:21,4430,4430,4430,4430,4430,4430,4073,4430,4430,4430,4398,4430
+
+proposal_takeoff_sheet_matches,2026-01-07 02:14:29,project_id,observed_key,proposal_file,proposal_date,proposal_total,matched_sheet,matched_sheet_date,matched_sheet_total,diff_pct,date_score,match_quality,match_rank
+proposal_takeoff_sheet_matches,2026-01-07 02:14:29,3741,3741,3741,3741,3741,1628,3741,3741,1819,3741,3741,3741
+
+proposal_takeoff_system_matches,2026-01-07 03:07:32,project_id,observed_key,proposal_file,proposal_total,proposal_system_type,blob_path,sheet_name,takeoff_system_type,takeoff_total,diff_pct,match_type,match_score,match_quality
+proposal_takeoff_system_matches,2026-01-07 03:07:32,16771,16771,16771,16771,16771,16771,16771,16771,16771,16771,16771,16771,16771
+
+proposal_takeoff_unified,2025-12-28 16:39:37,project_id,observed_key,proposal_file,proposal_total,takeoff_total,pct_diff,match_quality,sheet_name,proposal_date,takeoff_date,row_type,row_index,scope_raw,unit_cost,total_measurements,total_cost,areas_json_raw,status
+proposal_takeoff_unified,2025-12-28 16:39:37,52511,52511,37177,52511,36784,36155,52476,37177,52511,52511,52511,52511,52511,52511,52511,52511,23093,41573
+
+proposal_takeoff_unified_v2,2026-01-05 13:36:15,project_id,observed_key,proposal_file,proposal_total,takeoff_total,pct_diff,match_quality,sheet_name,proposal_date,takeoff_date,row_type,row_index,scope_raw,unit_cost,total_measurements,total_cost,areas_json_raw,status
+proposal_takeoff_unified_v2,2026-01-05 13:36:15,52511,52511,37177,52511,36784,36155,52476,37177,52511,52511,52511,52511,52511,52511,52511,52511,23093,41573
+
+proposals,2025-12-15 22:47:34,BlobPath,FileName,CustomerName,JobName,JobCitySateZip,ProposalDate,ScopeOfWork,blob_path_evidence,observed_key,project_id,container_id,is_ignored,resolution_status
+proposals,2025-12-15 22:47:34,ERR,ERR,ERR,ERR,ERR,ERR,ERR,ERR,ERR,ERR,ERR,ERR,ERR
+
+revision_line_diffs,2026-01-07 10:20:37,project_id,observed_key,scope_segment,from_revision,to_revision,from_version,to_version,from_date,to_date,from_proposal,to_proposal,from_sheet,to_sheet,scope_raw,block_label,change_type,prev_qty,curr_qty,qty_delta,prev_unit_cost,curr_unit_cost,prev_cost,curr_cost,cost_delta,cost_pct_change,created_at
+revision_line_diffs,2026-01-07 10:20:37,21232,21232,21232,21232,21232,21232,21232,15348,15158,21232,15511,21232,15287,15607,15440,21232,15607,21232,21232,21232,21232,21232,21232,21232,21232,21232
+
+revision_summaries,2026-01-07 09:02:27,summary_id,project_id,observed_key,scope_segment,from_revision,to_revision,from_version,to_version,from_date,to_date,from_proposal,to_proposal,from_total,to_total,total_delta,pct_change,lines_added,lines_removed,lines_changed,total_cost_added,total_cost_removed,top_changes,takeoff_text_additions,takeoff_text_removals,proposal_text_additions,summary_text,key_changes,notes_added,change_category,primary_reason,revision_facts_used,generated_at,model_used,processing_time_ms
+revision_summaries,2026-01-07 11:23:36,249,0,0,0,0,249,0,249,249,249,249,249,249,249,249,249,249,249,249,249,249,249,249,249,249,249,249,249,249,249,249,249,249,249
+
+revision_takeoff_links,2026-01-07 10:17:03,project_id,scope_segment,revision_number,proposal_file,proposal_date,proposal_total,sheet_name,takeoff_total,diff_pct,match_quality,takeoff_date
+revision_takeoff_links,2026-01-07 10:17:03,584,519,584,584,584,584,584,584,584,584,584
+
+section_line_matches_all_v2,2026-01-05 13:38:18,project_id,observed_key,proposal_id,sheet_name,section_index,section_heading,section_total,matched_ids,matched_total,diff_pct,quality,source
+section_line_matches_all_v2,2026-01-05 13:38:18,3632,6115,6115,6115,3632,3632,6115,6114,6115,5856,6115,6115
+
+takeoff_lines_enriched_v3,2026-01-04 23:05:01,line_item_id,project_id,scope_raw,total_cost,total_measurements,unit_cost,scope_category,system_id,system_name,system_type,system_variant,thickness_inches,r_value,pitch_type,insulation_type,proposal_section
+takeoff_lines_enriched_v3,2026-01-04 23:05:01,31405,31405,2506,1563,1616,1752,31405,31405,31405,31405,30235,30976,31405,31405,31405,31405
+
+takeoff_lines_with_optional_flag,2025-12-28 21:31:41,line_item_id,project_id,observed_key,sheet_name,scope_raw,unit_cost,total_measurements,total_cost,row_index,is_optional
+takeoff_lines_with_optional_flag,2025-12-28 21:31:41,275464,264414,264414,275464,275464,215119,241378,248124,275464,275464
+
+takeoff_system_totals,2026-01-07 02:54:19,extraction_id,project_id,observed_key,blob_path,sheet_name,row_number,total_label,system_type,total_value,extracted_at
+takeoff_system_totals,2026-01-07 07:51:28,10238,10238,10238,10238,10238,10238,10238,10238,10238,10238
+
+v_ceo_at_risk,2026-01-07 10:48:40,project_id,project_name,gc_name,lifecycle_stage,proposal_total,latest_proposal_date,revision_count,risk_count,latest_risk_date,recent_risks,risk_level,value_tier,combined_risk_score
+v_ceo_at_risk,2026-01-07 10:48:40,336,336,336,336,336,291,305,336,233,233,336,336,336
+
+v_ceo_stuck_jobs,2026-01-07 10:48:23,project_id,project_name,gc_name,lifecycle_stage,proposal_total,latest_proposal_date,revision_count,days_since_proposal,risk_count,stuck_status,priority_score,recommended_action
+v_ceo_stuck_jobs,2026-01-07 10:48:23,1485,1480,1485,1485,879,821,1480,562,562,562,1485,1485
+
+v_document_index,2026-01-08 02:55:23,project_id,observed_key,doc_type,doc_id,gcs_uri,file_name,matched_sheet_name,match_confidence,indexed_at
+v_document_index,2026-01-08 02:55:23,3785,3785,3785,3785,3785,3785,3785,3785,3785
+
+v_document_index_all,2025-12-16 03:40:07,doc_type,doc_id,gcs_uri,source_uri,file_name,project_id,container_id,observed_key,is_ignored,resolution_status,distinct_container_ids,distinct_project_ids
+v_document_index_all,2025-12-16 03:40:07,ERR,ERR,ERR,ERR,ERR,ERR,ERR,ERR,ERR,ERR,ERR,ERR
+
+v_pbi_fact_proposal,2026-01-07 10:24:06,project_id,project_name,gc_name,lifecycle_stage,first_rfp_date,first_proposal_date,latest_proposal_date,award_date,proposal_total,total_submissions,revision_count,days_rfp_to_proposal,days_proposal_to_award,proposal_year,proposal_quarter,proposal_month,proposal_year_month
+v_pbi_fact_proposal,2026-01-07 10:24:06,1502,578,180,16,578,578,578,578,1502,894,838,217,578,578,17,1497,578
+
+v_pbi_fact_takeoff_agg,2026-01-07 10:24:31,project_id,project_name,gc_name,system_id,item_id,section,item_name,line_count,total_qty,total_cost,avg_unit_cost,min_unit_cost,max_unit_cost,stddev_unit_cost
+v_pbi_fact_takeoff_agg,2026-01-07 10:24:31,15080,14911,14911,14911,7079,15080,11532,13917,15080,15080,14049,15080,14842,15080
+
+v_pbi_project_360,2026-01-07 10:25:34,project_id,project_name,gc_name,proposal_total,lifecycle_stage,first_rfp_date,first_proposal_date,latest_proposal_date,award_date,total_submissions,revision_count,days_rfp_to_proposal,days_proposal_to_award,scope_fact_count,risk_count,last_activity_date,decision_count,contract_value_mentioned
+v_pbi_project_360,2026-01-07 10:25:34,1502,578,180,16,810,352,1022,793,75,1502,894,1497,838,217,578,578,17,578
+
+v_project_bundling_details,2026-01-06 04:48:15,project_id,gc_name,system_id,system_name,system_price,bundling_style,item_id,item_name,quantity,unit_price,line_total,uom,notes
+v_project_bundling_details,2026-01-06 04:48:15,10045,10045,10045,10045,7808,10045,10045,10045,10045,10045,10045,10045,10045
+
+v_project_communications,2026-01-05 03:03:58,source_type,message_id,thread_id,message_date,role_code,role_weight,subject_or_space,content_preview,project_id,project_name,sender_identifier,match_type,match_confidence
+v_project_communications,2026-01-05 03:03:58,ERR,ERR,ERR,ERR,ERR,ERR,ERR,ERR,ERR,ERR,ERR,ERR,ERR
+
+v_project_communications_summary,2026-01-05 03:10:52,project_id,project_name,gc_name,proposal_total,takeoff_total,match_confidence_pct,award_status,total_emails,email_threads,first_email_date,last_email_date,email_span_days,cdo_emails,chief_estimator_emails,external_emails,rfp_emails,proposal_emails,award_emails,billing_emails,scope_emails,total_facts,technical_decision_facts,scope_boundary_facts,outcome_facts,email_lifecycle_stage,email_engagement_level
+v_project_communications_summary,2026-01-05 03:10:52,ERR,ERR,ERR,ERR,ERR,ERR,ERR,ERR,ERR,ERR,ERR,ERR,ERR,ERR,ERR,ERR,ERR,ERR,ERR,ERR,ERR,ERR,ERR,ERR,ERR,ERR
+
+v_project_intelligence,2025-12-26 16:36:58,project_id,project_name,email_facts,chat_facts,total_facts,earliest_fact,latest_fact,technical_decisions,scope_boundaries,gc_preferences,outcomes,negotiations,tribal_knowledge,internal_decisions,task_assignments,followups,revisions
+v_project_intelligence,2025-12-26 16:36:58,ERR,ERR,ERR,ERR,ERR,ERR,ERR,ERR,ERR,ERR,ERR,ERR,ERR,ERR,ERR,ERR,ERR
+
+v_project_intelligence_full,2026-01-07 12:28:56,project_id,project_name,gc_name,gc_email,gc_contact,award_status,bid_status,scope,asana_assignee,rfp_date,proposal_total,takeoff_total,total_square_feet,email_count,chat_count,has_proposal,has_takeoff,view_refreshed_at
+v_project_intelligence_full,2026-01-07 12:28:56,1502,1497,1492,1381,1493,1482,1497,1497,1502,1502,894,603,603,508,0,0,422,63
+
+v_project_intelligence_full_v3,2026-01-05 13:43:48,project_id,project_name,gc_name,gc_email,gc_contact,award_status,bid_status,scope,asana_assignee,rfp_date,proposal_total,takeoff_total,total_square_feet,financial_total_costs,financial_total_revenue,financial_net_amount,profit_margin_pct,rfp_received_date,proposal_submitted_date,awarded_date,first_invoice_date,first_payment_date,milestone_types_achieved,milestones_list,total_emails,total_chats,inbound_emails,outbound_emails,first_email_date,last_email_date,email_span_days,rfp_emails,proposal_emails,award_emails,billing_emails,gc_contacts,days_since_last_comm,has_proposal,has_takeoff,has_financials,has_emails,has_chats,has_milestones,data_richness_score,lifecycle_stage,original_completeness_score,view_refreshed_at
+v_project_intelligence_full_v3,2026-01-05 13:43:48,ERR,ERR,ERR,ERR,ERR,ERR,ERR,ERR,ERR,ERR,ERR,ERR,ERR,ERR,ERR,ERR,ERR,ERR,ERR,ERR,ERR,ERR,ERR,ERR,ERR,ERR,ERR,ERR,ERR,ERR,ERR,ERR,ERR,ERR,ERR,ERR,ERR,ERR,ERR,ERR,ERR,ERR,ERR,ERR,ERR,ERR,ERR
+
+v_project_journey,2026-01-07 09:09:54,project_id,project_name,scope_segment,revision_number,version_label,proposal_file,proposal_date,proposal_total,previous_proposal_file,previous_date,total_change_from_previous,pct_change_from_previous,days_since_previous,matched_takeoff_sheet,takeoff_total,takeoff_date,match_quality,lines_added,lines_removed,lines_changed,total_changes,total_cost_added,total_cost_removed,net_cost_change,top_changes,summary_text,key_changes,notes_added,change_category,primary_reason,revision_facts_used,summary_generated_at,revision_facts_count
+v_project_journey,2026-01-07 09:09:54,1057,275,275,275,584,584,519,584,249,249,249,1057,249,249,249,249,249,249,249,249,249,249,1057,249,249,1057,1057,1057,1057,1057,584,275,275
+
+v_project_journey_summary,2026-01-07 09:09:55,project_id,project_name,scope_segments,total_revisions,first_proposal_date,last_proposal_date,journey_days,initial_total,final_total,total_value_change,total_lines_added,total_lines_changed,revisions_with_context
+v_project_journey_summary,2026-01-07 09:09:55,769,769,769,769,769,769,769,769,769,769,296,769,769
+
+v_project_llm,2026-01-07 10:33:24,project_id,project_name,gc_name,gc_contact,award_status,bid_status,match_status,proposal_total,takeoff_total,sage_billed_amount,variance_pct,total_sf,primary_r_value,primary_insulation,has_proposal,has_takeoff,has_matches,has_asana,has_ledger_data,proposal_versions,email_count,chat_count,fact_count,takeoff_lines,rfp_date,last_comm_date,gc_preferences,gc_tribal_knowledge,gc_negotiation_patterns,gc_process_insights,scope_included,scope_excluded,scope_ve_items,active_risks,risk_count,recent_activity,last_activity_date,key_decisions,decision_count,outcome_facts,contract_value_mentioned,revision_count,latest_revision_summary,latest_change_category,total_revision_delta,takeoff_revision_count,total_items_changed,total_items_added,total_items_removed,total_rate_changes,takeoff_avg_rate_change,takeoff_total_cost_delta,top_changed_items,segments_tracked,refreshed_at
+v_project_llm,2026-01-07 10:33:24,1502,920,1381,261,267,1497,1497,1497,1497,1497,1482,1502,1493,1482,1494,1485,63,693,857,857,857,857,894,810,810,810,352,352,1022,1022,793,793,755,603,508,0,1497,1497,1492,659,,,,,,,,,,,,,,,
+
+v_project_lookup,2026-01-01 16:48:18,project_id,project_name,gc_name,award_status,lifecycle_stage,proposal_total,has_proposal,has_takeoff,has_financials,data_richness_score
+v_project_lookup,2026-01-01 16:48:18,ERR,ERR,ERR,ERR,ERR,ERR,ERR,ERR,ERR,ERR
+
+v_project_lookup_v2,2026-01-05 13:42:06,project_id,project_name,gc_name,award_status,lifecycle_stage,proposal_total,has_proposal,has_takeoff,has_financials,data_richness_score
+v_project_lookup_v2,2026-01-05 13:42:06,ERR,ERR,ERR,ERR,ERR,ERR,ERR,ERR,ERR,ERR
+
+v_project_lookup_v3,2026-01-05 13:43:59,project_id,project_name,gc_name,award_status,lifecycle_stage,proposal_total,has_proposal,has_takeoff,has_financials,data_richness_score
+v_project_lookup_v3,2026-01-05 13:43:59,ERR,ERR,ERR,ERR,ERR,ERR,ERR,ERR,ERR,ERR
+
+v_project_takeoff_journey,2026-01-07 10:31:36,project_id,project_name,scope_segment,from_version,to_version,from_date,to_date,days_between_revisions,from_sheet,to_sheet,total_changes,items_added,items_removed,items_changed,cost_added,cost_removed,cost_changed,net_cost_delta,rate_changes,avg_rate_pct_change,qty_changes,avg_qty_pct_change,top_changes,llm_summary,llm_category
+v_project_takeoff_journey,2026-01-07 10:31:36,195,195,195,195,195,195,195,195,195,195,185,195,195,185,195,192,192,195,195,195,195,195,195,195,195
+
+v_project_takeoff_summary,2026-01-07 03:32:07,project_id,project_name,section,unique_items,total_lines,section_total
+v_project_takeoff_summary,2026-01-07 03:32:07,7602,7602,7602,7602,7602,7491
+
+v_project_takeoff_template,2026-01-07 03:35:53,project_id,project_name,location,section,sort_order,item_id,line_item,uom,qty,unit_cost,total_cost,r_value,thickness_inches,material_type,membrane_type,manufacturer,source_lines
+v_project_takeoff_template,2026-01-07 03:35:53,18517,17602,1777,45,0,0,0,18517,18517,7467,18517,18517,18517,18517,18517,17701,18069
+
+v_proposal_best_takeoff_sheet,2026-01-07 03:08:11,project_id,observed_key,proposal_file,proposal_system_type,proposal_total,best_takeoff_file,best_sheet,takeoff_system_type,takeoff_total,diff_pct,match_score,match_quality,match_type
+v_proposal_best_takeoff_sheet,2026-01-07 03:08:11,1873,1873,1873,1873,1873,1873,1873,1873,1873,1873,1873,1873,1873
+
+v_proposal_revision_rounds,2026-01-05 14:25:18,project_id,round_number,round_type,round_date,proposals_in_round,days_since_original,days_since_prev_round,filenames
+v_proposal_revision_rounds,2026-01-05 14:25:18,ERR,ERR,ERR,ERR,ERR,ERR,ERR,ERR
+
+v_proposal_systems_summary,2026-01-02 14:06:31,doc_id,file_name,project_id,observed_key,gcs_uri,matched_systems,system_count
+v_proposal_systems_summary,2026-01-02 14:06:31,2676,2676,2676,2676,2676,2676,2676
+
+v_revision_diff_stats,2026-01-07 09:08:59,project_id,observed_key,scope_segment,from_revision,to_revision,to_version,from_date,to_date,lines_added,lines_removed,lines_changed,total_changes,total_cost_added,total_cost_removed,net_cost_change,top_changes
+v_revision_diff_stats,2026-01-07 09:08:59,249,249,249,249,249,249,249,249,249,249,249,249,249,249,249,249
+
+v_takeoff_lines_linked,2026-01-06 22:42:17,line_item_id,project_id,project_folder_name,sheet_name,scope_raw,total_measurements,unit_cost,total_cost,areas_json_raw,quality_score,revision_date,loaded_at
+v_takeoff_lines_linked,2026-01-06 22:42:17,223883,167543,223883,223883,223883,223883,223883,207800,179424,207522,223883,223883
+
+v_takeoff_vs_proposal_systems,2026-01-07 02:18:20,project_id,system_id,system_name,takeoff_line_items,takeoff_qty,takeoff_total,proposal_total,variance_pct,match_status
+v_takeoff_vs_proposal_systems,2026-01-07 02:18:20,8762,8762,5725,7474,7240,7288,5688,4231,8762
+

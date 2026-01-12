@@ -1,0 +1,4 @@
+BigQuery error in query operation: Error processing job 'master-roofing-
+intelligence:bqjob_r169c7cdb96adf1db_0000019b9ede29f0_1': Not found: Table
+master-roofing-intelligence:mr_agent.active_project was not found in location
+us-east4

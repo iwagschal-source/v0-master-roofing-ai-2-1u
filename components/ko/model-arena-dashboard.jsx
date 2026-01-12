@@ -174,6 +174,7 @@ export function ModelArenaDashboard({ onBack }) {
 
   const wsRef = useRef(null)
   const testRunIdRef = useRef(null)
+  const pingIntervalRef = useRef(null)
 
   // Backend URL
   const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || "https://34.95.128.208"
@@ -183,6 +184,9 @@ export function ModelArenaDashboard({ onBack }) {
   useEffect(() => {
     loadModels()
     return () => {
+      if (pingIntervalRef.current) {
+        clearInterval(pingIntervalRef.current)
+      }
       if (wsRef.current) {
         wsRef.current.close()
       }
@@ -212,6 +216,15 @@ export function ModelArenaDashboard({ onBack }) {
 
     ws.onopen = () => {
       console.log("Arena WebSocket connected")
+      // Start keep-alive ping every 15 seconds
+      if (pingIntervalRef.current) {
+        clearInterval(pingIntervalRef.current)
+      }
+      pingIntervalRef.current = setInterval(() => {
+        if (ws.readyState === WebSocket.OPEN) {
+          ws.send(JSON.stringify({ action: "ping" }))
+        }
+      }, 15000)
     }
 
     ws.onmessage = (event) => {
@@ -241,6 +254,8 @@ export function ModelArenaDashboard({ onBack }) {
           setProgress(prev => ({ ...prev, progress_pct: 100, status: "completed" }))
         } else if (msg.type === "error") {
           console.error("Arena error:", msg.data.message)
+        } else if (msg.type === "pong" || msg.type === "subscribed") {
+          // Keep-alive response or subscription confirmation - no action needed
         }
       } catch (e) {
         console.error("Failed to parse WebSocket message:", e)
@@ -253,6 +268,10 @@ export function ModelArenaDashboard({ onBack }) {
 
     ws.onclose = () => {
       console.log("Arena WebSocket closed")
+      if (pingIntervalRef.current) {
+        clearInterval(pingIntervalRef.current)
+        pingIntervalRef.current = null
+      }
     }
 
     wsRef.current = ws

@@ -1,0 +1,44 @@
+project_id,item_id,location,section,qty,unit_cost,total_cost,uom,r_value,thickness_inches,material_type,membrane_type,manufacturer,pitch,source_sheet,scope_raw_original,mapping_confidence,extracted_at,system_id
+3108ac6ed52f221dc8d366a83c36fcbb,MR-033TRAFFIC,NY 11212,Balconies,2194.0,17.0,37298.0,SF,,,,,,,07.07.2025,Traffic Coating,,2026-01-07 07:07:34,SYS-001
+3108ac6ed52f221dc8d366a83c36fcbb,MR-033TRAFFIC,NY 11212,Balconies,2194.0,17.0,37298.0,SF,,,,,,,07.07.2025,Traffic Coating,,2026-01-07 07:07:34,SYS-001
+3108ac6ed52f221dc8d366a83c36fcbb,MR-034DRIP,NY 11212,Balconies,767.0,22.0,16874.0,LF,,,,,,,07.07.2025,Aluminum Drip edge,,2026-01-07 07:07:34,SYS-001
+3108ac6ed52f221dc8d366a83c36fcbb,MR-034DRIP,NY 11212,Balconies,767.0,22.0,16874.0,LF,,,,,,,07.07.2025,Aluminum Drip edge,,2026-01-07 07:07:34,SYS-001
+3108ac6ed52f221dc8d366a83c36fcbb,MR-035LFLASH,NY 11212,Balconies,485.0,48.0,23280.0,LF,,,,,,,07.07.2025,Liquid L Flashing  (LF),,2026-01-07 07:07:34,SYS-001
+3108ac6ed52f221dc8d366a83c36fcbb,MR-035LFLASH,NY 11212,Balconies,485.0,48.0,23280.0,LF,,,,,,,07.07.2025,Liquid L Flashing  (LF),,2026-01-07 07:07:34,SYS-001
+3108ac6ed52f221dc8d366a83c36fcbb,MR-036DOORBAL,NY 11212,Balconies,48.0,550.0,26400.0,EA,,,,,,,07.07.2025,Doorpans - Balconies,,2026-01-07 07:07:34,SYS-001
+3108ac6ed52f221dc8d366a83c36fcbb,MR-036DOORBAL,NY 11212,Balconies,48.0,550.0,26400.0,EA,,,,,,,07.07.2025,Doorpans - Balconies,,2026-01-07 07:07:34,SYS-001
+3108ac6ed52f221dc8d366a83c36fcbb,MR-022COPELO,NY 11212,Coping,166.0,32.0,5312.0,LF,,,,,,,07.07.2025,(Alum.) Coping (Low Parapet) Gravel stop/ Egde Flashing,,2026-01-07 07:07:34,ACC-COPING
+3108ac6ed52f221dc8d366a83c36fcbb,MR-023COPEHI,NY 11212,Coping,545.0,32.0,17440.0,LF,,,,,,,07.07.2025,(Alum.) Coping (high Parapet),,2026-01-07 07:07:34,ACC-COPING
+3108ac6ed52f221dc8d366a83c36fcbb,MR-024INSUCOPE,NY 11212,Coping,655.0,4.0,2620.0,LF,7.0,,,,,,07.07.2025,Insulation under Coping (R 7),,2026-01-07 07:07:34,ACC-COPING
+3108ac6ed52f221dc8d366a83c36fcbb,MR-005SCUPPER,NY 11212,Details & Accessories,3.0,2500.0,7500.0,EA,,,,,,,07.07.2025,Scupper /gutter and leader,,2026-01-07 07:07:34,SYS-032
+3108ac6ed52f221dc8d366a83c36fcbb,MR-010DRAIN,NY 11212,Details & Accessories,20.0,550.0,11000.0,EA,,,,,,,07.07.2025,Drains (as per Arch drwgs),,2026-01-07 07:07:34,SYS-032
+3108ac6ed52f221dc8d366a83c36fcbb,MR-011DOORSTD,NY 11212,Details & Accessories,15.0,550.0,8250.0,EA,,,,,,,07.07.2025,Doorpans - Standard 3-6',,2026-01-07 07:07:34,ACC-DOORPAN
+3108ac6ed52f221dc8d366a83c36fcbb,MR-012DOORLG,NY 11212,Details & Accessories,3.0,850.0,2550.0,EA,,,,,,,07.07.2025,Doorpans - Large,,2026-01-07 07:07:34,ACC-DOORPAN
+3108ac6ed52f221dc8d366a83c36fcbb,MR-016FENCE,NY 11212,Details & Accessories,80.0,250.0,20000.0,EA,,,,,,,07.07.2025,Fence posts,,2026-01-07 07:07:34,SYS-032
+3108ac6ed52f221dc8d366a83c36fcbb,MR-018PLUMB,NY 11212,Details & Accessories,8.0,250.0,2000.0,EA,,,,,,,07.07.2025,Plumbing Penetrations,,2026-01-07 07:07:34,SYS-032
+3108ac6ed52f221dc8d366a83c36fcbb,MR-019MECH,NY 11212,Details & Accessories,12.0,250.0,3000.0,EA,,,,,,,07.07.2025,Mechanical Penetrations,,2026-01-07 07:07:34,SYS-032
+3108ac6ed52f221dc8d366a83c36fcbb,MR-021AC,NY 11212,Details & Accessories,58.0,550.0,31900.0,EA,,,,,,,07.07.2025,AC Units -EA (dunnage?),,2026-01-07 07:07:34,SYS-032
+3108ac6ed52f221dc8d366a83c36fcbb,MR-043EIFS,NY 11212,Exterior,31841.965,12.0,382103.58,SF,7.0,,,,,,07.07.2025,Eifs - 2'' (R-7)EPS,,2026-01-07 07:07:34,SYS-018
+3108ac6ed52f221dc8d366a83c36fcbb,MR-043EIFS,NY 11212,Exterior,31841.965,12.0,382103.58,SF,7.0,,,,,,07.07.2025,Eifs - 2'' (R-7)EPS,,2026-01-07 07:07:34,SYS-018
+3108ac6ed52f221dc8d366a83c36fcbb,MR-043EIFS,NY 11212,Exterior,31841.965,12.0,382103.58,SF,7.0,,,,,,07.07.2025,Eifs - 2'' (R-7)EPS,,2026-01-07 07:07:34,SYS-018
+3108ac6ed52f221dc8d366a83c36fcbb,MR-043EIFS,NY 11212,Exterior,5500.2,13.0,71502.6,SF,10.0,,,,,,07.07.2025,Eifs @ Cellar walls 3''(R-10)EPS,,2026-01-07 07:07:34,SYS-018
+3108ac6ed52f221dc8d366a83c36fcbb,MR-043EIFS,NY 11212,Exterior,5500.2,13.0,71502.6,SF,10.0,,,,,,07.07.2025,Eifs @ Cellar walls 3''(R-10)EPS,,2026-01-07 07:07:34,SYS-018
+3108ac6ed52f221dc8d366a83c36fcbb,MR-043EIFS,NY 11212,Exterior,5500.2,13.0,71502.6,SF,10.0,,,,,,07.07.2025,Eifs @ Cellar walls 3''(R-10)EPS,,2026-01-07 07:07:34,SYS-018
+3108ac6ed52f221dc8d366a83c36fcbb,MR-044OPNSTCEA,NY 11212,Exterior,148.0,250.0,37000.0,EA,,,,,,,07.07.2025,openings at stucco areas (Count) < 32lf,,2026-01-07 07:07:34,SYS-018
+3108ac6ed52f221dc8d366a83c36fcbb,MR-044OPNSTCEA,NY 11212,Exterior,148.0,250.0,37000.0,EA,,,,,,,07.07.2025,openings at stucco areas (Count) < 32lf,,2026-01-07 07:07:34,SYS-018
+3108ac6ed52f221dc8d366a83c36fcbb,MR-044OPNSTCEA,NY 11212,Exterior,148.0,250.0,37000.0,EA,,,,,,,07.07.2025,openings at stucco areas (Count) < 32lf,,2026-01-07 07:07:34,SYS-018
+3108ac6ed52f221dc8d366a83c36fcbb,MR-045OPNSTCLF,NY 11212,Exterior,156.0,10.0,1560.0,LF,,,,,,,07.07.2025,openings at stucco areas (LF) > 32lf/40lf,,2026-01-07 07:07:34,SYS-018
+3108ac6ed52f221dc8d366a83c36fcbb,MR-045OPNSTCLF,NY 11212,Exterior,156.0,10.0,1560.0,LF,,,,,,,07.07.2025,openings at stucco areas (LF) > 32lf/40lf,,2026-01-07 07:07:34,SYS-018
+3108ac6ed52f221dc8d366a83c36fcbb,MR-045OPNSTCLF,NY 11212,Exterior,156.0,10.0,1560.0,LF,,,,,,,07.07.2025,openings at stucco areas (LF) > 32lf/40lf,,2026-01-07 07:07:34,SYS-018
+3108ac6ed52f221dc8d366a83c36fcbb,MR-025FLASHBLDG,NY 11212,Flashing,290.0,24.0,6960.0,LF,,,,,,,07.07.2025,(Alum.) Metal Flashing at building wall,,2026-01-07 07:07:34,ACC-CFLASH
+3108ac6ed52f221dc8d366a83c36fcbb,MR-026FLASHPAR,NY 11212,Flashing,545.0,24.0,13080.0,LF,,,,,,,07.07.2025,(Alum.) Metal Flashing at Parapet wall,,2026-01-07 07:07:34,ACC-CFLASH
+3108ac6ed52f221dc8d366a83c36fcbb,MR-MISC-OTHER,NY 11212,MISC,10.0,250.0,2500.0,SF,,,,,,,07.07.2025,Balcony Dividers,,2026-01-07 07:07:34,
+3108ac6ed52f221dc8d366a83c36fcbb,MR-MISC-OTHER,NY 11212,MISC,10.0,250.0,2500.0,SF,,,,,,,07.07.2025,Balcony Dividers,,2026-01-07 07:07:34,
+3108ac6ed52f221dc8d366a83c36fcbb,MR-003BU2PLY,NY 11212,Roofing,10392.0,16.25,168870.0,SF,30.0,,,,,,07.07.2025,Roofing - Builtup - 2 ply 5.5''(R30),,2026-01-07 07:07:34,SYS-032
+3108ac6ed52f221dc8d366a83c36fcbb,MR-032RECESSWP,NY 11212,Waterproofing,809.0,32.0,25888.0,LF,,,,,,,07.07.2025,Recessed floor (Front & Right side of Building),,2026-01-07 07:07:34,SYS-WP
+3108ac6ed52f221dc8d366a83c36fcbb,MR-049TIEIN,NY 11212,Waterproofing,313.0,48.0,15024.0,LF,,,,,,,07.07.2025,Tie - In (LF),,2026-01-07 07:07:34,ACC-TIEIN
+3108ac6ed52f221dc8d366a83c36fcbb,MR-049TIEIN,NY 11212,Waterproofing,313.0,48.0,15024.0,LF,,,,,,,07.07.2025,Tie - In (LF),,2026-01-07 07:07:34,ACC-TIEIN
+3108ac6ed52f221dc8d366a83c36fcbb,MR-049TIEIN,NY 11212,Waterproofing,313.0,48.0,15024.0,LF,,,,,,,07.07.2025,Tie - In (LF),,2026-01-07 07:07:34,ACC-TIEIN
+3108ac6ed52f221dc8d366a83c36fcbb,MR-050ADJHORZ,NY 11212,Waterproofing,121.0,65.0,7865.0,LF,,,,,,,07.07.2025,adj. building horizontal (Coustom Metal Flashing only),,2026-01-07 07:07:34,ACC-TIEIN
+3108ac6ed52f221dc8d366a83c36fcbb,MR-050ADJHORZ,NY 11212,Waterproofing,121.0,65.0,7865.0,LF,,,,,,,07.07.2025,adj. building horizontal (Coustom Metal Flashing only),,2026-01-07 07:07:34,ACC-TIEIN
+3108ac6ed52f221dc8d366a83c36fcbb,MR-050ADJHORZ,NY 11212,Waterproofing,121.0,65.0,7865.0,LF,,,,,,,07.07.2025,adj. building horizontal (Coustom Metal Flashing only),,2026-01-07 07:07:34,ACC-TIEIN

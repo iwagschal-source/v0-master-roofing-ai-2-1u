@@ -1,6 +1,6 @@
 # CLAUDE.md - KO Project Context
 
-> **Auto-generated from ~/KO_Session_State/ on 2026-01-07 13:29**
+> **Auto-generated from ~/KO_Session_State/ on 2026-01-12 20:37**
 > **Regenerate:** `python3 ~/generate_claude_md.py`
 
 ---
@@ -178,44 +178,46 @@ Full project state is maintained in `~/KO_Session_State/`.
 ### In Progress
 # In Progress
 
-## Current Session: 2026-01-07 (Day 4 of Phase 1, Session 13)
-
-### Active Work
-| Task | Status | Notes |
-|------|--------|-------|
-| Power BI Live KPI Integration | DONE | Backend serving live BigQuery KPIs |
-| Power BI Views | DONE | 5 views created in mr_agent |
-| Service Account Setup | DONE | workspace-ingest.json on VM |
+## Current Session: 2026-01-12 (Day 5 of Phase 1, Session 15)
 
 ### Completed This Session
+| Task | Status | Notes |
+|------|--------|-------|
+| Sprint G Model Arena Review | DONE | All backend components working |
+| Nginx routing fix | DONE | Added /arena/* proxy rules |
+| Frontend integration verified | DONE | Dashboard accessible via nav |
 
-#### 1. Created 5 Power BI BigQuery Views
-| View | Rows | Purpose |
-|------|------|---------|
-| `v_pbi_fact_proposal` | 1,529 | Proposal facts with time dimensions |
-| `v_pbi_fact_takeoff_agg` | 15,080 | Aggregated takeoff metrics by section |
-| `v_pbi_gc_scorecard` | 336 | GC metrics with win rates |
-| `v_pbi_project_360` | 1,529 | Complete project view |
-| `v_pbi_kpi_summary` | 1 | Live top-level KPI snapshot |
+### Sprint G Status: RESTORED
 
-#### 2. Enhanced v_pbi_kpi_summary
-Added new metrics:
-- `total_takeoff_value`: $2.43B total
-- `total_line_items`: 42,971 items
-- `projects_with_takeoffs`: 1,165 projects
-- `projects_with_risks`: 358 projects
-- `total_risk_alerts`: 2,059 alerts
-- `followups_last_30_days`: 297 recent followups
+The Model Arena system is now fully operational:
 
-#### 3. Updated Backend powerbi.py
-New features:
-- **Live KPIs from BigQuery**: Fetches from v_pbi_kpi_summary every 5 min
-- **Service Account Auth**: Uses workspace-ingest.json for BigQuery access
-- **Dashboard Config**: 6 pre-configured dashboards with KPI mappings
-- **Query Templates**: 7 predefined queries for agent use
-- **Smart Routing**: Routes questions to appropriate dashboards
+| Component | Status |
+|-----------|--------|
+| Backend API | WORKING |
+| Model Registry (38 models) | WORKING |
+| Universal Model Caller | WORKING |
+| Test Orchestrator | WORKING |
+| Ranking Engine | WORKING |
+| Live Dashboard | WORKING |
+| Agent Promoter | WORKING |
+| Re-test Scheduler | WORKING |
+| Nginx Routing | FIXED |
 
-#### 4. Dashboard Gallery
+### Next Steps (Future Sessions)
+| Task | Priority | Notes |
+|------|----------|-------|
+| End-to-end arena test | HIGH | Run full model comparison |
+| WebSocket streaming test | MEDIUM | Verify through nginx |
+| Add more agents to scheduler | LOW | Currently only test_agent_promotion |
+| Integrate with KO agent | HIGH | Natural language queries over email |
+
+---
+
+## Parking Lot
+- Gmail agent integration (Phase 2)
+- Google Chat agent (Phase 2)
+- Asana live sync
+
 
 ---
 
@@ -236,75 +238,38 @@ New features:
 
 ---
 
-## Agent Flow (5 Phases)
+## Full Agent Registry (ko_audit.agent_registry)
 
-```
-User Question
-     │
-     ▼
-┌─────────────────────────────────────────┐
-│ PHASE 0: Gemini Orchestrator            │
-│ - Extracts project mentions             │
-│ - Queries v_project_lookup              │
-│ - Returns project_ids                   │
-└─────────────────────────────────────────┘
-     │
-     ▼
-┌─────────────────────────────────────────┐
-│ PHASE 1: Gemini Orchestrator            │
-│ - Decides which tools to call           │
-│ - Routes to: claude_sql, vertex,        │
-│   hubspot, powerbi                      │
-└─────────────────────────────────────────┘
-     │
-     ▼
-┌─────────────────────────────────────────┐
-│ PHASE 2: Tool Execution                 │
-│ - All tools filter by project_id       │
-│ - Parallel execution when possible      │
-└─────────────────────────────────────────┘
-     │
-     ▼
-┌─────────────────────────────────────────┐
-│ PHASE 3: Gemini Orchestrator            │
-│ - Merges tool outputs                   │
-│ - Creates structured summary            │
-└─────────────────────────────────────────┘
-     │
-     ▼
-┌─────────────────────────────────────────┐
-│ PHASE 4: OpenAI CEO Response            │
-│ - Generates natural language answer     │
-│ - CEO-friendly tone                     │
-└─────────────────────────────────────────┘
-     │
-     ▼
-Final Answer to User
-```
+**Source:** BigQuery `ko_audit.agent_registry` table
+**Total Agents:** 26
+**Created:** 2026-01-12 (Sprint C)
 
----
+### Deterministic Agents (7)
+Python/SQL based - predictable outputs
 
-## Future Agents (Phase 2+)
+| ID | Name | Display Name | Description | Category |
+|----|------|--------------|-------------|----------|
+| DET-001 | email_scanner | Email Scanner | Scans mr_brain for new emails, updates tables | email |
+| DET-002 | asana_sync | Asana Sync | Syncs Asana tasks to BigQuery and HubSpot | sync |
+| DET-003 | takeoff_parser | Takeoff Parser | Parses Bluebeam exports into structured data | takeoff |
+| DET-004 | proposal_matcher | Proposal Matcher | Matches proposals to takeoffs by total | proposal |
+| DET-005 | sage_sync | Sage Sync | Imports Sage accounting data | sync |
+| DET-006 | hubspot_sync | HubSpot Sync | Syncs data to HubSpot CRM | sync |
+| DET-007 | transcript_processor | Transcript Processor | Processes raw transcripts into structured sessions | audit |
 
-| Agent | Purpose | Item # | Status |
-|-------|---------|--------|--------|
-| Gmail Agent | Email search/analysis | 19 | PLANNED |
-| Google Chat Agent | Team chat analysis | 20 | PLANNED |
-| Asana Agent | Project/task status | 21 | PLANNED |
-| Meetings Agent | Calendar/meeting data | 22 | PLANNED |
-| Watcher Agents | Autonomous oversight | 25 | DESIGN ONLY |
-| Superintelligence | Learning system | 41 | DESIGN ONLY |
+### Interpretive Agents (9)
+LLM based - creative/analytical outputs
 
----
-
-## Agent Files
-
-### Local (Development)
-```
-/home/iwagschal/
-├── gemini_orchestrator_v2.py    # Orchestrator
-├── chief_agent_v2.py            # Main flow
-├── claude_s
+| ID | Name | Display Name | Description | Category |
+|----|------|--------------|-------------|----------|
+| INT-001 | email_analyzer | Email Analyzer | Analyzes emails for priority, sentiment, action needed | email |
+| INT-002 | email_drafter | Email Drafter | Drafts emails in employee voice based on history | email |
+| INT-003 | takeoff_generator | Takeoff Generator | Generates takeoff from Bluebeam + GC history | takeoff |
+| INT-004 | proposal_generator | Proposal Generator | Generates proposal from approved takeoff | proposal |
+| INT-005 | project_summarizer | Project Summarizer | Creates project intelligence summaries | intelligence |
+| INT-006 | gc_profiler | GC Profiler | Builds GC preference profiles from history | intelligence |
+| INT-007 | rfi_responder | RFI Responder | Suggests RFI answers from historical responses | communication |
+| INT-008 | session_summarizer | Sessi
 
 ---
 
@@ -423,60 +388,56 @@ python3 ~/generate_claude_md.py
 ## Session Info
 | Property | Value |
 |----------|-------|
-| Date | 2026-01-07 (Session 12) |
-| Focus | Structured Takeoff Journey + project_llm Enhancement |
-| Day | Day 4 of Phase 1 |
-| Key Win | **Structured item-level revision tracking with rate/qty changes** |
+| Date | 2026-01-12 (Session 15) |
+| Focus | Sprint G Model Arena Restoration |
+| Day | Day 5 of Phase 1 |
+| Key Win | **Fixed nginx routing - Model Arena dashboard now functional** |
 
 ---
 
 ## What Was Accomplished
 
-### 1. Fixed Revision Tracking Gaps
+### Sprint G: Model Arena (TST-001) - Status Restored
 
-**Added GOOD matches to revision_takeoff_links:**
-- Before: 489 links (EXACT only)
-- After: 584 links (EXACT + GOOD ≤3% variance)
-- +95 new links recovered
+#### Backend Components (Already Working)
+All backend components were already created and functional:
 
-**Fixed REMOVED tracking in revision_line_diffs:**
-- Before: Only ADDED and CHANGED (FULL OUTER JOIN was broken)
-- After: ADDED (5,625), REMOVED (5,792), CHANGED (9,815)
-- Filtered out generic sheets (Sheet1, Breakdown, Template)
+| File | Purpose | Status |
+|------|---------|--------|
+| `app/model_arena/__init__.py` | Module init | WORKING |
+| `app/model_arena/api.py` | REST API endpoints | WORKING |
+| `app/model_arena/bigquery_helper.py` | BigQuery operations | WORKING |
+| `app/model_arena/model_caller.py` | Universal LLM caller | WORKING |
+| `app/model_arena/orchestrator.py` | Test orchestration | WORKING |
+| `app/model_arena/promoter.py` | Agent promotion | WORKING |
+| `app/model_arena/scheduler.py` | Re-test scheduling | WORKING |
+| `app/model_arena/scoring.py` | Output scoring | WORKING |
 
-### 2. Created Structured Takeoff Journey Tables
+#### Models Registered
+- **38 LLM models** across 11 providers:
+  - Anthropic (3): Claude Opus 4, Sonnet 4, Haiku 3.5
+  - OpenAI (6): GPT-4o, 4o-mini, 4-turbo, o1, o1-mini, o3-mini
+  - Google (4): Gemini 2.0 Pro/Flash, 1.5 Pro/Flash
+  - DeepSeek (3): V3, R1, Coder
+  - Together/Meta (4): Llama 3.1 8B/70B/405B, 3.3 70B
+  - Mistral (4): Large, Small, Codestral, Ministral 8B
+  - xAI (2): Grok-2, Grok-2 Mini
+  - Groq (4): Llama 3.1 70B/8B, Mixtral, Gemma 2
+  - Cohere (2): Command R, Command R+
+  - Amazon (3): Nova Pro/Lite/Micro
+  - Alibaba (3): Qwen Max/Plus/Turbo
 
-Built versioned takeoff tracking mapped to official template items:
+#### Frontend Dashboard
+| Component | File | Status |
+|-----------|------|--------|
+| Model Arena Dashboard | `components/ko/model-arena-dashboard.jsx` | WORKING |
+| Navigation Rail (arena mode) | `components/ko/navigation-rail.jsx` | WORKING |
+| Page.jsx integration | `app/page.jsx` | WORKING |
 
-| Table | Rows | Purpose |
-|-------|------|---------|
-| `project_takeoff_versioned` | 14,473 | All takeoff data by V1, V2, V3... mapped to MR-* items |
-| `project_takeoff_item_diffs` | 4,982 | Structured diffs per official item between versions |
-| `v_project_takeoff_journey` | View | Journey with top changes + LLM summaries |
+### Issue Fixed This Session
 
-**Item Diff Change Types:**
-| Type | Count | Projects | Avg Cost Impact |
-|------|-------|----------|-----------------|
-| CHANGED | 2,774 | 119 | $3.7M |
-| REMOVED | 1,309 | 105 | $3.5M |
-| ADDED | 899 | 102 | $383K |
-
-**What's Tracked Per Official Item:**
-- `item_id` - Official template ID (MR-033TRAFFIC, MR-003BU2PLY, etc.)
-- `qty_delta` / `qty_pct_change` - Quantity changes between versions
-- `rate_delta` / `rate_pct_change` - Unit rate changes
-- `cost_delta` / `cost_pct_change` - Total cost changes
-- `change_type` - ADDED, REMOVED, CHANGED
-- `r_value`, `thickness` - Spec changes
-
-### 3. Updated project_llm with Takeoff Journey
-
-Added 9 new columns:
-
-| Column | Description |
-|--------|-------------|
-| `takeoff_revision_count` | Number of revision transitions |
-| `total_items_changed` | Items with qt
+#### Nginx Routing Missing
+- **Problem:** `/arena/*` requests were not proxied t
 
 ---
 
