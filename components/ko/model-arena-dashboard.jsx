@@ -268,8 +268,22 @@ export function ModelArenaDashboard({ onBack }) {
     setSummary(null)
     setSelectedResult(null)
 
-    // Connect WebSocket first
+    // Connect WebSocket first and wait for it to be ready
     connectWebSocket()
+
+    // Helper to wait for WebSocket to be ready
+    const waitForWs = () => new Promise((resolve) => {
+      const checkWs = () => {
+        if (wsRef.current?.readyState === WebSocket.OPEN) {
+          resolve(true)
+        } else if (wsRef.current?.readyState === WebSocket.CONNECTING) {
+          setTimeout(checkWs, 100)
+        } else {
+          resolve(false)
+        }
+      }
+      setTimeout(checkWs, 100)
+    })
 
     try {
       const response = await fetch(`${BACKEND_URL}/arena/test/start`, {
@@ -287,17 +301,23 @@ export function ModelArenaDashboard({ onBack }) {
       if (response.ok) {
         const data = await response.json()
         testRunIdRef.current = data.test_run_id
+        console.log("Test started:", data.test_run_id)
 
-        // Subscribe to this test run
-        if (wsRef.current?.readyState === WebSocket.OPEN) {
+        // Wait for WebSocket then subscribe
+        const wsReady = await waitForWs()
+        if (wsReady) {
           wsRef.current.send(JSON.stringify({
             action: "subscribe",
             test_run_id: data.test_run_id
           }))
+          console.log("Subscribed to test:", data.test_run_id)
+        } else {
+          console.error("WebSocket not ready for subscription")
         }
       } else {
+        const errText = await response.text()
         setStatus("idle")
-        console.error("Failed to start test")
+        console.error("Failed to start test:", response.status, errText)
       }
     } catch (err) {
       setStatus("idle")

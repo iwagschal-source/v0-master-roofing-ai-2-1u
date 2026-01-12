@@ -2,7 +2,7 @@
 
 import * as React from "react"
 
-import { Home, Clock, Settings, Mail, Users, Sparkles } from "lucide-react"
+import { Home, Clock, Settings, Mail, Sparkles } from "lucide-react"
 import Image from "next/image"
 
 /** @typedef {Object} NavigationRailProps */
@@ -19,7 +19,6 @@ export function NavigationRail({ activeMode, onModeChange, visible }) {
       label: "Power BI",
       type: "image",
     },
-    { id: "customers", icon: Users, label: "Customers", type: "lucide" },
     { id: "arena", icon: Sparkles, label: "Model Arena", type: "lucide" },
 
     {

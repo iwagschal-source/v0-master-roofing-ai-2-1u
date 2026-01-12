@@ -12,7 +12,6 @@ import { EmailScreen } from "@/components/ko/email-screen"
 import { SettingsScreen } from "@/components/ko/settings-screen"
 import { ZoomScreen } from "@/components/ko/zoom-screen"
 import { ReportsScreen } from "@/components/ko/reports-screen"
-import { CustomerDashboard } from "@/components/ko/customer-dashboard"
 import { ModelArenaDashboard } from "@/components/ko/model-arena-dashboard"
 import { MobileMenuToggle } from "@/components/ko/mobile-menu-toggle"
 import { HistoryItem } from "@/types/history"
@@ -32,7 +31,6 @@ export default function HomePage() {
   const [showSettings, setShowSettings] = useState(false)
   const [showZoom, setShowZoom] = useState(false)
   const [showReports, setShowReports] = useState(false)
-  const [showCustomers, setShowCustomers] = useState(false)
   const [showArena, setShowArena] = useState(false)
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
   const [topPaneHeight, setTopPaneHeight] = useState(0)
@@ -73,7 +71,6 @@ export default function HomePage() {
     setShowEmail(false)
     setShowSettings(false)
     setShowZoom(false)
-    setShowCustomers(false)
     setShowArena(false)
     setHasStartedChat(true)
   }
@@ -126,7 +123,6 @@ export default function HomePage() {
     setShowSettings(false)
     setShowZoom(false)
     setShowReports(false)
-    setShowCustomers(false)
     setShowArena(false)
   }
 
@@ -142,23 +138,11 @@ export default function HomePage() {
       setShowSettings(false)
       setShowZoom(false)
       setShowReports(false)
-      setShowCustomers(false)
       setShowArena(false)
       setShowHistory(false)
       setSelectedHistoryItem(undefined)
     } else if (mode === "arena") {
       setShowArena(true)
-      setShowCustomers(false)
-      setShowFiles(false)
-      setShowEmail(false)
-      setShowSettings(false)
-      setShowZoom(false)
-      setShowReports(false)
-      setShowHistory(false)
-      setHasStartedChat(true)
-    } else if (mode === "customers") {
-      setShowCustomers(true)
-      setShowArena(false)
       setShowFiles(false)
       setShowEmail(false)
       setShowSettings(false)
@@ -172,76 +156,61 @@ export default function HomePage() {
       setShowSettings(false)
       setShowZoom(false)
       setShowReports(false)
-      setShowCustomers(false)
       setShowArena(false)
       setHasStartedChat(true)
       setShowHistory(false)
-
     } else if (mode === "documents") {
       setShowFiles(true)
       setShowEmail(false)
       setShowSettings(false)
       setShowZoom(false)
       setShowReports(false)
-      setShowCustomers(false)
       setShowArena(false)
       setHasStartedChat(true)
       setShowHistory(false)
-
     } else if (mode === "settings") {
       setShowSettings(true)
       setShowFiles(false)
       setShowEmail(false)
       setShowZoom(false)
       setShowReports(false)
-      setShowCustomers(false)
       setShowArena(false)
       setHasStartedChat(true)
       setShowHistory(false)
-
     } else if (mode === "zoom") {
       setShowZoom(true)
       setShowFiles(false)
       setShowEmail(false)
       setShowSettings(false)
       setShowReports(false)
-      setShowCustomers(false)
       setShowArena(false)
       setHasStartedChat(true)
       setShowHistory(false)
-
-    }
-    else if (mode === "powerbi") {
+    } else if (mode === "powerbi") {
       setShowReports(true)
       setShowZoom(false)
       setShowFiles(false)
       setShowEmail(false)
       setShowSettings(false)
-      setShowCustomers(false)
       setShowArena(false)
       setHasStartedChat(true)
       setShowHistory(false)
-
-    }
-    else if (mode === "history") {
+    } else if (mode === "history") {
       setShowHistory(true)
       setShowFiles(false)
       setShowEmail(false)
       setShowSettings(false)
       setShowZoom(false)
       setShowReports(false)
-      setShowCustomers(false)
       setShowArena(false)
       setHasStartedChat(true)
-    }
-    else {
+    } else {
       setActiveMode(mode)
       setShowFiles(false)
       setShowEmail(false)
       setShowSettings(false)
       setShowZoom(false)
       setShowReports(false)
-      setShowCustomers(false)
       setShowArena(false)
       if (!hasStartedChat) {
         setHasStartedChat(true)
@@ -254,30 +223,11 @@ export default function HomePage() {
     setShowEmail(false)
     setShowSettings(false)
     setShowReports(false)
-    setShowCustomers(false)
     setHasStartedChat(true)
   }
 
-  /*   if (!isStartupComplete || isShuttingDown) {
-      return (
-        <StartupSequence
-          onComplete={() => {
-            if (isShuttingDown) {
-              setIsShuttingDown(false)
-              setIsStartupComplete(true)
-              console.log("[v0] App shutdown complete")
-            } else {
-              setIsStartupComplete(true)
-              setIsPoweredOn(true)
-            }
-          }}
-          isShuttingDown={isShuttingDown}
-        />
-      )
-    } */
-
   const showHomeScreen =
-    !hasStartedChat && activeMode === "home" && !showFiles && !showEmail && !showSettings && !showZoom && !showReports && !showCustomers
+    !hasStartedChat && activeMode === "home" && !showFiles && !showEmail && !showSettings && !showZoom && !showReports
 
   return (
     <div className="flex h-dvh bg-background text-foreground">
@@ -291,7 +241,7 @@ export default function HomePage() {
       <div className={`${isMobileMenuOpen ? "fixed left-0 top-0 bottom-0 z-50" : "hidden"} md:block`}>
         <NavigationRail
           activeMode={
-            showEmail ? "email" : showFiles ? "documents" : showSettings ? "settings" : showZoom ? "zoom" : showReports ? "powerbi" : showCustomers ? "customers" : showArena ? "arena" : showHistory ? "history" : activeMode
+            showEmail ? "email" : showFiles ? "documents" : showSettings ? "settings" : showZoom ? "zoom" : showReports ? "powerbi" : showArena ? "arena" : showHistory ? "history" : activeMode
           }
           onModeChange={handleModeChange}
           visible={true}
@@ -332,8 +282,6 @@ export default function HomePage() {
                 setShowReports(false) // go back to chat
               }}
             />
-          ) : showCustomers ? (
-            <CustomerDashboard onBack={() => setShowCustomers(false)} />
           ) : showArena ? (
             <ModelArenaDashboard onBack={() => setShowArena(false)} />
           ) : (
