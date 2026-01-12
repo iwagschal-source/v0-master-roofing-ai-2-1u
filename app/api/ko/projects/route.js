@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server"
+import { createProjectSheet, shareSheet, batchUpdateSheet } from "@/lib/google-sheets"
 
 // Mock projects data - In production, this would fetch from HubSpot or BigQuery
 const MOCK_PROJECTS = [
@@ -95,7 +96,7 @@ export async function GET(request) {
   }
 }
 
-// In production, this would create a new project
+// Create a new project with auto-generated Google Sheet
 export async function POST(request) {
   try {
     const body = await request.json()
@@ -108,9 +109,62 @@ export async function POST(request) {
       )
     }
 
-    // Mock creating a new project
+    const projectId = `proj-${Date.now()}`
+    let sheetId = null
+    let sheetUrl = null
+    let sheetError = null
+
+    // Auto-create Google Sheet if configured
+    const isGoogleConfigured = process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL && process.env.GOOGLE_SHEET_TEMPLATE_ID
+
+    if (isGoogleConfigured && body.createSheet !== false) {
+      try {
+        const sheetResult = await createProjectSheet(body.name, body.gc_name)
+        sheetId = sheetResult.sheetId
+        sheetUrl = sheetResult.sheetUrl
+
+        // Make the sheet publicly viewable
+        try {
+          await shareSheet(sheetId, 'reader')
+        } catch (shareError) {
+          console.warn("Failed to share sheet:", shareError)
+        }
+
+        // Populate the Setup tab with project info
+        const setupData = []
+        if (body.name) {
+          setupData.push({ range: "Setup!B2", values: [[body.name]] })
+        }
+        if (body.address) {
+          setupData.push({ range: "Setup!B3", values: [[body.address]] })
+        }
+        if (body.gc_name) {
+          setupData.push({ range: "Setup!B4", values: [[body.gc_name]] })
+        }
+        if (body.amount) {
+          setupData.push({ range: "Setup!B5", values: [[body.amount]] })
+        }
+        if (body.due_date) {
+          setupData.push({ range: "Setup!B6", values: [[body.due_date]] })
+        }
+
+        if (setupData.length > 0) {
+          try {
+            await batchUpdateSheet(sheetId, setupData)
+          } catch (updateError) {
+            console.warn("Failed to populate Setup tab:", updateError)
+          }
+        }
+      } catch (error) {
+        console.error("Error creating Google Sheet:", error)
+        sheetError = error.message
+        // Don't fail project creation if sheet creation fails
+      }
+    }
+
+    // Create the project record
     const newProject = {
-      id: `proj-${Date.now()}`,
+      id: projectId,
       name: body.name,
       address: body.address || body.name,
       gc_id: body.gc_id || `gc-${Date.now()}`,
@@ -118,12 +172,16 @@ export async function POST(request) {
       amount: body.amount || 0,
       due_date: body.due_date || null,
       status: body.status || "estimating",
-      sheet_id: null,
+      sheet_id: sheetId,
+      sheet_url: sheetUrl,
     }
+
+    // In production, save to HubSpot/BigQuery here
 
     return NextResponse.json({
       success: true,
       project: newProject,
+      ...(sheetError && { sheetError }),
     })
   } catch (error) {
     console.error("Error creating project:", error)

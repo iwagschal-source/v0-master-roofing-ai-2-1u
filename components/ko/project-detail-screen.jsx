@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { ArrowLeft, Calendar, DollarSign, Building2, ExternalLink, Link as LinkIcon } from "lucide-react"
+import { ArrowLeft, Calendar, DollarSign, Building2, ExternalLink, Link as LinkIcon, Plus, Loader2 } from "lucide-react"
 import { EmbeddedSheet } from "./embedded-sheet"
 import { ActionButtons } from "./action-buttons"
 import { GCIntelligence } from "./gc-intelligence"
@@ -45,19 +45,75 @@ const SHEET_TABS = [
   { id: "files", label: "Files" },
 ]
 
-export function ProjectDetailScreen({ project, onBack, onPreviewProposal }) {
+export function ProjectDetailScreen({ project, onBack, onPreviewProposal, onProjectUpdate }) {
   const [activeTab, setActiveTab] = useState("estimate")
   const [sheetId, setSheetId] = useState(project?.sheet_id || null)
-  const [isConnectingSheet, setIsConnectingSheet] = useState(false)
+  const [sheetUrl, setSheetUrl] = useState(project?.sheet_url || null)
+  const [isCreatingSheet, setIsCreatingSheet] = useState(false)
+  const [sheetError, setSheetError] = useState(null)
 
   const status = project?.status || "pending"
 
-  const handleConnectSheet = () => {
-    // For MVP, prompt for sheet ID
+  // Create a new sheet from template
+  const handleCreateSheet = async () => {
+    setIsCreatingSheet(true)
+    setSheetError(null)
+
+    try {
+      const response = await fetch(`/api/ko/projects/${project.id}/create-sheet`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          projectName: project.name || project.address,
+          gcName: project.gc_name,
+          address: project.address,
+          amount: project.amount,
+          dueDate: project.due_date,
+        }),
+      })
+
+      const result = await response.json()
+
+      if (!response.ok) {
+        throw new Error(result.error || "Failed to create sheet")
+      }
+
+      setSheetId(result.sheetId)
+      setSheetUrl(result.sheetUrl)
+
+      // Notify parent component of the update
+      if (onProjectUpdate) {
+        onProjectUpdate({
+          ...project,
+          sheet_id: result.sheetId,
+          sheet_url: result.sheetUrl,
+        })
+      }
+
+      if (result.mock) {
+        setSheetError("Note: Using mock sheet (Google Sheets not configured)")
+      }
+    } catch (error) {
+      console.error("Error creating sheet:", error)
+      setSheetError(error.message)
+    } finally {
+      setIsCreatingSheet(false)
+    }
+  }
+
+  // Connect an existing sheet by ID
+  const handleConnectExisting = () => {
     const id = prompt("Enter Google Sheet ID:")
     if (id) {
       setSheetId(id)
-      // In production, would save to backend
+      setSheetUrl(`https://docs.google.com/spreadsheets/d/${id}/edit`)
+      if (onProjectUpdate) {
+        onProjectUpdate({
+          ...project,
+          sheet_id: id,
+          sheet_url: `https://docs.google.com/spreadsheets/d/${id}/edit`,
+        })
+      }
     }
   }
 
@@ -182,16 +238,47 @@ export function ProjectDetailScreen({ project, onBack, onPreviewProposal }) {
                 <div className="w-16 h-16 rounded-2xl bg-secondary flex items-center justify-center mx-auto mb-4">
                   <LinkIcon className="w-8 h-8 text-foreground-tertiary" />
                 </div>
-                <h3 className="font-semibold text-foreground mb-2">Connect Google Sheet</h3>
-                <p className="text-foreground-secondary text-sm mb-4">
-                  Connect a Google Sheet to view and edit estimate data
+                <h3 className="font-semibold text-foreground mb-2">Project Estimate Sheet</h3>
+                <p className="text-foreground-secondary text-sm mb-6">
+                  Create a new estimate sheet from the KO template or connect an existing one
                 </p>
-                <button
-                  onClick={handleConnectSheet}
-                  className="px-4 py-2 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 transition-colors text-sm font-medium"
-                >
-                  Connect Sheet
-                </button>
+
+                {sheetError && (
+                  <div className="mb-4 px-4 py-2 bg-yellow-500/10 border border-yellow-500/20 rounded-lg text-yellow-600 dark:text-yellow-400 text-sm">
+                    {sheetError}
+                  </div>
+                )}
+
+                <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
+                  <button
+                    onClick={handleCreateSheet}
+                    disabled={isCreatingSheet}
+                    className="flex items-center gap-2 px-5 py-2.5 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 transition-colors text-sm font-medium disabled:opacity-50"
+                  >
+                    {isCreatingSheet ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        Creating Sheet...
+                      </>
+                    ) : (
+                      <>
+                        <Plus className="w-4 h-4" />
+                        Create New Sheet
+                      </>
+                    )}
+                  </button>
+
+                  <span className="text-foreground-tertiary text-sm">or</span>
+
+                  <button
+                    onClick={handleConnectExisting}
+                    disabled={isCreatingSheet}
+                    className="flex items-center gap-2 px-5 py-2.5 rounded-lg border border-border text-foreground hover:bg-secondary transition-colors text-sm font-medium disabled:opacity-50"
+                  >
+                    <LinkIcon className="w-4 h-4" />
+                    Connect Existing
+                  </button>
+                </div>
               </div>
             ) : (
               <>
