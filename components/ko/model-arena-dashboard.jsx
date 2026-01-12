@@ -344,8 +344,18 @@ export function ModelArenaDashboard({ onBack }) {
     }
   }
 
-  // Run quick test
+  // Run quick test (2 models per provider)
   const runQuickTest = async () => {
+    await runArenaTest(2)
+  }
+
+  // Run full arena (all models)
+  const runFullArena = async () => {
+    await runArenaTest(99)
+  }
+
+  // Core arena test function
+  const runArenaTest = async (maxPerProvider = 2) => {
     if (!testPrompt.trim()) return
 
     setStatus("running")
@@ -355,23 +365,26 @@ export function ModelArenaDashboard({ onBack }) {
 
     try {
       const response = await fetch(
-        `${BACKEND_URL}/arena/test/quick?prompt=${encodeURIComponent(testPrompt)}`,
+        `${BACKEND_URL}/arena/test/quick?prompt=${encodeURIComponent(testPrompt)}&max_per_provider=${maxPerProvider}`,
         { method: "POST" }
       )
 
       if (response.ok) {
         const data = await response.json()
-        const formattedResults = data.results.map((r, i) => ({
-          ...r,
-          rank: i + 1,
-          model_name: r.model_name,
-          score: r.score,
-          cost: r.cost,
-          time_seconds: r.time
-        }))
+        const formattedResults = data.results
+          .filter(r => r.status === "completed")
+          .sort((a, b) => (b.score || 0) - (a.score || 0))
+          .map((r, i) => ({
+            ...r,
+            rank: i + 1,
+            model_name: r.model_name,
+            score: r.score,
+            cost: r.cost,
+            time_seconds: r.time
+          }))
         setResults(formattedResults)
         setStatus("completed")
-        setProgress({ progress_pct: 100, models_total: data.results.length, models_completed: data.results.length })
+        setProgress({ progress_pct: 100, models_total: data.results.length, models_completed: formattedResults.length })
       } else {
         setStatus("idle")
       }
@@ -469,7 +482,7 @@ export function ModelArenaDashboard({ onBack }) {
                 Quick Test
               </button>
               <button
-                onClick={startTest}
+                onClick={runFullArena}
                 disabled={status === "running" || !testPrompt.trim()}
                 className="px-4 py-2 bg-blue-600 hover:bg-blue-500 disabled:bg-gray-700 disabled:text-gray-500 text-white rounded-lg flex items-center gap-2 transition-colors"
               >
