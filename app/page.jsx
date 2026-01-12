@@ -17,6 +17,9 @@ import { MobileMenuToggle } from "@/components/ko/mobile-menu-toggle"
 import { HistoryItem } from "@/types/history"
 import { ChatShell } from "@/components/ko/chat-shell"
 import { HistoryScreen } from "@/components/ko/history-screen"
+import { ProjectsScreen } from "@/components/ko/projects-screen"
+import { ProjectDetailScreen } from "@/components/ko/project-detail-screen"
+import { ProposalPreviewScreen } from "@/components/ko/proposal-preview-screen"
 
 export default function HomePage() {
   const [isStartupComplete, setIsStartupComplete] = useState(false)
@@ -32,6 +35,9 @@ export default function HomePage() {
   const [showZoom, setShowZoom] = useState(false)
   const [showReports, setShowReports] = useState(false)
   const [showArena, setShowArena] = useState(false)
+  const [showProjects, setShowProjects] = useState(false)
+  const [selectedProject, setSelectedProject] = useState(null)
+  const [showProposal, setShowProposal] = useState(false)
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
   const [topPaneHeight, setTopPaneHeight] = useState(0)
   const [koState, setKoState] = useState("idle")
@@ -140,6 +146,9 @@ export default function HomePage() {
       setShowReports(false)
       setShowArena(false)
       setShowHistory(false)
+      setShowProjects(false)
+      setSelectedProject(null)
+      setShowProposal(false)
       setSelectedHistoryItem(undefined)
     } else if (mode === "arena") {
       setShowArena(true)
@@ -149,6 +158,7 @@ export default function HomePage() {
       setShowZoom(false)
       setShowReports(false)
       setShowHistory(false)
+      setShowProjects(false)
       setHasStartedChat(true)
     } else if (mode === "email") {
       setShowEmail(true)
@@ -157,6 +167,7 @@ export default function HomePage() {
       setShowZoom(false)
       setShowReports(false)
       setShowArena(false)
+      setShowProjects(false)
       setHasStartedChat(true)
       setShowHistory(false)
     } else if (mode === "documents") {
@@ -166,6 +177,7 @@ export default function HomePage() {
       setShowZoom(false)
       setShowReports(false)
       setShowArena(false)
+      setShowProjects(false)
       setHasStartedChat(true)
       setShowHistory(false)
     } else if (mode === "settings") {
@@ -175,6 +187,7 @@ export default function HomePage() {
       setShowZoom(false)
       setShowReports(false)
       setShowArena(false)
+      setShowProjects(false)
       setHasStartedChat(true)
       setShowHistory(false)
     } else if (mode === "zoom") {
@@ -184,6 +197,7 @@ export default function HomePage() {
       setShowSettings(false)
       setShowReports(false)
       setShowArena(false)
+      setShowProjects(false)
       setHasStartedChat(true)
       setShowHistory(false)
     } else if (mode === "powerbi") {
@@ -193,10 +207,24 @@ export default function HomePage() {
       setShowEmail(false)
       setShowSettings(false)
       setShowArena(false)
+      setShowProjects(false)
       setHasStartedChat(true)
       setShowHistory(false)
     } else if (mode === "history") {
       setShowHistory(true)
+      setShowFiles(false)
+      setShowEmail(false)
+      setShowSettings(false)
+      setShowZoom(false)
+      setShowReports(false)
+      setShowArena(false)
+      setShowProjects(false)
+      setHasStartedChat(true)
+    } else if (mode === "projects") {
+      setShowProjects(true)
+      setSelectedProject(null)
+      setShowProposal(false)
+      setShowHistory(false)
       setShowFiles(false)
       setShowEmail(false)
       setShowSettings(false)
@@ -212,6 +240,7 @@ export default function HomePage() {
       setShowZoom(false)
       setShowReports(false)
       setShowArena(false)
+      setShowProjects(false)
       if (!hasStartedChat) {
         setHasStartedChat(true)
       }
@@ -241,7 +270,7 @@ export default function HomePage() {
       <div className={`${isMobileMenuOpen ? "fixed left-0 top-0 bottom-0 z-50" : "hidden"} md:block`}>
         <NavigationRail
           activeMode={
-            showEmail ? "email" : showFiles ? "documents" : showSettings ? "settings" : showZoom ? "zoom" : showReports ? "powerbi" : showArena ? "arena" : showHistory ? "history" : activeMode
+            showEmail ? "email" : showFiles ? "documents" : showSettings ? "settings" : showZoom ? "zoom" : showReports ? "powerbi" : showArena ? "arena" : showHistory ? "history" : showProjects ? "projects" : activeMode
           }
           onModeChange={handleModeChange}
           visible={true}
@@ -284,6 +313,27 @@ export default function HomePage() {
             />
           ) : showArena ? (
             <ModelArenaDashboard onBack={() => setShowArena(false)} />
+          ) : showProjects ? (
+            showProposal && selectedProject ? (
+              <ProposalPreviewScreen
+                project={selectedProject}
+                onBack={() => setShowProposal(false)}
+              />
+            ) : selectedProject ? (
+              <ProjectDetailScreen
+                project={selectedProject}
+                onBack={() => setSelectedProject(null)}
+                onPreviewProposal={(project) => {
+                  setSelectedProject(project)
+                  setShowProposal(true)
+                }}
+              />
+            ) : (
+              <ProjectsScreen
+                onSelectProject={(project) => setSelectedProject(project)}
+                onBack={() => setShowProjects(false)}
+              />
+            )
           ) : (
             <div className="flex-1 flex flex-col md:flex-row overflow-hidden">
               <div className={`flex-1 ${isWorkspaceVisible ? 'md:w-[40%]' : ''} flex flex-col`}>
