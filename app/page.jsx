@@ -23,6 +23,7 @@ import { ProposalPreviewScreen } from "@/components/ko/proposal-preview-screen"
 import { ChatScreen } from "@/components/ko/chat-screen"
 import { AsanaScreen } from "@/components/ko/asana-screen"
 import { MiniKOChat } from "@/components/ko/mini-ko-chat"
+import { AgentPermissionsScreen } from "@/components/ko/agent-permissions-screen"
 
 export default function HomePage() {
   const [isStartupComplete, setIsStartupComplete] = useState(false)
@@ -43,6 +44,7 @@ export default function HomePage() {
   const [showProposal, setShowProposal] = useState(false)
   const [showMessages, setShowMessages] = useState(false)
   const [showAsana, setShowAsana] = useState(false)
+  const [showAgentPermissions, setShowAgentPermissions] = useState(false)
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
   const [topPaneHeight, setTopPaneHeight] = useState(0)
   const [koState, setKoState] = useState("idle")
@@ -154,6 +156,7 @@ export default function HomePage() {
       setShowProjects(false)
       setShowMessages(false)
       setShowAsana(false)
+      setShowAgentPermissions(false)
       setSelectedProject(null)
       setShowProposal(false)
       setSelectedHistoryItem(undefined)
@@ -195,6 +198,7 @@ export default function HomePage() {
       setShowReports(false)
       setShowArena(false)
       setShowProjects(false)
+      setShowAgentPermissions(false)
       setHasStartedChat(true)
       setShowHistory(false)
     } else if (mode === "zoom") {
@@ -348,7 +352,11 @@ export default function HomePage() {
           ) : showEmail ? (
             <EmailScreen />
           ) : showSettings ? (
-            <SettingsScreen />
+            showAgentPermissions ? (
+              <AgentPermissionsScreen onBack={() => setShowAgentPermissions(false)} />
+            ) : (
+              <SettingsScreen onOpenAgentPermissions={() => setShowAgentPermissions(true)} />
+            )
           ) : showZoom ? (
             <ZoomScreen />
           ) : showReports ? (
