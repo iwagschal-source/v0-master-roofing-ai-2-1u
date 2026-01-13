@@ -232,6 +232,355 @@ export const historyAPI = {
 };
 
 // ============================================================================
+// Gmail Endpoints
+// ============================================================================
+
+export interface GmailMessage {
+  id: string;
+  threadId: string;
+  from: string;
+  to: string[];
+  subject: string;
+  snippet: string;
+  body: string;
+  date: string;
+  read: boolean;
+  labels: string[];
+  attachments?: Array<{
+    filename: string;
+    mimeType: string;
+    size: number;
+    attachmentId: string;
+  }>;
+}
+
+export interface GmailListResponse {
+  messages: GmailMessage[];
+  nextPageToken?: string;
+  resultSizeEstimate: number;
+}
+
+export const gmailAPI = {
+  /**
+   * List emails from inbox
+   */
+  listMessages: async (params?: {
+    maxResults?: number;
+    pageToken?: string;
+    q?: string;
+    labelIds?: string[];
+  }): Promise<GmailListResponse> => {
+    const searchParams = new URLSearchParams();
+    if (params?.maxResults) searchParams.set('maxResults', params.maxResults.toString());
+    if (params?.pageToken) searchParams.set('pageToken', params.pageToken);
+    if (params?.q) searchParams.set('q', params.q);
+    if (params?.labelIds) searchParams.set('labelIds', params.labelIds.join(','));
+
+    const query = searchParams.toString();
+    return api.get<GmailListResponse>(`/gmail/messages${query ? `?${query}` : ''}`);
+  },
+
+  /**
+   * Get a specific email
+   */
+  getMessage: async (messageId: string): Promise<GmailMessage> => {
+    return api.get<GmailMessage>(`/gmail/messages/${messageId}`);
+  },
+
+  /**
+   * Send an email
+   */
+  sendMessage: async (data: {
+    to: string[];
+    subject: string;
+    body: string;
+    cc?: string[];
+    bcc?: string[];
+    replyTo?: string;
+    threadId?: string;
+  }): Promise<{ id: string; threadId: string }> => {
+    return api.post('/gmail/send', data);
+  },
+
+  /**
+   * Mark message as read/unread
+   */
+  modifyMessage: async (
+    messageId: string,
+    data: { addLabels?: string[]; removeLabels?: string[] }
+  ): Promise<GmailMessage> => {
+    return api.post(`/gmail/messages/${messageId}/modify`, data);
+  },
+
+  /**
+   * Get thread (all messages in conversation)
+   */
+  getThread: async (threadId: string): Promise<{ messages: GmailMessage[] }> => {
+    return api.get(`/gmail/threads/${threadId}`);
+  },
+
+  /**
+   * Generate AI draft reply
+   */
+  generateDraft: async (data: {
+    messageId: string;
+    tone?: 'professional' | 'friendly' | 'brief' | 'detailed';
+    instructions?: string;
+  }): Promise<{ draft: string; suggestions: string[] }> => {
+    return api.post('/gmail/draft', data);
+  },
+
+  /**
+   * Get email summary and action items via KO
+   */
+  analyzeEmail: async (messageId: string): Promise<{
+    summary: string;
+    actionItems: string[];
+    priority: 'high' | 'medium' | 'low';
+    strategy: string;
+    sentiment: 'positive' | 'neutral' | 'negative';
+  }> => {
+    return api.get(`/gmail/analyze/${messageId}`);
+  },
+};
+
+// ============================================================================
+// Calendar/Meet Endpoints
+// ============================================================================
+
+export interface CalendarEvent {
+  id: string;
+  summary: string;
+  description?: string;
+  start: { dateTime: string; timeZone?: string };
+  end: { dateTime: string; timeZone?: string };
+  attendees?: Array<{ email: string; displayName?: string; responseStatus?: string }>;
+  hangoutLink?: string;
+  meetingLink?: string;
+  location?: string;
+  status: 'confirmed' | 'tentative' | 'cancelled';
+  organizer?: { email: string; displayName?: string };
+}
+
+export interface CalendarListResponse {
+  events: CalendarEvent[];
+  nextPageToken?: string;
+}
+
+export interface MeetRecording {
+  id: string;
+  name: string;
+  meetingCode: string;
+  startTime: string;
+  endTime: string;
+  duration: number;
+  participants: string[];
+  downloadUrl?: string;
+  transcriptUrl?: string;
+}
+
+export const calendarAPI = {
+  /**
+   * List calendar events
+   */
+  listEvents: async (params?: {
+    timeMin?: string;
+    timeMax?: string;
+    maxResults?: number;
+    pageToken?: string;
+    calendarId?: string;
+  }): Promise<CalendarListResponse> => {
+    const searchParams = new URLSearchParams();
+    if (params?.timeMin) searchParams.set('timeMin', params.timeMin);
+    if (params?.timeMax) searchParams.set('timeMax', params.timeMax);
+    if (params?.maxResults) searchParams.set('maxResults', params.maxResults.toString());
+    if (params?.pageToken) searchParams.set('pageToken', params.pageToken);
+    if (params?.calendarId) searchParams.set('calendarId', params.calendarId);
+
+    const query = searchParams.toString();
+    return api.get<CalendarListResponse>(`/calendar/events${query ? `?${query}` : ''}`);
+  },
+
+  /**
+   * Get a specific event
+   */
+  getEvent: async (eventId: string, calendarId?: string): Promise<CalendarEvent> => {
+    const query = calendarId ? `?calendarId=${calendarId}` : '';
+    return api.get<CalendarEvent>(`/calendar/events/${eventId}${query}`);
+  },
+
+  /**
+   * Get upcoming meetings (with Meet links)
+   */
+  getUpcomingMeetings: async (limit?: number): Promise<CalendarEvent[]> => {
+    const query = limit ? `?limit=${limit}` : '';
+    return api.get<CalendarEvent[]>(`/calendar/meetings${query}`);
+  },
+
+  /**
+   * Get Meet recordings
+   */
+  getMeetRecordings: async (params?: {
+    startDate?: string;
+    endDate?: string;
+    limit?: number;
+  }): Promise<MeetRecording[]> => {
+    const searchParams = new URLSearchParams();
+    if (params?.startDate) searchParams.set('startDate', params.startDate);
+    if (params?.endDate) searchParams.set('endDate', params.endDate);
+    if (params?.limit) searchParams.set('limit', params.limit.toString());
+
+    const query = searchParams.toString();
+    return api.get<MeetRecording[]>(`/meet/recordings${query ? `?${query}` : ''}`);
+  },
+};
+
+// ============================================================================
+// Google Chat Endpoints
+// ============================================================================
+
+export interface ChatSpace {
+  id: string;
+  name: string;
+  type: 'ROOM' | 'DM' | 'GROUP_DM';
+  displayName?: string;
+  memberCount?: number;
+  lastMessageTime?: string;
+}
+
+export interface ChatMessage {
+  id: string;
+  spaceId: string;
+  sender: { name: string; email: string; avatarUrl?: string };
+  text: string;
+  createTime: string;
+  threadId?: string;
+  attachments?: Array<{ name: string; downloadUrl: string }>;
+}
+
+export const chatSpacesAPI = {
+  /**
+   * List chat spaces (rooms and DMs)
+   */
+  listSpaces: async (): Promise<ChatSpace[]> => {
+    return api.get<ChatSpace[]>('/chat/spaces');
+  },
+
+  /**
+   * Get messages in a space
+   */
+  getMessages: async (
+    spaceId: string,
+    params?: { pageSize?: number; pageToken?: string }
+  ): Promise<{ messages: ChatMessage[]; nextPageToken?: string }> => {
+    const searchParams = new URLSearchParams();
+    if (params?.pageSize) searchParams.set('pageSize', params.pageSize.toString());
+    if (params?.pageToken) searchParams.set('pageToken', params.pageToken);
+
+    const query = searchParams.toString();
+    return api.get(`/chat/spaces/${spaceId}/messages${query ? `?${query}` : ''}`);
+  },
+
+  /**
+   * Send a message to a space
+   */
+  sendMessage: async (
+    spaceId: string,
+    data: { text: string; threadId?: string }
+  ): Promise<ChatMessage> => {
+    return api.post(`/chat/spaces/${spaceId}/messages`, data);
+  },
+};
+
+// ============================================================================
+// Asana Endpoints
+// ============================================================================
+
+export interface AsanaTask {
+  id: string;
+  name: string;
+  notes?: string;
+  completed: boolean;
+  due_on?: string;
+  due_at?: string;
+  assignee?: { gid: string; name: string; email?: string };
+  projects?: Array<{ gid: string; name: string }>;
+  tags?: Array<{ gid: string; name: string; color?: string }>;
+  custom_fields?: Array<{ gid: string; name: string; display_value?: string }>;
+  permalink_url?: string;
+  created_at: string;
+  modified_at: string;
+}
+
+export interface AsanaProject {
+  id: string;
+  name: string;
+  color?: string;
+  notes?: string;
+  workspace: { gid: string; name: string };
+}
+
+export const asanaAPI = {
+  /**
+   * List tasks assigned to current user
+   */
+  listMyTasks: async (params?: {
+    completed_since?: string;
+    workspace?: string;
+  }): Promise<AsanaTask[]> => {
+    const searchParams = new URLSearchParams();
+    if (params?.completed_since) searchParams.set('completed_since', params.completed_since);
+    if (params?.workspace) searchParams.set('workspace', params.workspace);
+
+    const query = searchParams.toString();
+    return api.get<AsanaTask[]>(`/asana/tasks/me${query ? `?${query}` : ''}`);
+  },
+
+  /**
+   * List tasks in a project
+   */
+  listProjectTasks: async (
+    projectId: string,
+    params?: { completed?: boolean }
+  ): Promise<AsanaTask[]> => {
+    const query = params?.completed !== undefined ? `?completed=${params.completed}` : '';
+    return api.get<AsanaTask[]>(`/asana/projects/${projectId}/tasks${query}`);
+  },
+
+  /**
+   * Get a specific task
+   */
+  getTask: async (taskId: string): Promise<AsanaTask> => {
+    return api.get<AsanaTask>(`/asana/tasks/${taskId}`);
+  },
+
+  /**
+   * Update a task
+   */
+  updateTask: async (
+    taskId: string,
+    data: Partial<Pick<AsanaTask, 'name' | 'notes' | 'completed' | 'due_on'>>
+  ): Promise<AsanaTask> => {
+    return api.put(`/asana/tasks/${taskId}`, data);
+  },
+
+  /**
+   * Complete a task
+   */
+  completeTask: async (taskId: string): Promise<AsanaTask> => {
+    return api.post(`/asana/tasks/${taskId}/complete`);
+  },
+
+  /**
+   * List projects
+   */
+  listProjects: async (workspaceId?: string): Promise<AsanaProject[]> => {
+    const query = workspaceId ? `?workspace=${workspaceId}` : '';
+    return api.get<AsanaProject[]>(`/asana/projects${query}`);
+  },
+};
+
+// ============================================================================
 // Auth Endpoints (Placeholder)
 // ============================================================================
 
@@ -311,6 +660,10 @@ export const apiClient = {
   auth: authAPI,
   sessions: sessionAPI,
   analytics: analyticsAPI,
+  gmail: gmailAPI,
+  calendar: calendarAPI,
+  chatSpaces: chatSpacesAPI,
+  asana: asanaAPI,
 };
 
 // Re-export for convenience

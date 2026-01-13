@@ -2,7 +2,7 @@
 
 import * as React from "react"
 
-import { Home, Clock, Settings, Mail, Sparkles, FolderKanban } from "lucide-react"
+import { Home, Clock, Settings, Mail, Sparkles, FolderKanban, MessageSquare, CheckSquare } from "lucide-react"
 import Image from "next/image"
 
 /** @typedef {Object} NavigationRailProps */
@@ -22,16 +22,12 @@ export function NavigationRail({ activeMode, onModeChange, visible }) {
     },
     { id: "arena", icon: Sparkles, label: "Model Arena", type: "lucide" },
 
+    { id: "messages", icon: MessageSquare, label: "Messages", type: "lucide" },
+    { id: "asana", icon: CheckSquare, label: "Tasks", type: "lucide" },
     {
       id: "hubspot",
       icon: "/images/hubspot.png",
       label: "HubSpot",
-      type: "image",
-    },
-    {
-      id: "messages",
-      icon: "/images/whatsapp.png",
-      label: "Messages",
       type: "image",
     },
     { id: "email", icon: Mail, label: "Email", type: "lucide" },

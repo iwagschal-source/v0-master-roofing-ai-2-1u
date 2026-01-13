@@ -139,7 +139,7 @@ function ToolItem({ tool }) {
   )
 }
 
-export function PhaseTracker({ phases = [], tools = [], currentPhase }) {
+export function PhaseTracker({ phases = [], tools = [], currentPhase, compact = false }) {
   // Don't render if no phases
   if (!phases || phases.length === 0) return null
 

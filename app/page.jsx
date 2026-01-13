@@ -20,6 +20,9 @@ import { HistoryScreen } from "@/components/ko/history-screen"
 import { ProjectsScreen } from "@/components/ko/projects-screen"
 import { ProjectDetailScreen } from "@/components/ko/project-detail-screen"
 import { ProposalPreviewScreen } from "@/components/ko/proposal-preview-screen"
+import { ChatScreen } from "@/components/ko/chat-screen"
+import { AsanaScreen } from "@/components/ko/asana-screen"
+import { MiniKOChat } from "@/components/ko/mini-ko-chat"
 
 export default function HomePage() {
   const [isStartupComplete, setIsStartupComplete] = useState(false)
@@ -38,6 +41,8 @@ export default function HomePage() {
   const [showProjects, setShowProjects] = useState(false)
   const [selectedProject, setSelectedProject] = useState(null)
   const [showProposal, setShowProposal] = useState(false)
+  const [showMessages, setShowMessages] = useState(false)
+  const [showAsana, setShowAsana] = useState(false)
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
   const [topPaneHeight, setTopPaneHeight] = useState(0)
   const [koState, setKoState] = useState("idle")
@@ -147,6 +152,8 @@ export default function HomePage() {
       setShowArena(false)
       setShowHistory(false)
       setShowProjects(false)
+      setShowMessages(false)
+      setShowAsana(false)
       setSelectedProject(null)
       setShowProposal(false)
       setSelectedHistoryItem(undefined)
@@ -231,6 +238,31 @@ export default function HomePage() {
       setShowZoom(false)
       setShowReports(false)
       setShowArena(false)
+      setShowMessages(false)
+      setHasStartedChat(true)
+    } else if (mode === "messages") {
+      setShowMessages(true)
+      setShowProjects(false)
+      setShowHistory(false)
+      setShowFiles(false)
+      setShowEmail(false)
+      setShowSettings(false)
+      setShowZoom(false)
+      setShowReports(false)
+      setShowArena(false)
+      setShowAsana(false)
+      setHasStartedChat(true)
+    } else if (mode === "asana") {
+      setShowAsana(true)
+      setShowMessages(false)
+      setShowProjects(false)
+      setShowHistory(false)
+      setShowFiles(false)
+      setShowEmail(false)
+      setShowSettings(false)
+      setShowZoom(false)
+      setShowReports(false)
+      setShowArena(false)
       setHasStartedChat(true)
     } else {
       setActiveMode(mode)
@@ -258,8 +290,27 @@ export default function HomePage() {
   const showHomeScreen =
     !hasStartedChat && activeMode === "home" && !showFiles && !showEmail && !showSettings && !showZoom && !showReports
 
+  const handleGoToKO = () => {
+    setHasStartedChat(true)
+    setActiveMode("chat")
+    setShowFiles(false)
+    setShowEmail(false)
+    setShowSettings(false)
+    setShowZoom(false)
+    setShowReports(false)
+    setShowArena(false)
+    setShowHistory(false)
+    setShowProjects(false)
+    setShowMessages(false)
+    setShowAsana(false)
+  }
+
   return (
     <div className="flex h-dvh bg-background text-foreground">
+      {/* Mini KO Chat - floating on all screens except main chat */}
+      {!showHomeScreen && activeMode !== "chat" && !showHistory && (
+        <MiniKOChat onMaximize={handleGoToKO} />
+      )}
       {isMobileMenuOpen && (
         <div
           className="md:hidden fixed inset-0 bg-background/80 backdrop-blur-sm z-40"
@@ -270,7 +321,7 @@ export default function HomePage() {
       <div className={`${isMobileMenuOpen ? "fixed left-0 top-0 bottom-0 z-50" : "hidden"} md:block`}>
         <NavigationRail
           activeMode={
-            showEmail ? "email" : showFiles ? "documents" : showSettings ? "settings" : showZoom ? "zoom" : showReports ? "powerbi" : showArena ? "arena" : showHistory ? "history" : showProjects ? "projects" : activeMode
+            showEmail ? "email" : showFiles ? "documents" : showSettings ? "settings" : showZoom ? "zoom" : showReports ? "powerbi" : showArena ? "arena" : showHistory ? "history" : showProjects ? "projects" : showMessages ? "messages" : showAsana ? "asana" : activeMode
           }
           onModeChange={handleModeChange}
           visible={true}
@@ -313,6 +364,10 @@ export default function HomePage() {
             />
           ) : showArena ? (
             <ModelArenaDashboard onBack={() => setShowArena(false)} />
+          ) : showMessages ? (
+            <ChatScreen />
+          ) : showAsana ? (
+            <AsanaScreen />
           ) : showProjects ? (
             showProposal && selectedProject ? (
               <ProposalPreviewScreen
