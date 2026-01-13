@@ -4,6 +4,9 @@
  * PUT - Update agent config (prompts, settings)
  */
 
+// Allow self-signed SSL certificate
+process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0'
+
 import { NextResponse } from 'next/server'
 
 const BACKEND_URL = 'https://34.95.128.208'

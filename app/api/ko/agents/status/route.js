@@ -3,6 +3,9 @@
  * Fetches real-time status from backend at 34.95.128.208
  */
 
+// Allow self-signed SSL certificate
+process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0'
+
 import { NextResponse } from 'next/server'
 
 const BACKEND_URL = 'https://34.95.128.208'
@@ -47,16 +50,8 @@ export async function GET() {
   try {
     // Fetch health and config from backend in parallel
     const [healthRes, configRes] = await Promise.all([
-      fetch(`${BACKEND_URL}/health`, {
-        cache: 'no-store',
-        // Skip SSL verification for self-signed cert
-        ...(process.env.NODE_ENV === 'development' && {
-          agent: new (require('https').Agent)({ rejectUnauthorized: false })
-        })
-      }),
-      fetch(`${BACKEND_URL}/v1/config`, {
-        cache: 'no-store',
-      })
+      fetch(`${BACKEND_URL}/health`, { cache: 'no-store' }),
+      fetch(`${BACKEND_URL}/v1/config`, { cache: 'no-store' })
     ])
 
     if (!healthRes.ok) {
