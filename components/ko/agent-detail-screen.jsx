@@ -318,21 +318,28 @@ function OverviewTab({ agent }) {
           Connected Agents ({agent.connections?.length || 0})
         </h2>
         <div className="space-y-2 max-h-64 overflow-y-auto">
-          {agent.connections?.map((connId) => {
-            const connAgent = getAgentById(connId)
-            const connStatus = connAgent ? statusConfig[connAgent.status] : null
+          {agent.connections?.map((conn, idx) => {
+            // Handle both string IDs and object connections { targetId, type, label }
+            const targetId = typeof conn === 'string' ? conn : conn.targetId
+            const connAgent = getAgentById(targetId)
+            const connLabel = typeof conn === 'object' ? conn.label : null
             return (
               <div
-                key={connId}
+                key={targetId || idx}
                 className="flex items-center justify-between p-3 bg-secondary rounded-lg"
               >
                 <div className="flex items-center gap-3">
                   <StatusDot status={connAgent?.status || "offline"} size="md" />
-                  <span className="font-mono text-sm">{connId}</span>
+                  <span className="font-mono text-sm">{targetId}</span>
                 </div>
-                <span className="text-xs text-muted-foreground">
-                  {connAgent?.name || "Unknown"}
-                </span>
+                <div className="text-right">
+                  <span className="text-xs text-muted-foreground block">
+                    {connAgent?.name || "Unknown"}
+                  </span>
+                  {connLabel && (
+                    <span className="text-xs text-primary/70">{connLabel}</span>
+                  )}
+                </div>
               </div>
             )
           })}
