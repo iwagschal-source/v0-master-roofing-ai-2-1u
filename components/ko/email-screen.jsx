@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { Paperclip, Mic, Send, Sparkles, RefreshCw, Search, Loader2, Check, AlertCircle, ExternalLink, LogOut } from "lucide-react"
+import { Paperclip, Mic, Send, Sparkles, RefreshCw, Search, Loader2, Check, AlertCircle, ExternalLink, LogOut, Plus, X } from "lucide-react"
 import { ThinkingIndicator } from "./thinking-indicator"
 import { VoiceToggle } from "./voice-toggle"
 import { useGmail } from "@/hooks/useGmail"
@@ -67,6 +67,15 @@ export function EmailScreen() {
   const [sendingReply, setSendingReply] = useState(false)
   const [sendSuccess, setSendSuccess] = useState(false)
 
+  // Compose modal state
+  const [showCompose, setShowCompose] = useState(false)
+  const [composeTo, setComposeTo] = useState("")
+  const [composeSubject, setComposeSubject] = useState("")
+  const [composeBody, setComposeBody] = useState("")
+  const [composeSending, setComposeSending] = useState(false)
+  const [composeSuccess, setComposeSuccess] = useState(false)
+  const [composeError, setComposeError] = useState("")
+
   const handleSend = () => {
     if (inputValue.trim()) {
       setIsThinking(true)
@@ -109,6 +118,50 @@ export function EmailScreen() {
     }
   }
 
+  const handleComposeSend = async () => {
+    if (!composeTo.trim() || !composeBody.trim()) {
+      setComposeError("Please enter a recipient and message")
+      return
+    }
+
+    setComposeSending(true)
+    setComposeError("")
+
+    // Parse multiple recipients (comma-separated)
+    const recipients = composeTo.split(',').map(email => email.trim()).filter(Boolean)
+
+    const success = await sendReply(recipients, composeSubject, composeBody)
+    setComposeSending(false)
+
+    if (success) {
+      setComposeSuccess(true)
+      setTimeout(() => {
+        setComposeSuccess(false)
+        setShowCompose(false)
+        setComposeTo("")
+        setComposeSubject("")
+        setComposeBody("")
+        refresh() // Refresh to see sent email
+      }, 1500)
+    } else {
+      setComposeError("Failed to send email. Please try again.")
+    }
+  }
+
+  const handleCloseCompose = () => {
+    if (composeTo || composeSubject || composeBody) {
+      if (window.confirm("Discard this draft?")) {
+        setShowCompose(false)
+        setComposeTo("")
+        setComposeSubject("")
+        setComposeBody("")
+        setComposeError("")
+      }
+    } else {
+      setShowCompose(false)
+    }
+  }
+
   // Filter messages by search query
   const filteredMessages = messages.filter(email => {
     if (!searchQuery) return true
@@ -131,6 +184,16 @@ export function EmailScreen() {
               <h2 className="text-lg font-semibold text-[#ececec]">Inbox</h2>
             </div>
             <div className="flex items-center gap-2">
+              {isConnected && (
+                <button
+                  onClick={() => setShowCompose(true)}
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-primary text-white rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors"
+                  title="Compose new email"
+                >
+                  <Plus className="w-4 h-4" />
+                  <span className="hidden sm:inline">Compose</span>
+                </button>
+              )}
               {isConnected && user && (
                 <div className="flex items-center gap-2">
                   <span className="text-xs text-[#9b9b9b] hidden sm:inline">{user.email}</span>
@@ -463,6 +526,103 @@ export function EmailScreen() {
           </div>
         )}
       </div>
+
+      {/* Compose Email Modal */}
+      {showCompose && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-card border border-border rounded-xl w-full max-w-2xl shadow-2xl flex flex-col max-h-[90vh]">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between p-4 border-b border-border">
+              <h2 className="text-lg font-semibold text-[#ececec]">New Message</h2>
+              <button
+                onClick={handleCloseCompose}
+                className="p-1.5 hover:bg-muted rounded-lg transition-colors text-[#9b9b9b] hover:text-[#ececec]"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="flex-1 overflow-y-auto p-4 space-y-3">
+              {/* To Field */}
+              <div>
+                <label className="block text-xs text-[#9b9b9b] mb-1">To</label>
+                <input
+                  type="email"
+                  value={composeTo}
+                  onChange={(e) => setComposeTo(e.target.value)}
+                  placeholder="recipient@example.com (comma-separate multiple)"
+                  className="w-full px-3 py-2 bg-background border border-input rounded-lg text-sm text-[#ececec] placeholder:text-[#9b9b9b] outline-none focus:ring-1 focus:ring-primary"
+                />
+              </div>
+
+              {/* Subject Field */}
+              <div>
+                <label className="block text-xs text-[#9b9b9b] mb-1">Subject</label>
+                <input
+                  type="text"
+                  value={composeSubject}
+                  onChange={(e) => setComposeSubject(e.target.value)}
+                  placeholder="Email subject"
+                  className="w-full px-3 py-2 bg-background border border-input rounded-lg text-sm text-[#ececec] placeholder:text-[#9b9b9b] outline-none focus:ring-1 focus:ring-primary"
+                />
+              </div>
+
+              {/* Body Field */}
+              <div className="flex-1">
+                <label className="block text-xs text-[#9b9b9b] mb-1">Message</label>
+                <textarea
+                  value={composeBody}
+                  onChange={(e) => setComposeBody(e.target.value)}
+                  placeholder="Write your message..."
+                  rows={12}
+                  className="w-full px-3 py-2 bg-background border border-input rounded-lg text-sm text-[#ececec] placeholder:text-[#9b9b9b] outline-none focus:ring-1 focus:ring-primary resize-none"
+                />
+              </div>
+
+              {/* Error Message */}
+              {composeError && (
+                <div className="flex items-center gap-2 text-red-400 text-sm">
+                  <AlertCircle className="w-4 h-4" />
+                  {composeError}
+                </div>
+              )}
+            </div>
+
+            {/* Modal Footer */}
+            <div className="flex items-center justify-between p-4 border-t border-border">
+              <button
+                onClick={handleCloseCompose}
+                className="px-4 py-2 text-sm text-[#9b9b9b] hover:text-[#ececec] transition-colors"
+              >
+                Discard
+              </button>
+              <button
+                onClick={handleComposeSend}
+                disabled={!composeTo.trim() || !composeBody.trim() || composeSending || composeSuccess}
+                className="flex items-center gap-2 px-5 py-2 bg-primary text-white rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors disabled:opacity-50"
+              >
+                {composeSending ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    Sending...
+                  </>
+                ) : composeSuccess ? (
+                  <>
+                    <Check className="w-4 h-4" />
+                    Sent!
+                  </>
+                ) : (
+                  <>
+                    <Send className="w-4 h-4" />
+                    Send
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

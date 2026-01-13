@@ -126,3 +126,107 @@ export async function GET(request) {
     )
   }
 }
+
+// POST - Send email
+export async function POST(request) {
+  try {
+    const cookieStore = await cookies()
+    const userId = cookieStore.get('google_user_id')?.value
+
+    if (!userId) {
+      return NextResponse.json(
+        { error: 'Not connected to Google', needsAuth: true },
+        { status: 401 }
+      )
+    }
+
+    const token = await getGoogleToken(userId)
+    if (!token) {
+      return NextResponse.json(
+        { error: 'Google token expired', needsAuth: true },
+        { status: 401 }
+      )
+    }
+
+    const body = await request.json()
+    const { to, subject, message, threadId, replyToMessageId } = body
+
+    if (!to || !message) {
+      return NextResponse.json(
+        { error: 'Missing required fields: to, message' },
+        { status: 400 }
+      )
+    }
+
+    // Get user's email for the From header
+    const tokenData = await readJSON(`auth/google/${userId}.json`)
+    const fromEmail = tokenData?.user?.email
+
+    // Build the email in RFC 2822 format
+    let emailLines = [
+      `From: ${fromEmail}`,
+      `To: ${Array.isArray(to) ? to.join(', ') : to}`,
+      `Subject: ${subject || '(No Subject)'}`,
+      'Content-Type: text/plain; charset=utf-8',
+      'MIME-Version: 1.0',
+    ]
+
+    // Add threading headers if replying
+    if (replyToMessageId) {
+      emailLines.push(`In-Reply-To: ${replyToMessageId}`)
+      emailLines.push(`References: ${replyToMessageId}`)
+    }
+
+    // Add blank line then body
+    emailLines.push('')
+    emailLines.push(message)
+
+    const rawEmail = emailLines.join('\r\n')
+
+    // Encode to base64url
+    const encodedEmail = Buffer.from(rawEmail)
+      .toString('base64')
+      .replace(/\+/g, '-')
+      .replace(/\//g, '_')
+      .replace(/=+$/, '')
+
+    // Send via Gmail API
+    const sendUrl = threadId
+      ? `${GMAIL_API}/users/me/messages/send`
+      : `${GMAIL_API}/users/me/messages/send`
+
+    const sendRes = await fetch(sendUrl, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        raw: encodedEmail,
+        threadId: threadId || undefined,
+      }),
+    })
+
+    const sendData = await sendRes.json()
+
+    if (sendData.error) {
+      console.error('Gmail send error:', sendData.error)
+      return NextResponse.json(
+        { error: sendData.error.message || 'Failed to send email' },
+        { status: 400 }
+      )
+    }
+
+    return NextResponse.json({
+      success: true,
+      messageId: sendData.id,
+      threadId: sendData.threadId,
+    })
+  } catch (err) {
+    console.error('Gmail send error:', err)
+    return NextResponse.json(
+      { error: 'Failed to send email' },
+      { status: 500 }
+    )
+  }
+}

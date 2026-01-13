@@ -376,18 +376,54 @@ Isaac`)
     }
   }, [useMock])
 
-  const sendReply = useCallback(async (to: string[], subject: string, body: string, threadId?: string) => {
+  const sendReply = useCallback(async (to: string[], subject: string, body: string, threadId?: string, replyToMessageId?: string) => {
     try {
-      if (useMock) {
-        await new Promise(resolve => setTimeout(resolve, 500))
-        console.log('Mock send:', { to, subject, body, threadId })
+      // Try our Google API route first
+      const res = await fetch('/api/google/gmail', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          to,
+          subject,
+          message: body,
+          threadId,
+          replyToMessageId,
+        }),
+      })
+
+      const data = await res.json()
+
+      if (data.needsAuth) {
+        throw new Error('NOT_CONNECTED')
+      }
+
+      if (data.error) {
+        throw new Error(data.error)
+      }
+
+      if (data.success) {
         return true
       }
-      await gmailAPI.sendMessage({ to, subject, body, threadId })
-      return true
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to send message')
-      return false
+
+      throw new Error('Send failed')
+    } catch (googleErr: any) {
+      // If not connected to Google, try the backend API
+      if (googleErr.message !== 'NOT_CONNECTED') {
+        console.warn('Google Gmail send error:', googleErr)
+      }
+
+      try {
+        if (useMock) {
+          await new Promise(resolve => setTimeout(resolve, 500))
+          console.log('Mock send:', { to, subject, body, threadId })
+          return true
+        }
+        await gmailAPI.sendMessage({ to, subject, body, threadId })
+        return true
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Failed to send message')
+        return false
+      }
     }
   }, [useMock])
 
