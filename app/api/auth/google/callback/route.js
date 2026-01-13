@@ -62,7 +62,9 @@ export async function GET(request) {
     if (!tokenResponse.ok) {
       const errorData = await tokenResponse.text()
       console.error('Google token exchange failed:', errorData)
-      return NextResponse.redirect(`${baseUrl}/?google_error=token_exchange_failed`)
+      // Return detailed error for debugging
+      const errorEncoded = encodeURIComponent(errorData.substring(0, 200))
+      return NextResponse.redirect(`${baseUrl}/?google_error=token_exchange_failed&details=${errorEncoded}`)
     }
 
     const tokenData = await tokenResponse.json()
