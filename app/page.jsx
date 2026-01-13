@@ -24,6 +24,12 @@ import { ChatScreen } from "@/components/ko/chat-screen"
 import { AsanaScreen } from "@/components/ko/asana-screen"
 import { MiniKOChat } from "@/components/ko/mini-ko-chat"
 import { AgentPermissionsScreen } from "@/components/ko/agent-permissions-screen"
+import { AgentDashboardScreen } from "@/components/ko/agent-dashboard-screen"
+import { AgentDetailScreen } from "@/components/ko/agent-detail-screen"
+import { AgentNetworkMapScreen } from "@/components/ko/agent-network-map-screen"
+import { AddAgentScreen } from "@/components/ko/add-agent-screen"
+import { CloneAgentModal } from "@/components/ko/clone-agent-modal"
+import { agents as initialAgents } from "@/data/agent-data"
 
 export default function HomePage() {
   const [isStartupComplete, setIsStartupComplete] = useState(false)
@@ -45,6 +51,12 @@ export default function HomePage() {
   const [showMessages, setShowMessages] = useState(false)
   const [showAsana, setShowAsana] = useState(false)
   const [showAgentPermissions, setShowAgentPermissions] = useState(false)
+  const [showAgents, setShowAgents] = useState(false)
+  const [selectedAgent, setSelectedAgent] = useState(null)
+  const [showAgentNetwork, setShowAgentNetwork] = useState(false)
+  const [showAddAgent, setShowAddAgent] = useState(false)
+  const [agentToClone, setAgentToClone] = useState(null)
+  const [agentsList, setAgentsList] = useState(initialAgents)
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
   const [topPaneHeight, setTopPaneHeight] = useState(0)
   const [koState, setKoState] = useState("idle")
@@ -157,6 +169,11 @@ export default function HomePage() {
       setShowMessages(false)
       setShowAsana(false)
       setShowAgentPermissions(false)
+      setShowAgents(false)
+      setSelectedAgent(null)
+      setShowAgentNetwork(false)
+      setShowAddAgent(false)
+      setAgentToClone(null)
       setSelectedProject(null)
       setShowProposal(false)
       setSelectedHistoryItem(undefined)
@@ -169,6 +186,7 @@ export default function HomePage() {
       setShowReports(false)
       setShowHistory(false)
       setShowProjects(false)
+      setShowAgents(false)
       setHasStartedChat(true)
     } else if (mode === "email") {
       setShowEmail(true)
@@ -178,6 +196,7 @@ export default function HomePage() {
       setShowReports(false)
       setShowArena(false)
       setShowProjects(false)
+      setShowAgents(false)
       setHasStartedChat(true)
       setShowHistory(false)
     } else if (mode === "documents") {
@@ -188,6 +207,7 @@ export default function HomePage() {
       setShowReports(false)
       setShowArena(false)
       setShowProjects(false)
+      setShowAgents(false)
       setHasStartedChat(true)
       setShowHistory(false)
     } else if (mode === "settings") {
@@ -198,6 +218,7 @@ export default function HomePage() {
       setShowReports(false)
       setShowArena(false)
       setShowProjects(false)
+      setShowAgents(false)
       setShowAgentPermissions(false)
       setHasStartedChat(true)
       setShowHistory(false)
@@ -209,6 +230,7 @@ export default function HomePage() {
       setShowReports(false)
       setShowArena(false)
       setShowProjects(false)
+      setShowAgents(false)
       setHasStartedChat(true)
       setShowHistory(false)
     } else if (mode === "powerbi") {
@@ -219,6 +241,7 @@ export default function HomePage() {
       setShowSettings(false)
       setShowArena(false)
       setShowProjects(false)
+      setShowAgents(false)
       setHasStartedChat(true)
       setShowHistory(false)
     } else if (mode === "history") {
@@ -230,6 +253,7 @@ export default function HomePage() {
       setShowReports(false)
       setShowArena(false)
       setShowProjects(false)
+      setShowAgents(false)
       setHasStartedChat(true)
     } else if (mode === "projects") {
       setShowProjects(true)
@@ -243,6 +267,7 @@ export default function HomePage() {
       setShowReports(false)
       setShowArena(false)
       setShowMessages(false)
+      setShowAgents(false)
       setHasStartedChat(true)
     } else if (mode === "messages") {
       setShowMessages(true)
@@ -255,9 +280,28 @@ export default function HomePage() {
       setShowReports(false)
       setShowArena(false)
       setShowAsana(false)
+      setShowAgents(false)
       setHasStartedChat(true)
     } else if (mode === "asana") {
       setShowAsana(true)
+      setShowMessages(false)
+      setShowProjects(false)
+      setShowHistory(false)
+      setShowFiles(false)
+      setShowEmail(false)
+      setShowSettings(false)
+      setShowZoom(false)
+      setShowReports(false)
+      setShowArena(false)
+      setShowAgents(false)
+      setHasStartedChat(true)
+    } else if (mode === "agents") {
+      setShowAgents(true)
+      setSelectedAgent(null)
+      setShowAgentNetwork(false)
+      setShowAddAgent(false)
+      setAgentToClone(null)
+      setShowAsana(false)
       setShowMessages(false)
       setShowProjects(false)
       setShowHistory(false)
@@ -277,6 +321,7 @@ export default function HomePage() {
       setShowReports(false)
       setShowArena(false)
       setShowProjects(false)
+      setShowAgents(false)
       if (!hasStartedChat) {
         setHasStartedChat(true)
       }
@@ -307,6 +352,7 @@ export default function HomePage() {
     setShowProjects(false)
     setShowMessages(false)
     setShowAsana(false)
+    setShowAgents(false)
   }
 
   return (
@@ -325,7 +371,7 @@ export default function HomePage() {
       <div className={`${isMobileMenuOpen ? "fixed left-0 top-0 bottom-0 z-50" : "hidden"} md:block`}>
         <NavigationRail
           activeMode={
-            showEmail ? "email" : showFiles ? "documents" : showSettings ? "settings" : showZoom ? "zoom" : showReports ? "powerbi" : showArena ? "arena" : showHistory ? "history" : showProjects ? "projects" : showMessages ? "messages" : showAsana ? "asana" : activeMode
+            showEmail ? "email" : showFiles ? "documents" : showSettings ? "settings" : showZoom ? "zoom" : showReports ? "powerbi" : showArena ? "arena" : showHistory ? "history" : showProjects ? "projects" : showMessages ? "messages" : showAsana ? "asana" : showAgents ? "agents" : activeMode
           }
           onModeChange={handleModeChange}
           visible={true}
@@ -376,6 +422,39 @@ export default function HomePage() {
             <ChatScreen />
           ) : showAsana ? (
             <AsanaScreen />
+          ) : showAgents ? (
+            showAddAgent ? (
+              <AddAgentScreen
+                onBack={() => setShowAddAgent(false)}
+                onSave={(newAgent) => {
+                  setAgentsList([...agentsList, newAgent])
+                  setShowAddAgent(false)
+                }}
+              />
+            ) : showAgentNetwork ? (
+              <AgentNetworkMapScreen
+                agents={agentsList}
+                onBack={() => setShowAgentNetwork(false)}
+                onSelectAgent={(agent) => {
+                  setSelectedAgent(agent)
+                  setShowAgentNetwork(false)
+                }}
+              />
+            ) : selectedAgent ? (
+              <AgentDetailScreen
+                agent={selectedAgent}
+                onBack={() => setSelectedAgent(null)}
+                onClone={(agent) => setAgentToClone(agent)}
+              />
+            ) : (
+              <AgentDashboardScreen
+                agents={agentsList}
+                onSelectAgent={(agent) => setSelectedAgent(agent)}
+                onAddAgent={() => setShowAddAgent(true)}
+                onViewNetwork={() => setShowAgentNetwork(true)}
+                onCloneAgent={(agent) => setAgentToClone(agent)}
+              />
+            )
           ) : showProjects ? (
             showProposal && selectedProject ? (
               <ProposalPreviewScreen
@@ -437,6 +516,17 @@ export default function HomePage() {
           )}
 
       </div>
+
+      {/* Clone Agent Modal */}
+      <CloneAgentModal
+        agent={agentToClone}
+        isOpen={!!agentToClone}
+        onClose={() => setAgentToClone(null)}
+        onClone={(clonedAgent) => {
+          setAgentsList([...agentsList, clonedAgent])
+          setAgentToClone(null)
+        }}
+      />
     </div>
   )
 }

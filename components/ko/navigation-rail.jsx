@@ -2,7 +2,7 @@
 
 import * as React from "react"
 
-import { Home, Clock, Settings, Mail, Sparkles, FolderKanban, MessageSquare } from "lucide-react"
+import { Home, Clock, Settings, Mail, Sparkles, FolderKanban, MessageSquare, Bot } from "lucide-react"
 import Image from "next/image"
 
 /** @typedef {Object} NavigationRailProps */
@@ -21,6 +21,7 @@ export function NavigationRail({ activeMode, onModeChange, visible }) {
       type: "image",
     },
     { id: "arena", icon: Sparkles, label: "Model Arena", type: "lucide" },
+    { id: "agents", icon: Bot, label: "Agent Control", type: "lucide" },
 
     { id: "messages", icon: MessageSquare, label: "Messages", type: "lucide" },
     {
