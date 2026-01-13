@@ -111,6 +111,42 @@ async function createSheet(sheetId, title) {
   return res.json()
 }
 
+async function setDataValidation(sheetId, sheetTabId, range, values) {
+  const token = await getAccessToken()
+  const res = await fetch(
+    `https://sheets.googleapis.com/v4/spreadsheets/${sheetId}:batchUpdate`,
+    {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        requests: [{
+          setDataValidation: {
+            range: {
+              sheetId: sheetTabId,
+              startRowIndex: range.startRow,
+              endRowIndex: range.endRow,
+              startColumnIndex: range.startCol,
+              endColumnIndex: range.endCol
+            },
+            rule: {
+              condition: {
+                type: 'ONE_OF_LIST',
+                values: values.map(v => ({ userEnteredValue: v }))
+              },
+              showCustomUi: true,
+              strict: false
+            }
+          }
+        }]
+      }),
+    }
+  )
+  if (!res.ok) console.warn('Validation warning:', await res.text())
+}
+
 async function main() {
   const sheetId = process.env.GOOGLE_SHEET_TEMPLATE_ID
   console.log('Populating template sheet:', sheetId)
@@ -121,7 +157,7 @@ async function main() {
   console.log('Existing tabs:', existingSheets.join(', '))
 
   // Create missing tabs
-  const requiredTabs = ['Setup', 'Systems', 'Alternates', 'Clarifications', 'Proposal']
+  const requiredTabs = ['Setup', 'Systems', 'Alternates', 'Clarifications', 'Proposal', 'Systems Library', 'Items Library', 'GC History']
   for (const tab of requiredTabs) {
     if (!existingSheets.includes(tab)) {
       console.log(`Creating tab: ${tab}`)

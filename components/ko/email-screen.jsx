@@ -109,12 +109,37 @@ export function EmailScreen() {
       : `Re: ${selectedMessage.subject}`
     const body = editedDraft || draftReply
 
-    const success = await sendReply(to, subject, body, selectedMessage.threadId)
-    setSendingReply(false)
+    try {
+      const res = await fetch('/api/google/gmail', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          to,
+          subject,
+          message: body,
+          threadId: selectedMessage.threadId,
+          replyToMessageId: selectedMessage.id,
+        }),
+      })
 
-    if (success) {
-      setSendSuccess(true)
-      setTimeout(() => setSendSuccess(false), 3000)
+      const data = await res.json()
+
+      if (data.success) {
+        setSendSuccess(true)
+        setEditedDraft("") // Clear the edited draft
+        setTimeout(() => {
+          setSendSuccess(false)
+          refresh() // Refresh to see the sent reply
+        }, 2000)
+      } else {
+        console.error('Reply send failed:', data.error)
+        alert(data.error || 'Failed to send reply')
+      }
+    } catch (err) {
+      console.error('Reply send error:', err)
+      alert('Network error. Please try again.')
+    } finally {
+      setSendingReply(false)
     }
   }
 
@@ -127,24 +152,54 @@ export function EmailScreen() {
     setComposeSending(true)
     setComposeError("")
 
-    // Parse multiple recipients (comma-separated)
-    const recipients = composeTo.split(',').map(email => email.trim()).filter(Boolean)
+    try {
+      // Parse multiple recipients (comma-separated)
+      const recipients = composeTo.split(',').map(email => email.trim()).filter(Boolean)
 
-    const success = await sendReply(recipients, composeSubject, composeBody)
-    setComposeSending(false)
+      // Call the API directly for better error handling
+      const res = await fetch('/api/google/gmail', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          to: recipients,
+          subject: composeSubject || '(No Subject)',
+          message: composeBody,
+        }),
+      })
 
-    if (success) {
-      setComposeSuccess(true)
-      setTimeout(() => {
-        setComposeSuccess(false)
-        setShowCompose(false)
-        setComposeTo("")
-        setComposeSubject("")
-        setComposeBody("")
-        refresh() // Refresh to see sent email
-      }, 1500)
-    } else {
-      setComposeError("Failed to send email. Please try again.")
+      const data = await res.json()
+
+      if (data.needsAuth) {
+        setComposeError("Not connected to Google. Please reconnect.")
+        setComposeSending(false)
+        return
+      }
+
+      if (data.error) {
+        setComposeError(data.error)
+        setComposeSending(false)
+        return
+      }
+
+      if (data.success) {
+        setComposeSending(false)
+        setComposeSuccess(true)
+        setTimeout(() => {
+          setComposeSuccess(false)
+          setShowCompose(false)
+          setComposeTo("")
+          setComposeSubject("")
+          setComposeBody("")
+          refresh() // Refresh to see sent email
+        }, 1500)
+      } else {
+        setComposeError("Failed to send email. Please try again.")
+        setComposeSending(false)
+      }
+    } catch (err) {
+      console.error('Compose send error:', err)
+      setComposeError(err.message || "Network error. Please try again.")
+      setComposeSending(false)
     }
   }
 
@@ -187,11 +242,10 @@ export function EmailScreen() {
               {isConnected && (
                 <button
                   onClick={() => setShowCompose(true)}
-                  className="flex items-center gap-1.5 px-3 py-1.5 bg-primary text-white rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors"
+                  className="p-2 hover:bg-muted rounded-lg transition-colors"
                   title="Compose new email"
                 >
-                  <Plus className="w-4 h-4" />
-                  <span className="hidden sm:inline">Compose</span>
+                  <Plus className="w-4 h-4 text-[#9b9b9b]" />
                 </button>
               )}
               {isConnected && user && (
@@ -244,7 +298,7 @@ export function EmailScreen() {
               </p>
               <a
                 href={authUrl}
-                className="inline-flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors"
+                className="inline-flex items-center gap-2 px-4 py-2 bg-white border border-gray-300 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-50 transition-colors"
               >
                 <img src="/images/google.svg" alt="" className="w-4 h-4" />
                 Connect to Google
@@ -416,7 +470,11 @@ export function EmailScreen() {
                       <button
                         onClick={handleInsertReply}
                         disabled={!draftReply || sendingReply || sendSuccess}
-                        className="text-xs px-3 py-1 bg-primary text-white rounded-md hover:bg-primary/90 transition-colors disabled:opacity-50 flex items-center gap-1"
+                        className={`text-xs px-3 py-1 rounded-md transition-colors disabled:opacity-50 flex items-center gap-1 ${
+                          sendSuccess
+                            ? 'bg-green-600 text-white'
+                            : 'bg-blue-600 text-white hover:bg-blue-700'
+                        }`}
                       >
                         {sendingReply ? (
                           <>
@@ -508,7 +566,7 @@ export function EmailScreen() {
               </p>
               <a
                 href={authUrl}
-                className="inline-flex items-center gap-2 px-6 py-3 bg-primary text-white rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors"
+                className="inline-flex items-center gap-2 px-6 py-3 bg-white border border-gray-300 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-50 transition-colors"
               >
                 <img src="/images/google.svg" alt="" className="w-5 h-5" />
                 Connect to Google
@@ -600,7 +658,11 @@ export function EmailScreen() {
               <button
                 onClick={handleComposeSend}
                 disabled={!composeTo.trim() || !composeBody.trim() || composeSending || composeSuccess}
-                className="flex items-center gap-2 px-5 py-2 bg-primary text-white rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors disabled:opacity-50"
+                className={`flex items-center gap-2 px-5 py-2 rounded-lg text-sm font-medium transition-colors disabled:opacity-50 ${
+                  composeSuccess
+                    ? 'bg-green-600 text-white'
+                    : 'bg-blue-600 text-white hover:bg-blue-700'
+                }`}
               >
                 {composeSending ? (
                   <>
