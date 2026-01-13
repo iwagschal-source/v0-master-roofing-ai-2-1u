@@ -1,10 +1,19 @@
 "use client"
 
 import { useState, useRef, useEffect } from "react"
-import { MessageSquare, Users, Send, RefreshCw, Loader2, Search, Hash, User } from "lucide-react"
+import { MessageSquare, Users, Send, RefreshCw, Loader2, Search, Hash, User, ExternalLink, LogOut, AlertTriangle } from "lucide-react"
 import { useChatSpaces, formatMessageTime, getInitials } from "@/hooks/useChatSpaces"
+import { useGoogleAuth } from "@/hooks/useGoogleAuth"
 
 export function ChatScreen() {
+  const {
+    isConnected,
+    user,
+    loading: authLoading,
+    authUrl,
+    disconnect
+  } = useGoogleAuth()
+
   const {
     spaces,
     loading,
@@ -14,7 +23,7 @@ export function ChatScreen() {
     selectSpace,
     sendMessage,
     refresh
-  } = useChatSpaces({ autoFetch: true })
+  } = useChatSpaces({ autoFetch: isConnected })
 
   const [inputValue, setInputValue] = useState("")
   const [searchQuery, setSearchQuery] = useState("")
@@ -63,15 +72,29 @@ export function ChatScreen() {
         {/* Header */}
         <div className="p-4 border-b border-border">
           <div className="flex items-center justify-between mb-3">
-            <h2 className="text-lg font-semibold text-foreground">Messages</h2>
-            <button
-              onClick={refresh}
-              disabled={loading}
-              className="p-2 hover:bg-muted rounded-lg transition-colors disabled:opacity-50"
-              title="Refresh"
-            >
-              <RefreshCw className={`w-4 h-4 text-foreground-secondary ${loading ? 'animate-spin' : ''}`} />
-            </button>
+            <div className="flex items-center gap-2">
+              <img src="/images/google-chat.svg" alt="Google Chat" className="w-5 h-5" />
+              <h2 className="text-lg font-semibold text-foreground">Messages</h2>
+            </div>
+            <div className="flex items-center gap-2">
+              {isConnected && user && (
+                <button
+                  onClick={disconnect}
+                  className="p-1.5 hover:bg-muted rounded-lg transition-colors text-foreground-secondary hover:text-red-400"
+                  title="Disconnect Google"
+                >
+                  <LogOut className="w-3.5 h-3.5" />
+                </button>
+              )}
+              <button
+                onClick={refresh}
+                disabled={loading || !isConnected}
+                className="p-2 hover:bg-muted rounded-lg transition-colors disabled:opacity-50"
+                title="Refresh"
+              >
+                <RefreshCw className={`w-4 h-4 text-foreground-secondary ${loading ? 'animate-spin' : ''}`} />
+              </button>
+            </div>
           </div>
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-foreground-secondary" />
@@ -87,7 +110,28 @@ export function ChatScreen() {
 
         {/* Spaces List */}
         <div className="flex-1 overflow-y-auto p-2">
-          {loading && spaces.length === 0 ? (
+          {authLoading ? (
+            <div className="flex items-center justify-center h-32">
+              <Loader2 className="w-6 h-6 text-primary animate-spin" />
+            </div>
+          ) : !isConnected ? (
+            <div className="p-4 text-center">
+              <div className="w-12 h-12 bg-card rounded-full flex items-center justify-center mx-auto mb-3 border border-border">
+                <img src="/images/google-chat.svg" alt="Google Chat" className="w-6 h-6" />
+              </div>
+              <h3 className="text-sm font-medium text-foreground mb-2">Connect Google Chat</h3>
+              <p className="text-xs text-foreground-secondary mb-3">
+                Connect your Google account to access Chat
+              </p>
+              <a
+                href={authUrl}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-primary text-primary-foreground rounded-lg text-xs font-medium hover:bg-primary/90 transition-colors"
+              >
+                <img src="/images/google.svg" alt="" className="w-3.5 h-3.5" />
+                Connect
+              </a>
+            </div>
+          ) : loading && spaces.length === 0 ? (
             <div className="flex items-center justify-center h-32">
               <Loader2 className="w-6 h-6 text-primary animate-spin" />
             </div>
@@ -272,6 +316,37 @@ export function ChatScreen() {
               </div>
             </div>
           </>
+        ) : !isConnected ? (
+          <div className="flex-1 flex items-center justify-center text-foreground-secondary">
+            <div className="text-center max-w-md">
+              <div className="w-20 h-20 bg-card rounded-full flex items-center justify-center mx-auto mb-6 border border-border">
+                <img src="/images/google-chat.svg" alt="Google Chat" className="w-10 h-10" />
+              </div>
+              <h3 className="text-xl font-medium text-foreground mb-3">Connect Google Chat</h3>
+              <p className="text-sm mb-4">
+                Connect your Google account to access your Google Chat spaces and direct messages.
+              </p>
+              <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-lg p-4 mb-6 text-left">
+                <div className="flex items-start gap-2">
+                  <AlertTriangle className="w-5 h-5 text-yellow-500 flex-shrink-0 mt-0.5" />
+                  <div>
+                    <h4 className="text-sm font-medium text-yellow-500">Google Workspace Required</h4>
+                    <p className="text-xs text-yellow-500/80 mt-1">
+                      Google Chat API requires a Google Workspace account. Personal Gmail accounts may not have access.
+                    </p>
+                  </div>
+                </div>
+              </div>
+              <a
+                href={authUrl}
+                className="inline-flex items-center gap-2 px-6 py-3 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors"
+              >
+                <img src="/images/google.svg" alt="" className="w-5 h-5" />
+                Connect to Google
+                <ExternalLink className="w-4 h-4" />
+              </a>
+            </div>
+          </div>
         ) : (
           <div className="flex-1 flex items-center justify-center text-foreground-secondary">
             <div className="text-center">

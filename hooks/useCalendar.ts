@@ -8,6 +8,44 @@ interface UseCalendarOptions {
   daysAhead?: number
 }
 
+// Fetch from our internal Google Calendar API route
+async function fetchFromGoogleCalendarAPI(daysAhead: number): Promise<CalendarEvent[]> {
+  const now = new Date()
+  const future = new Date(now.getTime() + daysAhead * 24 * 60 * 60 * 1000)
+
+  const params = new URLSearchParams({
+    timeMin: now.toISOString(),
+    timeMax: future.toISOString(),
+    maxResults: '50'
+  })
+
+  const res = await fetch(`/api/google/calendar?${params}`)
+  const data = await res.json()
+
+  if (data.needsAuth) {
+    throw new Error('NOT_CONNECTED')
+  }
+
+  if (data.error) {
+    throw new Error(data.error)
+  }
+
+  // Map API response to CalendarEvent format
+  return (data.events || []).map((event: any) => ({
+    id: event.id,
+    summary: event.summary || '(No Title)',
+    description: event.description,
+    start: { dateTime: event.start },
+    end: { dateTime: event.end },
+    location: event.location,
+    attendees: event.attendees,
+    hangoutLink: event.meetLink,
+    meetingLink: event.meetLink,
+    status: event.status,
+    organizer: event.organizer
+  }))
+}
+
 interface UseCalendarReturn {
   events: CalendarEvent[]
   upcomingMeetings: CalendarEvent[]
@@ -155,21 +193,33 @@ export function useCalendar(options: UseCalendarOptions = {}): UseCalendarReturn
     setError(null)
 
     try {
-      const now = new Date()
-      const future = new Date(now.getTime() + daysAhead * 24 * 60 * 60 * 1000)
-
-      const response = await calendarAPI.listEvents({
-        timeMin: now.toISOString(),
-        timeMax: future.toISOString(),
-        maxResults: 50
-      })
-      setEvents(response.events)
+      // First try our internal Google Calendar API route (uses user's OAuth token)
+      const googleEvents = await fetchFromGoogleCalendarAPI(daysAhead)
+      setEvents(googleEvents)
       setUseMock(false)
-    } catch (err) {
-      console.warn('Calendar API unavailable, using mock data:', err)
-      setEvents(MOCK_EVENTS)
-      setUseMock(true)
-      setError(null)
+    } catch (googleErr: any) {
+      // If not connected to Google, try the backend API
+      if (googleErr.message !== 'NOT_CONNECTED') {
+        console.warn('Google Calendar API error:', googleErr)
+      }
+
+      try {
+        const now = new Date()
+        const future = new Date(now.getTime() + daysAhead * 24 * 60 * 60 * 1000)
+
+        const response = await calendarAPI.listEvents({
+          timeMin: now.toISOString(),
+          timeMax: future.toISOString(),
+          maxResults: 50
+        })
+        setEvents(response.events)
+        setUseMock(false)
+      } catch (err) {
+        console.warn('Calendar API unavailable, using mock data:', err)
+        setEvents(MOCK_EVENTS)
+        setUseMock(true)
+        setError(null)
+      }
     } finally {
       setLoading(false)
     }

@@ -29,9 +29,18 @@ function Header({ projectName, date, version }) {
     <header className="pv-header">
       <img src="/logo-masterroofing.png" alt="Master Roofing" className="pv-logo" />
       <div className="pv-meta">
-        <div className="pv-meta-cell"><span className="pv-meta-label">PROJECT NAME:</span><span className="pv-meta-value">{projectName}</span></div>
-        <div className="pv-meta-cell"><span className="pv-meta-label">PROPOSAL DATE:</span><span className="pv-meta-value">{fmt.date(date, true)}</span></div>
-        <div className="pv-meta-cell"><span className="pv-meta-label">PROPOSAL VERSION:</span><span className="pv-meta-value">{version}</span></div>
+        <div className="pv-meta-cell">
+          <span className="pv-meta-label">PROJECT NAME:</span>
+          <span className="pv-meta-value">{projectName}</span>
+        </div>
+        <div className="pv-meta-cell">
+          <span className="pv-meta-label">PROPOSAL DATE:</span>
+          <span className="pv-meta-value">{fmt.date(date, true)}</span>
+        </div>
+        <div className="pv-meta-cell">
+          <span className="pv-meta-label">PROPOSAL VERSION:</span>
+          <span className="pv-meta-value">{version}</span>
+        </div>
       </div>
     </header>
   )
@@ -41,8 +50,9 @@ function Header({ projectName, date, version }) {
 function CoverPage({ data }) {
   return (
     <div className="pv-page pv-cover">
+      {/* Use the full cover logo image which includes the banner */}
       <div className="pv-cover-header">
-        <img src="/logo-masterroofing.png" alt="Master Roofing" />
+        <img src="/cover-logo.png" alt="Master Roofing" className="pv-cover-logo-img" />
       </div>
       <div className="pv-cover-date">{fmt.date(data.date)}</div>
       <h1 className="pv-cover-title">Proposal</h1>
@@ -86,13 +96,11 @@ function LineItem({ name, specs, amount, description }) {
 }
 
 // ============ SECTION TITLE ============
-function SectionTitle({ children }) {
+function SectionTitle({ children, icon = "basebid" }) {
+  const iconSrc = icon === "basebid" ? "/favicon-basebid.png" : "/favicon-alt.png"
   return (
     <div className="pv-section-title">
-      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#e53935" strokeWidth="2.5">
-        <path d="M16 4h2a2 2 0 012 2v14a2 2 0 01-2 2H6a2 2 0 01-2-2V6a2 2 0 012-2h2"/>
-        <rect x="8" y="2" width="8" height="4" rx="1"/>
-      </svg>
+      <img src={iconSrc} alt="" className="pv-section-icon" />
       <span>{children}</span>
     </div>
   )
@@ -109,14 +117,14 @@ function TotalRow({ label, amount }) {
 }
 
 // ============ ITEMS PAGE ============
-function ItemsPage({ data, blocks, isFirst }) {
+function ItemsPage({ data, blocks }) {
   return (
     <div className="pv-page">
       <Header projectName={data.gcName} date={data.date} version={data.version} />
       <div className="pv-content">
         {blocks.map((b, i) => {
           if (b.type === "summary") return <div key={i} className="pv-summary"><h2>Project Summary</h2><p>{b.text}</p></div>
-          if (b.type === "section") return <SectionTitle key={i}>{b.title}</SectionTitle>
+          if (b.type === "section") return <SectionTitle key={i} icon={b.icon}>{b.title}</SectionTitle>
           if (b.type === "item") return <LineItem key={i} {...b.item} />
           if (b.type === "total") return <TotalRow key={i} label={b.label} amount={b.amount} />
           return null
@@ -230,34 +238,47 @@ function ThankYouPage() {
 
 // ============ PAGINATION LOGIC ============
 function paginate(data) {
-  const H = { summary: 100, section: 45, itemBase: 50, total: 45 }
+  const H = { summary: 100, section: 45, itemBase: 50, total: 50 }
   const estItemH = (item) => H.itemBase + Math.min((item.description?.length || 0) * 0.35, 100)
 
   const pages = []
   let blocks = []
   let height = 0
 
-  const flush = () => { if (blocks.length) { pages.push([...blocks]); blocks = []; height = 0 } }
+  const flush = () => {
+    if (blocks.length) {
+      pages.push([...blocks])
+      blocks = []
+      height = 0
+    }
+  }
+
   const add = (block, h) => {
-    if (height + h > PAGE.usableHeight && blocks.length) flush()
+    // If adding this block would overflow, start a new page first
+    if (height + h > PAGE.usableHeight && blocks.length > 0) {
+      flush()
+    }
     blocks.push(block)
     height += h
   }
 
   // Summary
   add({ type: "summary", text: data.summary }, H.summary)
+
   // Base Bid
-  add({ type: "section", title: "Base Bid:" }, H.section)
+  add({ type: "section", title: "Base Bid:", icon: "basebid" }, H.section)
   data.baseBid.forEach(item => add({ type: "item", item }, estItemH(item)))
   const baseTotal = data.baseBid.reduce((s, i) => s + (i.amount || 0), 0)
   add({ type: "total", label: "Total Base Bid:", amount: baseTotal }, H.total)
+
   // Alternates
   if (data.alternates?.length) {
-    add({ type: "section", title: "Alternates & Options:" }, H.section)
+    add({ type: "section", title: "Alternates & Options:", icon: "alt" }, H.section)
     data.alternates.forEach(item => add({ type: "item", item }, estItemH(item)))
     const altTotal = data.alternates.reduce((s, i) => s + (i.amount || 0), 0)
     add({ type: "total", label: "Total Alternates & Options:", amount: altTotal }, H.total)
   }
+
   flush()
   return pages
 }
@@ -290,7 +311,7 @@ export function ProposalTemplate({ project, proposal }) {
     <div className="pv-doc">
       <style dangerouslySetInnerHTML={{ __html: styles }} />
       <CoverPage data={data} />
-      {itemPages.map((blocks, i) => <ItemsPage key={i} data={data} blocks={blocks} isFirst={i === 0} />)}
+      {itemPages.map((blocks, i) => <ItemsPage key={i} data={data} blocks={blocks} />)}
       <ClarificationsPage data={data} />
       <TermsPage data={data} />
       <AcceptancePage data={data} />
@@ -306,25 +327,33 @@ const styles = `
 /* Page */
 .pv-page { width: ${PAGE.width}px; height: ${PAGE.height}px; background: #fff; position: relative; margin: 0 auto 16px; box-shadow: 0 2px 12px rgba(0,0,0,0.12); overflow: hidden; page-break-after: always; }
 
-/* Header */
+/* Header - clean, no borders or backgrounds */
 .pv-header { height: ${PAGE.headerHeight}px; padding: 0 30px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #eee; }
 .pv-logo { height: 26px; }
-.pv-meta { display: flex; border: 1px solid #ddd; font-size: 9px; }
-.pv-meta-cell { display: flex; border-right: 1px solid #ddd; }
-.pv-meta-cell:last-child { border-right: none; }
-.pv-meta-label { padding: 5px 8px; background: #f5f5f5; font-weight: 600; color: #666; }
-.pv-meta-value { padding: 5px 10px; min-width: 70px; }
+.pv-meta { display: flex; gap: 20px; font-size: 9px; }
+.pv-meta-cell { display: flex; gap: 6px; }
+.pv-meta-label { font-weight: 600; color: #888; }
+.pv-meta-value { color: #333; }
 
 /* Content */
 .pv-content { padding: ${PAGE.padding.top}px ${PAGE.padding.right}px ${PAGE.padding.bottom}px ${PAGE.padding.left}px; }
 .pv-content.pv-centered { text-align: center; }
 
 /* Cover */
-.pv-cover .pv-cover-header { background: #1a1a1a; height: 200px; clip-path: polygon(0 0, 100% 0, 100% 75%, 0 100%); padding: 45px 40px; }
-.pv-cover .pv-cover-header img { height: 32px; filter: brightness(0) invert(1); }
-.pv-cover-date { position: absolute; top: 175px; right: 50px; font-size: 14px; font-weight: 600; }
-.pv-cover-title { position: absolute; top: 260px; left: 50px; font-size: 80px; font-weight: 700; margin: 0; }
-.pv-cover-grid { position: absolute; top: 460px; left: 50px; right: 50px; border-collapse: collapse; font-size: 13px; }
+.pv-cover .pv-cover-header {
+  position: absolute;
+  top: 30px;
+  left: 50px;
+  right: 50px;
+}
+.pv-cover-logo-img {
+  width: 100%;
+  max-width: 550px;
+  height: auto;
+}
+.pv-cover-date { position: absolute; top: 240px; right: 50px; font-size: 14px; font-weight: 600; }
+.pv-cover-title { position: absolute; top: 300px; left: 50px; font-size: 80px; font-weight: 700; margin: 0; }
+.pv-cover-grid { position: absolute; top: 480px; left: 50px; right: 50px; border-collapse: collapse; font-size: 13px; }
 .pv-cover-grid td { border: 1px solid #ddd; padding: 12px 14px; }
 .pv-grid-label { font-weight: 700; width: 110px; }
 .pv-cover-corner { position: absolute; bottom: 0; left: 0; border-style: solid; border-width: 280px 0 0 180px; border-color: transparent transparent transparent #e53935; }
@@ -335,8 +364,9 @@ const styles = `
 .pv-summary h2 { font-size: 13px; font-weight: 700; margin: 0 0 6px; }
 .pv-summary p { font-size: 11px; line-height: 1.6; margin: 0 0 16px; }
 
-/* Section Title */
-.pv-section-title { display: flex; align-items: center; gap: 6px; font-size: 15px; font-weight: 700; margin: 18px 0 10px; }
+/* Section Title with favicon icon */
+.pv-section-title { display: flex; align-items: center; gap: 8px; font-size: 15px; font-weight: 700; margin: 18px 0 10px; }
+.pv-section-icon { width: 22px; height: 22px; object-fit: contain; }
 
 /* Line Item */
 .pv-item { border: 1px solid #ddd; margin-bottom: -1px; }

@@ -10,6 +10,63 @@ interface UseGmailOptions {
   labelIds?: string[]
 }
 
+// Fetch from our internal Google API route
+async function fetchFromGoogleAPI(maxResults: number, labelIds?: string[]): Promise<GmailMessage[]> {
+  const params = new URLSearchParams({ maxResults: String(maxResults) })
+  if (labelIds?.length) {
+    params.set('labelIds', labelIds.join(','))
+  }
+
+  const res = await fetch(`/api/google/gmail?${params}`)
+  const data = await res.json()
+
+  if (data.needsAuth) {
+    throw new Error('NOT_CONNECTED')
+  }
+
+  if (data.error) {
+    throw new Error(data.error)
+  }
+
+  // Map API response to GmailMessage format
+  return (data.messages || []).map((msg: any) => ({
+    id: msg.id,
+    threadId: msg.threadId,
+    from: msg.from || '',
+    to: [msg.to || ''],
+    subject: msg.subject || '(No Subject)',
+    snippet: msg.snippet || '',
+    body: msg.body || msg.snippet || '',
+    date: msg.date || new Date().toISOString(),
+    read: !msg.isUnread,
+    labels: msg.labelIds || [],
+    attachments: []
+  }))
+}
+
+async function fetchMessageDetails(messageId: string): Promise<GmailMessage | null> {
+  const res = await fetch(`/api/google/gmail?id=${messageId}`)
+  const data = await res.json()
+
+  if (data.error || data.needsAuth) {
+    return null
+  }
+
+  return {
+    id: data.id,
+    threadId: data.threadId,
+    from: data.from || '',
+    to: [data.to || ''],
+    subject: data.subject || '(No Subject)',
+    snippet: data.snippet || '',
+    body: data.body || data.snippet || '',
+    date: data.date || new Date().toISOString(),
+    read: true,
+    labels: data.labelIds || [],
+    attachments: []
+  }
+}
+
 interface UseGmailReturn {
   messages: GmailMessage[]
   loading: boolean
@@ -214,17 +271,30 @@ export function useGmail(options: UseGmailOptions = {}): UseGmailReturn {
     setError(null)
 
     try {
-      const response = await gmailAPI.listMessages({ maxResults, q: query, labelIds })
-      setMessages(response.messages)
-      setNextPageToken(response.nextPageToken)
-      setUseMock(false)
-    } catch (err) {
-      console.warn('Gmail API unavailable, using mock data:', err)
-      // Use mock data when backend is unavailable
-      setMessages(MOCK_MESSAGES)
+      // First try our internal Google API route (uses user's OAuth token)
+      const googleMessages = await fetchFromGoogleAPI(maxResults, labelIds)
+      setMessages(googleMessages)
       setNextPageToken(undefined)
-      setUseMock(true)
-      setError(null) // Clear error since we have mock data
+      setUseMock(false)
+    } catch (googleErr: any) {
+      // If not connected to Google, try the backend API
+      if (googleErr.message !== 'NOT_CONNECTED') {
+        console.warn('Google API error:', googleErr)
+      }
+
+      try {
+        const response = await gmailAPI.listMessages({ maxResults, q: query, labelIds })
+        setMessages(response.messages)
+        setNextPageToken(response.nextPageToken)
+        setUseMock(false)
+      } catch (err) {
+        console.warn('Gmail API unavailable, using mock data:', err)
+        // Use mock data when backend is unavailable
+        setMessages(MOCK_MESSAGES)
+        setNextPageToken(undefined)
+        setUseMock(true)
+        setError(null) // Clear error since we have mock data
+      }
     } finally {
       setLoading(false)
     }

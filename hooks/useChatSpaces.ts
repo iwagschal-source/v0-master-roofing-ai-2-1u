@@ -7,6 +7,55 @@ interface UseChatSpacesOptions {
   autoFetch?: boolean
 }
 
+// Fetch from our internal Google Chat API route
+async function fetchFromGoogleChatAPI(): Promise<{ spaces: ChatSpace[], needsWorkspace?: boolean }> {
+  const res = await fetch('/api/google/chat')
+  const data = await res.json()
+
+  if (data.needsAuth) {
+    throw new Error('NOT_CONNECTED')
+  }
+
+  if (data.needsWorkspace) {
+    throw new Error('NEEDS_WORKSPACE')
+  }
+
+  if (data.error) {
+    throw new Error(data.error)
+  }
+
+  // Map API response to ChatSpace format
+  const spaces = (data.spaces || []).map((space: any) => ({
+    id: space.id,
+    name: space.id,
+    type: space.type || 'ROOM',
+    displayName: space.name,
+    memberCount: 0
+  }))
+
+  return { spaces }
+}
+
+async function fetchGoogleChatMessages(spaceId: string): Promise<ChatMessage[]> {
+  const res = await fetch(`/api/google/chat?space=${encodeURIComponent(spaceId)}`)
+  const data = await res.json()
+
+  if (data.error || data.needsAuth) {
+    throw new Error(data.error || 'NOT_CONNECTED')
+  }
+
+  return (data.messages || []).map((msg: any) => ({
+    id: msg.id,
+    spaceId: spaceId,
+    sender: {
+      name: msg.sender?.displayName || msg.sender?.name || 'Unknown',
+      email: msg.sender?.email || ''
+    },
+    text: msg.text || '',
+    createTime: msg.createTime || new Date().toISOString()
+  }))
+}
+
 interface UseChatSpacesReturn {
   spaces: ChatSpace[]
   loading: boolean
@@ -157,14 +206,26 @@ export function useChatSpaces(options: UseChatSpacesOptions = {}): UseChatSpaces
     setError(null)
 
     try {
-      const response = await chatSpacesAPI.listSpaces()
-      setSpaces(response)
+      // First try our internal Google Chat API route (uses user's OAuth token)
+      const result = await fetchFromGoogleChatAPI()
+      setSpaces(result.spaces)
       setUseMock(false)
-    } catch (err) {
-      console.warn('Chat API unavailable, using mock data:', err)
-      setSpaces(MOCK_SPACES)
-      setUseMock(true)
-      setError(null)
+    } catch (googleErr: any) {
+      // If not connected to Google or needs Workspace, try backend API
+      if (googleErr.message !== 'NOT_CONNECTED' && googleErr.message !== 'NEEDS_WORKSPACE') {
+        console.warn('Google Chat API error:', googleErr)
+      }
+
+      try {
+        const response = await chatSpacesAPI.listSpaces()
+        setSpaces(response)
+        setUseMock(false)
+      } catch (err) {
+        console.warn('Chat API unavailable, using mock data:', err)
+        setSpaces(MOCK_SPACES)
+        setUseMock(true)
+        setError(null)
+      }
     } finally {
       setLoading(false)
     }
@@ -178,8 +239,15 @@ export function useChatSpaces(options: UseChatSpacesOptions = {}): UseChatSpaces
         await new Promise(resolve => setTimeout(resolve, 300))
         setMessages(MOCK_MESSAGES[spaceId] || [])
       } else {
-        const response = await chatSpacesAPI.getMessages(spaceId, { pageSize: 50 })
-        setMessages(response.messages)
+        // Try Google Chat API first
+        try {
+          const googleMessages = await fetchGoogleChatMessages(spaceId)
+          setMessages(googleMessages)
+        } catch (googleErr) {
+          // Fall back to backend API
+          const response = await chatSpacesAPI.getMessages(spaceId, { pageSize: 50 })
+          setMessages(response.messages)
+        }
       }
     } catch (err) {
       console.warn('Messages API unavailable, using mock:', err)

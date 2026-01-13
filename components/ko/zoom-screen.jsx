@@ -1,10 +1,19 @@
 "use client"
 
 import { useState } from "react"
-import { Video, Play, Users, Calendar, Search, Clock, ChevronLeft, ChevronRight, RefreshCw, Loader2, ExternalLink, FileText, MapPin } from "lucide-react"
+import { Video, Play, Users, Calendar, Search, Clock, ChevronLeft, ChevronRight, RefreshCw, Loader2, ExternalLink, FileText, MapPin, LogOut } from "lucide-react"
 import { useCalendar, formatEventTime, formatEventDate, formatDuration, formatRecordingDuration } from "@/hooks/useCalendar"
+import { useGoogleAuth } from "@/hooks/useGoogleAuth"
 
 export function ZoomScreen() {
+  const {
+    isConnected,
+    user,
+    loading: authLoading,
+    authUrl,
+    disconnect
+  } = useGoogleAuth()
+
   const [activeTab, setActiveTab] = useState("calendar")
   const [currentDate, setCurrentDate] = useState(new Date())
   const [searchQuery, setSearchQuery] = useState("")
@@ -17,7 +26,7 @@ export function ZoomScreen() {
     recordingsLoading,
     refresh,
     getEventsForDate
-  } = useCalendar({ autoFetch: true, daysAhead: 60 })
+  } = useCalendar({ autoFetch: isConnected, daysAhead: 60 })
 
   const getDaysInMonth = (date) => {
     return new Date(date.getFullYear(), date.getMonth() + 1, 0).getDate()
@@ -73,20 +82,38 @@ export function ZoomScreen() {
     <div className="flex-1 flex flex-col h-full bg-background overflow-hidden">
       {/* Header */}
       <div className="flex items-center justify-between px-6 py-4 border-b border-border bg-card">
-        <div>
-          <h1 className="text-xl font-medium text-foreground">Meetings</h1>
-          <p className="text-sm text-foreground-secondary mt-0.5">Google Meet calendar and recordings</p>
+        <div className="flex items-center gap-3">
+          <img src="/images/google-calendar.svg" alt="Google Calendar" className="w-6 h-6" />
+          <div>
+            <h1 className="text-xl font-medium text-foreground">Meetings</h1>
+            <p className="text-sm text-foreground-secondary mt-0.5">Google Meet calendar and recordings</p>
+          </div>
         </div>
         <div className="flex items-center gap-2">
+          {isConnected && user && (
+            <div className="flex items-center gap-2 mr-2">
+              <span className="text-xs text-foreground-secondary hidden sm:inline">{user.email}</span>
+              <button
+                onClick={disconnect}
+                className="p-1.5 hover:bg-muted rounded-lg transition-colors text-foreground-secondary hover:text-red-400"
+                title="Disconnect Google"
+              >
+                <LogOut className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          )}
           <button
             onClick={refresh}
-            disabled={loading}
+            disabled={loading || !isConnected}
             className="p-2 hover:bg-muted rounded-lg transition-colors disabled:opacity-50"
             title="Refresh"
           >
             <RefreshCw className={`w-4 h-4 text-foreground-secondary ${loading ? 'animate-spin' : ''}`} />
           </button>
-          <button className="px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors flex items-center gap-2">
+          <button
+            disabled={!isConnected}
+            className="px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors flex items-center gap-2 disabled:opacity-50"
+          >
             <Video className="w-4 h-4" />
             New Meeting
           </button>
@@ -124,7 +151,31 @@ export function ZoomScreen() {
         </button>
       </div>
 
-      {activeTab === "calendar" ? (
+      {authLoading ? (
+        <div className="flex-1 flex items-center justify-center">
+          <Loader2 className="w-8 h-8 text-primary animate-spin" />
+        </div>
+      ) : !isConnected ? (
+        <div className="flex-1 flex items-center justify-center">
+          <div className="text-center max-w-md">
+            <div className="w-20 h-20 bg-card rounded-full flex items-center justify-center mx-auto mb-6 border border-border">
+              <img src="/images/google-calendar.svg" alt="Google Calendar" className="w-10 h-10" />
+            </div>
+            <h3 className="text-xl font-medium text-foreground mb-3">Connect Your Google Calendar</h3>
+            <p className="text-sm text-foreground-secondary mb-6">
+              Connect your Google account to view your calendar events and Google Meet meetings.
+            </p>
+            <a
+              href={authUrl}
+              className="inline-flex items-center gap-2 px-6 py-3 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors"
+            >
+              <img src="/images/google.svg" alt="" className="w-5 h-5" />
+              Connect to Google
+              <ExternalLink className="w-4 h-4" />
+            </a>
+          </div>
+        </div>
+      ) : activeTab === "calendar" ? (
         <div className="flex-1 overflow-y-auto p-6">
           <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-3 gap-6">
             {/* Calendar Grid */}

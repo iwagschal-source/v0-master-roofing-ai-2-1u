@@ -1,10 +1,11 @@
 "use client"
 
 import { useState } from "react"
-import { Paperclip, Mic, Send, Sparkles, RefreshCw, Search, Loader2, Check, AlertCircle } from "lucide-react"
+import { Paperclip, Mic, Send, Sparkles, RefreshCw, Search, Loader2, Check, AlertCircle, ExternalLink, LogOut } from "lucide-react"
 import { ThinkingIndicator } from "./thinking-indicator"
 import { VoiceToggle } from "./voice-toggle"
 import { useGmail } from "@/hooks/useGmail"
+import { useGoogleAuth } from "@/hooks/useGoogleAuth"
 
 function formatDate(dateString) {
   const date = new Date(dateString)
@@ -35,6 +36,14 @@ function extractSenderEmail(from) {
 
 export function EmailScreen() {
   const {
+    isConnected,
+    user,
+    loading: authLoading,
+    authUrl,
+    disconnect
+  } = useGoogleAuth()
+
+  const {
     messages,
     loading,
     error,
@@ -47,7 +56,7 @@ export function EmailScreen() {
     generateDraft,
     sendReply,
     refresh
-  } = useGmail({ autoFetch: true, maxResults: 25 })
+  } = useGmail({ autoFetch: isConnected, maxResults: 25 })
 
   const [inputValue, setInputValue] = useState("")
   const [isRecording, setIsRecording] = useState(false)
@@ -117,15 +126,32 @@ export function EmailScreen() {
       <div className="w-96 border-r border-border flex flex-col bg-background">
         <div className="p-4 border-b border-border">
           <div className="flex items-center justify-between mb-3">
-            <h2 className="text-lg font-semibold text-[#ececec]">Inbox</h2>
-            <button
-              onClick={refresh}
-              disabled={loading}
-              className="p-2 hover:bg-muted rounded-lg transition-colors disabled:opacity-50"
-              title="Refresh"
-            >
-              <RefreshCw className={`w-4 h-4 text-[#9b9b9b] ${loading ? 'animate-spin' : ''}`} />
-            </button>
+            <div className="flex items-center gap-2">
+              <img src="/images/gmail.svg" alt="Gmail" className="w-5 h-5" />
+              <h2 className="text-lg font-semibold text-[#ececec]">Inbox</h2>
+            </div>
+            <div className="flex items-center gap-2">
+              {isConnected && user && (
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-[#9b9b9b] hidden sm:inline">{user.email}</span>
+                  <button
+                    onClick={disconnect}
+                    className="p-1.5 hover:bg-muted rounded-lg transition-colors text-[#9b9b9b] hover:text-red-400"
+                    title="Disconnect Google"
+                  >
+                    <LogOut className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              )}
+              <button
+                onClick={refresh}
+                disabled={loading || !isConnected}
+                className="p-2 hover:bg-muted rounded-lg transition-colors disabled:opacity-50"
+                title="Refresh"
+              >
+                <RefreshCw className={`w-4 h-4 text-[#9b9b9b] ${loading ? 'animate-spin' : ''}`} />
+              </button>
+            </div>
           </div>
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#9b9b9b]" />
@@ -140,7 +166,29 @@ export function EmailScreen() {
         </div>
 
         <div className="flex-1 overflow-y-auto">
-          {loading && messages.length === 0 ? (
+          {authLoading ? (
+            <div className="flex items-center justify-center h-32">
+              <Loader2 className="w-6 h-6 text-primary animate-spin" />
+            </div>
+          ) : !isConnected ? (
+            <div className="p-6 text-center">
+              <div className="w-16 h-16 bg-card rounded-full flex items-center justify-center mx-auto mb-4 border border-border">
+                <img src="/images/gmail.svg" alt="Gmail" className="w-8 h-8" />
+              </div>
+              <h3 className="text-lg font-medium text-[#ececec] mb-2">Connect Gmail</h3>
+              <p className="text-sm text-[#9b9b9b] mb-4">
+                Connect your Google account to access your Gmail inbox
+              </p>
+              <a
+                href={authUrl}
+                className="inline-flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors"
+              >
+                <img src="/images/google.svg" alt="" className="w-4 h-4" />
+                Connect to Google
+                <ExternalLink className="w-3.5 h-3.5" />
+              </a>
+            </div>
+          ) : loading && messages.length === 0 ? (
             <div className="flex items-center justify-center h-32">
               <Loader2 className="w-6 h-6 text-primary animate-spin" />
             </div>
@@ -385,6 +433,26 @@ export function EmailScreen() {
               </div>
             </div>
           </>
+        ) : !isConnected ? (
+          <div className="flex-1 flex items-center justify-center text-[#9b9b9b]">
+            <div className="text-center max-w-md">
+              <div className="w-20 h-20 bg-card rounded-full flex items-center justify-center mx-auto mb-6 border border-border">
+                <img src="/images/gmail.svg" alt="Gmail" className="w-10 h-10" />
+              </div>
+              <h3 className="text-xl font-medium text-[#ececec] mb-3">Connect Your Gmail</h3>
+              <p className="text-sm mb-6">
+                Connect your Google account to access your Gmail inbox. KO will help you analyze emails, suggest responses, and manage your communications.
+              </p>
+              <a
+                href={authUrl}
+                className="inline-flex items-center gap-2 px-6 py-3 bg-primary text-white rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors"
+              >
+                <img src="/images/google.svg" alt="" className="w-5 h-5" />
+                Connect to Google
+                <ExternalLink className="w-4 h-4" />
+              </a>
+            </div>
+          </div>
         ) : (
           <div className="flex-1 flex items-center justify-center text-[#9b9b9b]">
             <div className="text-center">
