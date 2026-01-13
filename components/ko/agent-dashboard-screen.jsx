@@ -16,7 +16,7 @@ import { StatusDot } from "./agent-model-icon"
 
 export function AgentDashboardScreen({
   onSelectAgent,
-  onOpenNetworkMap,
+  onViewNetwork,
   onAddAgent,
 }) {
   const [searchTerm, setSearchTerm] = useState("")
@@ -141,7 +141,7 @@ export function AgentDashboardScreen({
 
             {/* Network Map */}
             <button
-              onClick={onOpenNetworkMap}
+              onClick={onViewNetwork}
               className="flex items-center gap-2 px-4 py-2 bg-secondary border border-border rounded-lg hover:bg-accent transition-colors"
               title="View Network Map"
             >

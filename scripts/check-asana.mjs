@@ -41,48 +41,46 @@ async function runQuery(token, sql) {
 async function main() {
   const bqToken = await getAccessToken('https://www.googleapis.com/auth/bigquery')
   
-  // Find all Asana-related tables
-  console.log('=== Asana tables in BigQuery ===')
-  for (const dataset of ['mr_core', 'mr_staging', 'mr_brain', 'mr_raw']) {
-    const result = await runQuery(bqToken, `
-      SELECT table_name FROM \`master-roofing-intelligence.${dataset}.INFORMATION_SCHEMA.TABLES\`
-      WHERE LOWER(table_name) LIKE '%asana%'
-    `)
-    if (result.rows?.length > 0) {
-      console.log(`\n${dataset}:`)
-      result.rows.forEach(r => console.log('  -', r.f[0].v))
-    }
-  }
-  
-  // Check mr_brain.asana_tasks or similar for "Projects" pipeline
-  console.log('\n=== Looking for Projects pipeline ===')
-  
-  // Check dim_project_stage1_asana
-  const asanaCols = await runQuery(bqToken, `
-    SELECT column_name FROM \`master-roofing-intelligence.mr_core.INFORMATION_SCHEMA.COLUMNS\`
-    WHERE table_name = 'dim_project_stage1_asana'
+  // Check raw_asana_projects structure
+  console.log('=== mr_raw.raw_asana_projects ===')
+  const rawCols = await runQuery(bqToken, `
+    SELECT column_name FROM \`master-roofing-intelligence.mr_raw.INFORMATION_SCHEMA.COLUMNS\`
+    WHERE table_name = 'raw_asana_projects'
   `)
-  console.log('\ndim_project_stage1_asana columns:')
-  asanaCols.rows?.forEach(r => console.log('  -', r.f[0].v))
+  console.log('Columns:', rawCols.rows?.map(r => r.f[0].v).join(', '))
   
-  const asanaCount = await runQuery(bqToken, `
-    SELECT COUNT(*) as c, COUNT(DISTINCT project_id) as u
-    FROM \`master-roofing-intelligence.mr_core.dim_project_stage1_asana\`
-  `)
-  if (asanaCount.rows) {
-    console.log(`\nRows: ${asanaCount.rows[0].f[0].v}, Unique project_ids: ${asanaCount.rows[0].f[1].v}`)
-  }
+  const rawCount = await runQuery(bqToken, `SELECT COUNT(*) as c FROM \`master-roofing-intelligence.mr_raw.raw_asana_projects\``)
+  console.log('Total rows:', rawCount.rows?.[0]?.f?.[0]?.v)
   
-  // Sample to see structure
-  const sample = await runQuery(bqToken, `
-    SELECT * FROM \`master-roofing-intelligence.mr_core.dim_project_stage1_asana\` LIMIT 3
+  // Check if there's a pipeline/section column
+  const rawSample = await runQuery(bqToken, `
+    SELECT * FROM \`master-roofing-intelligence.mr_raw.raw_asana_projects\` LIMIT 3
   `)
-  if (sample.schema) {
-    console.log('\nSample data:')
-    sample.rows?.slice(0,2).forEach((r, i) => {
-      console.log(`Row ${i+1}:`, r.f.map((f, j) => `${sample.schema.fields[j].name}=${f.v}`).join(', '))
+  if (rawSample.schema) {
+    console.log('\nSample:')
+    rawSample.rows?.slice(0,2).forEach((r, i) => {
+      const obj = {}
+      rawSample.schema.fields.forEach((f, j) => obj[f.name] = r.f[j].v)
+      console.log(`Row ${i+1}:`, JSON.stringify(obj).slice(0, 300))
     })
   }
+  
+  // Check asana_tasks_current for pipeline info
+  console.log('\n=== mr_staging.asana_tasks_current ===')
+  const taskCols = await runQuery(bqToken, `
+    SELECT column_name FROM \`master-roofing-intelligence.mr_staging.INFORMATION_SCHEMA.COLUMNS\`
+    WHERE table_name = 'asana_tasks_current'
+  `)
+  console.log('Columns:', taskCols.rows?.map(r => r.f[0].v).join(', '))
+  
+  // Check for "Projects" in section/pipeline names
+  const sections = await runQuery(bqToken, `
+    SELECT DISTINCT memberships_section_name, COUNT(*) as cnt
+    FROM \`master-roofing-intelligence.mr_staging.asana_tasks_current\`
+    GROUP BY 1 ORDER BY 2 DESC LIMIT 20
+  `)
+  console.log('\nSections:')
+  sections.rows?.forEach(r => console.log(`  ${r.f[0].v}: ${r.f[1].v}`))
 }
 
 main().catch(console.error)
