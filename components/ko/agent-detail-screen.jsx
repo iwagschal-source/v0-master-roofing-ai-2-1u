@@ -876,30 +876,105 @@ function HistoryTab({ agent }) {
 }
 
 function LogsTab({ agent }) {
-  const sampleLogs = [
-    "[15:23:50] Received request from AGT-ORCH-001",
-    "[15:23:50] Parsing query parameters...",
-    "[15:23:51] Executing task...",
-    "[15:23:52] Task completed successfully",
-    "[15:23:52] Response sent (latency: 2.1s)",
-    "[15:23:55] Received request from AGT-ORCH-001",
-    "[15:23:55] Parsing query parameters...",
-    "",
-    "--- Waiting for next event ---",
-  ]
+  const [logs, setLogs] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [autoRefresh, setAutoRefresh] = useState(true)
+  const logsEndRef = useCallback((node) => {
+    if (node) node.scrollTop = node.scrollHeight
+  }, [])
+
+  // Fetch logs
+  const fetchLogs = useCallback(async () => {
+    try {
+      const res = await fetch(`/api/ko/agents/${agent.id}/logs?limit=100`)
+      if (res.ok) {
+        const data = await res.json()
+        setLogs(data.logs || [])
+      }
+    } catch (err) {
+      console.error('Failed to fetch logs:', err)
+    }
+    setLoading(false)
+  }, [agent.id])
+
+  // Initial fetch and polling
+  useEffect(() => {
+    fetchLogs()
+
+    if (autoRefresh) {
+      const interval = setInterval(fetchLogs, 3000) // Poll every 3 seconds
+      return () => clearInterval(interval)
+    }
+  }, [fetchLogs, autoRefresh])
+
+  // Format timestamp
+  const formatTime = (ts) => {
+    const d = new Date(ts)
+    return d.toLocaleTimeString('en-US', { hour12: false })
+  }
+
+  // Level colors
+  const levelColors = {
+    info: 'text-blue-400',
+    success: 'text-emerald-400',
+    warning: 'text-amber-400',
+    error: 'text-red-400',
+  }
 
   return (
     <div className="bg-card border border-border rounded-xl p-6">
-      <h2 className="font-semibold text-foreground mb-6 flex items-center gap-2">
-        <Terminal size={18} />
-        Live Logs
-      </h2>
-      <div className="bg-gray-950 rounded-lg p-4 font-mono text-xs text-emerald-400 h-96 overflow-auto">
-        {sampleLogs.map((line, idx) => (
-          <p key={idx} className={line === "" ? "h-4" : ""}>
-            {line}
-          </p>
-        ))}
+      <div className="flex items-center justify-between mb-4">
+        <h2 className="font-semibold text-foreground flex items-center gap-2">
+          <Terminal size={18} />
+          Live Logs
+        </h2>
+        <div className="flex items-center gap-3">
+          <label className="flex items-center gap-2 text-sm text-muted-foreground">
+            <input
+              type="checkbox"
+              checked={autoRefresh}
+              onChange={(e) => setAutoRefresh(e.target.checked)}
+              className="rounded"
+            />
+            Auto-refresh
+          </label>
+          <button
+            onClick={fetchLogs}
+            className="px-3 py-1 text-xs bg-secondary rounded hover:bg-accent transition-colors"
+          >
+            Refresh
+          </button>
+        </div>
+      </div>
+
+      <div
+        ref={logsEndRef}
+        className="bg-gray-950 rounded-lg p-4 font-mono text-xs h-96 overflow-auto"
+      >
+        {loading ? (
+          <div className="flex items-center justify-center h-full">
+            <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
+          </div>
+        ) : logs.length === 0 ? (
+          <p className="text-muted-foreground">No logs yet. Activity will appear here when the agent processes requests.</p>
+        ) : (
+          logs.map((log, idx) => (
+            <div key={idx} className="flex gap-2 py-0.5">
+              <span className="text-muted-foreground shrink-0">[{formatTime(log.timestamp)}]</span>
+              <span className={`shrink-0 w-16 ${levelColors[log.level] || 'text-gray-400'}`}>
+                {log.level.toUpperCase()}
+              </span>
+              <span className={levelColors[log.level] || 'text-gray-300'}>
+                {log.message}
+              </span>
+            </div>
+          ))
+        )}
+        {autoRefresh && logs.length > 0 && (
+          <div className="mt-2 text-muted-foreground animate-pulse">
+            --- Watching for new events ---
+          </div>
+        )}
       </div>
     </div>
   )
