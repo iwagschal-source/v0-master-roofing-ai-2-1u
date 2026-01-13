@@ -884,6 +884,130 @@ Custom visualization generator using BigQuery data and Power BI.
     },
   },
 
+  // ========== KO PRIME - SUPER AGENT ==========
+  {
+    id: "CAO-PRIME-001",
+    name: "KO Prime",
+    description: "Chief Intelligence Agent with full tool access. Powered by Opus 4, this super agent can autonomously query BigQuery, search documents, access HubSpot CRM, search emails, and read files from cloud storage. Mirrors Claude Code's architecture with multi-step reasoning and tool chaining.",
+    modelKey: "claude",
+    model: "claude-opus-4-20250514",
+    provider: "Anthropic",
+    status: "live",
+    role: "super_agent",
+    phase: "all",
+
+    stats: {
+      totalRequests: 0,
+      successRate: 99.0,
+      avgLatency: 2500,
+      errorsToday: 0,
+      requestsPerMinute: 0,
+    },
+
+    queueDepth: 0,
+    lastActivity: new Date().toISOString(),
+    currentAction: "Ready for complex queries",
+
+    configFiles: [
+      {
+        name: "system_prompt.md",
+        type: "markdown",
+        content: `# KO Prime - Super Agent
+
+## Role
+Chief Intelligence Agent for Master Roofing & Siding with full data access.
+
+## Model
+- Provider: Anthropic
+- Model: claude-opus-4-20250514 (Opus 4)
+- Max Tokens: 4096
+- Temperature: 0.3
+
+## Available Tools
+1. **bigquery_sql**: Run SQL queries against the data warehouse
+2. **hubspot_query**: Query CRM for deals, contacts, companies
+3. **search_documents**: Find proposals, takeoffs, and documents
+4. **search_emails**: Search through email communications
+5. **resolve_project**: Convert project names to canonical IDs
+6. **read_gcs_file**: Read file contents from cloud storage
+
+## Architecture
+- Multi-step reasoning with up to 10 tool iterations
+- Automatic tool chaining (e.g., resolve project → search documents → read file)
+- Error recovery with alternative approaches
+
+## Use Cases
+- Complex business intelligence queries
+- Cross-system data analysis
+- Document retrieval and synthesis
+- Email thread analysis
+- Pipeline and project status
+`,
+      },
+    ],
+
+    permissions: {
+      readAccess: [
+        "BigQuery: mr_agent.* (all agent views)",
+        "BigQuery: mr_brain.* (emails)",
+        "BigQuery: raw_data.* (proposals, takeoffs)",
+        "GCS: gs://mr-agent-docs-us-east4/*",
+        "HubSpot: Deals, Contacts, Companies",
+      ],
+      writeAccess: [],
+      apiAccess: [
+        "Anthropic API (Opus 4)",
+        "BigQuery API",
+        "HubSpot API",
+        "GCS API",
+        "Vertex AI Search",
+      ],
+      agentCalls: [],
+    },
+
+    connections: [
+      { targetId: "CAO-SQL-001", type: "data", label: "Uses for SQL" },
+      { targetId: "CAO-VTX-001", type: "data", label: "Uses for doc search" },
+      { targetId: "CAO-HUB-001", type: "data", label: "Uses for CRM" },
+    ],
+
+    auditedBy: ["CAO-AUD-001"],
+
+    scoring: {
+      overallScore: 96,
+      accuracyScore: 98,
+      latencyScore: 85,
+      reliabilityScore: 97,
+      metrics: [
+        { name: "Response Quality", weight: 40, score: 98 },
+        { name: "Tool Selection", weight: 25, score: 97 },
+        { name: "Response Time", weight: 20, score: 85 },
+        { name: "Error Recovery", weight: 15, score: 96 },
+      ],
+    },
+
+    monitoring: {
+      auditors: ["CAO-AUD-001"],
+      alerts: [
+        { type: "latency", threshold: 10000, action: "warn" },
+        { type: "error_rate", threshold: 5, action: "alert" },
+        { type: "tool_failure", threshold: 3, action: "warn" },
+      ],
+      channels: ["#ko-alerts", "isaac@masterroofingus.com"],
+    },
+
+    history: {
+      totalExecutions: 0,
+      firstActive: "2026-01-13",
+      uptimePercent: 100,
+      totalErrors: 0,
+      recentEvents: [],
+      versions: [
+        { version: "v1.0.0", date: "2026-01-13", changes: "Initial KO Prime super agent" },
+      ],
+    },
+  },
+
   // ========== AUDIT AGENT ==========
   {
     id: "CAO-AUD-001",

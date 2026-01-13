@@ -388,7 +388,7 @@ function ReadmeTab({ agent, agentConfig, setAgentConfig }) {
   const [editedContent, setEditedContent] = useState("")
   const [saving, setSaving] = useState(false)
   const [hasChanges, setHasChanges] = useState(false)
-  const [showDesigner, setShowDesigner] = useState(false)
+  const [editMode, setEditMode] = useState("manual") // "manual", "designer", "koprime"
 
   // Get prompts from backend config or fallback to static
   const prompts = agentConfig?.prompts || {}
@@ -451,11 +451,11 @@ function ReadmeTab({ agent, agentConfig, setAgentConfig }) {
   return (
     <div className="space-y-6">
       {/* Mode Toggle */}
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-2 flex-wrap">
         <button
-          onClick={() => setShowDesigner(false)}
+          onClick={() => setEditMode("manual")}
           className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-            !showDesigner
+            editMode === "manual"
               ? "bg-primary text-primary-foreground"
               : "bg-secondary text-muted-foreground hover:text-foreground"
           }`}
@@ -464,20 +464,31 @@ function ReadmeTab({ agent, agentConfig, setAgentConfig }) {
           Edit Manually
         </button>
         <button
-          onClick={() => setShowDesigner(true)}
+          onClick={() => setEditMode("designer")}
           className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-            showDesigner
+            editMode === "designer"
               ? "bg-primary text-primary-foreground"
               : "bg-secondary text-muted-foreground hover:text-foreground"
           }`}
         >
           <Brain size={16} />
-          Prompt Designer (Opus 4)
+          Prompt Designer
+        </button>
+        <button
+          onClick={() => setEditMode("koprime")}
+          className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+            editMode === "koprime"
+              ? "bg-gradient-to-r from-purple-600 to-blue-600 text-white"
+              : "bg-secondary text-muted-foreground hover:text-foreground"
+          }`}
+        >
+          <Bot size={16} />
+          KO Prime Assistant
         </button>
       </div>
 
       {/* Manual Editor */}
-      {!showDesigner && (
+      {editMode === "manual" && (
         <div className="bg-card border border-border rounded-xl overflow-hidden">
           {/* Prompt tabs */}
           <div className="flex items-center justify-between px-4 py-2 bg-secondary/50 border-b border-border">
@@ -535,12 +546,27 @@ function ReadmeTab({ agent, agentConfig, setAgentConfig }) {
       )}
 
       {/* Prompt Designer Chat */}
-      {showDesigner && (
+      {editMode === "designer" && (
         <PromptDesignerChat
           agentId={agent.id}
           agentName={agent.name}
           onPromptSaved={() => {
             // Refresh config after save
+            fetch(`/api/ko/agents/config/${agent.id}`)
+              .then(res => res.json())
+              .then(data => setAgentConfig(data))
+              .catch(err => console.error('Failed to refresh config:', err))
+          }}
+        />
+      )}
+
+      {/* KO Prime Assistant - Test & Iterate */}
+      {editMode === "koprime" && (
+        <KOPrimeAssistantChat
+          agentId={agent.id}
+          agentName={agent.name}
+          onConfigUpdated={() => {
+            // Refresh config after update
             fetch(`/api/ko/agents/config/${agent.id}`)
               .then(res => res.json())
               .then(data => setAgentConfig(data))
@@ -704,6 +730,191 @@ function PromptDesignerChat({ agentId, agentName, onPromptSaved }) {
             onClick={sendMessage}
             disabled={!input.trim() || loading}
             className="p-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {loading ? <Loader2 size={18} className="animate-spin" /> : <Send size={18} />}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// KO Prime Assistant Chat Component - Test & Iterate on Prompts
+function KOPrimeAssistantChat({ agentId, agentName, onConfigUpdated }) {
+  const [messages, setMessages] = useState([])
+  const [input, setInput] = useState("")
+  const [loading, setLoading] = useState(false)
+  const [conversationHistory, setConversationHistory] = useState([])
+  const messagesEndRef = useCallback((node) => {
+    if (node) node.scrollIntoView({ behavior: 'smooth' })
+  }, [])
+
+  const sendMessage = async () => {
+    if (!input.trim() || loading) return
+
+    const userMessage = { role: 'user', content: input.trim(), timestamp: new Date() }
+    setMessages(prev => [...prev, userMessage])
+    setInput("")
+    setLoading(true)
+
+    try {
+      const res = await fetch('/api/ko/ko-prime/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          message: userMessage.content,
+          conversation_history: conversationHistory,
+          target_agent_id: agentId  // This gives KO Prime context about the agent
+        })
+      })
+
+      const data = await res.json()
+
+      if (res.ok) {
+        // Update conversation history for context
+        setConversationHistory(prev => [
+          ...prev,
+          { role: "user", content: userMessage.content },
+          { role: "assistant", content: data.response }
+        ])
+
+        setMessages(prev => [...prev, {
+          role: 'assistant',
+          content: data.response,
+          timestamp: new Date(),
+          toolsUsed: data.tools_used || [],
+          configUpdated: data.tools_used?.some(t => t.tool === 'update_agent_prompt')
+        }])
+
+        // If config was updated, refresh it
+        if (data.tools_used?.some(t => t.tool === 'update_agent_prompt') && onConfigUpdated) {
+          onConfigUpdated()
+        }
+      } else {
+        setMessages(prev => [...prev, {
+          role: 'assistant',
+          content: `Error: ${data.error || 'Unknown error'}`,
+          timestamp: new Date(),
+          isError: true
+        }])
+      }
+    } catch (err) {
+      setMessages(prev => [...prev, {
+        role: 'assistant',
+        content: `Connection Error: ${err.message}`,
+        timestamp: new Date(),
+        isError: true
+      }])
+    }
+
+    setLoading(false)
+  }
+
+  const handleKeyDown = (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault()
+      sendMessage()
+    }
+  }
+
+  return (
+    <div className="bg-card border border-border rounded-xl overflow-hidden flex flex-col h-[600px]">
+      {/* Header */}
+      <div className="px-4 py-3 bg-gradient-to-r from-purple-500/20 to-blue-500/20 border-b border-border flex items-center gap-3">
+        <Bot size={18} className="text-purple-400" />
+        <span className="font-medium">KO Prime Assistant for {agentName}</span>
+        <span className="text-xs text-muted-foreground ml-auto">Test • Iterate • Save</span>
+      </div>
+
+      {/* Messages */}
+      <div className="flex-1 overflow-y-auto p-4 space-y-4">
+        {messages.length === 0 && (
+          <div className="text-center text-muted-foreground py-8">
+            <Bot size={40} className="mx-auto mb-3 opacity-50 text-purple-400" />
+            <p className="font-medium">KO Prime can help you improve this agent</p>
+            <p className="text-xs mt-2">I can test the agent, analyze results, and update prompts.</p>
+            <div className="mt-4 text-left max-w-md mx-auto bg-secondary/50 rounded-lg p-3 text-xs">
+              <p className="font-medium text-foreground mb-2">Try asking:</p>
+              <ul className="space-y-1 text-muted-foreground">
+                <li>• "Test this agent with a query about project emails"</li>
+                <li>• "Show me the current prompts for this agent"</li>
+                <li>• "Make the methodology return shorter summaries"</li>
+                <li>• "Test if the changes improved the output"</li>
+              </ul>
+            </div>
+          </div>
+        )}
+
+        {messages.map((msg, idx) => (
+          <div
+            key={idx}
+            className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
+          >
+            <div
+              className={`max-w-[85%] rounded-lg p-3 ${
+                msg.role === 'user'
+                  ? 'bg-primary text-primary-foreground'
+                  : msg.isError
+                    ? 'bg-red-500/20 text-red-400 border border-red-500/30'
+                    : msg.configUpdated
+                      ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
+                      : 'bg-gradient-to-br from-purple-500/10 to-blue-500/10 border border-purple-500/20 text-foreground'
+              }`}
+            >
+              {/* Tools used badge */}
+              {msg.toolsUsed?.length > 0 && (
+                <div className="mb-2 pb-2 border-b border-purple-500/30">
+                  <span className="text-xs text-purple-400 font-medium">Tools: </span>
+                  <span className="text-xs text-muted-foreground">
+                    {msg.toolsUsed.map(t => t.tool).join(' → ')}
+                  </span>
+                </div>
+              )}
+              {msg.configUpdated && (
+                <div className="mb-2 pb-2 border-b border-emerald-500/30 flex items-center gap-2">
+                  <CheckCircle size={14} className="text-emerald-400" />
+                  <span className="text-xs text-emerald-400 font-medium">Config Updated!</span>
+                </div>
+              )}
+              <div className="whitespace-pre-wrap text-sm">
+                {msg.content}
+              </div>
+              <div className={`text-xs mt-2 ${
+                msg.role === 'user' ? 'text-primary-foreground/70' : 'text-muted-foreground'
+              }`}>
+                {new Date(msg.timestamp).toLocaleTimeString()}
+              </div>
+            </div>
+          </div>
+        ))}
+
+        {loading && (
+          <div className="flex justify-start">
+            <div className="bg-gradient-to-br from-purple-500/10 to-blue-500/10 border border-purple-500/20 rounded-lg p-3 flex items-center gap-2">
+              <Loader2 size={16} className="animate-spin text-purple-400" />
+              <span className="text-sm text-muted-foreground">KO Prime is thinking...</span>
+            </div>
+          </div>
+        )}
+
+        <div ref={messagesEndRef} />
+      </div>
+
+      {/* Input */}
+      <div className="p-4 border-t border-border bg-secondary/30">
+        <div className="flex items-center gap-3">
+          <textarea
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            onKeyDown={handleKeyDown}
+            placeholder={`Ask KO Prime to test or improve ${agentName}...`}
+            rows={2}
+            className="flex-1 px-4 py-2 bg-background border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 resize-none text-sm"
+          />
+          <button
+            onClick={sendMessage}
+            disabled={!input.trim() || loading}
+            className="p-3 bg-gradient-to-r from-purple-600 to-blue-600 text-white rounded-lg hover:from-purple-700 hover:to-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {loading ? <Loader2 size={18} className="animate-spin" /> : <Send size={18} />}
           </button>
@@ -1196,9 +1407,13 @@ function ChatTab({ agent }) {
   const [messages, setMessages] = useState([])
   const [input, setInput] = useState("")
   const [loading, setLoading] = useState(false)
+  const [conversationHistory, setConversationHistory] = useState([])
   const messagesEndRef = useCallback((node) => {
     if (node) node.scrollIntoView({ behavior: 'smooth' })
   }, [])
+
+  // Determine if this is KO Prime for special handling
+  const isKOPrime = agent.id === "CAO-PRIME-001"
 
   const sendMessage = async () => {
     if (!input.trim() || loading) return
@@ -1209,54 +1424,79 @@ function ChatTab({ agent }) {
     setLoading(true)
 
     try {
-      const res = await fetch(`/api/ko/agents/${agent.id}/chat`, {
+      // Use KO Prime endpoint for super agent, otherwise generic endpoint
+      const endpoint = isKOPrime
+        ? '/api/ko/ko-prime/chat'
+        : `/api/ko/agents/${agent.id}/chat`
+
+      const body = isKOPrime
+        ? { message: userMessage.content, conversation_history: conversationHistory }
+        : { message: userMessage.content }
+
+      const res = await fetch(endpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: userMessage.content })
+        body: JSON.stringify(body)
       })
 
       const data = await res.json()
 
       if (res.ok) {
-        // Format the response based on result type
         let responseContent = ""
-        const result = data.result
+        let toolsUsed = []
 
-        if (result?.type === "sql") {
-          responseContent = `**SQL Query:**\n\`\`\`sql\n${result.sql}\n\`\`\`\n\n**Results:** ${result.rows?.length || 0} rows returned`
-          if (result.rows?.length > 0) {
-            responseContent += `\n\n\`\`\`json\n${JSON.stringify(result.rows.slice(0, 5), null, 2)}\n\`\`\``
-          }
-        } else if (result?.type === "documents") {
-          responseContent = `**Found ${result.documents?.length || 0} documents**\n\n${result.summary || ""}`
-          if (result.documents?.length > 0) {
-            responseContent += "\n\n" + result.documents.slice(0, 3).map(d => `- ${d.file_name || d.title || 'Document'}`).join("\n")
-          }
-        } else if (result?.type === "crm") {
-          const crm = result.crm_data
-          responseContent = `**CRM Query Results**\n\nTotal: ${crm?.total || 0} records\nObject: ${crm?.object_type || 'deals'}`
-          if (crm?.results?.length > 0) {
-            responseContent += "\n\n" + crm.results.slice(0, 5).map(r => `- ${r.properties?.dealname || r.properties?.name || r.id}`).join("\n")
-          }
-          if (crm?.error) {
-            responseContent = `**Error:** ${crm.error}\n\n${crm.details || ''}`
-          }
-        } else if (result?.type === "routing") {
-          const r = result.routing
-          responseContent = `**Routing Decision**\n\nTools: ${r?.tools?.join(", ") || 'none'}\nConfidence: ${r?.confidence || 0}\nReasoning: ${r?.reasoning || 'N/A'}`
-        } else if (result?.type === "ceo_response") {
-          responseContent = result.response || "No response generated"
-        } else if (result?.type === "dashboard") {
-          responseContent = `**Dashboards Available:** ${result.dashboards?.length || 0}`
+        // Handle KO Prime response format
+        if (isKOPrime) {
+          responseContent = data.response || "No response"
+          toolsUsed = data.tools_used || []
+
+          // Update conversation history for context
+          setConversationHistory(prev => [
+            ...prev,
+            { role: "user", content: userMessage.content },
+            { role: "assistant", content: responseContent }
+          ])
         } else {
-          responseContent = JSON.stringify(result, null, 2)
+          // Format the response based on result type (non-KO Prime agents)
+          const result = data.result
+
+          if (result?.type === "sql") {
+            responseContent = `**SQL Query:**\n\`\`\`sql\n${result.sql}\n\`\`\`\n\n**Results:** ${result.rows?.length || 0} rows returned`
+            if (result.rows?.length > 0) {
+              responseContent += `\n\n\`\`\`json\n${JSON.stringify(result.rows.slice(0, 5), null, 2)}\n\`\`\``
+            }
+          } else if (result?.type === "documents") {
+            responseContent = `**Found ${result.documents?.length || 0} documents**\n\n${result.summary || ""}`
+            if (result.documents?.length > 0) {
+              responseContent += "\n\n" + result.documents.slice(0, 3).map(d => `- ${d.file_name || d.title || 'Document'}`).join("\n")
+            }
+          } else if (result?.type === "crm") {
+            const crm = result.crm_data
+            responseContent = `**CRM Query Results**\n\nTotal: ${crm?.total || 0} records\nObject: ${crm?.object_type || 'deals'}`
+            if (crm?.results?.length > 0) {
+              responseContent += "\n\n" + crm.results.slice(0, 5).map(r => `- ${r.properties?.dealname || r.properties?.name || r.id}`).join("\n")
+            }
+            if (crm?.error) {
+              responseContent = `**Error:** ${crm.error}\n\n${crm.details || ''}`
+            }
+          } else if (result?.type === "routing") {
+            const r = result.routing
+            responseContent = `**Routing Decision**\n\nTools: ${r?.tools?.join(", ") || 'none'}\nConfidence: ${r?.confidence || 0}\nReasoning: ${r?.reasoning || 'N/A'}`
+          } else if (result?.type === "ceo_response") {
+            responseContent = result.response || "No response generated"
+          } else if (result?.type === "dashboard") {
+            responseContent = `**Dashboards Available:** ${result.dashboards?.length || 0}`
+          } else {
+            responseContent = JSON.stringify(result, null, 2)
+          }
         }
 
         setMessages(prev => [...prev, {
           role: 'assistant',
           content: responseContent,
           timestamp: new Date(),
-          type: result?.type
+          type: isKOPrime ? 'ko_prime' : data.result?.type,
+          toolsUsed: toolsUsed
         }])
       } else {
         setMessages(prev => [...prev, {
@@ -1288,19 +1528,40 @@ function ChatTab({ agent }) {
   return (
     <div className="bg-card border border-border rounded-xl overflow-hidden flex flex-col h-[600px]">
       {/* Header */}
-      <div className="px-4 py-3 bg-secondary/50 border-b border-border flex items-center gap-3">
-        <MessageSquare size={18} className="text-primary" />
-        <span className="font-medium">Direct Chat with {agent.name}</span>
-        <span className="text-xs text-muted-foreground ml-auto">Bypasses orchestrator</span>
+      <div className={`px-4 py-3 border-b border-border flex items-center gap-3 ${
+        isKOPrime
+          ? 'bg-gradient-to-r from-purple-500/20 to-blue-500/20'
+          : 'bg-secondary/50'
+      }`}>
+        <MessageSquare size={18} className={isKOPrime ? "text-purple-400" : "text-primary"} />
+        <span className="font-medium">
+          {isKOPrime ? 'KO Prime - Super Agent' : `Direct Chat with ${agent.name}`}
+        </span>
+        <span className="text-xs text-muted-foreground ml-auto">
+          {isKOPrime ? 'Full tool access • Powered by Opus 4' : 'Bypasses orchestrator'}
+        </span>
       </div>
 
       {/* Messages */}
       <div className="flex-1 overflow-y-auto p-4 space-y-4">
         {messages.length === 0 && (
           <div className="text-center text-muted-foreground py-8">
-            <Bot size={40} className="mx-auto mb-3 opacity-50" />
-            <p>Send a message to chat directly with this agent</p>
-            <p className="text-xs mt-2">Try asking a question related to this agent's specialty</p>
+            {isKOPrime ? (
+              <>
+                <Brain size={40} className="mx-auto mb-3 opacity-50 text-purple-400" />
+                <p className="font-medium">KO Prime - Chief Intelligence Agent</p>
+                <p className="text-xs mt-2">Ask anything about your business data.</p>
+                <p className="text-xs mt-1 text-purple-400/70">
+                  I can query BigQuery, search documents, access HubSpot, and read emails.
+                </p>
+              </>
+            ) : (
+              <>
+                <Bot size={40} className="mx-auto mb-3 opacity-50" />
+                <p>Send a message to chat directly with this agent</p>
+                <p className="text-xs mt-2">Try asking a question related to this agent's specialty</p>
+              </>
+            )}
           </div>
         )}
 
@@ -1315,9 +1576,20 @@ function ChatTab({ agent }) {
                   ? 'bg-primary text-primary-foreground'
                   : msg.isError
                     ? 'bg-red-500/20 text-red-400 border border-red-500/30'
-                    : 'bg-secondary text-foreground'
+                    : msg.type === 'ko_prime'
+                      ? 'bg-gradient-to-br from-purple-500/20 to-blue-500/20 border border-purple-500/30 text-foreground'
+                      : 'bg-secondary text-foreground'
               }`}
             >
+              {/* Tools used badge for KO Prime */}
+              {msg.toolsUsed?.length > 0 && (
+                <div className="mb-2 pb-2 border-b border-purple-500/30">
+                  <span className="text-xs text-purple-400 font-medium">Tools used: </span>
+                  <span className="text-xs text-muted-foreground">
+                    {msg.toolsUsed.map(t => t.tool).join(' → ')}
+                  </span>
+                </div>
+              )}
               <div className="whitespace-pre-wrap text-sm font-mono">
                 {msg.content}
               </div>
