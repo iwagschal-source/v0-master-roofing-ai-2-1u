@@ -315,7 +315,6 @@ export function ProposalTemplate({ project, proposal }) {
       <ClarificationsPage data={data} />
       <TermsPage data={data} />
       <AcceptancePage data={data} />
-      <ThankYouPage />
     </div>
   )
 }
