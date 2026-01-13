@@ -50,9 +50,9 @@ function Header({ projectName, date, version }) {
 function CoverPage({ data }) {
   return (
     <div className="pv-page pv-cover">
-      {/* Use the full cover logo image which includes the banner */}
+      {/* Black angled header with logo */}
       <div className="pv-cover-header">
-        <img src="/cover-logo.png" alt="Master Roofing" className="pv-cover-logo-img" />
+        <img src="/logo-masterroofing.png" alt="Master Roofing" className="pv-cover-logo-img" />
       </div>
       <div className="pv-cover-date">{fmt.date(data.date)}</div>
       <h1 className="pv-cover-title">Proposal</h1>
@@ -342,14 +342,17 @@ const styles = `
 /* Cover */
 .pv-cover .pv-cover-header {
   position: absolute;
-  top: 30px;
-  left: 50px;
-  right: 50px;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 200px;
+  background: #1a1a1a;
+  clip-path: polygon(0 0, 100% 0, 100% 70%, 0 100%);
+  padding: 45px 50px;
 }
 .pv-cover-logo-img {
-  width: 100%;
-  max-width: 550px;
-  height: auto;
+  height: 38px;
+  width: auto;
 }
 .pv-cover-date { position: absolute; top: 240px; right: 50px; font-size: 14px; font-weight: 600; }
 .pv-cover-title { position: absolute; top: 300px; left: 50px; font-size: 80px; font-weight: 700; margin: 0; }
