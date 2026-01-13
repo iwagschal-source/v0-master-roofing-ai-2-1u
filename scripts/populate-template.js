@@ -228,6 +228,106 @@ async function main() {
       ['Master Roofing is not responsible for concealed conditions. Any unforeseen substrate damage or deterioration will be addressed via change order.'],
       ['Price is valid for 30 days from proposal date. Material costs are subject to change based on manufacturer pricing at time of order.'],
     ]},
+
+    // ============ SYSTEMS LIBRARY ============
+    // Columns: System Name | Manufacturer | Type | R-Value | Thickness | Material Rate | Labor Rate | UOM | Description
+    { range: 'Systems Library!A1:I30', values: [
+      ['System Name', 'Manufacturer', 'Type', 'R-Value', 'Thickness', 'Material Rate', 'Labor Rate', 'UOM', 'Description'],
+      // Firestone APP Systems
+      ['APP 160/180 Built-Up', 'Firestone', 'Modified Bitumen', 'R-20', '4"', '$4.25', '$3.50', 'SF', 'Two-ply APP modified bitumen system with ISO insulation'],
+      ['APP 160/180 Built-Up', 'Firestone', 'Modified Bitumen', 'R-25', '5"', '$4.75', '$3.50', 'SF', 'Two-ply APP modified bitumen system with ISO insulation'],
+      ['APP 160/180 Built-Up', 'Firestone', 'Modified Bitumen', 'R-30', '6"', '$5.25', '$3.50', 'SF', 'Two-ply APP modified bitumen system with ISO insulation'],
+      ['APP 160/180 Built-Up', 'Firestone', 'Modified Bitumen', 'R-33', '6.5"', '$5.50', '$3.50', 'SF', 'Two-ply APP modified bitumen system with ISO insulation'],
+      ['APP 160/180 Built-Up', 'Firestone', 'Modified Bitumen', 'R-38', '7.5"', '$6.00', '$3.75', 'SF', 'Two-ply APP modified bitumen system with ISO insulation'],
+      // TPO Systems
+      ['TPO Single-Ply 60mil', 'Firestone', 'TPO', 'R-20', '4"', '$3.50', '$2.75', 'SF', '60mil TPO membrane fully adhered'],
+      ['TPO Single-Ply 60mil', 'Firestone', 'TPO', 'R-25', '5"', '$3.85', '$2.75', 'SF', '60mil TPO membrane fully adhered'],
+      ['TPO Single-Ply 60mil', 'Firestone', 'TPO', 'R-30', '6"', '$4.20', '$2.75', 'SF', '60mil TPO membrane fully adhered'],
+      ['TPO Single-Ply 80mil', 'Firestone', 'TPO', 'R-30', '6"', '$4.75', '$3.00', 'SF', '80mil TPO membrane fully adhered'],
+      // Carlisle Systems
+      ['TPO Single-Ply 60mil', 'Carlisle', 'TPO', 'R-25', '5"', '$3.75', '$2.75', 'SF', '60mil Sure-Weld TPO membrane'],
+      ['TPO Single-Ply 60mil', 'Carlisle', 'TPO', 'R-30', '6"', '$4.10', '$2.75', 'SF', '60mil Sure-Weld TPO membrane'],
+      ['EPDM 60mil', 'Carlisle', 'EPDM', 'R-25', '5"', '$3.25', '$2.50', 'SF', '60mil EPDM rubber membrane fully adhered'],
+      ['EPDM 60mil', 'Carlisle', 'EPDM', 'R-30', '6"', '$3.60', '$2.50', 'SF', '60mil EPDM rubber membrane fully adhered'],
+      // GAF Systems
+      ['TPO Single-Ply 60mil', 'GAF', 'TPO', 'R-25', '5"', '$3.65', '$2.75', 'SF', 'EverGuard TPO 60mil'],
+      ['TPO Single-Ply 80mil', 'GAF', 'TPO', 'R-30', '6"', '$4.50', '$3.00', 'SF', 'EverGuard TPO 80mil'],
+      // Soprema Systems
+      ['SBS Modified Bitumen', 'Soprema', 'Modified Bitumen', 'R-25', '5"', '$4.50', '$3.50', 'SF', 'Sopralene Flam 180 SBS system'],
+      ['SBS Modified Bitumen', 'Soprema', 'Modified Bitumen', 'R-30', '6"', '$5.00', '$3.50', 'SF', 'Sopralene Flam 180 SBS system'],
+      ['PMMA Liquid Applied', 'Soprema', 'Liquid Applied', 'N/A', 'N/A', '$8.50', '$6.00', 'SF', 'Alsan RS liquid waterproofing'],
+      // Sika Systems
+      ['Sarnafil PVC', 'Sika', 'PVC', 'R-25', '5"', '$4.25', '$3.25', 'SF', '60mil Sarnafil PVC membrane'],
+      ['Sarnafil PVC', 'Sika', 'PVC', 'R-30', '6"', '$4.60', '$3.25', 'SF', '60mil Sarnafil PVC membrane'],
+      // EIFS Systems
+      ['EIFS Standard', 'Dryvit', 'EIFS', 'R-7.5', '2"', '$12.00', '$8.00', 'SF', 'Outsulation system with 2" EPS'],
+      ['EIFS Standard', 'Dryvit', 'EIFS', 'R-11.25', '3"', '$13.50', '$8.00', 'SF', 'Outsulation system with 3" EPS'],
+      ['EIFS Standard', 'Dryvit', 'EIFS', 'R-15', '4"', '$15.00', '$8.50', 'SF', 'Outsulation system with 4" EPS'],
+      ['EIFS Standard', 'Sto', 'EIFS', 'R-7.5', '2"', '$12.50', '$8.00', 'SF', 'StoTherm ci system with 2" EPS'],
+      ['EIFS Standard', 'Sto', 'EIFS', 'R-15', '4"', '$15.50', '$8.50', 'SF', 'StoTherm ci system with 4" EPS'],
+    ]},
+
+    // ============ ITEMS LIBRARY ============
+    // Columns: Item Name | Category | Manufacturer | Size/Spec | Material Rate | Labor Rate | UOM | Description
+    { range: 'Items Library!A1:H50', values: [
+      ['Item Name', 'Category', 'Manufacturer', 'Size/Spec', 'Material Rate', 'Labor Rate', 'UOM', 'Description'],
+      // Insulation
+      ['ISO 95+ GL Insulation', 'Insulation', 'Firestone', '2"', '$1.10', '$0.40', 'SF', 'Polyiso insulation board R-12.4'],
+      ['ISO 95+ GL Insulation', 'Insulation', 'Firestone', '2.5"', '$1.35', '$0.40', 'SF', 'Polyiso insulation board R-15.5'],
+      ['ISO 95+ GL Insulation', 'Insulation', 'Firestone', '3"', '$1.60', '$0.45', 'SF', 'Polyiso insulation board R-18.6'],
+      ['ISO 95+ GL Insulation', 'Insulation', 'Firestone', '4"', '$2.10', '$0.50', 'SF', 'Polyiso insulation board R-24.8'],
+      ['Tapered ISO', 'Insulation', 'Firestone', '1/4"/ft', '$1.85', '$0.55', 'SF', 'Tapered polyiso for drainage'],
+      ['DensDeck Prime', 'Coverboard', 'GP', '1/4"', '$0.85', '$0.25', 'SF', 'Gypsum roof board'],
+      ['DensDeck Prime', 'Coverboard', 'GP', '1/2"', '$1.15', '$0.30', 'SF', 'Gypsum roof board'],
+      // Flashings
+      ['Aluminum Coping', 'Metal', 'Various', '12"', '$18.00', '$12.00', 'LF', 'Extruded aluminum snap-on coping'],
+      ['Aluminum Coping', 'Metal', 'Various', '18"', '$24.00', '$14.00', 'LF', 'Extruded aluminum snap-on coping'],
+      ['Aluminum Coping', 'Metal', 'Various', '24"', '$32.00', '$16.00', 'LF', 'Extruded aluminum snap-on coping'],
+      ['Counter Flashing', 'Metal', 'Various', '4"', '$8.50', '$6.00', 'LF', 'Two-piece aluminum counter flashing'],
+      ['Counter Flashing', 'Metal', 'Various', '6"', '$10.50', '$6.50', 'LF', 'Two-piece aluminum counter flashing'],
+      ['Drip Edge', 'Metal', 'Various', '4"', '$4.50', '$3.00', 'LF', 'Aluminum drip edge'],
+      ['Gravel Stop', 'Metal', 'Various', '6"', '$12.00', '$7.00', 'LF', 'Aluminum gravel stop fascia'],
+      // Accessories
+      ['Roof Drain', 'Drainage', 'Zurn', '4"', '$285.00', '$150.00', 'EA', 'Cast iron roof drain with strainer'],
+      ['Roof Drain', 'Drainage', 'Zurn', '6"', '$350.00', '$175.00', 'EA', 'Cast iron roof drain with strainer'],
+      ['Overflow Drain', 'Drainage', 'Zurn', '4"', '$185.00', '$125.00', 'EA', 'Overflow scupper drain'],
+      ['Pitch Pocket', 'Penetrations', 'Various', 'Standard', '$85.00', '$65.00', 'EA', 'Prefab pitch pocket for penetrations'],
+      ['Pipe Boot', 'Penetrations', 'Portals Plus', '1-3"', '$45.00', '$35.00', 'EA', 'EPDM pipe boot flashing'],
+      ['Pipe Boot', 'Penetrations', 'Portals Plus', '3-6"', '$65.00', '$45.00', 'EA', 'EPDM pipe boot flashing'],
+      ['Roof Hatch', 'Access', 'Bilco', '30x36"', '$1,450.00', '$350.00', 'EA', 'Aluminum roof access hatch'],
+      ['Roof Hatch', 'Access', 'Bilco', '36x48"', '$1,850.00', '$400.00', 'EA', 'Aluminum roof access hatch'],
+      ['Skylight Curb', 'Skylights', 'Various', 'Custom', '$125.00', '$85.00', 'LF', 'Prefab metal curb for skylight'],
+      // Waterproofing
+      ['PMMA Primer', 'Waterproofing', 'Soprema', 'RS 276', '$2.50', '$1.50', 'SF', 'Alsan RS 276 primer'],
+      ['PMMA Membrane', 'Waterproofing', 'Soprema', 'RS 230', '$6.50', '$4.00', 'SF', 'Alsan RS 230 waterproofing'],
+      ['PMMA Finish', 'Waterproofing', 'Soprema', 'RS 289', '$3.50', '$2.50', 'SF', 'Alsan RS 289 textured finish'],
+      ['Fluid Applied WP', 'Waterproofing', 'Tremco', 'Vulkem', '$4.25', '$3.00', 'SF', 'Tremco Vulkem fluid applied'],
+      ['Sheet Membrane', 'Waterproofing', 'Grace', 'Ice & Water', '$2.25', '$1.25', 'SF', 'Self-adhered sheet membrane'],
+      // Misc
+      ['Fiber Cant', 'Accessories', 'Various', '4x4"', '$2.50', '$1.50', 'LF', 'Perlite fiber cant strip'],
+      ['Wood Nailer', 'Accessories', 'PT Lumber', '2x6"', '$3.50', '$4.00', 'LF', 'Pressure treated blocking'],
+      ['Wood Nailer', 'Accessories', 'PT Lumber', '2x8"', '$4.50', '$4.50', 'LF', 'Pressure treated blocking'],
+      ['Walkway Pads', 'Protection', 'Various', '30x30"', '$8.50', '$2.00', 'EA', 'Rubber walkway protection pads'],
+      ['Protection Board', 'Protection', 'GP', '1/2"', '$1.25', '$0.50', 'SF', 'DensDeck protection board'],
+    ]},
+
+    // ============ GC HISTORY ============
+    // Pre-populated with sample past projects for this GC
+    { range: 'GC History!A1:H15', values: [
+      ['Project Name', 'Address', 'Date', 'System Used', 'Total Amount', 'Notes', 'Contact', 'Preferences'],
+      ['456 Atlantic Ave', '456 Atlantic Ave, Brooklyn NY', '2024-08-15', 'Firestone APP 160/180 R-30', '$125,400', 'Completed on time, GC was very happy', 'Mike Johnson', 'Prefers white membrane, needs 48hr notice for inspections'],
+      ['789 Fulton St', '789 Fulton St, Brooklyn NY', '2024-03-22', 'Carlisle TPO 60mil R-25', '$89,200', 'Added 2 change orders for additional drains', 'Mike Johnson', 'Always requests detailed daily reports'],
+      ['122 Smith St', '122 Smith St, Brooklyn NY', '2023-11-10', 'Firestone APP 160/180 R-25', '$156,800', 'Large project, phased over 3 months', 'Sarah Chen', 'Prefers phased billing, pays within 15 days'],
+      ['55 Court St', '55 Court St, Brooklyn NY', '2023-06-05', 'Soprema PMMA', '$42,300', 'Balcony waterproofing only', 'Mike Johnson', 'Very particular about finish texture'],
+      ['888 Bergen St', '888 Bergen St, Brooklyn NY', '2023-02-18', 'Firestone TPO 80mil R-30', '$198,500', 'New construction, coordinated with other trades', 'Sarah Chen', 'Requires safety meetings before each phase'],
+      ['234 Dean St', '234 Dean St, Brooklyn NY', '2022-09-30', 'GAF TPO 60mil R-25', '$67,800', 'Reroof with full tear-off', 'Mike Johnson', 'Budget conscious, open to value engineering'],
+      ['', '', '', '', '', '', '', ''],
+      ['=== GC PREFERENCES SUMMARY ===', '', '', '', '', '', '', ''],
+      ['Preferred Systems:', 'Firestone APP, Carlisle TPO', '', '', '', '', '', ''],
+      ['Payment Terms:', 'Net 15, phased billing preferred', '', '', '', '', '', ''],
+      ['Communication:', 'Daily reports required, 48hr inspection notice', '', '', '', '', '', ''],
+      ['Special Notes:', 'Quality focused, willing to pay for premium systems', '', '', '', '', '', ''],
+    ]},
   ]
 
   const result = await batchUpdate(sheetId, updates)

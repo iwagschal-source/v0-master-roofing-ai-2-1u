@@ -26,10 +26,10 @@ async function fetchFromGoogleChatAPI(): Promise<{ spaces: ChatSpace[], needsWor
 
   // Map API response to ChatSpace format
   const spaces = (data.spaces || []).map((space: any) => ({
-    id: space.id,
-    name: space.id,
+    id: space.id || space.name,
+    name: space.id || space.name,
     type: space.type || 'ROOM',
-    displayName: space.name,
+    displayName: space.name || space.displayName || space.id,
     memberCount: 0
   }))
 
@@ -282,9 +282,32 @@ export function useChatSpaces(options: UseChatSpacesOptions = {}): UseChatSpaces
         setMessages(prev => [...prev, newMessage])
         return true
       } else {
-        await chatSpacesAPI.sendMessage(selectedSpace.id, { text })
-        await fetchMessages(selectedSpace.id) // Refresh messages
-        return true
+        // Try Google Chat API first
+        try {
+          const res = await fetch('/api/google/chat', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              spaceId: selectedSpace.id,
+              text: text.trim()
+            })
+          })
+          
+          const data = await res.json()
+          
+          if (data.error || data.needsAuth) {
+            throw new Error(data.error || 'Failed to send')
+          }
+          
+          // Refresh messages after sending
+          await fetchMessages(selectedSpace.id)
+          return true
+        } catch (googleErr) {
+          // Fall back to backend API
+          await chatSpacesAPI.sendMessage(selectedSpace.id, { text })
+          await fetchMessages(selectedSpace.id)
+          return true
+        }
       }
     } catch (err) {
       console.error('Failed to send message:', err)

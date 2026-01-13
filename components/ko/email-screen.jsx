@@ -70,11 +70,14 @@ export function EmailScreen() {
   // Compose modal state
   const [showCompose, setShowCompose] = useState(false)
   const [composeTo, setComposeTo] = useState("")
+  const [composeCc, setComposeCc] = useState("")
+  const [composeBcc, setComposeBcc] = useState("")
   const [composeSubject, setComposeSubject] = useState("")
   const [composeBody, setComposeBody] = useState("")
   const [composeSending, setComposeSending] = useState(false)
   const [composeSuccess, setComposeSuccess] = useState(false)
   const [composeError, setComposeError] = useState("")
+  const [showCcBcc, setShowCcBcc] = useState(false)
 
   const handleSend = () => {
     if (inputValue.trim()) {
@@ -155,6 +158,8 @@ export function EmailScreen() {
     try {
       // Parse multiple recipients (comma-separated)
       const recipients = composeTo.split(',').map(email => email.trim()).filter(Boolean)
+      const ccRecipients = composeCc.split(',').map(email => email.trim()).filter(Boolean)
+      const bccRecipients = composeBcc.split(',').map(email => email.trim()).filter(Boolean)
 
       // Call the API directly for better error handling
       const res = await fetch('/api/google/gmail', {
@@ -162,6 +167,8 @@ export function EmailScreen() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           to: recipients,
+          cc: ccRecipients.length > 0 ? ccRecipients : undefined,
+          bcc: bccRecipients.length > 0 ? bccRecipients : undefined,
           subject: composeSubject || '(No Subject)',
           message: composeBody,
         }),
@@ -188,8 +195,11 @@ export function EmailScreen() {
           setComposeSuccess(false)
           setShowCompose(false)
           setComposeTo("")
+          setComposeCc("")
+          setComposeBcc("")
           setComposeSubject("")
           setComposeBody("")
+          setShowCcBcc(false)
           refresh() // Refresh to see sent email
         }, 1500)
       } else {
@@ -204,13 +214,16 @@ export function EmailScreen() {
   }
 
   const handleCloseCompose = () => {
-    if (composeTo || composeSubject || composeBody) {
+    if (composeTo || composeCc || composeBcc || composeSubject || composeBody) {
       if (window.confirm("Discard this draft?")) {
         setShowCompose(false)
         setComposeTo("")
+        setComposeCc("")
+        setComposeBcc("")
         setComposeSubject("")
         setComposeBody("")
         setComposeError("")
+        setShowCcBcc(false)
       }
     } else {
       setShowCompose(false)
@@ -604,7 +617,7 @@ export function EmailScreen() {
             <div className="flex-1 overflow-y-auto p-4 space-y-3">
               {/* To Field */}
               <div>
-                <label className="block text-xs text-[#9b9b9b] mb-1">To</label>
+                <label className="block text-xs text-[#9b9b9b] mb-1">To *</label>
                 <input
                   type="email"
                   value={composeTo}
@@ -613,6 +626,45 @@ export function EmailScreen() {
                   className="w-full px-3 py-2 bg-background border border-input rounded-lg text-sm text-[#ececec] placeholder:text-[#9b9b9b] outline-none focus:ring-1 focus:ring-primary"
                 />
               </div>
+
+              {/* Cc/Bcc Toggle */}
+              <div className="flex items-center justify-between">
+                <button
+                  type="button"
+                  onClick={() => setShowCcBcc(!showCcBcc)}
+                  className="text-xs text-primary hover:text-primary/80 transition-colors"
+                >
+                  {showCcBcc ? 'Hide' : 'Show'} Cc/Bcc
+                </button>
+              </div>
+
+              {/* Cc Field */}
+              {showCcBcc && (
+                <div>
+                  <label className="block text-xs text-[#9b9b9b] mb-1">Cc</label>
+                  <input
+                    type="email"
+                    value={composeCc}
+                    onChange={(e) => setComposeCc(e.target.value)}
+                    placeholder="cc@example.com (comma-separate multiple)"
+                    className="w-full px-3 py-2 bg-background border border-input rounded-lg text-sm text-[#ececec] placeholder:text-[#9b9b9b] outline-none focus:ring-1 focus:ring-primary"
+                  />
+                </div>
+              )}
+
+              {/* Bcc Field */}
+              {showCcBcc && (
+                <div>
+                  <label className="block text-xs text-[#9b9b9b] mb-1">Bcc</label>
+                  <input
+                    type="email"
+                    value={composeBcc}
+                    onChange={(e) => setComposeBcc(e.target.value)}
+                    placeholder="bcc@example.com (comma-separate multiple)"
+                    className="w-full px-3 py-2 bg-background border border-input rounded-lg text-sm text-[#ececec] placeholder:text-[#9b9b9b] outline-none focus:ring-1 focus:ring-primary"
+                  />
+                </div>
+              )}
 
               {/* Subject Field */}
               <div>

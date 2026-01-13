@@ -6,15 +6,9 @@
 
 import { NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
-import { readJSON } from '@/lib/gcs-storage'
+import { getValidGoogleToken } from '@/lib/google-token'
 
 const CHAT_API = 'https://chat.googleapis.com/v1'
-
-async function getGoogleToken(userId) {
-  if (!userId) return null
-  const tokenData = await readJSON(`auth/google/${userId}.json`)
-  return tokenData?.access_token
-}
 
 // GET - Fetch spaces or messages
 export async function GET(request) {
@@ -32,10 +26,10 @@ export async function GET(request) {
       )
     }
 
-    const token = await getGoogleToken(userId)
+    const token = await getValidGoogleToken(userId)
     if (!token) {
       return NextResponse.json(
-        { error: 'Google token expired', needsAuth: true },
+        { error: 'Not connected to Google or token refresh failed', needsAuth: true },
         { status: 401 }
       )
     }
@@ -101,6 +95,75 @@ export async function GET(request) {
     console.error('Chat API error:', err)
     return NextResponse.json(
       { error: 'Failed to fetch chat data' },
+      { status: 500 }
+    )
+  }
+}
+
+// POST - Send a message to a space
+export async function POST(request) {
+  try {
+    const cookieStore = await cookies()
+    const userId = cookieStore.get('google_user_id')?.value
+
+    if (!userId) {
+      return NextResponse.json(
+        { error: 'Not connected to Google', needsAuth: true },
+        { status: 401 }
+      )
+    }
+
+    const token = await getValidGoogleToken(userId)
+    if (!token) {
+      return NextResponse.json(
+        { error: 'Not connected to Google or token refresh failed', needsAuth: true },
+        { status: 401 }
+      )
+    }
+
+    const body = await request.json()
+    const { spaceId, text } = body
+
+    if (!spaceId || !text) {
+      return NextResponse.json(
+        { error: 'Missing required fields: spaceId, text' },
+        { status: 400 }
+      )
+    }
+
+    // Send message via Google Chat API
+    const sendRes = await fetch(
+      `${CHAT_API}/spaces/${spaceId}/messages`,
+      {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          text: text,
+        }),
+      }
+    )
+
+    const sendData = await sendRes.json()
+
+    if (sendData.error) {
+      console.error('Chat send error:', sendData.error)
+      return NextResponse.json(
+        { error: sendData.error.message || 'Failed to send message' },
+        { status: 400 }
+      )
+    }
+
+    return NextResponse.json({
+      success: true,
+      message: sendData,
+    })
+  } catch (err) {
+    console.error('Chat send error:', err)
+    return NextResponse.json(
+      { error: 'Failed to send message' },
       { status: 500 }
     )
   }

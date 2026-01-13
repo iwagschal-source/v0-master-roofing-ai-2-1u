@@ -5,15 +5,9 @@
 
 import { NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
-import { readJSON } from '@/lib/gcs-storage'
+import { getValidGoogleToken } from '@/lib/google-token'
 
 const CALENDAR_API = 'https://www.googleapis.com/calendar/v3'
-
-async function getGoogleToken(userId) {
-  if (!userId) return null
-  const tokenData = await readJSON(`auth/google/${userId}.json`)
-  return tokenData?.access_token
-}
 
 // GET - Fetch calendar events
 export async function GET(request) {
@@ -33,10 +27,10 @@ export async function GET(request) {
       )
     }
 
-    const token = await getGoogleToken(userId)
+    const token = await getValidGoogleToken(userId)
     if (!token) {
       return NextResponse.json(
-        { error: 'Google token expired', needsAuth: true },
+        { error: 'Not connected to Google or token refresh failed', needsAuth: true },
         { status: 401 }
       )
     }

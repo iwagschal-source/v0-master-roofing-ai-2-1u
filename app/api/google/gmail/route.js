@@ -5,15 +5,9 @@
 
 import { NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
-import { readJSON } from '@/lib/gcs-storage'
+import { getValidGoogleToken } from '@/lib/google-token'
 
 const GMAIL_API = 'https://gmail.googleapis.com/gmail/v1'
-
-async function getGoogleToken(userId) {
-  if (!userId) return null
-  const tokenData = await readJSON(`auth/google/${userId}.json`)
-  return tokenData?.access_token
-}
 
 // GET - Fetch emails
 export async function GET(request) {
@@ -33,10 +27,10 @@ export async function GET(request) {
       )
     }
 
-    const token = await getGoogleToken(userId)
+    const token = await getValidGoogleToken(userId)
     if (!token) {
       return NextResponse.json(
-        { error: 'Google token expired', needsAuth: true },
+        { error: 'Not connected to Google or token refresh failed', needsAuth: true },
         { status: 401 }
       )
     }
@@ -140,16 +134,16 @@ export async function POST(request) {
       )
     }
 
-    const token = await getGoogleToken(userId)
+    const token = await getValidGoogleToken(userId)
     if (!token) {
       return NextResponse.json(
-        { error: 'Google token expired', needsAuth: true },
+        { error: 'Not connected to Google or token refresh failed', needsAuth: true },
         { status: 401 }
       )
     }
 
     const body = await request.json()
-    const { to, subject, message, threadId, replyToMessageId } = body
+    const { to, cc, bcc, subject, message, threadId, replyToMessageId } = body
 
     if (!to || !message) {
       return NextResponse.json(
@@ -159,6 +153,7 @@ export async function POST(request) {
     }
 
     // Get user's email for the From header
+    const { readJSON } = await import('@/lib/gcs-storage')
     const tokenData = await readJSON(`auth/google/${userId}.json`)
     const fromEmail = tokenData?.user?.email
 
@@ -166,10 +161,23 @@ export async function POST(request) {
     let emailLines = [
       `From: ${fromEmail}`,
       `To: ${Array.isArray(to) ? to.join(', ') : to}`,
+    ]
+
+    // Add CC if provided
+    if (cc && (Array.isArray(cc) ? cc.length > 0 : cc.trim())) {
+      emailLines.push(`Cc: ${Array.isArray(cc) ? cc.join(', ') : cc}`)
+    }
+
+    // Add BCC if provided
+    if (bcc && (Array.isArray(bcc) ? bcc.length > 0 : bcc.trim())) {
+      emailLines.push(`Bcc: ${Array.isArray(bcc) ? bcc.join(', ') : bcc}`)
+    }
+
+    emailLines.push(
       `Subject: ${subject || '(No Subject)'}`,
       'Content-Type: text/plain; charset=utf-8',
       'MIME-Version: 1.0',
-    ]
+    )
 
     // Add threading headers if replying
     if (replyToMessageId) {
