@@ -388,6 +388,7 @@ function ReadmeTab({ agent, agentConfig, setAgentConfig }) {
   const [editedContent, setEditedContent] = useState("")
   const [saving, setSaving] = useState(false)
   const [hasChanges, setHasChanges] = useState(false)
+  const [showDesigner, setShowDesigner] = useState(false)
 
   // Get prompts from backend config or fallback to static
   const prompts = agentConfig?.prompts || {}
@@ -448,58 +449,265 @@ function ReadmeTab({ agent, agentConfig, setAgentConfig }) {
   }
 
   return (
-    <div className="bg-card border border-border rounded-xl overflow-hidden">
-      {/* Prompt tabs */}
-      <div className="flex items-center justify-between px-4 py-2 bg-secondary/50 border-b border-border">
-        <div className="flex items-center gap-1 overflow-x-auto">
-          {promptKeys.map((key) => (
-            <button
-              key={key}
-              onClick={() => handlePromptChange(key)}
-              className={`flex items-center gap-2 px-3 py-1.5 rounded text-sm transition-colors whitespace-nowrap ${
-                activePrompt === key
-                  ? "bg-primary text-primary-foreground"
-                  : "text-muted-foreground hover:text-foreground hover:bg-secondary"
-              }`}
-            >
-              <span className="w-2 h-2 rounded-full bg-blue-400" />
-              {key}
-            </button>
-          ))}
-        </div>
+    <div className="space-y-6">
+      {/* Mode Toggle */}
+      <div className="flex items-center gap-2">
         <button
-          onClick={handleSave}
-          disabled={!hasChanges || saving}
-          className="flex items-center gap-2 px-3 py-1.5 bg-primary text-primary-foreground rounded text-sm font-medium hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          onClick={() => setShowDesigner(false)}
+          className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+            !showDesigner
+              ? "bg-primary text-primary-foreground"
+              : "bg-secondary text-muted-foreground hover:text-foreground"
+          }`}
         >
-          {saving ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
-          Save
+          <Pencil size={16} />
+          Edit Manually
+        </button>
+        <button
+          onClick={() => setShowDesigner(true)}
+          className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+            showDesigner
+              ? "bg-primary text-primary-foreground"
+              : "bg-secondary text-muted-foreground hover:text-foreground"
+          }`}
+        >
+          <Brain size={16} />
+          Prompt Designer (Opus 4)
         </button>
       </div>
 
-      {/* Editor */}
-      <div className="p-4 bg-background/50">
-        <textarea
-          value={editedContent}
-          onChange={handleContentChange}
-          className="w-full h-96 bg-transparent text-foreground font-mono text-sm focus:outline-none resize-none border border-transparent focus:border-primary/50 rounded p-2"
-          placeholder="Enter prompt content..."
+      {/* Manual Editor */}
+      {!showDesigner && (
+        <div className="bg-card border border-border rounded-xl overflow-hidden">
+          {/* Prompt tabs */}
+          <div className="flex items-center justify-between px-4 py-2 bg-secondary/50 border-b border-border">
+            <div className="flex items-center gap-1 overflow-x-auto">
+              {promptKeys.map((key) => (
+                <button
+                  key={key}
+                  onClick={() => handlePromptChange(key)}
+                  className={`flex items-center gap-2 px-3 py-1.5 rounded text-sm transition-colors whitespace-nowrap ${
+                    activePrompt === key
+                      ? "bg-primary text-primary-foreground"
+                      : "text-muted-foreground hover:text-foreground hover:bg-secondary"
+                  }`}
+                >
+                  <span className="w-2 h-2 rounded-full bg-blue-400" />
+                  {key}
+                </button>
+              ))}
+            </div>
+            <button
+              onClick={handleSave}
+              disabled={!hasChanges || saving}
+              className="flex items-center gap-2 px-3 py-1.5 bg-primary text-primary-foreground rounded text-sm font-medium hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {saving ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
+              Save
+            </button>
+          </div>
+
+          {/* Editor */}
+          <div className="p-4 bg-background/50">
+            <textarea
+              value={editedContent}
+              onChange={handleContentChange}
+              className="w-full h-96 bg-transparent text-foreground font-mono text-sm focus:outline-none resize-none border border-transparent focus:border-primary/50 rounded p-2"
+              placeholder="Enter prompt content..."
+            />
+          </div>
+
+          {/* Status bar */}
+          <div className="px-4 py-2 bg-secondary/30 border-t border-border flex items-center justify-between text-xs text-muted-foreground">
+            <span>
+              {agentConfig.updated_at
+                ? `Last updated: ${new Date(agentConfig.updated_at).toLocaleString()}`
+                : "Not yet saved"}
+            </span>
+            {hasChanges && (
+              <span className="text-amber-400 flex items-center gap-1">
+                <AlertTriangle size={12} />
+                Unsaved changes
+              </span>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Prompt Designer Chat */}
+      {showDesigner && (
+        <PromptDesignerChat
+          agentId={agent.id}
+          agentName={agent.name}
+          onPromptSaved={() => {
+            // Refresh config after save
+            fetch(`/api/ko/agents/config/${agent.id}`)
+              .then(res => res.json())
+              .then(data => setAgentConfig(data))
+              .catch(err => console.error('Failed to refresh config:', err))
+          }}
         />
+      )}
+    </div>
+  )
+}
+
+// Prompt Designer Chat Component
+function PromptDesignerChat({ agentId, agentName, onPromptSaved }) {
+  const [messages, setMessages] = useState([])
+  const [input, setInput] = useState("")
+  const [loading, setLoading] = useState(false)
+  const [sessionId] = useState(() => `designer-${agentId}-${Date.now()}`)
+  const messagesEndRef = useCallback((node) => {
+    if (node) node.scrollIntoView({ behavior: 'smooth' })
+  }, [])
+
+  const sendMessage = async () => {
+    if (!input.trim() || loading) return
+
+    const userMessage = { role: 'user', content: input.trim(), timestamp: new Date() }
+    setMessages(prev => [...prev, userMessage])
+    setInput("")
+    setLoading(true)
+
+    try {
+      const res = await fetch('/api/ko/prompt-designer/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          session_id: sessionId,
+          message: userMessage.content,
+          target_agent_id: agentId
+        })
+      })
+
+      const data = await res.json()
+
+      if (res.ok) {
+        setMessages(prev => [...prev, {
+          role: 'assistant',
+          content: data.response,
+          timestamp: new Date(),
+          saved: data.saved,
+          savedTo: data.saved_to
+        }])
+
+        // If prompt was saved, trigger refresh
+        if (data.saved && onPromptSaved) {
+          onPromptSaved()
+        }
+      } else {
+        setMessages(prev => [...prev, {
+          role: 'assistant',
+          content: `Error: ${data.detail || 'Unknown error'}`,
+          timestamp: new Date(),
+          isError: true
+        }])
+      }
+    } catch (err) {
+      setMessages(prev => [...prev, {
+        role: 'assistant',
+        content: `Connection Error: ${err.message}`,
+        timestamp: new Date(),
+        isError: true
+      }])
+    }
+
+    setLoading(false)
+  }
+
+  const handleKeyDown = (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault()
+      sendMessage()
+    }
+  }
+
+  return (
+    <div className="bg-card border border-border rounded-xl overflow-hidden flex flex-col h-[500px]">
+      {/* Header */}
+      <div className="px-4 py-3 bg-gradient-to-r from-purple-500/20 to-blue-500/20 border-b border-border flex items-center gap-3">
+        <Brain size={18} className="text-purple-400" />
+        <span className="font-medium">Prompt Designer for {agentName}</span>
+        <span className="text-xs text-muted-foreground ml-auto">Powered by Opus 4</span>
       </div>
 
-      {/* Status bar */}
-      <div className="px-4 py-2 bg-secondary/30 border-t border-border flex items-center justify-between text-xs text-muted-foreground">
-        <span>
-          {agentConfig.updated_at
-            ? `Last updated: ${new Date(agentConfig.updated_at).toLocaleString()}`
-            : "Not yet saved"}
-        </span>
-        {hasChanges && (
-          <span className="text-amber-400 flex items-center gap-1">
-            <AlertTriangle size={12} />
-            Unsaved changes
-          </span>
+      {/* Messages */}
+      <div className="flex-1 overflow-y-auto p-4 space-y-4">
+        {messages.length === 0 && (
+          <div className="text-center text-muted-foreground py-8">
+            <Brain size={40} className="mx-auto mb-3 opacity-50 text-purple-400" />
+            <p className="font-medium">Design prompts with AI assistance</p>
+            <p className="text-xs mt-2">Describe what you want this agent to do. I'll help you create a proper prompt.</p>
+            <p className="text-xs mt-1">When you're happy, just say "save it" and I'll update the config.</p>
+          </div>
         )}
+
+        {messages.map((msg, idx) => (
+          <div
+            key={idx}
+            className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
+          >
+            <div
+              className={`max-w-[85%] rounded-lg p-3 ${
+                msg.role === 'user'
+                  ? 'bg-primary text-primary-foreground'
+                  : msg.isError
+                    ? 'bg-red-500/20 text-red-400 border border-red-500/30'
+                    : msg.saved
+                      ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
+                      : 'bg-secondary text-foreground'
+              }`}
+            >
+              <div className="whitespace-pre-wrap text-sm">
+                {msg.content}
+              </div>
+              <div className={`text-xs mt-2 flex items-center gap-2 ${
+                msg.role === 'user' ? 'text-primary-foreground/70' : 'text-muted-foreground'
+              }`}>
+                {new Date(msg.timestamp).toLocaleTimeString()}
+                {msg.saved && (
+                  <span className="flex items-center gap-1 text-emerald-400">
+                    <CheckCircle size={12} />
+                    Saved to {msg.savedTo?.field}
+                  </span>
+                )}
+              </div>
+            </div>
+          </div>
+        ))}
+
+        {loading && (
+          <div className="flex justify-start">
+            <div className="bg-secondary rounded-lg p-3 flex items-center gap-2">
+              <Loader2 size={16} className="animate-spin text-purple-400" />
+              <span className="text-sm text-muted-foreground">Thinking...</span>
+            </div>
+          </div>
+        )}
+
+        <div ref={messagesEndRef} />
+      </div>
+
+      {/* Input */}
+      <div className="p-4 border-t border-border bg-secondary/30">
+        <div className="flex items-center gap-3">
+          <textarea
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            onKeyDown={handleKeyDown}
+            placeholder="Describe what you want... e.g., 'I want a methodology that finds project contacts from emails'"
+            rows={2}
+            className="flex-1 px-4 py-2 bg-background border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 resize-none text-sm"
+          />
+          <button
+            onClick={sendMessage}
+            disabled={!input.trim() || loading}
+            className="p-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {loading ? <Loader2 size={18} className="animate-spin" /> : <Send size={18} />}
+          </button>
+        </div>
       </div>
     </div>
   )
