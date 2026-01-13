@@ -31,6 +31,8 @@ import {
   Trash2,
   Save,
   Loader2,
+  MessageSquare,
+  Send,
 } from "lucide-react"
 import { statusConfig, agents, getAgentById } from "@/data/agent-data"
 import { AgentModelIcon, StatusDot, QueueIndicator } from "./agent-model-icon"
@@ -100,6 +102,7 @@ export function AgentDetailScreen({ agent, onBack, onClone, onOpenNetwork }) {
 
   const tabs = [
     { id: "overview", label: "Overview", icon: Activity },
+    { id: "chat", label: "Chat", icon: MessageSquare },
     { id: "readme", label: "README", icon: FileText },
     { id: "permissions", label: "Permissions", icon: Shield },
     { id: "scoring", label: "Scoring", icon: Target },
@@ -263,6 +266,7 @@ export function AgentDetailScreen({ agent, onBack, onClone, onOpenNetwork }) {
       {/* Tab content */}
       <main className="flex-1 overflow-auto p-6">
         {activeTab === "overview" && <OverviewTab agent={agent} />}
+        {activeTab === "chat" && <ChatTab agent={agent} />}
         {activeTab === "readme" && <ReadmeTab agent={agent} agentConfig={agentConfig} setAgentConfig={setAgentConfig} />}
         {activeTab === "permissions" && <PermissionsTab agent={agent} />}
         {activeTab === "scoring" && <ScoringTab agent={agent} />}
@@ -975,6 +979,181 @@ function LogsTab({ agent }) {
             --- Watching for new events ---
           </div>
         )}
+      </div>
+    </div>
+  )
+}
+
+function ChatTab({ agent }) {
+  const [messages, setMessages] = useState([])
+  const [input, setInput] = useState("")
+  const [loading, setLoading] = useState(false)
+  const messagesEndRef = useCallback((node) => {
+    if (node) node.scrollIntoView({ behavior: 'smooth' })
+  }, [])
+
+  const sendMessage = async () => {
+    if (!input.trim() || loading) return
+
+    const userMessage = { role: 'user', content: input.trim(), timestamp: new Date() }
+    setMessages(prev => [...prev, userMessage])
+    setInput("")
+    setLoading(true)
+
+    try {
+      const res = await fetch(`/api/ko/agents/${agent.id}/chat`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message: userMessage.content })
+      })
+
+      const data = await res.json()
+
+      if (res.ok) {
+        // Format the response based on result type
+        let responseContent = ""
+        const result = data.result
+
+        if (result?.type === "sql") {
+          responseContent = `**SQL Query:**\n\`\`\`sql\n${result.sql}\n\`\`\`\n\n**Results:** ${result.rows?.length || 0} rows returned`
+          if (result.rows?.length > 0) {
+            responseContent += `\n\n\`\`\`json\n${JSON.stringify(result.rows.slice(0, 5), null, 2)}\n\`\`\``
+          }
+        } else if (result?.type === "documents") {
+          responseContent = `**Found ${result.documents?.length || 0} documents**\n\n${result.summary || ""}`
+          if (result.documents?.length > 0) {
+            responseContent += "\n\n" + result.documents.slice(0, 3).map(d => `- ${d.file_name || d.title || 'Document'}`).join("\n")
+          }
+        } else if (result?.type === "crm") {
+          const crm = result.crm_data
+          responseContent = `**CRM Query Results**\n\nTotal: ${crm?.total || 0} records\nObject: ${crm?.object_type || 'deals'}`
+          if (crm?.results?.length > 0) {
+            responseContent += "\n\n" + crm.results.slice(0, 5).map(r => `- ${r.properties?.dealname || r.properties?.name || r.id}`).join("\n")
+          }
+          if (crm?.error) {
+            responseContent = `**Error:** ${crm.error}\n\n${crm.details || ''}`
+          }
+        } else if (result?.type === "routing") {
+          const r = result.routing
+          responseContent = `**Routing Decision**\n\nTools: ${r?.tools?.join(", ") || 'none'}\nConfidence: ${r?.confidence || 0}\nReasoning: ${r?.reasoning || 'N/A'}`
+        } else if (result?.type === "ceo_response") {
+          responseContent = result.response || "No response generated"
+        } else if (result?.type === "dashboard") {
+          responseContent = `**Dashboards Available:** ${result.dashboards?.length || 0}`
+        } else {
+          responseContent = JSON.stringify(result, null, 2)
+        }
+
+        setMessages(prev => [...prev, {
+          role: 'assistant',
+          content: responseContent,
+          timestamp: new Date(),
+          type: result?.type
+        }])
+      } else {
+        setMessages(prev => [...prev, {
+          role: 'assistant',
+          content: `**Error:** ${data.error || 'Unknown error'}`,
+          timestamp: new Date(),
+          isError: true
+        }])
+      }
+    } catch (err) {
+      setMessages(prev => [...prev, {
+        role: 'assistant',
+        content: `**Connection Error:** ${err.message}`,
+        timestamp: new Date(),
+        isError: true
+      }])
+    }
+
+    setLoading(false)
+  }
+
+  const handleKeyDown = (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault()
+      sendMessage()
+    }
+  }
+
+  return (
+    <div className="bg-card border border-border rounded-xl overflow-hidden flex flex-col h-[600px]">
+      {/* Header */}
+      <div className="px-4 py-3 bg-secondary/50 border-b border-border flex items-center gap-3">
+        <MessageSquare size={18} className="text-primary" />
+        <span className="font-medium">Direct Chat with {agent.name}</span>
+        <span className="text-xs text-muted-foreground ml-auto">Bypasses orchestrator</span>
+      </div>
+
+      {/* Messages */}
+      <div className="flex-1 overflow-y-auto p-4 space-y-4">
+        {messages.length === 0 && (
+          <div className="text-center text-muted-foreground py-8">
+            <Bot size={40} className="mx-auto mb-3 opacity-50" />
+            <p>Send a message to chat directly with this agent</p>
+            <p className="text-xs mt-2">Try asking a question related to this agent's specialty</p>
+          </div>
+        )}
+
+        {messages.map((msg, idx) => (
+          <div
+            key={idx}
+            className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
+          >
+            <div
+              className={`max-w-[80%] rounded-lg p-3 ${
+                msg.role === 'user'
+                  ? 'bg-primary text-primary-foreground'
+                  : msg.isError
+                    ? 'bg-red-500/20 text-red-400 border border-red-500/30'
+                    : 'bg-secondary text-foreground'
+              }`}
+            >
+              <div className="whitespace-pre-wrap text-sm font-mono">
+                {msg.content}
+              </div>
+              <div className={`text-xs mt-2 ${
+                msg.role === 'user' ? 'text-primary-foreground/70' : 'text-muted-foreground'
+              }`}>
+                {new Date(msg.timestamp).toLocaleTimeString()}
+                {msg.type && <span className="ml-2 opacity-70">({msg.type})</span>}
+              </div>
+            </div>
+          </div>
+        ))}
+
+        {loading && (
+          <div className="flex justify-start">
+            <div className="bg-secondary rounded-lg p-3 flex items-center gap-2">
+              <Loader2 size={16} className="animate-spin" />
+              <span className="text-sm text-muted-foreground">Processing...</span>
+            </div>
+          </div>
+        )}
+
+        <div ref={messagesEndRef} />
+      </div>
+
+      {/* Input */}
+      <div className="p-4 border-t border-border bg-secondary/30">
+        <div className="flex items-center gap-3">
+          <textarea
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            onKeyDown={handleKeyDown}
+            placeholder={`Ask ${agent.name} something...`}
+            rows={1}
+            className="flex-1 px-4 py-2 bg-background border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary resize-none"
+          />
+          <button
+            onClick={sendMessage}
+            disabled={!input.trim() || loading}
+            className="p-3 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {loading ? <Loader2 size={18} className="animate-spin" /> : <Send size={18} />}
+          </button>
+        </div>
       </div>
     </div>
   )
