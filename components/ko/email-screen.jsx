@@ -252,15 +252,19 @@ export function EmailScreen() {
               <h2 className="text-lg font-semibold text-[#ececec]">Inbox</h2>
             </div>
             <div className="flex items-center gap-2">
-              {isConnected && (
-                <button
-                  onClick={() => setShowCompose(true)}
-                  className="p-2 hover:bg-muted rounded-lg transition-colors"
-                  title="Compose new email"
-                >
-                  <Plus className="w-4 h-4 text-[#9b9b9b]" />
-                </button>
-              )}
+              <button
+                onClick={() => setShowCompose(true)}
+                disabled={!isConnected}
+                className={`px-3 py-1.5 rounded-lg transition-colors flex items-center gap-2 text-sm font-medium ${
+                  isConnected
+                    ? 'bg-primary text-primary-foreground hover:bg-primary/90'
+                    : 'bg-muted text-muted-foreground opacity-50 cursor-not-allowed'
+                }`}
+                title={isConnected ? "Compose new email" : "Connect Google to compose emails"}
+              >
+                <Plus className="w-4 h-4" />
+                <span className="hidden sm:inline">Compose</span>
+              </button>
               {isConnected && user && (
                 <div className="flex items-center gap-2">
                   <span className="text-xs text-[#9b9b9b] hidden sm:inline">{user.email}</span>

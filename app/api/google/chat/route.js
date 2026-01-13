@@ -83,8 +83,9 @@ export async function GET(request) {
     }
 
     const spaces = (spacesData.spaces || []).map(space => ({
-      id: space.name,
-      name: space.displayName || space.name,
+      id: space.name, // space.name is already in "spaces/XXXXX" format
+      name: space.name, // Full resource name
+      displayName: space.displayName || space.name.replace('spaces/', ''),
       type: space.type, // ROOM, DM, etc
       singleUserBotDm: space.singleUserBotDm,
       spaceThreadingState: space.spaceThreadingState,

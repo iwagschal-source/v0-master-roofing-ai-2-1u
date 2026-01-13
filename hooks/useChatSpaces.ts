@@ -25,19 +25,27 @@ async function fetchFromGoogleChatAPI(): Promise<{ spaces: ChatSpace[], needsWor
   }
 
   // Map API response to ChatSpace format
-  const spaces = (data.spaces || []).map((space: any) => ({
-    id: space.id || space.name,
-    name: space.id || space.name,
-    type: space.type || 'ROOM',
-    displayName: space.name || space.displayName || space.id,
-    memberCount: 0
-  }))
+  // Google Chat API returns space.name as "spaces/XXXXX" format
+  const spaces = (data.spaces || []).map((space: any) => {
+    const spaceId = space.id || space.name || ''
+    // Ensure space ID is in correct format (spaces/XXXXX)
+    const normalizedId = spaceId.startsWith('spaces/') ? spaceId : `spaces/${spaceId}`
+    return {
+      id: normalizedId,
+      name: normalizedId,
+      type: space.type || 'ROOM',
+      displayName: space.name || space.displayName || spaceId.replace('spaces/', ''),
+      memberCount: 0
+    }
+  })
 
   return { spaces }
 }
 
 async function fetchGoogleChatMessages(spaceId: string): Promise<ChatMessage[]> {
-  const res = await fetch(`/api/google/chat?space=${encodeURIComponent(spaceId)}`)
+  // Ensure space ID is in correct format for Google Chat API
+  const normalizedSpaceId = spaceId.startsWith('spaces/') ? spaceId : `spaces/${spaceId}`
+  const res = await fetch(`/api/google/chat?space=${encodeURIComponent(normalizedSpaceId)}`)
   const data = await res.json()
 
   if (data.error || data.needsAuth) {
@@ -46,7 +54,7 @@ async function fetchGoogleChatMessages(spaceId: string): Promise<ChatMessage[]> 
 
   return (data.messages || []).map((msg: any) => ({
     id: msg.id,
-    spaceId: spaceId,
+    spaceId: normalizedSpaceId,
     sender: {
       name: msg.sender?.displayName || msg.sender?.name || 'Unknown',
       email: msg.sender?.email || ''
@@ -284,11 +292,16 @@ export function useChatSpaces(options: UseChatSpacesOptions = {}): UseChatSpaces
       } else {
         // Try Google Chat API first
         try {
+          // Ensure space ID is in correct format (spaces/XXXXX)
+          const normalizedSpaceId = selectedSpace.id.startsWith('spaces/') 
+            ? selectedSpace.id 
+            : `spaces/${selectedSpace.id}`
+          
           const res = await fetch('/api/google/chat', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-              spaceId: selectedSpace.id,
+              spaceId: normalizedSpaceId,
               text: text.trim()
             })
           })
