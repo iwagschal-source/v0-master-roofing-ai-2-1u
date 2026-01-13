@@ -1,13 +1,38 @@
 #!/usr/bin/env node
 import { createSign } from 'crypto'
-import dotenv from 'dotenv'
+import { readFileSync } from 'fs'
 import { resolve } from 'path'
 
-dotenv.config({ path: resolve(process.cwd(), '.env.local') })
+// Manual env loading for multiline keys
+const envContent = readFileSync(resolve(process.cwd(), '.env.local'), 'utf-8')
+const env = {}
+let currentKey = null
+let currentValue = ''
+for (const line of envContent.split('\n')) {
+  if (line.startsWith('#') || !line.trim()) continue
+  if (line.includes('=') && !currentKey) {
+    const [k, ...v] = line.split('=')
+    currentKey = k
+    currentValue = v.join('=')
+    if (!currentValue.startsWith('"') || currentValue.endsWith('"')) {
+      env[currentKey] = currentValue.replace(/^"|"$/g, '')
+      currentKey = null
+      currentValue = ''
+    }
+  } else if (currentKey) {
+    currentValue += '\n' + line
+    if (line.endsWith('"')) {
+      env[currentKey] = currentValue.replace(/^"|"$/g, '')
+      currentKey = null
+      currentValue = ''
+    }
+  }
+}
 
 async function getAccessToken(scopes, impersonate = null) {
-  const email = process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL
-  const privateKey = process.env.GOOGLE_PRIVATE_KEY?.replace(/\\n/g, '\n')
+  const email = env.GOOGLE_SERVICE_ACCOUNT_EMAIL
+  const privateKey = env.GOOGLE_PRIVATE_KEY?.replace(/\\n/g, '\n')
+  if (!email || !privateKey) throw new Error('Missing creds')
   const now = Math.floor(Date.now() / 1000)
   const header = { alg: 'RS256', typ: 'JWT' }
   const payload = { iss: email, scope: scopes, aud: 'https://oauth2.googleapis.com/token', iat: now, exp: now + 3600 }
@@ -41,46 +66,60 @@ async function runQuery(token, sql) {
 async function main() {
   const bqToken = await getAccessToken('https://www.googleapis.com/auth/bigquery')
   
-  // Check raw_asana_projects structure
-  console.log('=== mr_raw.raw_asana_projects ===')
-  const rawCols = await runQuery(bqToken, `
-    SELECT column_name FROM \`master-roofing-intelligence.mr_raw.INFORMATION_SCHEMA.COLUMNS\`
-    WHERE table_name = 'raw_asana_projects'
+  // Check v_asana_bids_with_project_id
+  console.log('=== v_asana_bids_with_project_id ===')
+  const bidsCount = await runQuery(bqToken, `
+    SELECT COUNT(*) as c, COUNT(DISTINCT project_id) as u
+    FROM \`master-roofing-intelligence.mr_core.v_asana_bids_with_project_id\`
   `)
-  console.log('Columns:', rawCols.rows?.map(r => r.f[0].v).join(', '))
+  console.log('Rows:', bidsCount.rows?.[0]?.f?.[0]?.v, 'Unique project_ids:', bidsCount.rows?.[0]?.f?.[1]?.v)
   
-  const rawCount = await runQuery(bqToken, `SELECT COUNT(*) as c FROM \`master-roofing-intelligence.mr_raw.raw_asana_projects\``)
-  console.log('Total rows:', rawCount.rows?.[0]?.f?.[0]?.v)
-  
-  // Check if there's a pipeline/section column
-  const rawSample = await runQuery(bqToken, `
-    SELECT * FROM \`master-roofing-intelligence.mr_raw.raw_asana_projects\` LIMIT 3
+  // Check v_asana_awards_with_project_id
+  console.log('\n=== v_asana_awards_with_project_id ===')
+  const awardsCount = await runQuery(bqToken, `
+    SELECT COUNT(*) as c, COUNT(DISTINCT project_id) as u
+    FROM \`master-roofing-intelligence.mr_core.v_asana_awards_with_project_id\`
   `)
-  if (rawSample.schema) {
-    console.log('\nSample:')
-    rawSample.rows?.slice(0,2).forEach((r, i) => {
-      const obj = {}
-      rawSample.schema.fields.forEach((f, j) => obj[f.name] = r.f[j].v)
-      console.log(`Row ${i+1}:`, JSON.stringify(obj).slice(0, 300))
-    })
-  }
+  console.log('Rows:', awardsCount.rows?.[0]?.f?.[0]?.v, 'Unique project_ids:', awardsCount.rows?.[0]?.f?.[1]?.v)
   
-  // Check asana_tasks_current for pipeline info
-  console.log('\n=== mr_staging.asana_tasks_current ===')
-  const taskCols = await runQuery(bqToken, `
-    SELECT column_name FROM \`master-roofing-intelligence.mr_staging.INFORMATION_SCHEMA.COLUMNS\`
-    WHERE table_name = 'asana_tasks_current'
-  `)
-  console.log('Columns:', taskCols.rows?.map(r => r.f[0].v).join(', '))
+  // Get sheet IDs
+  const sheetToken = await getAccessToken('https://www.googleapis.com/auth/spreadsheets', 'rfp@masterroofingus.com')
+  const sheetId = '1D5OYMQ-ab6GUdPYq4Py5xSS6VRhfr75dN3vS0LDW9Fc'
+  const resp = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/${encodeURIComponent('Sheet1!A:A')}`, {
+    headers: { 'Authorization': `Bearer ${sheetToken}` }
+  })
+  const data = await resp.json()
+  const sheetIds = data.values?.slice(1).map(r => r[0]).filter(x => x) || []
+  console.log('\n=== Sheet IDs:', sheetIds.length, '===')
   
-  // Check for "Projects" in section/pipeline names
-  const sections = await runQuery(bqToken, `
-    SELECT DISTINCT memberships_section_name, COUNT(*) as cnt
-    FROM \`master-roofing-intelligence.mr_staging.asana_tasks_current\`
-    GROUP BY 1 ORDER BY 2 DESC LIMIT 20
+  const idsStr = sheetIds.map(id => `'${id}'`).join(',')
+  
+  // Match against bids
+  const matchBids = await runQuery(bqToken, `
+    SELECT COUNT(DISTINCT project_id) as matched
+    FROM \`master-roofing-intelligence.mr_core.v_asana_bids_with_project_id\`
+    WHERE project_id IN (${idsStr})
   `)
-  console.log('\nSections:')
-  sections.rows?.forEach(r => console.log(`  ${r.f[0].v}: ${r.f[1].v}`))
+  console.log('Matched in v_asana_bids:', matchBids.rows?.[0]?.f?.[0]?.v)
+  
+  // Match against awards (this is probably the "Projects" pipeline)
+  const matchAwards = await runQuery(bqToken, `
+    SELECT COUNT(DISTINCT project_id) as matched
+    FROM \`master-roofing-intelligence.mr_core.v_asana_awards_with_project_id\`
+    WHERE project_id IN (${idsStr})
+  `)
+  console.log('Matched in v_asana_awards:', matchAwards.rows?.[0]?.f?.[0]?.v)
+  
+  // Combined unique
+  const matchCombined = await runQuery(bqToken, `
+    SELECT COUNT(DISTINCT project_id) as matched FROM (
+      SELECT project_id FROM \`master-roofing-intelligence.mr_core.v_asana_bids_with_project_id\`
+      UNION DISTINCT
+      SELECT project_id FROM \`master-roofing-intelligence.mr_core.v_asana_awards_with_project_id\`
+    )
+    WHERE project_id IN (${idsStr})
+  `)
+  console.log('Matched in either (combined):', matchCombined.rows?.[0]?.f?.[0]?.v)
 }
 
 main().catch(console.error)

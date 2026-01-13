@@ -9,10 +9,13 @@ import {
   Network,
   AlertTriangle,
   Activity,
+  Wifi,
+  WifiOff,
 } from "lucide-react"
-import { agents, statusConfig, getBottlenecks, getProblemAgents } from "@/data/agent-data"
+import { agents as staticAgents, statusConfig, getBottlenecks, getProblemAgents } from "@/data/agent-data"
 import { AgentGrid } from "./agent-grid"
 import { StatusDot } from "./agent-model-icon"
+import { useAgentStatus } from "@/hooks/use-agent-status"
 
 export function AgentDashboardScreen({
   onSelectAgent,
@@ -21,7 +24,31 @@ export function AgentDashboardScreen({
 }) {
   const [searchTerm, setSearchTerm] = useState("")
   const [statusFilter, setStatusFilter] = useState("all")
-  const [isRefreshing, setIsRefreshing] = useState(false)
+
+  // Live status polling from backend
+  const {
+    isBackendHealthy,
+    agentStatuses,
+    loading: isRefreshing,
+    lastUpdated,
+    refetch,
+    error: statusError,
+  } = useAgentStatus(true)
+
+  // Merge static agent data with live status
+  const agents = useMemo(() => {
+    return staticAgents.map((agent) => {
+      const liveStatus = agentStatuses[agent.id]
+      if (liveStatus) {
+        return {
+          ...agent,
+          status: liveStatus.status,
+          lastActivity: liveStatus.lastChecked,
+        }
+      }
+      return agent
+    })
+  }, [agentStatuses])
 
   // Count agents by status
   const statusCounts = useMemo(() => ({
@@ -31,16 +58,14 @@ export function AgentDashboardScreen({
     error: agents.filter((a) => a.status === "error").length,
     paused: agents.filter((a) => a.status === "paused").length,
     offline: agents.filter((a) => a.status === "offline").length,
-  }), [])
+  }), [agents])
 
   // Get problem indicators
   const bottlenecks = useMemo(() => getBottlenecks(5), [])
   const problemAgents = useMemo(() => getProblemAgents(), [])
 
   const handleRefresh = () => {
-    setIsRefreshing(true)
-    // In production, this would fetch fresh data from API
-    setTimeout(() => setIsRefreshing(false), 1500)
+    refetch()
   }
 
   return (
@@ -88,6 +113,25 @@ export function AgentDashboardScreen({
 
           {/* Right: Actions */}
           <div className="flex items-center gap-3 flex-wrap">
+            {/* Backend health indicator */}
+            <div
+              className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border ${
+                isBackendHealthy
+                  ? "bg-emerald-500/10 border-emerald-500/30"
+                  : "bg-red-500/10 border-red-500/30"
+              }`}
+              title={lastUpdated ? `Last updated: ${lastUpdated.toLocaleTimeString()}` : "Connecting..."}
+            >
+              {isBackendHealthy ? (
+                <Wifi size={14} className="text-emerald-400" />
+              ) : (
+                <WifiOff size={14} className="text-red-400" />
+              )}
+              <span className={`text-xs ${isBackendHealthy ? "text-emerald-400" : "text-red-400"}`}>
+                {isBackendHealthy ? "Backend Online" : statusError || "Backend Offline"}
+              </span>
+            </div>
+
             {/* Alerts summary */}
             {(bottlenecks.length > 0 || problemAgents.length > 0) && (
               <div className="flex items-center gap-2 px-3 py-1.5 bg-amber-500/10 border border-amber-500/30 rounded-lg">
