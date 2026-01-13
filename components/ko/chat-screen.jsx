@@ -1,42 +1,25 @@
 "use client"
 
-import { useState, useRef, useEffect } from "react"
-import { MessageSquare, Users, Send, RefreshCw, Loader2, Search, Hash, User, ExternalLink, LogOut, AlertTriangle } from "lucide-react"
+import { useState, useEffect, useRef } from "react"
+import { MessageSquare, Send, RefreshCw, Loader2, Search, Hash, User, ExternalLink, LogOut, AlertTriangle } from "lucide-react"
 import { useChatSpaces, formatMessageTime, getInitials } from "@/hooks/useChatSpaces"
 import { useGoogleAuth } from "@/hooks/useGoogleAuth"
 
 export function ChatScreen() {
-  const {
-    isConnected,
-    user,
-    loading: authLoading,
-    authUrl,
-    disconnect
-  } = useGoogleAuth()
-
-  const {
-    spaces,
-    loading,
-    selectedSpace,
-    messages,
-    messagesLoading,
-    selectSpace,
-    sendMessage,
-    refresh
-  } = useChatSpaces({ autoFetch: isConnected })
+  const { isConnected, user, loading: authLoading, authUrl, disconnect } = useGoogleAuth()
+  const { spaces, loading, selectedSpace, messages, messagesLoading, selectSpace, sendMessage, refresh } = useChatSpaces({ autoFetch: isConnected })
 
   const [inputValue, setInputValue] = useState("")
   const [searchQuery, setSearchQuery] = useState("")
   const [sending, setSending] = useState(false)
   const messagesEndRef = useRef(null)
 
-  // Scroll to bottom when messages change
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages])
 
   const handleSend = async () => {
-    if (!inputValue.trim() || sending) return
+    if (!inputValue.trim() || sending || !selectedSpace) return
 
     setSending(true)
     const success = await sendMessage(inputValue)
@@ -53,11 +36,9 @@ export function ChatScreen() {
     }
   }
 
-  // Separate rooms and DMs
   const rooms = spaces.filter(s => s.type === 'ROOM')
   const dms = spaces.filter(s => s.type === 'DM' || s.type === 'GROUP_DM')
 
-  // Filter by search
   const filteredRooms = rooms.filter(s =>
     !searchQuery || s.displayName?.toLowerCase().includes(searchQuery.toLowerCase())
   )
@@ -67,21 +48,20 @@ export function ChatScreen() {
 
   return (
     <div className="flex h-full bg-background overflow-hidden">
-      {/* LEFT SIDEBAR - Spaces List */}
-      <div className="w-72 border-r border-border flex flex-col bg-sidebar">
-        {/* Header */}
+      {/* Left Sidebar - Spaces List */}
+      <div className="w-72 border-r border-border flex flex-col bg-card">
         <div className="p-4 border-b border-border">
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-2">
-              <img src="/images/google-chat.svg" alt="Google Chat" className="w-5 h-5" />
-              <h2 className="text-lg font-semibold text-foreground">Messages</h2>
+              <MessageSquare className="w-5 h-5 text-primary" />
+              <h2 className="text-lg font-semibold text-foreground">Chat</h2>
             </div>
             <div className="flex items-center gap-2">
               {isConnected && user && (
                 <button
                   onClick={disconnect}
-                  className="p-1.5 hover:bg-muted rounded-lg transition-colors text-foreground-secondary hover:text-red-400"
-                  title="Disconnect Google"
+                  className="p-1.5 hover:bg-muted rounded-lg transition-colors text-foreground-secondary hover:text-destructive"
+                  title="Disconnect"
                 >
                   <LogOut className="w-3.5 h-3.5" />
                 </button>
@@ -103,12 +83,11 @@ export function ChatScreen() {
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Search spaces..."
-              className="w-full pl-10 pr-4 py-2 bg-card border border-input rounded-lg text-sm text-foreground placeholder:text-foreground-secondary outline-none focus:ring-1 focus:ring-primary"
+              className="w-full pl-10 pr-4 py-2 bg-background border border-input rounded-lg text-sm text-foreground placeholder:text-foreground-secondary outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
             />
           </div>
         </div>
 
-        {/* Spaces List */}
         <div className="flex-1 overflow-y-auto p-2">
           {authLoading ? (
             <div className="flex items-center justify-center h-32">
@@ -116,13 +95,11 @@ export function ChatScreen() {
             </div>
           ) : !isConnected ? (
             <div className="p-4 text-center">
-              <div className="w-12 h-12 bg-card rounded-full flex items-center justify-center mx-auto mb-3 border border-border">
-                <img src="/images/google-chat.svg" alt="Google Chat" className="w-6 h-6" />
+              <div className="w-12 h-12 bg-muted rounded-full flex items-center justify-center mx-auto mb-3">
+                <MessageSquare className="w-6 h-6 text-foreground-secondary" />
               </div>
               <h3 className="text-sm font-medium text-foreground mb-2">Connect Google Chat</h3>
-              <p className="text-xs text-foreground-secondary mb-3">
-                Connect your Google account to access Chat
-              </p>
+              <p className="text-xs text-foreground-secondary mb-3">Connect your Google account to access Chat</p>
               <a
                 href={authUrl}
                 className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-primary text-primary-foreground rounded-lg text-xs font-medium hover:bg-primary/90 transition-colors"
@@ -137,7 +114,6 @@ export function ChatScreen() {
             </div>
           ) : (
             <>
-              {/* Rooms Section */}
               {filteredRooms.length > 0 && (
                 <div className="mb-4">
                   <div className="px-3 py-2 text-xs font-medium text-foreground-secondary uppercase tracking-wide">
@@ -158,16 +134,17 @@ export function ChatScreen() {
                       </div>
                       <div className="flex-1 text-left overflow-hidden">
                         <div className="text-sm font-medium truncate">{space.displayName}</div>
-                        <div className="text-xs text-foreground-secondary">
-                          {space.memberCount} members
-                        </div>
+                        {space.memberCount > 0 && (
+                          <div className="text-xs text-foreground-secondary">
+                            {space.memberCount} members
+                          </div>
+                        )}
                       </div>
                     </button>
                   ))}
                 </div>
               )}
 
-              {/* DMs Section */}
               {filteredDms.length > 0 && (
                 <div>
                   <div className="px-3 py-2 text-xs font-medium text-foreground-secondary uppercase tracking-wide">
@@ -198,16 +175,21 @@ export function ChatScreen() {
                   ))}
                 </div>
               )}
+
+              {filteredRooms.length === 0 && filteredDms.length === 0 && (
+                <div className="p-4 text-center text-foreground-secondary text-sm">
+                  No spaces found
+                </div>
+              )}
             </>
           )}
         </div>
       </div>
 
-      {/* RIGHT PANE - Chat Messages */}
+      {/* Right Pane - Chat Messages */}
       <div className="flex-1 flex flex-col bg-background">
         {selectedSpace ? (
           <>
-            {/* Chat Header */}
             <div className="px-6 py-4 border-b border-border bg-card">
               <div className="flex items-center gap-3">
                 {selectedSpace.type === 'ROOM' ? (
@@ -230,7 +212,6 @@ export function ChatScreen() {
               </div>
             </div>
 
-            {/* Messages */}
             <div className="flex-1 overflow-y-auto p-6">
               {messagesLoading ? (
                 <div className="flex items-center justify-center h-full">
@@ -247,9 +228,8 @@ export function ChatScreen() {
               ) : (
                 <div className="space-y-4 max-w-3xl">
                   {messages.map((message, index) => {
-                    const isOwn = message.sender.email === 'iwagschal@masterroofingus.com'
-                    const showAvatar = index === 0 ||
-                      messages[index - 1].sender.email !== message.sender.email
+                    const isOwn = message.sender.email === user?.email || message.sender.email === 'iwagschal@masterroofingus.com'
+                    const showAvatar = index === 0 || messages[index - 1].sender.email !== message.sender.email
 
                     return (
                       <div key={message.id} className={`flex gap-3 ${isOwn ? 'flex-row-reverse' : ''}`}>
@@ -290,7 +270,6 @@ export function ChatScreen() {
               )}
             </div>
 
-            {/* Input */}
             <div className="p-4 border-t border-border bg-card">
               <div className="flex items-center gap-3 max-w-3xl">
                 <input
@@ -320,7 +299,7 @@ export function ChatScreen() {
           <div className="flex-1 flex items-center justify-center text-foreground-secondary">
             <div className="text-center max-w-md">
               <div className="w-20 h-20 bg-card rounded-full flex items-center justify-center mx-auto mb-6 border border-border">
-                <img src="/images/google-chat.svg" alt="Google Chat" className="w-10 h-10" />
+                <MessageSquare className="w-10 h-10 text-foreground-secondary" />
               </div>
               <h3 className="text-xl font-medium text-foreground mb-3">Connect Google Chat</h3>
               <p className="text-sm mb-4">

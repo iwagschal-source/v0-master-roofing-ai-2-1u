@@ -1,9 +1,7 @@
 "use client"
 
-import { useState } from "react"
-import { Paperclip, Mic, Send, Sparkles, RefreshCw, Search, Loader2, Check, AlertCircle, ExternalLink, LogOut, Plus, X } from "lucide-react"
-import { ThinkingIndicator } from "./thinking-indicator"
-import { VoiceToggle } from "./voice-toggle"
+import { useState, useEffect } from "react"
+import { Mail, Send, Plus, RefreshCw, Search, Loader2, X, Paperclip, AlertCircle, ExternalLink, LogOut, Check } from "lucide-react"
 import { useGmail } from "@/hooks/useGmail"
 import { useGoogleAuth } from "@/hooks/useGoogleAuth"
 
@@ -12,62 +10,34 @@ function formatDate(dateString) {
   const now = new Date()
   const diff = now.getTime() - date.getTime()
   const days = Math.floor(diff / (1000 * 60 * 60 * 24))
+  const hours = Math.floor(diff / (1000 * 60 * 60))
+  const minutes = Math.floor(diff / (1000 * 60))
 
-  if (days === 0) {
-    return date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })
-  } else if (days === 1) {
-    return 'Yesterday'
-  } else if (days < 7) {
-    return date.toLocaleDateString('en-US', { weekday: 'short' })
-  } else {
-    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
-  }
+  if (minutes < 1) return 'Just now'
+  if (minutes < 60) return `${minutes}m ago`
+  if (hours < 24) return `${hours}h ago`
+  if (days === 1) return 'Yesterday'
+  if (days < 7) return date.toLocaleDateString('en-US', { weekday: 'short' })
+  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
 }
 
 function extractSenderName(from) {
+  if (!from) return 'Unknown'
   const match = from.match(/^([^<]+)/)
-  return match ? match[1].trim() : from
+  return match ? match[1].trim().replace(/"/g, '') : from
 }
 
 function extractSenderEmail(from) {
+  if (!from) return ''
   const match = from.match(/<([^>]+)>/)
   return match ? match[1] : from
 }
 
 export function EmailScreen() {
-  const {
-    isConnected,
-    user,
-    loading: authLoading,
-    authUrl,
-    disconnect
-  } = useGoogleAuth()
+  const { isConnected, user, loading: authLoading, authUrl, disconnect } = useGoogleAuth()
+  const { messages, loading, error, selectedMessage, draftReply, draftLoading, selectMessage, generateDraft, sendReply, refresh } = useGmail({ autoFetch: isConnected, maxResults: 25 })
 
-  const {
-    messages,
-    loading,
-    error,
-    selectedMessage,
-    analysis,
-    analysisLoading,
-    draftReply,
-    draftLoading,
-    selectMessage,
-    generateDraft,
-    sendReply,
-    refresh
-  } = useGmail({ autoFetch: isConnected, maxResults: 25 })
-
-  const [inputValue, setInputValue] = useState("")
-  const [isRecording, setIsRecording] = useState(false)
-  const [isVoiceEnabled, setIsVoiceEnabled] = useState(false)
-  const [isThinking, setIsThinking] = useState(false)
   const [searchQuery, setSearchQuery] = useState("")
-  const [editedDraft, setEditedDraft] = useState("")
-  const [sendingReply, setSendingReply] = useState(false)
-  const [sendSuccess, setSendSuccess] = useState(false)
-
-  // Compose modal state
   const [showCompose, setShowCompose] = useState(false)
   const [composeTo, setComposeTo] = useState("")
   const [composeCc, setComposeCc] = useState("")
@@ -75,76 +45,21 @@ export function EmailScreen() {
   const [composeSubject, setComposeSubject] = useState("")
   const [composeBody, setComposeBody] = useState("")
   const [composeSending, setComposeSending] = useState(false)
-  const [composeSuccess, setComposeSuccess] = useState(false)
   const [composeError, setComposeError] = useState("")
   const [showCcBcc, setShowCcBcc] = useState(false)
+  const [editedDraft, setEditedDraft] = useState("")
+  const [sendingReply, setSendingReply] = useState(false)
+  const [sendSuccess, setSendSuccess] = useState(false)
 
-  const handleSend = () => {
-    if (inputValue.trim()) {
-      setIsThinking(true)
-      setTimeout(() => setIsThinking(false), 2000)
-      setInputValue("")
-    }
-  }
-
-  const handleMicToggle = () => {
-    const newRecordingState = !isRecording
-    setIsRecording(newRecordingState)
-
-    if (!newRecordingState) {
-      handleSend()
-    }
-  }
-
-  const handleRegenerateDraft = (tone) => {
-    if (selectedMessage) {
-      generateDraft(selectedMessage.id, tone)
-    }
-  }
-
-  const handleInsertReply = async () => {
-    if (!selectedMessage || !draftReply) return
-
-    setSendingReply(true)
-    const to = [extractSenderEmail(selectedMessage.from)]
-    const subject = selectedMessage.subject.startsWith('Re:')
-      ? selectedMessage.subject
-      : `Re: ${selectedMessage.subject}`
-    const body = editedDraft || draftReply
-
-    try {
-      const res = await fetch('/api/google/gmail', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          to,
-          subject,
-          message: body,
-          threadId: selectedMessage.threadId,
-          replyToMessageId: selectedMessage.id,
-        }),
-      })
-
-      const data = await res.json()
-
-      if (data.success) {
-        setSendSuccess(true)
-        setEditedDraft("") // Clear the edited draft
-        setTimeout(() => {
-          setSendSuccess(false)
-          refresh() // Refresh to see the sent reply
-        }, 2000)
-      } else {
-        console.error('Reply send failed:', data.error)
-        alert(data.error || 'Failed to send reply')
-      }
-    } catch (err) {
-      console.error('Reply send error:', err)
-      alert('Network error. Please try again.')
-    } finally {
-      setSendingReply(false)
-    }
-  }
+  const filteredMessages = messages.filter(email => {
+    if (!searchQuery) return true
+    const q = searchQuery.toLowerCase()
+    return (
+      email.subject?.toLowerCase().includes(q) ||
+      email.from?.toLowerCase().includes(q) ||
+      email.snippet?.toLowerCase().includes(q)
+    )
+  })
 
   const handleComposeSend = async () => {
     if (!composeTo.trim() || !composeBody.trim()) {
@@ -156,12 +71,10 @@ export function EmailScreen() {
     setComposeError("")
 
     try {
-      // Parse multiple recipients (comma-separated)
-      const recipients = composeTo.split(',').map(email => email.trim()).filter(Boolean)
-      const ccRecipients = composeCc.split(',').map(email => email.trim()).filter(Boolean)
-      const bccRecipients = composeBcc.split(',').map(email => email.trim()).filter(Boolean)
+      const recipients = composeTo.split(',').map(e => e.trim()).filter(Boolean)
+      const ccRecipients = composeCc.split(',').map(e => e.trim()).filter(Boolean)
+      const bccRecipients = composeBcc.split(',').map(e => e.trim()).filter(Boolean)
 
-      // Call the API directly for better error handling
       const res = await fetch('/api/google/gmail', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -189,93 +102,68 @@ export function EmailScreen() {
       }
 
       if (data.success) {
-        setComposeSending(false)
-        setComposeSuccess(true)
-        setTimeout(() => {
-          setComposeSuccess(false)
-          setShowCompose(false)
-          setComposeTo("")
-          setComposeCc("")
-          setComposeBcc("")
-          setComposeSubject("")
-          setComposeBody("")
-          setShowCcBcc(false)
-          refresh() // Refresh to see sent email
-        }, 1500)
-      } else {
-        setComposeError("Failed to send email. Please try again.")
-        setComposeSending(false)
-      }
-    } catch (err) {
-      console.error('Compose send error:', err)
-      setComposeError(err.message || "Network error. Please try again.")
-      setComposeSending(false)
-    }
-  }
-
-  const handleCloseCompose = () => {
-    if (composeTo || composeCc || composeBcc || composeSubject || composeBody) {
-      if (window.confirm("Discard this draft?")) {
         setShowCompose(false)
         setComposeTo("")
         setComposeCc("")
         setComposeBcc("")
         setComposeSubject("")
         setComposeBody("")
-        setComposeError("")
         setShowCcBcc(false)
+        refresh()
+      } else {
+        setComposeError("Failed to send email. Please try again.")
+        setComposeSending(false)
       }
-    } else {
-      setShowCompose(false)
+    } catch (err) {
+      setComposeError(err.message || "Network error. Please try again.")
+      setComposeSending(false)
     }
   }
 
-  // Filter messages by search query
-  const filteredMessages = messages.filter(email => {
-    if (!searchQuery) return true
-    const q = searchQuery.toLowerCase()
-    return (
-      email.subject.toLowerCase().includes(q) ||
-      email.from.toLowerCase().includes(q) ||
-      email.snippet.toLowerCase().includes(q)
-    )
-  })
+  const handleSendReply = async () => {
+    if (!selectedMessage || !draftReply) return
+
+    setSendingReply(true)
+    const to = [extractSenderEmail(selectedMessage.from)]
+    const subject = selectedMessage.subject?.startsWith('Re:') ? selectedMessage.subject : `Re: ${selectedMessage.subject}`
+    const body = editedDraft || draftReply
+
+    try {
+      const success = await sendReply(to, subject, body, selectedMessage.threadId, selectedMessage.id)
+      if (success) {
+        setSendSuccess(true)
+        setEditedDraft("")
+        setTimeout(() => {
+          setSendSuccess(false)
+          refresh()
+        }, 2000)
+      }
+    } catch (err) {
+      console.error('Failed to send reply:', err)
+    } finally {
+      setSendingReply(false)
+    }
+  }
 
   return (
     <div className="flex h-full bg-background">
-      {/* LEFT PANE - Email List */}
-      <div className="w-96 border-r border-border flex flex-col bg-background">
+      {/* Left Sidebar - Email List */}
+      <div className="w-96 border-r border-border flex flex-col bg-card">
         <div className="p-4 border-b border-border">
-          <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-2">
-              <img src="/images/gmail.svg" alt="Gmail" className="w-5 h-5" />
-              <h2 className="text-lg font-semibold text-[#ececec]">Inbox</h2>
+              <Mail className="w-5 h-5 text-primary" />
+              <h2 className="text-lg font-semibold text-foreground">Inbox</h2>
             </div>
             <div className="flex items-center gap-2">
-              <button
-                onClick={() => setShowCompose(true)}
-                disabled={!isConnected}
-                className={`px-3 py-1.5 rounded-lg transition-colors flex items-center gap-2 text-sm font-medium ${
-                  isConnected
-                    ? 'bg-primary text-primary-foreground hover:bg-primary/90'
-                    : 'bg-muted text-muted-foreground opacity-50 cursor-not-allowed'
-                }`}
-                title={isConnected ? "Compose new email" : "Connect Google to compose emails"}
-              >
-                <Plus className="w-4 h-4" />
-                <span className="hidden sm:inline">Compose</span>
-              </button>
               {isConnected && user && (
-                <div className="flex items-center gap-2">
-                  <span className="text-xs text-[#9b9b9b] hidden sm:inline">{user.email}</span>
-                  <button
-                    onClick={disconnect}
-                    className="p-1.5 hover:bg-muted rounded-lg transition-colors text-[#9b9b9b] hover:text-red-400"
-                    title="Disconnect Google"
-                  >
-                    <LogOut className="w-3.5 h-3.5" />
-                  </button>
-                </div>
+                <button
+                  onClick={disconnect}
+                  className="p-1.5 hover:bg-muted rounded-lg transition-colors text-foreground-secondary hover:text-destructive"
+                  title="Disconnect"
+                >
+                  <LogOut className="w-4 h-4" />
+                </button>
               )}
               <button
                 onClick={refresh}
@@ -283,18 +171,28 @@ export function EmailScreen() {
                 className="p-2 hover:bg-muted rounded-lg transition-colors disabled:opacity-50"
                 title="Refresh"
               >
-                <RefreshCw className={`w-4 h-4 text-[#9b9b9b] ${loading ? 'animate-spin' : ''}`} />
+                <RefreshCw className={`w-4 h-4 text-foreground-secondary ${loading ? 'animate-spin' : ''}`} />
               </button>
             </div>
           </div>
+
+          <button
+            onClick={() => setShowCompose(true)}
+            disabled={!isConnected}
+            className="w-full px-4 py-2.5 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 mb-3"
+          >
+            <Plus className="w-4 h-4" />
+            Compose Email
+          </button>
+
           <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#9b9b9b]" />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-foreground-secondary" />
             <input
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Search emails..."
-              className="w-full pl-10 pr-4 py-2 bg-card border border-input rounded-lg text-sm text-foreground placeholder:text-[#9b9b9b] outline-none focus:ring-1 focus:ring-primary"
+              className="w-full pl-10 pr-4 py-2 bg-background border border-input rounded-lg text-sm text-foreground placeholder:text-foreground-secondary outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
             />
           </div>
         </div>
@@ -306,16 +204,14 @@ export function EmailScreen() {
             </div>
           ) : !isConnected ? (
             <div className="p-6 text-center">
-              <div className="w-16 h-16 bg-card rounded-full flex items-center justify-center mx-auto mb-4 border border-border">
-                <img src="/images/gmail.svg" alt="Gmail" className="w-8 h-8" />
+              <div className="w-16 h-16 bg-muted rounded-full flex items-center justify-center mx-auto mb-4">
+                <Mail className="w-8 h-8 text-foreground-secondary" />
               </div>
-              <h3 className="text-lg font-medium text-[#ececec] mb-2">Connect Gmail</h3>
-              <p className="text-sm text-[#9b9b9b] mb-4">
-                Connect your Google account to access your Gmail inbox
-              </p>
+              <h3 className="text-base font-medium text-foreground mb-2">Connect Gmail</h3>
+              <p className="text-sm text-foreground-secondary mb-4">Connect your Google account to access your inbox</p>
               <a
                 href={authUrl}
-                className="inline-flex items-center gap-2 px-4 py-2 bg-white border border-gray-300 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-50 transition-colors"
+                className="inline-flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors"
               >
                 <img src="/images/google.svg" alt="" className="w-4 h-4" />
                 Connect to Google
@@ -328,17 +224,12 @@ export function EmailScreen() {
             </div>
           ) : error ? (
             <div className="p-4 text-center">
-              <AlertCircle className="w-8 h-8 text-red-500 mx-auto mb-2" />
-              <p className="text-sm text-[#9b9b9b]">{error}</p>
-              <button
-                onClick={refresh}
-                className="mt-2 text-sm text-primary hover:underline"
-              >
-                Try again
-              </button>
+              <AlertCircle className="w-8 h-8 text-destructive mx-auto mb-2" />
+              <p className="text-sm text-foreground-secondary">{error}</p>
+              <button onClick={refresh} className="mt-2 text-sm text-primary hover:underline">Try again</button>
             </div>
           ) : filteredMessages.length === 0 ? (
-            <div className="p-4 text-center text-[#9b9b9b]">
+            <div className="p-4 text-center text-foreground-secondary text-sm">
               {searchQuery ? 'No emails match your search' : 'No emails'}
             </div>
           ) : (
@@ -346,244 +237,125 @@ export function EmailScreen() {
               <button
                 key={email.id}
                 onClick={() => selectMessage(email)}
-                className={`w-full text-left p-4 border-b border-border/50 hover:bg-card/30 transition-colors ${
-                  selectedMessage?.id === email.id ? "bg-card/50" : ""
+                className={`w-full text-left p-4 border-b border-border hover:bg-muted/50 transition-colors ${
+                  selectedMessage?.id === email.id ? "bg-primary/5 border-l-2 border-l-primary" : ""
                 }`}
               >
                 <div className="flex justify-between items-start mb-1">
-                  <span className={`font-medium truncate mr-2 ${email.read ? "text-[#9b9b9b]" : "text-[#ececec]"}`}>
+                  <span className={`font-medium truncate mr-2 text-sm ${email.read ? "text-foreground-secondary" : "text-foreground"}`}>
                     {extractSenderName(email.from)}
                   </span>
-                  <span className="text-xs text-[#9b9b9b] whitespace-nowrap">{formatDate(email.date)}</span>
+                  <span className="text-xs text-foreground-tertiary whitespace-nowrap">{formatDate(email.date)}</span>
                 </div>
-                <div className={`text-sm mb-1 truncate ${email.read ? "text-[#9b9b9b]" : "text-[#ececec] font-medium"}`}>
-                  {email.subject}
+                <div className={`text-sm mb-1 truncate ${email.read ? "text-foreground-secondary" : "text-foreground font-medium"}`}>
+                  {email.subject || '(No Subject)'}
                 </div>
-                <div className="text-xs text-[#9b9b9b] line-clamp-1">{email.snippet}</div>
-                {email.attachments && email.attachments.length > 0 && (
-                  <div className="mt-1 flex items-center gap-1 text-xs text-[#9b9b9b]">
-                    <Paperclip className="w-3 h-3" />
-                    <span>{email.attachments.length} attachment{email.attachments.length > 1 ? 's' : ''}</span>
-                  </div>
-                )}
-                {selectedMessage?.id === email.id && <div className="mt-2 h-0.5 bg-primary rounded-full" />}
+                <div className="text-xs text-foreground-tertiary line-clamp-1">{email.snippet || ''}</div>
               </button>
             ))
           )}
         </div>
       </div>
 
-      {/* RIGHT PANE - Email Content + Agent Assist */}
-      <div className="flex-1 flex flex-col bg-muted/60">
+      {/* Right Pane - Email Content */}
+      <div className="flex-1 flex flex-col bg-background">
         {selectedMessage ? (
           <>
-            {/* Email Content Window (top section) */}
             <div className="flex-1 overflow-y-auto p-6">
               <div className="max-w-4xl mx-auto">
                 <div className="mb-6">
-                  <h1 className="text-2xl font-semibold text-[#ececec] mb-2">{selectedMessage.subject}</h1>
-                  <div className="flex items-center gap-4 text-sm text-[#9b9b9b]">
-                    <span className="font-medium text-[#ececec]">{extractSenderName(selectedMessage.from)}</span>
+                  <h1 className="text-2xl font-semibold text-foreground mb-3">{selectedMessage.subject || '(No Subject)'}</h1>
+                  <div className="flex items-center gap-4 text-sm text-foreground-secondary">
+                    <span className="font-medium text-foreground">{extractSenderName(selectedMessage.from)}</span>
                     <span className="text-xs">&lt;{extractSenderEmail(selectedMessage.from)}&gt;</span>
                     <span>{formatDate(selectedMessage.date)}</span>
                   </div>
                 </div>
 
-                <div className="text-[#ececec] whitespace-pre-line mb-6 leading-relaxed">{selectedMessage.body}</div>
-
-                {selectedMessage.attachments && selectedMessage.attachments.length > 0 && (
-                  <div className="flex flex-wrap gap-2 mb-6">
-                    {selectedMessage.attachments.map((attachment, index) => (
-                      <div
-                        key={index}
-                        className="flex items-center gap-2 px-3 py-2 bg-card border border-input rounded-lg text-sm text-[#ececec] hover:bg-muted cursor-pointer transition-colors"
-                      >
-                        <Paperclip className="w-4 h-4 text-[#9b9b9b]" />
-                        <span>{attachment.filename}</span>
-                        <span className="text-xs text-[#9b9b9b]">
-                          ({Math.round(attachment.size / 1024)}KB)
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                )}
+                <div className="prose prose-sm max-w-none text-foreground whitespace-pre-wrap leading-relaxed mb-6">
+                  {selectedMessage.body || selectedMessage.snippet || 'No content'}
+                </div>
               </div>
             </div>
 
-            {/* Agent Assist Window (bottom section) */}
-            <div className="border-t border-border bg-card/30 p-6">
+            <div className="border-t border-border bg-card p-6">
               <div className="max-w-4xl mx-auto">
-                <div className="flex items-center gap-2 mb-4">
-                  <Sparkles className="w-5 h-5 text-primary" />
-                  <h3 className="font-semibold text-[#ececec]">KO Agent Assist</h3>
-                  {analysisLoading && <Loader2 className="w-4 h-4 text-primary animate-spin" />}
-                </div>
-
-                {analysis ? (
-                  <>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                      <div>
-                        <div className="flex items-center gap-2 mb-2">
-                          <h4 className="text-sm font-medium text-[#ececec]">Summary</h4>
-                          <span className={`text-xs px-2 py-0.5 rounded-full ${
-                            analysis.priority === 'high'
-                              ? 'bg-red-500/20 text-red-400'
-                              : analysis.priority === 'medium'
-                                ? 'bg-yellow-500/20 text-yellow-400'
-                                : 'bg-green-500/20 text-green-400'
-                          }`}>
-                            {analysis.priority} priority
-                          </span>
-                        </div>
-                        <p className="text-sm text-[#9b9b9b] leading-relaxed">{analysis.summary}</p>
-                      </div>
-
-                      <div>
-                        <h4 className="text-sm font-medium text-[#ececec] mb-2">Action Items</h4>
-                        <ul className="text-sm text-[#9b9b9b] space-y-1">
-                          {analysis.actionItems.map((item, index) => (
-                            <li key={index} className="flex items-start gap-2">
-                              <span className="text-primary mt-1">•</span>
-                              <span>{item}</span>
-                            </li>
-                          ))}
-                        </ul>
-                      </div>
-                    </div>
-
-                    <div className="mb-4">
-                      <h4 className="text-sm font-medium text-[#ececec] mb-2">Recommended Strategy</h4>
-                      <p className="text-sm text-[#9b9b9b] leading-relaxed">{analysis.strategy}</p>
-                    </div>
-                  </>
-                ) : analysisLoading ? (
-                  <div className="flex items-center justify-center py-8">
-                    <div className="text-center">
-                      <Loader2 className="w-8 h-8 text-primary animate-spin mx-auto mb-2" />
-                      <p className="text-sm text-[#9b9b9b]">Analyzing email...</p>
-                    </div>
-                  </div>
-                ) : null}
-
-                {/* Draft Reply Section */}
-                <div className="bg-background rounded-lg border border-input p-4">
-                  <div className="flex items-center justify-between mb-2">
-                    <h4 className="text-sm font-medium text-[#ececec]">Draft Reply</h4>
-                    <div className="flex gap-2">
-                      <button
-                        onClick={() => handleRegenerateDraft('brief')}
-                        disabled={draftLoading}
-                        className="text-xs px-3 py-1 bg-card border border-input rounded-md text-[#ececec] hover:bg-muted transition-colors disabled:opacity-50"
-                      >
-                        Make it shorter
-                      </button>
-                      <button
-                        onClick={() => handleRegenerateDraft('professional')}
-                        disabled={draftLoading}
-                        className="text-xs px-3 py-1 bg-card border border-input rounded-md text-[#ececec] hover:bg-muted transition-colors disabled:opacity-50"
-                      >
-                        More formal
-                      </button>
-                      <button
-                        onClick={handleInsertReply}
-                        disabled={!draftReply || sendingReply || sendSuccess}
-                        className={`text-xs px-3 py-1 rounded-md transition-colors disabled:opacity-50 flex items-center gap-1 ${
-                          sendSuccess
-                            ? 'bg-green-600 text-white'
-                            : 'bg-blue-600 text-white hover:bg-blue-700'
-                        }`}
-                      >
-                        {sendingReply ? (
-                          <>
-                            <Loader2 className="w-3 h-3 animate-spin" />
-                            Sending...
-                          </>
-                        ) : sendSuccess ? (
-                          <>
-                            <Check className="w-3 h-3" />
-                            Sent!
-                          </>
-                        ) : (
-                          'Send Reply'
-                        )}
-                      </button>
-                    </div>
-                  </div>
+                <div className="mb-4">
+                  <h3 className="text-sm font-medium text-foreground mb-2">Reply</h3>
                   {draftLoading ? (
                     <div className="flex items-center gap-2 py-4">
                       <Loader2 className="w-4 h-4 text-primary animate-spin" />
-                      <span className="text-sm text-[#9b9b9b]">Generating draft...</span>
+                      <span className="text-sm text-foreground-secondary">Generating draft...</span>
                     </div>
                   ) : draftReply ? (
                     <textarea
                       value={editedDraft || draftReply}
                       onChange={(e) => setEditedDraft(e.target.value)}
-                      className="w-full min-h-[150px] text-sm text-[#ececec] bg-transparent outline-none resize-none leading-relaxed"
+                      className="w-full min-h-[150px] px-4 py-3 bg-background border border-input rounded-lg text-sm text-foreground placeholder:text-foreground-secondary outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary resize-none"
+                      placeholder="Edit your reply..."
                     />
                   ) : (
-                    <p className="text-sm text-[#9b9b9b] italic">Select an email to generate a draft reply</p>
+                    <p className="text-sm text-foreground-secondary italic">Generating draft reply...</p>
                   )}
                 </div>
-              </div>
-            </div>
-
-            {/* Chat/Mic Input Bar */}
-            <div className="p-4 border-t border-border">
-              <div className="flex items-center gap-3 bg-card rounded-xl px-4 py-3 border border-input shadow-sm max-w-4xl mx-auto">
-                <button className="text-[#9b9b9b] hover:text-foreground transition-colors" aria-label="Attach file">
-                  <Paperclip className="w-5 h-5" />
-                </button>
-
-                <ThinkingIndicator isActive={isRecording || isThinking} />
-
-                <input
-                  type="text"
-                  value={inputValue}
-                  onChange={(e) => setInputValue(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" && !e.shiftKey) {
-                      e.preventDefault()
-                      handleSend()
-                    }
-                  }}
-                  placeholder="Ask KO about this email..."
-                  className="flex-1 bg-transparent outline-none text-foreground placeholder:text-[#9b9b9b]"
-                />
-
-                <VoiceToggle isActive={isVoiceEnabled} onToggle={() => setIsVoiceEnabled(!isVoiceEnabled)} />
-
-                <button
-                  onClick={handleMicToggle}
-                  className={`transition-colors ${isRecording ? "text-primary" : "text-[#9b9b9b] hover:text-foreground"}`}
-                  aria-label={isRecording ? "Stop recording and send" : "Start recording"}
-                >
-                  <Mic className="w-5 h-5" />
-                </button>
-
-                <button
-                  onClick={handleSend}
-                  disabled={!inputValue.trim()}
-                  className="text-primary hover:text-primary/80 disabled:opacity-40 disabled:cursor-not-allowed transition-all"
-                  aria-label="Send message"
-                >
-                  <Send className="w-5 h-5" />
-                </button>
+                <div className="flex items-center justify-end gap-2">
+                  <button
+                    onClick={() => generateDraft(selectedMessage.id, 'brief')}
+                    disabled={draftLoading}
+                    className="px-3 py-1.5 text-xs bg-muted text-foreground rounded-lg hover:bg-muted/80 transition-colors disabled:opacity-50"
+                  >
+                    Make shorter
+                  </button>
+                  <button
+                    onClick={() => generateDraft(selectedMessage.id, 'professional')}
+                    disabled={draftLoading}
+                    className="px-3 py-1.5 text-xs bg-muted text-foreground rounded-lg hover:bg-muted/80 transition-colors disabled:opacity-50"
+                  >
+                    More formal
+                  </button>
+                  <button
+                    onClick={handleSendReply}
+                    disabled={!draftReply || sendingReply || sendSuccess}
+                    className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors disabled:opacity-50 flex items-center gap-2 ${
+                      sendSuccess
+                        ? 'bg-green-600 text-white'
+                        : 'bg-primary text-primary-foreground hover:bg-primary/90'
+                    }`}
+                  >
+                    {sendingReply ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        Sending...
+                      </>
+                    ) : sendSuccess ? (
+                      <>
+                        <Check className="w-4 h-4" />
+                        Sent!
+                      </>
+                    ) : (
+                      <>
+                        <Send className="w-4 h-4" />
+                        Send Reply
+                      </>
+                    )}
+                  </button>
+                </div>
               </div>
             </div>
           </>
         ) : !isConnected ? (
-          <div className="flex-1 flex items-center justify-center text-[#9b9b9b]">
+          <div className="flex-1 flex items-center justify-center">
             <div className="text-center max-w-md">
               <div className="w-20 h-20 bg-card rounded-full flex items-center justify-center mx-auto mb-6 border border-border">
-                <img src="/images/gmail.svg" alt="Gmail" className="w-10 h-10" />
+                <Mail className="w-10 h-10 text-foreground-secondary" />
               </div>
-              <h3 className="text-xl font-medium text-[#ececec] mb-3">Connect Your Gmail</h3>
-              <p className="text-sm mb-6">
-                Connect your Google account to access your Gmail inbox. KO will help you analyze emails, suggest responses, and manage your communications.
+              <h3 className="text-xl font-medium text-foreground mb-3">Connect Your Gmail</h3>
+              <p className="text-sm text-foreground-secondary mb-6">
+                Connect your Google account to access your Gmail inbox and manage your emails.
               </p>
               <a
                 href={authUrl}
-                className="inline-flex items-center gap-2 px-6 py-3 bg-white border border-gray-300 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-50 transition-colors"
+                className="inline-flex items-center gap-2 px-6 py-3 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors"
               >
                 <img src="/images/google.svg" alt="" className="w-5 h-5" />
                 Connect to Google
@@ -592,143 +364,121 @@ export function EmailScreen() {
             </div>
           </div>
         ) : (
-          <div className="flex-1 flex items-center justify-center text-[#9b9b9b]">
+          <div className="flex-1 flex items-center justify-center text-foreground-secondary">
             <div className="text-center">
-              <Sparkles className="w-12 h-12 mx-auto mb-4 text-primary/50" />
-              <h3 className="text-lg font-medium text-[#ececec] mb-2">Select an email</h3>
-              <p className="text-sm">KO will analyze it and help you respond</p>
+              <Mail className="w-16 h-16 mx-auto mb-4 opacity-50" />
+              <h3 className="text-lg font-medium text-foreground mb-2">Select an email</h3>
+              <p className="text-sm">Choose an email from the list to view and reply</p>
             </div>
           </div>
         )}
       </div>
 
-      {/* Compose Email Modal */}
+      {/* Compose Modal */}
       {showCompose && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-card border border-border rounded-xl w-full max-w-2xl shadow-2xl flex flex-col max-h-[90vh]">
-            {/* Modal Header */}
             <div className="flex items-center justify-between p-4 border-b border-border">
-              <h2 className="text-lg font-semibold text-[#ececec]">New Message</h2>
+              <h2 className="text-lg font-semibold text-foreground">New Message</h2>
               <button
-                onClick={handleCloseCompose}
-                className="p-1.5 hover:bg-muted rounded-lg transition-colors text-[#9b9b9b] hover:text-[#ececec]"
+                onClick={() => setShowCompose(false)}
+                className="p-1.5 hover:bg-muted rounded-lg transition-colors text-foreground-secondary hover:text-foreground"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            {/* Modal Body */}
             <div className="flex-1 overflow-y-auto p-4 space-y-3">
-              {/* To Field */}
               <div>
-                <label className="block text-xs text-[#9b9b9b] mb-1">To *</label>
+                <label className="block text-xs text-foreground-secondary mb-1">To *</label>
                 <input
                   type="email"
                   value={composeTo}
                   onChange={(e) => setComposeTo(e.target.value)}
-                  placeholder="recipient@example.com (comma-separate multiple)"
-                  className="w-full px-3 py-2 bg-background border border-input rounded-lg text-sm text-[#ececec] placeholder:text-[#9b9b9b] outline-none focus:ring-1 focus:ring-primary"
+                  placeholder="recipient@example.com"
+                  className="w-full px-3 py-2 bg-background border border-input rounded-lg text-sm text-foreground placeholder:text-foreground-secondary outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
                 />
               </div>
 
-              {/* Cc/Bcc Toggle */}
-              <div className="flex items-center justify-between">
-                <button
-                  type="button"
-                  onClick={() => setShowCcBcc(!showCcBcc)}
-                  className="text-xs text-primary hover:text-primary/80 transition-colors"
-                >
-                  {showCcBcc ? 'Hide' : 'Show'} Cc/Bcc
-                </button>
-              </div>
+              <button
+                type="button"
+                onClick={() => setShowCcBcc(!showCcBcc)}
+                className="text-xs text-primary hover:text-primary/80 transition-colors"
+              >
+                {showCcBcc ? 'Hide' : 'Show'} Cc/Bcc
+              </button>
 
-              {/* Cc Field */}
               {showCcBcc && (
-                <div>
-                  <label className="block text-xs text-[#9b9b9b] mb-1">Cc</label>
-                  <input
-                    type="email"
-                    value={composeCc}
-                    onChange={(e) => setComposeCc(e.target.value)}
-                    placeholder="cc@example.com (comma-separate multiple)"
-                    className="w-full px-3 py-2 bg-background border border-input rounded-lg text-sm text-[#ececec] placeholder:text-[#9b9b9b] outline-none focus:ring-1 focus:ring-primary"
-                  />
-                </div>
+                <>
+                  <div>
+                    <label className="block text-xs text-foreground-secondary mb-1">Cc</label>
+                    <input
+                      type="email"
+                      value={composeCc}
+                      onChange={(e) => setComposeCc(e.target.value)}
+                      placeholder="cc@example.com"
+                      className="w-full px-3 py-2 bg-background border border-input rounded-lg text-sm text-foreground placeholder:text-foreground-secondary outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs text-foreground-secondary mb-1">Bcc</label>
+                    <input
+                      type="email"
+                      value={composeBcc}
+                      onChange={(e) => setComposeBcc(e.target.value)}
+                      placeholder="bcc@example.com"
+                      className="w-full px-3 py-2 bg-background border border-input rounded-lg text-sm text-foreground placeholder:text-foreground-secondary outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                    />
+                  </div>
+                </>
               )}
 
-              {/* Bcc Field */}
-              {showCcBcc && (
-                <div>
-                  <label className="block text-xs text-[#9b9b9b] mb-1">Bcc</label>
-                  <input
-                    type="email"
-                    value={composeBcc}
-                    onChange={(e) => setComposeBcc(e.target.value)}
-                    placeholder="bcc@example.com (comma-separate multiple)"
-                    className="w-full px-3 py-2 bg-background border border-input rounded-lg text-sm text-[#ececec] placeholder:text-[#9b9b9b] outline-none focus:ring-1 focus:ring-primary"
-                  />
-                </div>
-              )}
-
-              {/* Subject Field */}
               <div>
-                <label className="block text-xs text-[#9b9b9b] mb-1">Subject</label>
+                <label className="block text-xs text-foreground-secondary mb-1">Subject</label>
                 <input
                   type="text"
                   value={composeSubject}
                   onChange={(e) => setComposeSubject(e.target.value)}
                   placeholder="Email subject"
-                  className="w-full px-3 py-2 bg-background border border-input rounded-lg text-sm text-[#ececec] placeholder:text-[#9b9b9b] outline-none focus:ring-1 focus:ring-primary"
+                  className="w-full px-3 py-2 bg-background border border-input rounded-lg text-sm text-foreground placeholder:text-foreground-secondary outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
                 />
               </div>
 
-              {/* Body Field */}
-              <div className="flex-1">
-                <label className="block text-xs text-[#9b9b9b] mb-1">Message</label>
+              <div>
+                <label className="block text-xs text-foreground-secondary mb-1">Message *</label>
                 <textarea
                   value={composeBody}
                   onChange={(e) => setComposeBody(e.target.value)}
                   placeholder="Write your message..."
                   rows={12}
-                  className="w-full px-3 py-2 bg-background border border-input rounded-lg text-sm text-[#ececec] placeholder:text-[#9b9b9b] outline-none focus:ring-1 focus:ring-primary resize-none"
+                  className="w-full px-3 py-2 bg-background border border-input rounded-lg text-sm text-foreground placeholder:text-foreground-secondary outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary resize-none"
                 />
               </div>
 
-              {/* Error Message */}
               {composeError && (
-                <div className="flex items-center gap-2 text-red-400 text-sm">
+                <div className="flex items-center gap-2 text-destructive text-sm">
                   <AlertCircle className="w-4 h-4" />
                   {composeError}
                 </div>
               )}
             </div>
 
-            {/* Modal Footer */}
-            <div className="flex items-center justify-between p-4 border-t border-border">
+            <div className="flex items-center justify-end gap-2 p-4 border-t border-border">
               <button
-                onClick={handleCloseCompose}
-                className="px-4 py-2 text-sm text-[#9b9b9b] hover:text-[#ececec] transition-colors"
+                onClick={() => setShowCompose(false)}
+                className="px-4 py-2 text-sm text-foreground-secondary hover:text-foreground transition-colors"
               >
-                Discard
+                Cancel
               </button>
               <button
                 onClick={handleComposeSend}
-                disabled={!composeTo.trim() || !composeBody.trim() || composeSending || composeSuccess}
-                className={`flex items-center gap-2 px-5 py-2 rounded-lg text-sm font-medium transition-colors disabled:opacity-50 ${
-                  composeSuccess
-                    ? 'bg-green-600 text-white'
-                    : 'bg-blue-600 text-white hover:bg-blue-700'
-                }`}
+                disabled={!composeTo.trim() || !composeBody.trim() || composeSending}
+                className="flex items-center gap-2 px-5 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors disabled:opacity-50"
               >
                 {composeSending ? (
                   <>
                     <Loader2 className="w-4 h-4 animate-spin" />
                     Sending...
-                  </>
-                ) : composeSuccess ? (
-                  <>
-                    <Check className="w-4 h-4" />
-                    Sent!
                   </>
                 ) : (
                   <>

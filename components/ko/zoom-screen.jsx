@@ -6,14 +6,7 @@ import { useCalendar, formatEventTime, formatEventDate, formatDuration, formatRe
 import { useGoogleAuth } from "@/hooks/useGoogleAuth"
 
 export function ZoomScreen() {
-  const {
-    isConnected,
-    user,
-    loading: authLoading,
-    authUrl,
-    disconnect
-  } = useGoogleAuth()
-
+  const { isConnected, user, loading: authLoading, authUrl, disconnect } = useGoogleAuth()
   const [activeTab, setActiveTab] = useState("calendar")
   const [currentDate, setCurrentDate] = useState(new Date())
   const [searchQuery, setSearchQuery] = useState("")
@@ -66,8 +59,8 @@ export function ZoomScreen() {
     if (!searchQuery) return true
     const q = searchQuery.toLowerCase()
     return (
-      recording.name.toLowerCase().includes(q) ||
-      recording.participants.some(p => p.toLowerCase().includes(q))
+      recording.name?.toLowerCase().includes(q) ||
+      recording.participants?.some(p => p.toLowerCase().includes(q))
     )
   })
 
@@ -83,10 +76,10 @@ export function ZoomScreen() {
       {/* Header */}
       <div className="flex items-center justify-between px-6 py-4 border-b border-border bg-card">
         <div className="flex items-center gap-3">
-          <img src="/images/google-calendar.svg" alt="Google Calendar" className="w-6 h-6" />
+          <Calendar className="w-6 h-6 text-primary" />
           <div>
             <h1 className="text-xl font-medium text-foreground">Meetings</h1>
-            <p className="text-sm text-foreground-secondary mt-0.5">Google Meet calendar and recordings</p>
+            <p className="text-sm text-foreground-secondary mt-0.5">Google Calendar and Meet</p>
           </div>
         </div>
         <div className="flex items-center gap-2">
@@ -95,8 +88,8 @@ export function ZoomScreen() {
               <span className="text-xs text-foreground-secondary hidden sm:inline">{user.email}</span>
               <button
                 onClick={disconnect}
-                className="p-1.5 hover:bg-muted rounded-lg transition-colors text-foreground-secondary hover:text-red-400"
-                title="Disconnect Google"
+                className="p-1.5 hover:bg-muted rounded-lg transition-colors text-foreground-secondary hover:text-destructive"
+                title="Disconnect"
               >
                 <LogOut className="w-3.5 h-3.5" />
               </button>
@@ -110,13 +103,6 @@ export function ZoomScreen() {
           >
             <RefreshCw className={`w-4 h-4 text-foreground-secondary ${loading ? 'animate-spin' : ''}`} />
           </button>
-          <button
-            disabled={!isConnected}
-            className="px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors flex items-center gap-2 disabled:opacity-50"
-          >
-            <Video className="w-4 h-4" />
-            New Meeting
-          </button>
         </div>
       </div>
 
@@ -124,28 +110,31 @@ export function ZoomScreen() {
       <div className="flex items-center gap-1 px-6 py-3 border-b border-border bg-background">
         <button
           onClick={() => setActiveTab("calendar")}
-          className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${activeTab === "calendar"
-            ? "bg-card text-foreground border border-border"
-            : "text-foreground-secondary hover:text-foreground hover:bg-card/50"
-            }`}
+          className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+            activeTab === "calendar"
+              ? "bg-card text-foreground border border-border"
+              : "text-foreground-secondary hover:text-foreground hover:bg-card/50"
+          }`}
         >
           Calendar
         </button>
         <button
           onClick={() => setActiveTab("live")}
-          className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${activeTab === "live"
-            ? "bg-card text-foreground border border-border"
-            : "text-foreground-secondary hover:text-foreground hover:bg-card/50"
-            }`}
+          className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+            activeTab === "live"
+              ? "bg-card text-foreground border border-border"
+              : "text-foreground-secondary hover:text-foreground hover:bg-card/50"
+          }`}
         >
           Upcoming
         </button>
         <button
           onClick={() => setActiveTab("recordings")}
-          className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${activeTab === "recordings"
-            ? "bg-card text-foreground border border-border"
-            : "text-foreground-secondary hover:text-foreground hover:bg-card/50"
-            }`}
+          className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+            activeTab === "recordings"
+              ? "bg-card text-foreground border border-border"
+              : "text-foreground-secondary hover:text-foreground hover:bg-card/50"
+          }`}
         >
           Recordings
         </button>
@@ -159,7 +148,7 @@ export function ZoomScreen() {
         <div className="flex-1 flex items-center justify-center">
           <div className="text-center max-w-md">
             <div className="w-20 h-20 bg-card rounded-full flex items-center justify-center mx-auto mb-6 border border-border">
-              <img src="/images/google-calendar.svg" alt="Google Calendar" className="w-10 h-10" />
+              <Calendar className="w-10 h-10 text-foreground-secondary" />
             </div>
             <h3 className="text-xl font-medium text-foreground mb-3">Connect Your Google Calendar</h3>
             <p className="text-sm text-foreground-secondary mb-6">
@@ -181,7 +170,6 @@ export function ZoomScreen() {
             {/* Calendar Grid */}
             <div className="lg:col-span-2">
               <div className="bg-card rounded-lg border border-border p-5">
-                {/* Month Navigation */}
                 <div className="flex items-center justify-between mb-6">
                   <h2 className="text-lg font-medium text-foreground">{formatMonthYear(currentDate)}</h2>
                   <div className="flex items-center gap-2">
@@ -208,21 +196,17 @@ export function ZoomScreen() {
                   </div>
                 </div>
 
-                {/* Calendar Grid */}
                 <div className="grid grid-cols-7 gap-2">
-                  {/* Day Headers */}
                   {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((day) => (
                     <div key={day} className="text-center text-xs font-medium text-foreground-secondary py-2">
                       {day}
                     </div>
                   ))}
 
-                  {/* Empty cells for days before month starts */}
                   {Array.from({ length: getFirstDayOfMonth(currentDate) }).map((_, i) => (
                     <div key={`empty-${i}`} className="aspect-square" />
                   ))}
 
-                  {/* Calendar days */}
                   {Array.from({ length: getDaysInMonth(currentDate) }).map((_, i) => {
                     const day = i + 1
                     const meetingsOnDay = getMeetingsForDay(day)
@@ -231,10 +215,11 @@ export function ZoomScreen() {
                     return (
                       <div
                         key={day}
-                        className={`aspect-square p-2 rounded-lg border transition-colors ${dayIsToday
-                          ? "bg-primary/10 border-primary text-foreground"
-                          : "border-border hover:border-border-strong hover:bg-muted"
-                          }`}
+                        className={`aspect-square p-2 rounded-lg border transition-colors ${
+                          dayIsToday
+                            ? "bg-primary/10 border-primary text-foreground"
+                            : "border-border hover:border-border-strong hover:bg-muted"
+                        }`}
                       >
                         <div className="text-sm font-medium mb-1">{day}</div>
                         {meetingsOnDay.length > 0 && (
@@ -419,7 +404,6 @@ export function ZoomScreen() {
         </div>
       ) : (
         <div className="flex-1 flex flex-col overflow-hidden">
-          {/* Search Bar */}
           <div className="px-6 py-4 border-b border-border bg-background">
             <div className="relative max-w-md">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-foreground-secondary" />
@@ -428,12 +412,11 @@ export function ZoomScreen() {
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="Search recordings..."
-                className="w-full pl-10 pr-4 py-2 bg-card border border-input rounded-lg text-sm text-foreground placeholder:text-foreground-secondary focus:border-input-hover focus:outline-none focus:ring-2 focus:ring-ring/20 transition-colors"
+                className="w-full pl-10 pr-4 py-2 bg-card border border-input rounded-lg text-sm text-foreground placeholder:text-foreground-secondary focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-colors"
               />
             </div>
           </div>
 
-          {/* Recordings List */}
           <div className="flex-1 overflow-y-auto p-6">
             {recordingsLoading ? (
               <div className="flex items-center justify-center py-16">
@@ -450,7 +433,6 @@ export function ZoomScreen() {
                     key={recording.id}
                     className="bg-card rounded-lg border border-border overflow-hidden hover:border-border-strong transition-colors cursor-pointer group"
                   >
-                    {/* Thumbnail */}
                     <div className="relative aspect-video bg-muted flex items-center justify-center">
                       <Video className="w-12 h-12 text-foreground-secondary/50" />
                       <div className="absolute inset-0 bg-background/60 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
@@ -462,8 +444,6 @@ export function ZoomScreen() {
                         {formatRecordingDuration(recording.duration)}
                       </div>
                     </div>
-
-                    {/* Details */}
                     <div className="p-4">
                       <h3 className="text-sm font-medium text-foreground mb-3 line-clamp-2">{recording.name}</h3>
                       <div className="space-y-2">
@@ -477,7 +457,7 @@ export function ZoomScreen() {
                         </div>
                         <div className="flex items-center gap-2 text-xs text-foreground-secondary">
                           <Users className="w-3.5 h-3.5" />
-                          {recording.participants.length} participant{recording.participants.length > 1 ? 's' : ''}
+                          {recording.participants?.length || 0} participant{(recording.participants?.length || 0) > 1 ? 's' : ''}
                         </div>
                       </div>
                       {recording.transcriptUrl && (
