@@ -39,7 +39,7 @@ export function MiniKOChat({ onMaximize }) {
   const [messages, setMessages] = useState([])
   const [inputValue, setInputValue] = useState("")
   const [proactiveAlerts, setProactiveAlerts] = useState([])
-  const [showAlerts, setShowAlerts] = useState(true)
+  const [showAlerts, setShowAlerts] = useState(false)  // Disabled proactive popup alerts
   const [hasUnread, setHasUnread] = useState(false)
   const messagesEndRef = useRef(null)
 
@@ -79,29 +79,26 @@ export function MiniKOChat({ onMaximize }) {
     }
   }, [isComplete, streamingText, sources, reset])
 
-  // Simulate proactive alerts (in production, this would come from WebSocket/backend)
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      if (proactiveAlerts.length === 0) {
-        // Add first proactive alert after 5 seconds
-        setProactiveAlerts([PROACTIVE_ALERTS[0]])
-        setHasUnread(true)
-      }
-    }, 5000)
+  // Proactive alerts disabled - uncomment to re-enable
+  // useEffect(() => {
+  //   const timer = setTimeout(() => {
+  //     if (proactiveAlerts.length === 0) {
+  //       setProactiveAlerts([PROACTIVE_ALERTS[0]])
+  //       setHasUnread(true)
+  //     }
+  //   }, 5000)
+  //   return () => clearTimeout(timer)
+  // }, [proactiveAlerts])
 
-    return () => clearTimeout(timer)
-  }, [proactiveAlerts])
-
-  // Add more alerts over time
-  useEffect(() => {
-    if (proactiveAlerts.length === 1) {
-      const timer = setTimeout(() => {
-        setProactiveAlerts(prev => [...prev, PROACTIVE_ALERTS[1]])
-        if (!isOpen) setHasUnread(true)
-      }, 30000) // 30 seconds later
-      return () => clearTimeout(timer)
-    }
-  }, [proactiveAlerts, isOpen])
+  // useEffect(() => {
+  //   if (proactiveAlerts.length === 1) {
+  //     const timer = setTimeout(() => {
+  //       setProactiveAlerts(prev => [...prev, PROACTIVE_ALERTS[1]])
+  //       if (!isOpen) setHasUnread(true)
+  //     }, 30000)
+  //     return () => clearTimeout(timer)
+  //   }
+  // }, [proactiveAlerts, isOpen])
 
   const handleSubmit = useCallback((e) => {
     e?.preventDefault()
