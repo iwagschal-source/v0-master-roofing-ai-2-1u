@@ -8,9 +8,18 @@ import { cookies } from 'next/headers'
 import { writeJSON, readJSON } from '@/lib/gcs-storage'
 
 const ASANA_TOKEN_URL = 'https://app.asana.com/-/oauth_token'
-const REDIRECT_URI = process.env.NEXT_PUBLIC_APP_URL
-  ? `${process.env.NEXT_PUBLIC_APP_URL}/api/auth/asana/callback`
-  : 'http://localhost:3000/api/auth/asana/callback'
+
+function getBaseUrl() {
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.VERCEL_URL
+  if (appUrl) {
+    return appUrl.startsWith('http') ? appUrl : `https://${appUrl}`
+  }
+  return 'http://localhost:3000'
+}
+
+function getRedirectUri() {
+  return `${getBaseUrl()}/api/auth/asana/callback`
+}
 
 export async function GET(request) {
   const { searchParams } = new URL(request.url)
@@ -18,11 +27,11 @@ export async function GET(request) {
   const state = searchParams.get('state')
   const error = searchParams.get('error')
 
+  const baseUrl = getBaseUrl()
+
   // Handle error from Asana
   if (error) {
-    return NextResponse.redirect(
-      `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/?asana_error=${error}`
-    )
+    return NextResponse.redirect(`${baseUrl}/?asana_error=${error}`)
   }
 
   // Verify state to prevent CSRF
@@ -30,15 +39,11 @@ export async function GET(request) {
   const storedState = cookieStore.get('asana_oauth_state')?.value
 
   if (!state || state !== storedState) {
-    return NextResponse.redirect(
-      `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/?asana_error=invalid_state`
-    )
+    return NextResponse.redirect(`${baseUrl}/?asana_error=invalid_state`)
   }
 
   if (!code) {
-    return NextResponse.redirect(
-      `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/?asana_error=no_code`
-    )
+    return NextResponse.redirect(`${baseUrl}/?asana_error=no_code`)
   }
 
   try {
@@ -52,7 +57,7 @@ export async function GET(request) {
         grant_type: 'authorization_code',
         client_id: process.env.ASANA_CLIENT_ID,
         client_secret: process.env.ASANA_CLIENT_SECRET,
-        redirect_uri: REDIRECT_URI,
+        redirect_uri: getRedirectUri(),
         code: code,
       }),
     })
@@ -60,9 +65,7 @@ export async function GET(request) {
     if (!tokenResponse.ok) {
       const errorData = await tokenResponse.text()
       console.error('Asana token exchange failed:', errorData)
-      return NextResponse.redirect(
-        `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/?asana_error=token_exchange_failed`
-      )
+      return NextResponse.redirect(`${baseUrl}/?asana_error=token_exchange_failed`)
     }
 
     const tokenData = await tokenResponse.json()
@@ -98,9 +101,7 @@ export async function GET(request) {
     })
 
     // Set cookie to identify connected user
-    const response = NextResponse.redirect(
-      `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/?asana_connected=true`
-    )
+    const response = NextResponse.redirect(`${baseUrl}/?asana_connected=true`)
 
     response.cookies.set('asana_user_id', userId, {
       httpOnly: true,
@@ -115,8 +116,6 @@ export async function GET(request) {
     return response
   } catch (err) {
     console.error('Asana OAuth error:', err)
-    return NextResponse.redirect(
-      `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/?asana_error=unknown`
-    )
+    return NextResponse.redirect(`${getBaseUrl()}/?asana_error=unknown`)
   }
 }

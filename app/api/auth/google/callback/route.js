@@ -8,9 +8,18 @@ import { cookies } from 'next/headers'
 import { writeJSON } from '@/lib/gcs-storage'
 
 const GOOGLE_TOKEN_URL = 'https://oauth2.googleapis.com/token'
-const REDIRECT_URI = process.env.NEXT_PUBLIC_APP_URL
-  ? `${process.env.NEXT_PUBLIC_APP_URL}/api/auth/google/callback`
-  : 'http://localhost:3000/api/auth/google/callback'
+
+function getBaseUrl() {
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.VERCEL_URL
+  if (appUrl) {
+    return appUrl.startsWith('http') ? appUrl : `https://${appUrl}`
+  }
+  return 'http://localhost:3000'
+}
+
+function getRedirectUri() {
+  return `${getBaseUrl()}/api/auth/google/callback`
+}
 
 export async function GET(request) {
   const { searchParams } = new URL(request.url)
@@ -18,7 +27,7 @@ export async function GET(request) {
   const state = searchParams.get('state')
   const error = searchParams.get('error')
 
-  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
+  const baseUrl = getBaseUrl()
 
   // Handle error from Google
   if (error) {
@@ -48,7 +57,7 @@ export async function GET(request) {
         grant_type: 'authorization_code',
         client_id: process.env.GOOGLE_CLIENT_ID,
         client_secret: process.env.GOOGLE_CLIENT_SECRET,
-        redirect_uri: REDIRECT_URI,
+        redirect_uri: getRedirectUri(),
         code: code,
       }),
     })

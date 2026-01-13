@@ -11,9 +11,15 @@
 import { NextResponse } from 'next/server'
 
 const ASANA_AUTH_URL = 'https://app.asana.com/-/oauth_authorize'
-const REDIRECT_URI = process.env.NEXT_PUBLIC_APP_URL
-  ? `${process.env.NEXT_PUBLIC_APP_URL}/api/auth/asana/callback`
-  : 'http://localhost:3000/api/auth/asana/callback'
+
+function getRedirectUri() {
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.VERCEL_URL
+  if (appUrl) {
+    const baseUrl = appUrl.startsWith('http') ? appUrl : `https://${appUrl}`
+    return `${baseUrl}/api/auth/asana/callback`
+  }
+  return 'http://localhost:3000/api/auth/asana/callback'
+}
 
 export async function GET(request) {
   const clientId = process.env.ASANA_CLIENT_ID
@@ -29,10 +35,11 @@ export async function GET(request) {
   const state = crypto.randomUUID()
 
   // Store state in cookie for verification
+  const redirectUri = getRedirectUri()
   const response = NextResponse.redirect(
     `${ASANA_AUTH_URL}?` + new URLSearchParams({
       client_id: clientId,
-      redirect_uri: REDIRECT_URI,
+      redirect_uri: redirectUri,
       response_type: 'code',
       state: state,
       // Request access to user's tasks, projects, and workspaces
