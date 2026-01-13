@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect, useCallback } from "react"
 import {
   ArrowLeft,
   Activity,
@@ -29,13 +29,74 @@ import {
   XCircle,
   Clock,
   Trash2,
+  Save,
+  Loader2,
 } from "lucide-react"
 import { statusConfig, agents, getAgentById } from "@/data/agent-data"
 import { AgentModelIcon, StatusDot, QueueIndicator } from "./agent-model-icon"
 
 export function AgentDetailScreen({ agent, onBack, onClone, onOpenNetwork }) {
   const [activeTab, setActiveTab] = useState("overview")
+  const [agentConfig, setAgentConfig] = useState(null)
+  const [loading, setLoading] = useState(false)
+  const [actionLoading, setActionLoading] = useState(null)
   const status = statusConfig[agent.status]
+
+  // Fetch agent config from backend
+  useEffect(() => {
+    async function fetchConfig() {
+      try {
+        const res = await fetch(`/api/ko/agents/config/${agent.id}`)
+        if (res.ok) {
+          const data = await res.json()
+          setAgentConfig(data)
+        }
+      } catch (err) {
+        console.error('Failed to fetch agent config:', err)
+      }
+    }
+    fetchConfig()
+  }, [agent.id])
+
+  // Action handlers
+  const handleRestart = async () => {
+    setActionLoading('restart')
+    try {
+      const res = await fetch(`/api/ko/agents/${agent.id}/restart`, { method: 'POST' })
+      if (res.ok) {
+        alert('Agent restarted successfully')
+      }
+    } catch (err) {
+      console.error('Failed to restart agent:', err)
+    }
+    setActionLoading(null)
+  }
+
+  const handleEnable = async () => {
+    setActionLoading('enable')
+    try {
+      const res = await fetch(`/api/ko/agents/${agent.id}/enable`, { method: 'POST' })
+      if (res.ok) {
+        alert('Agent enabled')
+      }
+    } catch (err) {
+      console.error('Failed to enable agent:', err)
+    }
+    setActionLoading(null)
+  }
+
+  const handleDisable = async () => {
+    setActionLoading('disable')
+    try {
+      const res = await fetch(`/api/ko/agents/${agent.id}/disable`, { method: 'POST' })
+      if (res.ok) {
+        alert('Agent disabled')
+      }
+    } catch (err) {
+      console.error('Failed to disable agent:', err)
+    }
+    setActionLoading(null)
+  }
 
   const tabs = [
     { id: "overview", label: "Overview", icon: Activity },
@@ -98,19 +159,31 @@ export function AgentDetailScreen({ agent, onBack, onClone, onOpenNetwork }) {
           {/* Actions */}
           <div className="flex items-center gap-2 flex-wrap">
             {agent.status === "live" && (
-              <button className="flex items-center gap-2 px-4 py-2 bg-amber-500/20 text-amber-400 rounded-lg font-medium text-sm hover:bg-amber-500/30 transition-colors">
-                <Pause size={16} />
+              <button
+                onClick={handleDisable}
+                disabled={actionLoading === 'disable'}
+                className="flex items-center gap-2 px-4 py-2 bg-amber-500/20 text-amber-400 rounded-lg font-medium text-sm hover:bg-amber-500/30 transition-colors disabled:opacity-50"
+              >
+                {actionLoading === 'disable' ? <Loader2 size={16} className="animate-spin" /> : <Pause size={16} />}
                 Pause
               </button>
             )}
             {(agent.status === "offline" || agent.status === "paused") && (
-              <button className="flex items-center gap-2 px-4 py-2 bg-emerald-500/20 text-emerald-400 rounded-lg font-medium text-sm hover:bg-emerald-500/30 transition-colors">
-                <Play size={16} />
+              <button
+                onClick={handleEnable}
+                disabled={actionLoading === 'enable'}
+                className="flex items-center gap-2 px-4 py-2 bg-emerald-500/20 text-emerald-400 rounded-lg font-medium text-sm hover:bg-emerald-500/30 transition-colors disabled:opacity-50"
+              >
+                {actionLoading === 'enable' ? <Loader2 size={16} className="animate-spin" /> : <Play size={16} />}
                 Start
               </button>
             )}
-            <button className="flex items-center gap-2 px-4 py-2 bg-secondary text-foreground rounded-lg font-medium text-sm hover:bg-accent transition-colors">
-              <RotateCcw size={16} />
+            <button
+              onClick={handleRestart}
+              disabled={actionLoading === 'restart'}
+              className="flex items-center gap-2 px-4 py-2 bg-secondary text-foreground rounded-lg font-medium text-sm hover:bg-accent transition-colors disabled:opacity-50"
+            >
+              {actionLoading === 'restart' ? <Loader2 size={16} className="animate-spin" /> : <RotateCcw size={16} />}
               Restart
             </button>
             <button
@@ -190,7 +263,7 @@ export function AgentDetailScreen({ agent, onBack, onClone, onOpenNetwork }) {
       {/* Tab content */}
       <main className="flex-1 overflow-auto p-6">
         {activeTab === "overview" && <OverviewTab agent={agent} />}
-        {activeTab === "readme" && <ReadmeTab agent={agent} />}
+        {activeTab === "readme" && <ReadmeTab agent={agent} agentConfig={agentConfig} setAgentConfig={setAgentConfig} />}
         {activeTab === "permissions" && <PermissionsTab agent={agent} />}
         {activeTab === "scoring" && <ScoringTab agent={agent} />}
         {activeTab === "monitoring" && <MonitoringTab agent={agent} />}
@@ -299,42 +372,123 @@ function OverviewTab({ agent }) {
   )
 }
 
-function ReadmeTab({ agent }) {
-  const [activeFile, setActiveFile] = useState(0)
-  const files = agent.configFiles || [{ name: "README.md", content: "", type: "markdown" }]
+function ReadmeTab({ agent, agentConfig, setAgentConfig }) {
+  const [activePrompt, setActivePrompt] = useState(null)
+  const [editedContent, setEditedContent] = useState("")
+  const [saving, setSaving] = useState(false)
+  const [hasChanges, setHasChanges] = useState(false)
+
+  // Get prompts from backend config or fallback to static
+  const prompts = agentConfig?.prompts || {}
+  const promptKeys = Object.keys(prompts)
+
+  // Set initial prompt on load
+  useEffect(() => {
+    if (promptKeys.length > 0 && !activePrompt) {
+      setActivePrompt(promptKeys[0])
+      setEditedContent(prompts[promptKeys[0]] || "")
+    }
+  }, [prompts, promptKeys, activePrompt])
+
+  const handlePromptChange = (key) => {
+    setActivePrompt(key)
+    setEditedContent(prompts[key] || "")
+    setHasChanges(false)
+  }
+
+  const handleContentChange = (e) => {
+    setEditedContent(e.target.value)
+    setHasChanges(e.target.value !== prompts[activePrompt])
+  }
+
+  const handleSave = async () => {
+    if (!activePrompt) return
+    setSaving(true)
+    try {
+      const res = await fetch(`/api/ko/agents/config/${agent.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          prompts: { [activePrompt]: editedContent }
+        })
+      })
+      if (res.ok) {
+        const data = await res.json()
+        setAgentConfig(data.config)
+        setHasChanges(false)
+        alert('Prompt saved successfully!')
+      } else {
+        alert('Failed to save prompt')
+      }
+    } catch (err) {
+      console.error('Failed to save:', err)
+      alert('Failed to save prompt')
+    }
+    setSaving(false)
+  }
+
+  if (!agentConfig) {
+    return (
+      <div className="bg-card border border-border rounded-xl p-6 flex items-center justify-center">
+        <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+        <span className="ml-2 text-muted-foreground">Loading configuration...</span>
+      </div>
+    )
+  }
 
   return (
     <div className="bg-card border border-border rounded-xl overflow-hidden">
-      {/* File tabs */}
-      <div className="flex items-center gap-1 px-4 py-2 bg-secondary/50 border-b border-border overflow-x-auto">
-        {files.map((file, idx) => (
-          <button
-            key={idx}
-            onClick={() => setActiveFile(idx)}
-            className={`flex items-center gap-2 px-3 py-1.5 rounded text-sm transition-colors ${
-              activeFile === idx
-                ? "bg-primary text-primary-foreground"
-                : "text-muted-foreground hover:text-foreground hover:bg-secondary"
-            }`}
-          >
-            <span
-              className={`w-2 h-2 rounded-full ${
-                file.name.endsWith(".md") ? "bg-blue-400" : "bg-amber-400"
+      {/* Prompt tabs */}
+      <div className="flex items-center justify-between px-4 py-2 bg-secondary/50 border-b border-border">
+        <div className="flex items-center gap-1 overflow-x-auto">
+          {promptKeys.map((key) => (
+            <button
+              key={key}
+              onClick={() => handlePromptChange(key)}
+              className={`flex items-center gap-2 px-3 py-1.5 rounded text-sm transition-colors whitespace-nowrap ${
+                activePrompt === key
+                  ? "bg-primary text-primary-foreground"
+                  : "text-muted-foreground hover:text-foreground hover:bg-secondary"
               }`}
-            />
-            {file.name}
-          </button>
-        ))}
+            >
+              <span className="w-2 h-2 rounded-full bg-blue-400" />
+              {key}
+            </button>
+          ))}
+        </div>
+        <button
+          onClick={handleSave}
+          disabled={!hasChanges || saving}
+          className="flex items-center gap-2 px-3 py-1.5 bg-primary text-primary-foreground rounded text-sm font-medium hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          {saving ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
+          Save
+        </button>
       </div>
 
       {/* Editor */}
       <div className="p-4 bg-background/50">
         <textarea
-          value={files[activeFile]?.content || ""}
-          readOnly
-          className="w-full h-96 bg-transparent text-foreground font-mono text-sm focus:outline-none resize-none"
-          placeholder="No content..."
+          value={editedContent}
+          onChange={handleContentChange}
+          className="w-full h-96 bg-transparent text-foreground font-mono text-sm focus:outline-none resize-none border border-transparent focus:border-primary/50 rounded p-2"
+          placeholder="Enter prompt content..."
         />
+      </div>
+
+      {/* Status bar */}
+      <div className="px-4 py-2 bg-secondary/30 border-t border-border flex items-center justify-between text-xs text-muted-foreground">
+        <span>
+          {agentConfig.updated_at
+            ? `Last updated: ${new Date(agentConfig.updated_at).toLocaleString()}`
+            : "Not yet saved"}
+        </span>
+        {hasChanges && (
+          <span className="text-amber-400 flex items-center gap-1">
+            <AlertTriangle size={12} />
+            Unsaved changes
+          </span>
+        )}
       </div>
     </div>
   )
