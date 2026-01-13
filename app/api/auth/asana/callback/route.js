@@ -9,16 +9,13 @@ import { writeJSON, readJSON } from '@/lib/gcs-storage'
 
 const ASANA_TOKEN_URL = 'https://app.asana.com/-/oauth_token'
 
-function getBaseUrl() {
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.VERCEL_URL
-  if (appUrl) {
-    return appUrl.startsWith('http') ? appUrl : `https://${appUrl}`
-  }
-  return 'http://localhost:3000'
+function getBaseUrl(request) {
+  const url = new URL(request.url)
+  return url.origin
 }
 
-function getRedirectUri() {
-  return `${getBaseUrl()}/api/auth/asana/callback`
+function getRedirectUri(request) {
+  return `${getBaseUrl(request)}/api/auth/asana/callback`
 }
 
 export async function GET(request) {
@@ -27,7 +24,7 @@ export async function GET(request) {
   const state = searchParams.get('state')
   const error = searchParams.get('error')
 
-  const baseUrl = getBaseUrl()
+  const baseUrl = getBaseUrl(request)
 
   // Handle error from Asana
   if (error) {
@@ -57,7 +54,7 @@ export async function GET(request) {
         grant_type: 'authorization_code',
         client_id: process.env.ASANA_CLIENT_ID,
         client_secret: process.env.ASANA_CLIENT_SECRET,
-        redirect_uri: getRedirectUri(),
+        redirect_uri: getRedirectUri(request),
         code: code,
       }),
     })
@@ -116,6 +113,6 @@ export async function GET(request) {
     return response
   } catch (err) {
     console.error('Asana OAuth error:', err)
-    return NextResponse.redirect(`${getBaseUrl()}/?asana_error=unknown`)
+    return NextResponse.redirect(`${getBaseUrl(request)}/?asana_error=unknown`)
   }
 }

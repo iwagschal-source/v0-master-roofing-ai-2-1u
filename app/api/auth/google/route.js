@@ -13,14 +13,10 @@ import { NextResponse } from 'next/server'
 
 const GOOGLE_AUTH_URL = 'https://accounts.google.com/o/oauth2/v2/auth'
 
-function getRedirectUri() {
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.VERCEL_URL
-  if (appUrl) {
-    // Handle URLs with or without protocol
-    const baseUrl = appUrl.startsWith('http') ? appUrl : `https://${appUrl}`
-    return `${baseUrl}/api/auth/google/callback`
-  }
-  return 'http://localhost:3000/api/auth/google/callback'
+function getRedirectUri(request) {
+  // Use the request URL to get the base URL dynamically
+  const url = new URL(request.url)
+  return `${url.origin}/api/auth/google/callback`
 }
 
 // Scopes for Gmail, Calendar, and Chat
@@ -49,7 +45,7 @@ export async function GET(request) {
   const state = crypto.randomUUID()
 
   // Store state in cookie for verification
-  const redirectUri = getRedirectUri()
+  const redirectUri = getRedirectUri(request)
   const response = NextResponse.redirect(
     `${GOOGLE_AUTH_URL}?` + new URLSearchParams({
       client_id: clientId,

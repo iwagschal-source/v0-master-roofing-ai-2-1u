@@ -12,13 +12,9 @@ import { NextResponse } from 'next/server'
 
 const ASANA_AUTH_URL = 'https://app.asana.com/-/oauth_authorize'
 
-function getRedirectUri() {
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.VERCEL_URL
-  if (appUrl) {
-    const baseUrl = appUrl.startsWith('http') ? appUrl : `https://${appUrl}`
-    return `${baseUrl}/api/auth/asana/callback`
-  }
-  return 'http://localhost:3000/api/auth/asana/callback'
+function getRedirectUri(request) {
+  const url = new URL(request.url)
+  return `${url.origin}/api/auth/asana/callback`
 }
 
 export async function GET(request) {
@@ -35,7 +31,7 @@ export async function GET(request) {
   const state = crypto.randomUUID()
 
   // Store state in cookie for verification
-  const redirectUri = getRedirectUri()
+  const redirectUri = getRedirectUri(request)
   const response = NextResponse.redirect(
     `${ASANA_AUTH_URL}?` + new URLSearchParams({
       client_id: clientId,
