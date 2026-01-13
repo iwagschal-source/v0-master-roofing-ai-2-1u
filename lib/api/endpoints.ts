@@ -522,61 +522,71 @@ export interface AsanaProject {
 
 export const asanaAPI = {
   /**
+   * Check Asana connection status
+   */
+  getStatus: async (): Promise<{
+    connected: boolean;
+    user?: { gid: string; name: string; email: string; photo?: string };
+    workspaces?: { gid: string; name: string }[];
+    authUrl?: string;
+  }> => {
+    const res = await fetch('/api/asana/status');
+    return res.json();
+  },
+
+  /**
+   * Disconnect from Asana
+   */
+  disconnect: async (): Promise<{ success: boolean }> => {
+    const res = await fetch('/api/asana/status', { method: 'POST' });
+    return res.json();
+  },
+
+  /**
    * List tasks assigned to current user
    */
-  listMyTasks: async (params?: {
-    completed_since?: string;
-    workspace?: string;
-  }): Promise<AsanaTask[]> => {
-    const searchParams = new URLSearchParams();
-    if (params?.completed_since) searchParams.set('completed_since', params.completed_since);
-    if (params?.workspace) searchParams.set('workspace', params.workspace);
-
-    const query = searchParams.toString();
-    return api.get<AsanaTask[]>(`/asana/tasks/me${query ? `?${query}` : ''}`);
+  listMyTasks: async (): Promise<AsanaTask[]> => {
+    const res = await fetch('/api/asana/tasks');
+    const data = await res.json();
+    if (data.needsAuth) throw new Error('NEEDS_AUTH');
+    if (data.error) throw new Error(data.error);
+    return data;
   },
 
   /**
    * List tasks in a project
    */
-  listProjectTasks: async (
-    projectId: string,
-    params?: { completed?: boolean }
-  ): Promise<AsanaTask[]> => {
-    const query = params?.completed !== undefined ? `?completed=${params.completed}` : '';
-    return api.get<AsanaTask[]>(`/asana/projects/${projectId}/tasks${query}`);
-  },
-
-  /**
-   * Get a specific task
-   */
-  getTask: async (taskId: string): Promise<AsanaTask> => {
-    return api.get<AsanaTask>(`/asana/tasks/${taskId}`);
-  },
-
-  /**
-   * Update a task
-   */
-  updateTask: async (
-    taskId: string,
-    data: Partial<Pick<AsanaTask, 'name' | 'notes' | 'completed' | 'due_on'>>
-  ): Promise<AsanaTask> => {
-    return api.put(`/asana/tasks/${taskId}`, data);
+  listProjectTasks: async (projectId: string): Promise<AsanaTask[]> => {
+    const res = await fetch(`/api/asana/tasks?project=${projectId}`);
+    const data = await res.json();
+    if (data.needsAuth) throw new Error('NEEDS_AUTH');
+    if (data.error) throw new Error(data.error);
+    return data;
   },
 
   /**
    * Complete a task
    */
-  completeTask: async (taskId: string): Promise<AsanaTask> => {
-    return api.post(`/asana/tasks/${taskId}/complete`);
+  completeTask: async (taskId: string): Promise<{ success: boolean }> => {
+    const res = await fetch('/api/asana/tasks', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ taskId, completed: true })
+    });
+    const data = await res.json();
+    if (data.needsAuth) throw new Error('NEEDS_AUTH');
+    return data;
   },
 
   /**
-   * List projects
+   * List projects/pipelines
    */
-  listProjects: async (workspaceId?: string): Promise<AsanaProject[]> => {
-    const query = workspaceId ? `?workspace=${workspaceId}` : '';
-    return api.get<AsanaProject[]>(`/asana/projects${query}`);
+  listProjects: async (): Promise<AsanaProject[]> => {
+    const res = await fetch('/api/asana/projects');
+    const data = await res.json();
+    if (data.needsAuth) throw new Error('NEEDS_AUTH');
+    if (data.error) throw new Error(data.error);
+    return data;
   },
 };
 

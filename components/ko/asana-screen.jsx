@@ -1,7 +1,8 @@
 "use client"
 
 import { useState } from "react"
-import { CheckSquare, Circle, CheckCircle2, RefreshCw, Loader2, Calendar, ExternalLink, FolderKanban, ChevronRight, Filter, Search } from "lucide-react"
+import { Circle, CheckCircle2, RefreshCw, Loader2, Calendar, ExternalLink, ChevronRight, Filter, Search, ListTodo } from "lucide-react"
+import Image from "next/image"
 import { useAsana, formatDueDate, getTagColor } from "@/hooks/useAsana"
 
 export function AsanaScreen() {
@@ -12,7 +13,11 @@ export function AsanaScreen() {
     selectedProject,
     selectProject,
     completeTask,
-    refresh
+    refresh,
+    isConnected,
+    user,
+    authUrl,
+    disconnect
   } = useAsana({ autoFetch: true })
 
   const [searchQuery, setSearchQuery] = useState("")
@@ -47,11 +52,20 @@ export function AsanaScreen() {
 
   return (
     <div className="flex h-full bg-background overflow-hidden">
-      {/* LEFT SIDEBAR - Projects */}
+      {/* LEFT SIDEBAR - Asana Pipelines */}
       <div className="w-64 border-r border-border flex flex-col bg-sidebar">
         <div className="p-4 border-b border-border">
-          <div className="flex items-center justify-between mb-3">
-            <h2 className="text-lg font-semibold text-foreground">Tasks</h2>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Image
+                src="/images/asana.svg"
+                alt="Asana"
+                width={20}
+                height={20}
+                className="opacity-80"
+              />
+              <h2 className="text-lg font-semibold text-foreground">Asana</h2>
+            </div>
             <button
               onClick={refresh}
               disabled={loading}
@@ -60,6 +74,39 @@ export function AsanaScreen() {
             >
               <RefreshCw className={`w-4 h-4 text-foreground-secondary ${loading ? 'animate-spin' : ''}`} />
             </button>
+          </div>
+
+          {/* Connection Status */}
+          <div className="mt-3 flex items-center justify-between">
+            {isConnected && user ? (
+              <div className="flex items-center gap-2">
+                <div className="w-6 h-6 rounded-full bg-green-500/20 flex items-center justify-center">
+                  <span className="w-2 h-2 rounded-full bg-green-500" />
+                </div>
+                <span className="text-xs text-foreground-secondary">
+                  Connected as {user.name}
+                </span>
+                <button
+                  onClick={disconnect}
+                  className="text-xs text-red-500 hover:underline ml-2"
+                >
+                  Disconnect
+                </button>
+              </div>
+            ) : (
+              <a
+                href={authUrl || '/api/auth/asana'}
+                className="flex items-center gap-2 px-3 py-1.5 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors"
+              >
+                <Image
+                  src="/images/asana.svg"
+                  alt=""
+                  width={14}
+                  height={14}
+                />
+                Connect to Asana
+              </a>
+            )}
           </div>
         </div>
 
@@ -73,14 +120,14 @@ export function AsanaScreen() {
                 : 'text-foreground-secondary hover:bg-muted hover:text-foreground'
             }`}
           >
-            <CheckSquare className="w-5 h-5" />
+            <ListTodo className="w-5 h-5" />
             <span className="font-medium">My Tasks</span>
           </button>
 
-          {/* Projects */}
+          {/* Pipelines */}
           <div className="mt-4">
             <div className="px-3 py-2 text-xs font-medium text-foreground-secondary uppercase tracking-wide">
-              Projects
+              Pipelines
             </div>
             {projects.map((project) => (
               <button
@@ -92,12 +139,15 @@ export function AsanaScreen() {
                     : 'text-foreground-secondary hover:bg-muted hover:text-foreground'
                 }`}
               >
-                <FolderKanban className={`w-4 h-4 ${
-                  project.color === 'red' ? 'text-red-500' :
-                  project.color === 'blue' ? 'text-blue-500' :
-                  project.color === 'green' ? 'text-green-500' :
-                  project.color === 'yellow' ? 'text-yellow-500' :
-                  'text-foreground-secondary'
+                {/* Asana-style colored dot */}
+                <span className={`w-3 h-3 rounded-full flex-shrink-0 ${
+                  project.color === 'red' ? 'bg-red-500' :
+                  project.color === 'blue' ? 'bg-blue-500' :
+                  project.color === 'green' ? 'bg-green-500' :
+                  project.color === 'yellow' ? 'bg-yellow-500' :
+                  project.color === 'purple' ? 'bg-purple-500' :
+                  project.color === 'orange' ? 'bg-orange-500' :
+                  'bg-gray-400'
                 }`} />
                 <span className="text-sm truncate">{project.name}</span>
               </button>
@@ -154,7 +204,7 @@ export function AsanaScreen() {
             </div>
           ) : sortedTasks.length === 0 ? (
             <div className="text-center py-16 text-foreground-secondary">
-              <CheckSquare className="w-12 h-12 mx-auto mb-4 opacity-50" />
+              <ListTodo className="w-12 h-12 mx-auto mb-4 opacity-50" />
               <h3 className="text-lg font-medium text-foreground mb-2">No tasks</h3>
               <p className="text-sm">
                 {searchQuery ? 'No tasks match your search' : 'All caught up!'}

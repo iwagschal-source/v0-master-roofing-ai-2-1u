@@ -7,6 +7,13 @@ interface UseAsanaOptions {
   autoFetch?: boolean
 }
 
+interface AsanaUser {
+  gid: string
+  name: string
+  email: string
+  photo?: string
+}
+
 interface UseAsanaReturn {
   tasks: AsanaTask[]
   projects: AsanaProject[]
@@ -18,18 +25,24 @@ interface UseAsanaReturn {
   completeTask: (taskId: string) => Promise<boolean>
   refresh: () => Promise<void>
   fetchProjectTasks: (projectId: string) => Promise<void>
+  // Connection status
+  isConnected: boolean
+  user: AsanaUser | null
+  authUrl: string | null
+  checkConnection: () => Promise<void>
+  disconnect: () => Promise<void>
 }
 
-// Mock data for development/demo
+// Mock data for development/demo - matches Isaac's Asana pipelines
 const MOCK_TASKS: AsanaTask[] = [
   {
     id: "task1",
-    name: "Review Beach 67th St proposal",
-    notes: "John Mitchell sent updated proposal. Review timeline, budget breakdown, and material options.",
+    name: "Review Beach 67th St bid",
+    notes: "John Mitchell sent updated pricing. Review timeline, budget breakdown, and material options.",
     completed: false,
     due_on: new Date(Date.now() + 2 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
     assignee: { gid: "user1", name: "Isaac Wagschal", email: "iwagschal@masterroofingus.com" },
-    projects: [{ gid: "proj1", name: "Active Proposals" }],
+    projects: [{ gid: "proj1", name: "Bids" }],
     tags: [{ gid: "tag1", name: "High Priority", color: "red" }],
     permalink_url: "https://app.asana.com/task1",
     created_at: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(),
@@ -37,63 +50,65 @@ const MOCK_TASKS: AsanaTask[] = [
   },
   {
     id: "task2",
-    name: "Prepare site visit checklist - Manhattan Plaza",
-    notes: "Tishman Construction site visit on Feb 15. Prepare measurement equipment and safety gear.",
+    name: "Submit Turner Construction bid",
+    notes: "Hospital project RFP due Friday. Final pricing review needed.",
     completed: false,
     due_on: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
     assignee: { gid: "user1", name: "Isaac Wagschal" },
-    projects: [{ gid: "proj2", name: "Estimating" }],
-    tags: [{ gid: "tag2", name: "Site Visit", color: "blue" }],
+    projects: [{ gid: "proj1", name: "Bids" }],
+    tags: [{ gid: "tag2", name: "RFP", color: "blue" }],
     permalink_url: "https://app.asana.com/task2",
     created_at: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString(),
     modified_at: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString()
   },
   {
     id: "task3",
-    name: "Follow up with Turner Construction",
-    notes: "Hospital project inspection passed. Send thank you note and discuss next steps.",
+    name: "Manhattan Plaza - site inspection",
+    notes: "Tishman Construction project. Schedule crew and equipment for next week.",
     completed: false,
     due_on: new Date(Date.now() + 1 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
     assignee: { gid: "user1", name: "Isaac Wagschal" },
-    projects: [{ gid: "proj3", name: "Client Relations" }],
-    tags: [{ gid: "tag3", name: "Follow Up", color: "green" }],
+    projects: [{ gid: "proj2", name: "Projects" }],
+    tags: [{ gid: "tag3", name: "Site Visit", color: "green" }],
     permalink_url: "https://app.asana.com/task3",
     created_at: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString(),
     modified_at: new Date(Date.now() - 6 * 60 * 60 * 1000).toISOString()
   },
   {
     id: "task4",
-    name: "Update Q1 pipeline report",
-    notes: "Add new opportunities from RFPs received this week.",
+    name: "Lennar project - order materials",
+    notes: "GAF EverGuard TPO - 15,000 sq ft. Confirm with supplier.",
     completed: false,
     due_on: new Date(Date.now() + 5 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
     assignee: { gid: "user1", name: "Isaac Wagschal" },
-    projects: [{ gid: "proj1", name: "Active Proposals" }],
+    projects: [{ gid: "proj2", name: "Projects" }],
+    tags: [{ gid: "tag4", name: "Materials", color: "orange" }],
     permalink_url: "https://app.asana.com/task4",
     created_at: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(),
     modified_at: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString()
   },
   {
     id: "task5",
-    name: "Review crew schedule for next week",
-    notes: "Queens and Brooklyn crews. Ensure adequate coverage for Lennar project.",
-    completed: true,
-    due_on: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+    name: "Invoice Skanska - Phase 2 complete",
+    notes: "Phase 2 roof installation complete. Send invoice for $285,000.",
+    completed: false,
+    due_on: new Date(Date.now() + 2 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
     assignee: { gid: "user1", name: "Isaac Wagschal" },
-    projects: [{ gid: "proj4", name: "Operations" }],
+    projects: [{ gid: "proj3", name: "Billing" }],
+    tags: [{ gid: "tag5", name: "Invoice", color: "yellow" }],
     permalink_url: "https://app.asana.com/task5",
     created_at: new Date(Date.now() - 10 * 24 * 60 * 60 * 1000).toISOString(),
     modified_at: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString()
   },
   {
     id: "task6",
-    name: "Finalize material order for Skanska project",
-    notes: "GAF EverGuard TPO - 15,000 sq ft. Confirm with supplier.",
+    name: "Follow up on MJH payment",
+    notes: "Invoice #4521 overdue by 15 days. Contact accounts payable.",
     completed: false,
-    due_on: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+    due_on: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
     assignee: { gid: "user1", name: "Isaac Wagschal" },
-    projects: [{ gid: "proj4", name: "Operations" }],
-    tags: [{ gid: "tag4", name: "Materials", color: "yellow" }],
+    projects: [{ gid: "proj3", name: "Billing" }],
+    tags: [{ gid: "tag6", name: "Overdue", color: "red" }],
     permalink_url: "https://app.asana.com/task6",
     created_at: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString(),
     modified_at: new Date(Date.now() - 12 * 60 * 60 * 1000).toISOString()
@@ -101,10 +116,9 @@ const MOCK_TASKS: AsanaTask[] = [
 ]
 
 const MOCK_PROJECTS: AsanaProject[] = [
-  { id: "proj1", name: "Active Proposals", color: "red", workspace: { gid: "ws1", name: "Master Roofing" } },
-  { id: "proj2", name: "Estimating", color: "blue", workspace: { gid: "ws1", name: "Master Roofing" } },
-  { id: "proj3", name: "Client Relations", color: "green", workspace: { gid: "ws1", name: "Master Roofing" } },
-  { id: "proj4", name: "Operations", color: "yellow", workspace: { gid: "ws1", name: "Master Roofing" } },
+  { id: "proj1", name: "Bids", color: "blue", workspace: { gid: "ws1", name: "Master Roofing" } },
+  { id: "proj2", name: "Projects", color: "green", workspace: { gid: "ws1", name: "Master Roofing" } },
+  { id: "proj3", name: "Billing", color: "yellow", workspace: { gid: "ws1", name: "Master Roofing" } },
 ]
 
 export function useAsana(options: UseAsanaOptions = {}): UseAsanaReturn {
@@ -117,6 +131,44 @@ export function useAsana(options: UseAsanaOptions = {}): UseAsanaReturn {
   const [error, setError] = useState<string | null>(null)
   const [selectedProject, setSelectedProject] = useState<AsanaProject | null>(null)
   const [useMock, setUseMock] = useState(false)
+
+  // Connection status
+  const [isConnected, setIsConnected] = useState(false)
+  const [user, setUser] = useState<AsanaUser | null>(null)
+  const [authUrl, setAuthUrl] = useState<string | null>(null)
+
+  const checkConnection = useCallback(async () => {
+    try {
+      const status = await asanaAPI.getStatus()
+      setIsConnected(status.connected)
+      setUser(status.user || null)
+      setAuthUrl(status.authUrl || '/api/auth/asana')
+
+      if (!status.connected) {
+        // Use mock data when not connected
+        setUseMock(true)
+        setTasks(MOCK_TASKS)
+        setProjects(MOCK_PROJECTS)
+      }
+    } catch (err) {
+      setUseMock(true)
+      setTasks(MOCK_TASKS)
+      setProjects(MOCK_PROJECTS)
+    }
+  }, [])
+
+  const disconnect = useCallback(async () => {
+    try {
+      await asanaAPI.disconnect()
+      setIsConnected(false)
+      setUser(null)
+      setUseMock(true)
+      setTasks(MOCK_TASKS)
+      setProjects(MOCK_PROJECTS)
+    } catch (err) {
+      console.error('Failed to disconnect:', err)
+    }
+  }, [])
 
   const fetchTasks = useCallback(async () => {
     setLoading(true)
@@ -204,13 +256,15 @@ export function useAsana(options: UseAsanaOptions = {}): UseAsanaReturn {
     await Promise.all([fetchTasks(), fetchProjects()])
   }, [fetchTasks, fetchProjects])
 
-  // Auto-fetch on mount
+  // Auto-fetch on mount - check connection first
   useEffect(() => {
     if (autoFetch) {
-      fetchTasks()
-      fetchProjects()
+      checkConnection().then(() => {
+        fetchTasks()
+        fetchProjects()
+      })
     }
-  }, [autoFetch, fetchTasks, fetchProjects])
+  }, [autoFetch, checkConnection, fetchTasks, fetchProjects])
 
   return {
     tasks,
@@ -222,7 +276,13 @@ export function useAsana(options: UseAsanaOptions = {}): UseAsanaReturn {
     selectProject,
     completeTask,
     refresh,
-    fetchProjectTasks
+    fetchProjectTasks,
+    // Connection status
+    isConnected,
+    user,
+    authUrl,
+    checkConnection,
+    disconnect
   }
 }
 
