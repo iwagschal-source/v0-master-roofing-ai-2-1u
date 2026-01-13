@@ -1,5 +1,6 @@
 "use client"
 
+// Agent Control Dashboard v1.0
 import { useState } from "react"
 import { NavigationRail } from "@/components/ko/navigation-rail"
 import { TopHeader } from "@/components/ko/top-header"
