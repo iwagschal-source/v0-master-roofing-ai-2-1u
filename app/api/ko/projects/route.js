@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server"
 import { createProjectSheet, shareSheet, batchUpdateSheet } from "@/lib/google-sheets"
+import { loadProjects, addProject, saveProjects } from "@/lib/project-storage"
 
-// Mock projects data - In production, this would fetch from HubSpot or BigQuery
+// Fallback mock data when GCS is not available
 const MOCK_PROJECTS = [
   {
     id: "proj-001",
@@ -36,28 +37,6 @@ const MOCK_PROJECTS = [
     status: "won",
     sheet_id: null,
   },
-  {
-    id: "proj-004",
-    name: "245 Park Avenue",
-    address: "245 Park Avenue, Manhattan, NY",
-    gc_id: "gc-turner",
-    gc_name: "Turner Construction",
-    amount: 1250000,
-    due_date: "2025-12-15",
-    status: "estimating",
-    sheet_id: null,
-  },
-  {
-    id: "proj-005",
-    name: "500 Fifth Avenue",
-    address: "500 Fifth Avenue, Manhattan, NY",
-    gc_id: "gc-skanska",
-    gc_name: "Skanska USA",
-    amount: 875000,
-    due_date: "2025-11-30",
-    status: "proposal_sent",
-    sheet_id: null,
-  },
 ]
 
 export async function GET(request) {
@@ -65,8 +44,27 @@ export async function GET(request) {
     const { searchParams } = new URL(request.url)
     const status = searchParams.get("status")
     const search = searchParams.get("search")
+    const useMock = searchParams.get("mock") === "true"
 
-    let projects = [...MOCK_PROJECTS]
+    let projects = []
+
+    // Try to load from GCS first
+    if (!useMock) {
+      try {
+        projects = await loadProjects()
+        console.log(`Loaded ${projects.length} projects from GCS`)
+      } catch (gcsError) {
+        console.warn("GCS load failed, using mock data:", gcsError.message)
+        projects = [...MOCK_PROJECTS]
+      }
+    } else {
+      projects = [...MOCK_PROJECTS]
+    }
+
+    // If no projects in GCS, use mock data
+    if (projects.length === 0) {
+      projects = [...MOCK_PROJECTS]
+    }
 
     // Filter by status if provided
     if (status && status !== "all") {
@@ -83,14 +81,23 @@ export async function GET(request) {
       )
     }
 
+    // Sort by created_at desc, then by name
+    projects.sort((a, b) => {
+      if (a.created_at && b.created_at) {
+        return new Date(b.created_at) - new Date(a.created_at)
+      }
+      return (a.name || '').localeCompare(b.name || '')
+    })
+
     return NextResponse.json({
       projects,
       total: projects.length,
+      source: projects === MOCK_PROJECTS ? 'mock' : 'gcs',
     })
   } catch (error) {
     console.error("Error fetching projects:", error)
     return NextResponse.json(
-      { error: "Failed to fetch projects" },
+      { error: "Failed to fetch projects", details: error.message },
       { status: 500 }
     )
   }
@@ -102,14 +109,13 @@ export async function POST(request) {
     const body = await request.json()
 
     // Validate required fields
-    if (!body.name || !body.gc_name) {
+    if (!body.name) {
       return NextResponse.json(
-        { error: "Name and GC name are required" },
+        { error: "Project name is required" },
         { status: 400 }
       )
     }
 
-    const projectId = `proj-${Date.now()}`
     let sheetId = null
     let sheetUrl = null
     let sheetError = null
@@ -164,29 +170,131 @@ export async function POST(request) {
 
     // Create the project record
     const newProject = {
-      id: projectId,
       name: body.name,
       address: body.address || body.name,
-      gc_id: body.gc_id || `gc-${Date.now()}`,
-      gc_name: body.gc_name,
+      gc_id: body.gc_id || null,
+      gc_name: body.gc_name || null,
       amount: body.amount || 0,
       due_date: body.due_date || null,
       status: body.status || "estimating",
+      notes: body.notes || null,
+      borough: body.borough || null,
+      city: body.city || null,
+      state: body.state || null,
+      zip: body.zip || null,
+      gc_contact: body.gc_contact || null,
+      gc_email: body.gc_email || null,
+      gc_phone: body.gc_phone || null,
       sheet_id: sheetId,
       sheet_url: sheetUrl,
     }
 
-    // In production, save to HubSpot/BigQuery here
+    // Save to GCS
+    try {
+      const savedProject = await addProject(newProject)
 
-    return NextResponse.json({
-      success: true,
-      project: newProject,
-      ...(sheetError && { sheetError }),
-    })
+      return NextResponse.json({
+        success: true,
+        project: savedProject,
+        ...(sheetError && { sheetError }),
+      })
+    } catch (gcsError) {
+      console.error("Error saving project to GCS:", gcsError)
+      return NextResponse.json(
+        { error: "Failed to save project", details: gcsError.message },
+        { status: 500 }
+      )
+    }
+
   } catch (error) {
     console.error("Error creating project:", error)
     return NextResponse.json(
-      { error: "Failed to create project" },
+      { error: "Failed to create project", details: error.message },
+      { status: 500 }
+    )
+  }
+}
+
+// Update a project
+export async function PUT(request) {
+  try {
+    const body = await request.json()
+
+    if (!body.id) {
+      return NextResponse.json(
+        { error: "Project ID is required" },
+        { status: 400 }
+      )
+    }
+
+    // Load, update, and save
+    const projects = await loadProjects()
+    const index = projects.findIndex(p => p.id === body.id)
+
+    if (index === -1) {
+      return NextResponse.json(
+        { error: "Project not found" },
+        { status: 404 }
+      )
+    }
+
+    projects[index] = {
+      ...projects[index],
+      ...body,
+      updated_at: new Date().toISOString(),
+    }
+
+    await saveProjects(projects)
+
+    return NextResponse.json({
+      success: true,
+      project: projects[index],
+    })
+
+  } catch (error) {
+    console.error("Error updating project:", error)
+    return NextResponse.json(
+      { error: "Failed to update project", details: error.message },
+      { status: 500 }
+    )
+  }
+}
+
+// Delete a project
+export async function DELETE(request) {
+  try {
+    const { searchParams } = new URL(request.url)
+    const id = searchParams.get("id")
+
+    if (!id) {
+      return NextResponse.json(
+        { error: "Project ID is required" },
+        { status: 400 }
+      )
+    }
+
+    const projects = await loadProjects()
+    const index = projects.findIndex(p => p.id === id)
+
+    if (index === -1) {
+      return NextResponse.json(
+        { error: "Project not found" },
+        { status: 404 }
+      )
+    }
+
+    const deleted = projects.splice(index, 1)[0]
+    await saveProjects(projects)
+
+    return NextResponse.json({
+      success: true,
+      deleted: deleted,
+    })
+
+  } catch (error) {
+    console.error("Error deleting project:", error)
+    return NextResponse.json(
+      { error: "Failed to delete project", details: error.message },
       { status: 500 }
     )
   }

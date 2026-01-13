@@ -1,67 +1,8 @@
 "use client"
 
-import { useState, useEffect } from "react"
-import { Plus, Search, Filter, RefreshCw, Loader2, Grid3X3, List, X } from "lucide-react"
+import { useState, useEffect, useRef } from "react"
+import { Plus, Search, Filter, RefreshCw, Loader2, Grid3X3, List, X, Upload, Download, CheckCircle, AlertCircle } from "lucide-react"
 import { ProjectCard } from "./project-card"
-
-// Mock data for MVP demo
-const MOCK_PROJECTS = [
-  {
-    id: "proj-001",
-    name: "307 Beach 67th Street",
-    address: "307 Beach 67th Street, Brooklyn, NY",
-    gc_id: "gc-mjh",
-    gc_name: "MJH Construction Corp",
-    amount: 300309,
-    due_date: "2025-10-27",
-    status: "estimating",
-    sheet_id: null, // Will be filled when sheet is connected
-  },
-  {
-    id: "proj-002",
-    name: "1086 Dumont Ave",
-    address: "1086 Dumont Ave, Brooklyn, NY",
-    gc_id: "gc-bluesky",
-    gc_name: "Blue Sky Builders",
-    amount: 156000,
-    due_date: "2025-11-15",
-    status: "proposal_sent",
-    sheet_id: null,
-  },
-  {
-    id: "proj-003",
-    name: "960 Franklin Ave",
-    address: "960 Franklin Ave, Brooklyn, NY",
-    gc_id: "gc-apex",
-    gc_name: "Apex Construction",
-    amount: 425000,
-    due_date: "2025-09-30",
-    status: "won",
-    sheet_id: null,
-  },
-  {
-    id: "proj-004",
-    name: "245 Park Avenue",
-    address: "245 Park Avenue, Manhattan, NY",
-    gc_id: "gc-turner",
-    gc_name: "Turner Construction",
-    amount: 1250000,
-    due_date: "2025-12-15",
-    status: "estimating",
-    sheet_id: null,
-  },
-  {
-    id: "proj-005",
-    name: "500 Fifth Avenue",
-    address: "500 Fifth Avenue, Manhattan, NY",
-    gc_id: "gc-skanska",
-    gc_name: "Skanska USA",
-    amount: 875000,
-    due_date: "2025-11-30",
-    status: "proposal_sent",
-    sheet_id: null,
-  },
-]
 
 const STATUS_OPTIONS = [
   { value: "all", label: "All Statuses" },
@@ -79,6 +20,24 @@ export function ProjectsScreen({ onSelectProject, onBack }) {
   const [statusFilter, setStatusFilter] = useState("all")
   const [showFilters, setShowFilters] = useState(false)
   const [gridView, setGridView] = useState(true)
+
+  // Import state
+  const [showImportModal, setShowImportModal] = useState(false)
+  const [importing, setImporting] = useState(false)
+  const [importResult, setImportResult] = useState(null)
+  const fileInputRef = useRef(null)
+
+  // New project modal state
+  const [showNewProjectModal, setShowNewProjectModal] = useState(false)
+  const [newProjectForm, setNewProjectForm] = useState({
+    name: '',
+    address: '',
+    gc_name: '',
+    amount: '',
+    due_date: '',
+    status: 'estimating',
+  })
+  const [creatingProject, setCreatingProject] = useState(false)
 
   useEffect(() => {
     loadProjects()
@@ -134,6 +93,120 @@ export function ProjectsScreen({ onSelectProject, onBack }) {
     }
   }
 
+  // CSV Import handlers
+  const handleImportClick = () => {
+    fileInputRef.current?.click()
+  }
+
+  const handleFileSelect = async (event) => {
+    const file = event.target.files?.[0]
+    if (!file) return
+
+    if (!file.name.endsWith('.csv')) {
+      setImportResult({ success: false, error: 'Please select a CSV file' })
+      setShowImportModal(true)
+      return
+    }
+
+    setImporting(true)
+    setImportResult(null)
+    setShowImportModal(true)
+
+    try {
+      const csvContent = await file.text()
+
+      const response = await fetch('/api/ko/projects/import', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          csvContent,
+          options: { skipDuplicates: true, updateExisting: false }
+        }),
+      })
+
+      const result = await response.json()
+
+      if (response.ok && result.success) {
+        setImportResult({
+          success: true,
+          imported: result.imported,
+          updated: result.updated,
+          skipped: result.skipped,
+          errors: result.errors || [],
+        })
+        // Reload projects
+        loadProjects()
+      } else {
+        setImportResult({
+          success: false,
+          error: result.error || 'Import failed',
+        })
+      }
+    } catch (error) {
+      console.error('Import error:', error)
+      setImportResult({
+        success: false,
+        error: error.message || 'Failed to import projects',
+      })
+    } finally {
+      setImporting(false)
+      // Reset file input
+      if (fileInputRef.current) {
+        fileInputRef.current.value = ''
+      }
+    }
+  }
+
+  const handleDownloadTemplate = () => {
+    window.open('/api/ko/projects/import', '_blank')
+  }
+
+  // New project handlers
+  const handleNewProjectSubmit = async (e) => {
+    e.preventDefault()
+
+    if (!newProjectForm.name.trim()) {
+      alert('Project name is required')
+      return
+    }
+
+    setCreatingProject(true)
+
+    try {
+      const response = await fetch('/api/ko/projects', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ...newProjectForm,
+          amount: parseFloat(newProjectForm.amount) || 0,
+          createSheet: true, // Auto-create Google Sheet
+        }),
+      })
+
+      const result = await response.json()
+
+      if (response.ok && result.success) {
+        setShowNewProjectModal(false)
+        setNewProjectForm({
+          name: '',
+          address: '',
+          gc_name: '',
+          amount: '',
+          due_date: '',
+          status: 'estimating',
+        })
+        loadProjects()
+      } else {
+        alert(result.error || 'Failed to create project')
+      }
+    } catch (error) {
+      console.error('Create project error:', error)
+      alert('Failed to create project: ' + error.message)
+    } finally {
+      setCreatingProject(false)
+    }
+  }
+
   return (
     <div className="flex-1 flex flex-col bg-background overflow-hidden">
       {/* Header */}
@@ -179,8 +252,34 @@ export function ProjectsScreen({ onSelectProject, onBack }) {
               <span className="text-sm font-medium hidden sm:inline">Filter</span>
             </button>
 
+            {/* Hidden file input for CSV import */}
+            <input
+              type="file"
+              ref={fileInputRef}
+              onChange={handleFileSelect}
+              accept=".csv"
+              className="hidden"
+            />
+
+            {/* Import CSV */}
+            <button
+              onClick={handleImportClick}
+              disabled={importing}
+              className="flex items-center gap-2 px-3 py-2 rounded-lg bg-secondary text-foreground-secondary hover:text-foreground transition-colors"
+            >
+              {importing ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <Upload className="w-4 h-4" />
+              )}
+              <span className="text-sm font-medium hidden sm:inline">Import CSV</span>
+            </button>
+
             {/* New Project */}
-            <button className="flex items-center gap-2 px-3 py-2 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 transition-colors">
+            <button
+              onClick={() => setShowNewProjectModal(true)}
+              className="flex items-center gap-2 px-3 py-2 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
+            >
               <Plus className="w-4 h-4" />
               <span className="text-sm font-medium hidden sm:inline">New Project</span>
             </button>
@@ -325,6 +424,223 @@ export function ProjectsScreen({ onSelectProject, onBack }) {
                 </button>
               </div>
             </div>
+          </div>
+        </>
+      )}
+
+      {/* Import Result Modal */}
+      {showImportModal && (
+        <>
+          <div
+            className="fixed inset-0 bg-background/60 backdrop-blur-sm z-40"
+            onClick={() => !importing && setShowImportModal(false)}
+          />
+          <div className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-md bg-card border border-border rounded-xl z-50 shadow-2xl p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-semibold text-foreground">
+                {importing ? 'Importing Projects...' : 'Import Result'}
+              </h2>
+              {!importing && (
+                <button
+                  onClick={() => setShowImportModal(false)}
+                  className="p-2 rounded-lg hover:bg-secondary transition-colors"
+                >
+                  <X className="w-4 h-4 text-foreground-secondary" />
+                </button>
+              )}
+            </div>
+
+            {importing ? (
+              <div className="flex flex-col items-center py-8">
+                <Loader2 className="w-12 h-12 animate-spin text-primary mb-4" />
+                <p className="text-foreground-secondary">Processing CSV file...</p>
+              </div>
+            ) : importResult ? (
+              <div className="space-y-4">
+                {importResult.success ? (
+                  <>
+                    <div className="flex items-center gap-3 p-4 rounded-lg bg-green-500/10 border border-green-500/20">
+                      <CheckCircle className="w-6 h-6 text-green-500" />
+                      <div>
+                        <p className="font-medium text-green-600">Import Successful</p>
+                        <p className="text-sm text-foreground-secondary">
+                          {importResult.imported} imported, {importResult.skipped} skipped
+                        </p>
+                      </div>
+                    </div>
+                    {importResult.errors?.length > 0 && (
+                      <div className="p-3 rounded-lg bg-yellow-500/10 border border-yellow-500/20">
+                        <p className="text-sm font-medium text-yellow-600 mb-2">
+                          {importResult.errors.length} rows had errors:
+                        </p>
+                        <ul className="text-xs text-foreground-secondary space-y-1 max-h-24 overflow-y-auto">
+                          {importResult.errors.slice(0, 5).map((err, i) => (
+                            <li key={i}>{err.error}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+                  </>
+                ) : (
+                  <div className="flex items-center gap-3 p-4 rounded-lg bg-red-500/10 border border-red-500/20">
+                    <AlertCircle className="w-6 h-6 text-red-500" />
+                    <div>
+                      <p className="font-medium text-red-600">Import Failed</p>
+                      <p className="text-sm text-foreground-secondary">{importResult.error}</p>
+                    </div>
+                  </div>
+                )}
+
+                <div className="flex gap-3">
+                  <button
+                    onClick={handleDownloadTemplate}
+                    className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg border border-border text-foreground-secondary hover:bg-secondary transition-colors text-sm"
+                  >
+                    <Download className="w-4 h-4" />
+                    Download Template
+                  </button>
+                  <button
+                    onClick={() => setShowImportModal(false)}
+                    className="flex-1 px-4 py-2.5 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 transition-colors text-sm"
+                  >
+                    Done
+                  </button>
+                </div>
+              </div>
+            ) : null}
+          </div>
+        </>
+      )}
+
+      {/* New Project Modal */}
+      {showNewProjectModal && (
+        <>
+          <div
+            className="fixed inset-0 bg-background/60 backdrop-blur-sm z-40"
+            onClick={() => !creatingProject && setShowNewProjectModal(false)}
+          />
+          <div className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-lg bg-card border border-border rounded-xl z-50 shadow-2xl">
+            <div className="flex items-center justify-between p-4 border-b border-border">
+              <h2 className="text-lg font-semibold text-foreground">New Project</h2>
+              <button
+                onClick={() => setShowNewProjectModal(false)}
+                className="p-2 rounded-lg hover:bg-secondary transition-colors"
+              >
+                <X className="w-4 h-4 text-foreground-secondary" />
+              </button>
+            </div>
+
+            <form onSubmit={handleNewProjectSubmit} className="p-4 space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-foreground mb-1.5">
+                  Project Name *
+                </label>
+                <input
+                  type="text"
+                  value={newProjectForm.name}
+                  onChange={(e) => setNewProjectForm(f => ({ ...f, name: e.target.value }))}
+                  placeholder="e.g., 123 Main Street"
+                  className="w-full px-3 py-2.5 bg-input-background border border-input rounded-lg text-foreground placeholder:text-foreground-tertiary focus:border-primary focus:outline-none"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-foreground mb-1.5">
+                  Address
+                </label>
+                <input
+                  type="text"
+                  value={newProjectForm.address}
+                  onChange={(e) => setNewProjectForm(f => ({ ...f, address: e.target.value }))}
+                  placeholder="Full address"
+                  className="w-full px-3 py-2.5 bg-input-background border border-input rounded-lg text-foreground placeholder:text-foreground-tertiary focus:border-primary focus:outline-none"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-foreground mb-1.5">
+                    GC Name
+                  </label>
+                  <input
+                    type="text"
+                    value={newProjectForm.gc_name}
+                    onChange={(e) => setNewProjectForm(f => ({ ...f, gc_name: e.target.value }))}
+                    placeholder="General Contractor"
+                    className="w-full px-3 py-2.5 bg-input-background border border-input rounded-lg text-foreground placeholder:text-foreground-tertiary focus:border-primary focus:outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-foreground mb-1.5">
+                    Amount
+                  </label>
+                  <input
+                    type="number"
+                    value={newProjectForm.amount}
+                    onChange={(e) => setNewProjectForm(f => ({ ...f, amount: e.target.value }))}
+                    placeholder="$0"
+                    className="w-full px-3 py-2.5 bg-input-background border border-input rounded-lg text-foreground placeholder:text-foreground-tertiary focus:border-primary focus:outline-none"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-foreground mb-1.5">
+                    Due Date
+                  </label>
+                  <input
+                    type="date"
+                    value={newProjectForm.due_date}
+                    onChange={(e) => setNewProjectForm(f => ({ ...f, due_date: e.target.value }))}
+                    className="w-full px-3 py-2.5 bg-input-background border border-input rounded-lg text-foreground placeholder:text-foreground-tertiary focus:border-primary focus:outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-foreground mb-1.5">
+                    Status
+                  </label>
+                  <select
+                    value={newProjectForm.status}
+                    onChange={(e) => setNewProjectForm(f => ({ ...f, status: e.target.value }))}
+                    className="w-full px-3 py-2.5 bg-input-background border border-input rounded-lg text-foreground focus:border-primary focus:outline-none"
+                  >
+                    <option value="estimating">Estimating</option>
+                    <option value="proposal_sent">Proposal Sent</option>
+                    <option value="won">Won</option>
+                    <option value="lost">Lost</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="flex gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setShowNewProjectModal(false)}
+                  className="flex-1 px-4 py-2.5 rounded-lg border border-border text-foreground-secondary hover:bg-secondary transition-colors text-sm font-medium"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={creatingProject}
+                  className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 transition-colors text-sm font-medium disabled:opacity-50"
+                >
+                  {creatingProject ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      Creating...
+                    </>
+                  ) : (
+                    <>
+                      <Plus className="w-4 h-4" />
+                      Create Project
+                    </>
+                  )}
+                </button>
+              </div>
+            </form>
           </div>
         </>
       )}
