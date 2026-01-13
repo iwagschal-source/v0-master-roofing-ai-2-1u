@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, Suspense } from "react"
+import { useState, useEffect, Suspense, useRef } from "react"
 import { useSearchParams } from "next/navigation"
 import { ProposalTemplate } from "@/components/ko/proposal-template"
 
@@ -69,6 +69,8 @@ function ProposalPreviewContent() {
   const [proposal, setProposal] = useState(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
+  const [downloading, setDownloading] = useState(false)
+  const docRef = useRef(null)
 
   useEffect(() => {
     if (sheetId) {
@@ -96,6 +98,35 @@ function ProposalPreviewContent() {
       setProposal(SAMPLE_PROPOSAL)
     } finally {
       setLoading(false)
+    }
+  }
+
+  async function handleDownloadPDF() {
+    setDownloading(true)
+    try {
+      // Dynamic import of html2pdf
+      const html2pdf = (await import("html2pdf.js")).default
+      const element = docRef.current
+      if (!element) throw new Error("Document not found")
+
+      const filename = `Proposal_${proposal?.gc_name || "Master_Roofing"}_${new Date().toISOString().split("T")[0]}.pdf`
+
+      const opt = {
+        margin: 0,
+        filename,
+        image: { type: "jpeg", quality: 0.98 },
+        html2canvas: { scale: 2, useCORS: true, logging: false },
+        jsPDF: { unit: "px", format: [816, 1056], orientation: "portrait" },
+        pagebreak: { mode: ["css", "legacy"], before: ".pv-page" }
+      }
+
+      await html2pdf().set(opt).from(element).save()
+    } catch (err) {
+      console.error("PDF download error:", err)
+      // Fallback to print dialog
+      window.print()
+    } finally {
+      setDownloading(false)
     }
   }
 
@@ -146,6 +177,40 @@ function ProposalPreviewContent() {
               Add ?sheetId=YOUR_SHEET_ID to URL
             </div>
           )}
+          <button
+            onClick={handleDownloadPDF}
+            disabled={downloading}
+            style={{
+              padding: "8px 16px",
+              background: "#e53935",
+              color: "#fff",
+              borderRadius: "4px",
+              border: "none",
+              fontSize: "14px",
+              fontWeight: "600",
+              cursor: downloading ? "wait" : "pointer",
+              opacity: downloading ? 0.7 : 1,
+              display: "flex",
+              alignItems: "center",
+              gap: "6px"
+            }}
+          >
+            {downloading ? (
+              <>
+                <span style={{ display: "inline-block", width: 14, height: 14, border: "2px solid #fff", borderTopColor: "transparent", borderRadius: "50%", animation: "spin 1s linear infinite" }} />
+                Generating...
+              </>
+            ) : (
+              <>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                  <polyline points="7 10 12 15 17 10" />
+                  <line x1="12" y1="15" x2="12" y2="3" />
+                </svg>
+                Download PDF
+              </>
+            )}
+          </button>
           <a
             href="/"
             style={{
@@ -163,10 +228,12 @@ function ProposalPreviewContent() {
       </div>
 
       {/* Proposal Template */}
-      <ProposalTemplate
-        project={{ gc_name: proposal.gc_name, address: proposal.project_address }}
-        proposal={proposal}
-      />
+      <div ref={docRef}>
+        <ProposalTemplate
+          project={{ gc_name: proposal.gc_name, address: proposal.project_address }}
+          proposal={proposal}
+        />
+      </div>
     </div>
   )
 }
@@ -174,6 +241,7 @@ function ProposalPreviewContent() {
 export default function ProposalPreviewPage() {
   return (
     <div style={{ background: "#e5e5e5", minHeight: "100vh", padding: "20px 0" }}>
+      <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
       <Suspense fallback={
         <div style={{ maxWidth: "900px", margin: "0 auto", textAlign: "center", paddingTop: "100px" }}>
           <div style={{ fontSize: "18px", color: "#666" }}>Loading...</div>
