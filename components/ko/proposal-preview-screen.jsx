@@ -1,7 +1,8 @@
 "use client"
 
 import { useState, useRef, useEffect } from "react"
-import { ArrowLeft, Download, Mail, ExternalLink, ChevronLeft, ChevronRight, Loader2, ZoomIn, ZoomOut } from "lucide-react"
+import { ArrowLeft, Download, Mail, ExternalLink, Loader2, ZoomIn, ZoomOut } from "lucide-react"
+import { ProposalTemplate } from "./proposal-template"
 
 // Brand colors matching HubSpot template
 const BRAND = {
@@ -1020,54 +1021,50 @@ const proposalStyles = `
 
 // ============ MAIN COMPONENT ============
 export function ProposalPreviewScreen({ project, onBack }) {
-  const [currentPage, setCurrentPage] = useState(0)
-  const [zoom, setZoom] = useState(0.75)
+  const [zoom, setZoom] = useState(0.65)
   const [isExporting, setIsExporting] = useState(false)
-  const [isSendingEmail, setIsSendingEmail] = useState(false)
   const containerRef = useRef(null)
 
-  const proposal = MOCK_PROPOSAL // Will be replaced with real data from Google Sheets
-
-  const pages = [
-    { id: "cover", label: "Cover", component: <CoverPage project={project} proposal={proposal} /> },
-    { id: "project", label: "Project", component: <ProjectPage project={project} proposal={proposal} /> },
-    { id: "clarification", label: "Clarifications", component: <ClarificationPage project={project} proposal={proposal} /> },
-    { id: "terms", label: "Terms", component: <TermsPage project={project} proposal={proposal} /> },
-    { id: "acceptance", label: "Acceptance", component: <AcceptancePage project={project} proposal={proposal} /> },
-    { id: "thankyou", label: "Thank You", component: <ThankYouPage project={project} proposal={proposal} /> },
-  ]
+  // Use the same data structure as the working template
+  const proposal = {
+    gc_name: project?.gc_name || project?.name || "General Contractor",
+    project_address: project?.address || "Project Address",
+    created_at: new Date().toISOString(),
+    date_of_drawings: "02/10/2025",
+    addendum: "01",
+    version: "V1",
+    supersedes: "v0",
+    project_summary: "This project involves the installation of new roofing and exterior cladding systems for the building located at the specified address. Our scope includes complete removal of existing roofing materials, installation of new waterproofing membranes, and application of specified insulation systems.",
+    base_bid_items: MOCK_PROPOSAL.base_bid_items,
+    alternates: MOCK_PROPOSAL.alternates,
+    clarifications: MOCK_PROPOSAL.clarifications,
+  }
 
   const handleDownloadPDF = async () => {
     setIsExporting(true)
     try {
-      // In production, this will call an API to generate PDF using puppeteer or similar
-      await new Promise(resolve => setTimeout(resolve, 1500))
-      alert("PDF export will be implemented with puppeteer/playwright on the backend")
+      const html2pdf = (await import("html2pdf.js")).default
+      const element = containerRef.current?.querySelector(".pv-doc")
+      if (!element) throw new Error("Document not found")
+
+      const filename = `Proposal_${project?.gc_name || project?.name || "Master_Roofing"}_${new Date().toISOString().split("T")[0]}.pdf`
+
+      const opt = {
+        margin: 0,
+        filename,
+        image: { type: "jpeg", quality: 0.98 },
+        html2canvas: { scale: 2, useCORS: true, logging: false },
+        jsPDF: { unit: "px", format: [816, 1056], orientation: "portrait" },
+        pagebreak: { mode: ["css", "legacy"], before: ".pv-page" }
+      }
+
+      await html2pdf().set(opt).from(element).save()
     } catch (error) {
-      alert("Error exporting PDF: " + error.message)
+      console.error("PDF error:", error)
+      window.print()
     } finally {
       setIsExporting(false)
     }
-  }
-
-  const handleEmailGC = async () => {
-    setIsSendingEmail(true)
-    try {
-      await new Promise(resolve => setTimeout(resolve, 1000))
-      alert("Email composer will open with the PDF attached")
-    } catch (error) {
-      alert("Error: " + error.message)
-    } finally {
-      setIsSendingEmail(false)
-    }
-  }
-
-  const handleHubSpotQuote = () => {
-    alert("This will create a quote in HubSpot using the same data")
-  }
-
-  const handlePrint = () => {
-    window.print()
   }
 
   if (!project) {
@@ -1080,9 +1077,6 @@ export function ProposalPreviewScreen({ project, onBack }) {
 
   return (
     <div className="flex-1 flex flex-col bg-background overflow-hidden">
-      {/* Inject styles */}
-      <style dangerouslySetInnerHTML={{ __html: proposalStyles }} />
-
       {/* Header */}
       <div className="px-6 py-4 border-b border-border">
         <div className="flex items-center justify-between">
@@ -1106,7 +1100,7 @@ export function ProposalPreviewScreen({ project, onBack }) {
             {/* Zoom Controls */}
             <div className="flex items-center gap-1 mr-4 border-r border-border pr-4">
               <button
-                onClick={() => setZoom(Math.max(0.5, zoom - 0.1))}
+                onClick={() => setZoom(Math.max(0.4, zoom - 0.1))}
                 className="p-2 rounded-lg hover:bg-secondary transition-colors"
                 title="Zoom Out"
               >
@@ -1116,7 +1110,7 @@ export function ProposalPreviewScreen({ project, onBack }) {
                 {Math.round(zoom * 100)}%
               </span>
               <button
-                onClick={() => setZoom(Math.min(1.5, zoom + 0.1))}
+                onClick={() => setZoom(Math.min(1.2, zoom + 0.1))}
                 className="p-2 rounded-lg hover:bg-secondary transition-colors"
                 title="Zoom In"
               >
@@ -1127,118 +1121,38 @@ export function ProposalPreviewScreen({ project, onBack }) {
             <button
               onClick={handleDownloadPDF}
               disabled={isExporting}
-              className="flex items-center gap-2 px-3 py-2 rounded-lg bg-secondary text-foreground hover:bg-secondary/80 transition-colors disabled:opacity-50"
+              className="flex items-center gap-2 px-4 py-2 rounded-lg text-white hover:opacity-90 transition-colors disabled:opacity-50"
+              style={{ background: "#e53935" }}
             >
               {isExporting ? (
                 <Loader2 className="w-4 h-4 animate-spin" />
               ) : (
                 <Download className="w-4 h-4" />
               )}
-              <span className="text-sm font-medium hidden sm:inline">Download PDF</span>
-            </button>
-
-            <button
-              onClick={handleEmailGC}
-              disabled={isSendingEmail}
-              className="flex items-center gap-2 px-3 py-2 rounded-lg bg-secondary text-foreground hover:bg-secondary/80 transition-colors disabled:opacity-50"
-            >
-              {isSendingEmail ? (
-                <Loader2 className="w-4 h-4 animate-spin" />
-              ) : (
-                <Mail className="w-4 h-4" />
-              )}
-              <span className="text-sm font-medium hidden sm:inline">Email GC</span>
-            </button>
-
-            <button
-              onClick={handleHubSpotQuote}
-              className="flex items-center gap-2 px-3 py-2 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
-            >
-              <ExternalLink className="w-4 h-4" />
-              <span className="text-sm font-medium hidden sm:inline">HubSpot Quote</span>
+              <span className="text-sm font-medium">Download PDF</span>
             </button>
           </div>
         </div>
       </div>
 
-      {/* Main Content Area */}
-      <div className="flex-1 flex overflow-hidden">
-        {/* Page Navigator Sidebar */}
-        <div className="w-48 border-r border-border bg-card overflow-y-auto py-4">
-          <div className="px-3 mb-3">
-            <span className="text-xs font-medium text-foreground-tertiary uppercase tracking-wider">Pages</span>
-          </div>
-          {pages.map((page, idx) => (
-            <button
-              key={page.id}
-              onClick={() => setCurrentPage(idx)}
-              className={`w-full px-3 py-2 text-left text-sm transition-colors ${
-                currentPage === idx
-                  ? "bg-primary/10 text-primary border-l-2 border-primary"
-                  : "text-foreground-secondary hover:bg-secondary"
-              }`}
-            >
-              <span className="text-foreground-tertiary mr-2">{idx + 1}.</span>
-              {page.label}
-            </button>
-          ))}
-        </div>
-
-        {/* Document Preview */}
+      {/* Document Preview - scrollable with all pages */}
+      <div
+        ref={containerRef}
+        className="flex-1 overflow-auto p-8"
+        style={{ background: "#e5e5e5" }}
+      >
         <div
-          ref={containerRef}
-          className="flex-1 overflow-auto p-8 bg-secondary/30"
+          style={{
+            transform: `scale(${zoom})`,
+            transformOrigin: 'top center',
+            transition: 'transform 0.2s ease'
+          }}
         >
-          <div
-            className="proposal-document"
-            style={{
-              transform: `scale(${zoom})`,
-              transformOrigin: 'top center',
-              transition: 'transform 0.2s ease'
-            }}
-          >
-            {pages[currentPage].component}
-          </div>
+          <ProposalTemplate
+            project={{ gc_name: proposal.gc_name, address: proposal.project_address }}
+            proposal={proposal}
+          />
         </div>
-      </div>
-
-      {/* Footer - Page Navigation */}
-      <div className="px-6 py-4 border-t border-border bg-card flex items-center justify-center gap-4">
-        <button
-          onClick={() => setCurrentPage(Math.max(0, currentPage - 1))}
-          disabled={currentPage === 0}
-          className="p-2 rounded-lg hover:bg-secondary transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          <ChevronLeft className="w-5 h-5 text-foreground-secondary" />
-        </button>
-
-        <div className="flex items-center gap-2">
-          {pages.map((page, idx) => (
-            <button
-              key={page.id}
-              onClick={() => setCurrentPage(idx)}
-              className={`w-8 h-8 rounded-lg text-sm font-medium transition-colors ${
-                currentPage === idx
-                  ? "bg-primary text-primary-foreground"
-                  : "hover:bg-secondary text-foreground-secondary"
-              }`}
-            >
-              {idx + 1}
-            </button>
-          ))}
-        </div>
-
-        <button
-          onClick={() => setCurrentPage(Math.min(pages.length - 1, currentPage + 1))}
-          disabled={currentPage === pages.length - 1}
-          className="p-2 rounded-lg hover:bg-secondary transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          <ChevronRight className="w-5 h-5 text-foreground-secondary" />
-        </button>
-
-        <span className="text-sm text-foreground-tertiary ml-4">
-          Page {currentPage + 1} of {pages.length}
-        </span>
       </div>
     </div>
   )
