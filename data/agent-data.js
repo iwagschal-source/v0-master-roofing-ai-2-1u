@@ -70,6 +70,35 @@ export const connectionTypes = {
   sync: { color: "#10b981", label: "Sync" },
 }
 
+// Model configuration for icons
+export const modelConfig = {
+  gemini: {
+    name: "Google Gemini",
+    color: "#4285F4",
+    icon: "G",
+  },
+  claude: {
+    name: "Anthropic Claude",
+    color: "#D97706",
+    icon: "C",
+  },
+  openai: {
+    name: "OpenAI GPT",
+    color: "#10A37F",
+    icon: "O",
+  },
+  vertex: {
+    name: "Vertex AI",
+    color: "#EA4335",
+    icon: "V",
+  },
+  custom: {
+    name: "Custom Model",
+    color: "#6B7280",
+    icon: "?",
+  },
+}
+
 // ============================================================================
 // REAL AGENT PROMPTS (extracted from production code)
 // ============================================================================
