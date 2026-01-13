@@ -7,7 +7,7 @@ const PAGE = {
   width: 816,
   height: 1056,
   headerHeight: 65,
-  padding: { top: 20, right: 45, bottom: 80, left: 45 },
+  padding: { top: 35, right: 55, bottom: 80, left: 55 },
 }
 PAGE.usableHeight = PAGE.height - PAGE.headerHeight - PAGE.padding.top - PAGE.padding.bottom
 
@@ -336,7 +336,7 @@ const styles = `
 .pv-meta-value { color: #333; }
 
 /* Content */
-.pv-content { padding: ${PAGE.padding.top}px ${PAGE.padding.right}px ${PAGE.padding.bottom}px ${PAGE.padding.left}px; }
+.pv-content { padding: 35px 55px 80px 55px; }
 .pv-content.pv-centered { text-align: center; }
 
 /* Cover */
@@ -353,6 +353,7 @@ const styles = `
 .pv-cover-logo-img {
   height: 38px;
   width: auto;
+  filter: brightness(0) invert(1);
 }
 .pv-cover-date { position: absolute; top: 240px; right: 50px; font-size: 14px; font-weight: 600; }
 .pv-cover-title { position: absolute; top: 300px; left: 50px; font-size: 80px; font-weight: 700; margin: 0; }
@@ -364,8 +365,9 @@ const styles = `
 .pv-cover-site { position: absolute; bottom: 22px; left: 0; right: 0; text-align: center; font-size: 9px; color: #aaa; }
 
 /* Summary */
-.pv-summary h2 { font-size: 13px; font-weight: 700; margin: 0 0 6px; }
-.pv-summary p { font-size: 11px; line-height: 1.6; margin: 0 0 16px; }
+.pv-summary { max-width: 680px; margin: 0 auto 10px; text-align: center; }
+.pv-summary h2 { font-size: 13px; font-weight: 700; margin: 0 0 8px; }
+.pv-summary p { font-size: 11px; line-height: 1.65; margin: 0 0 16px; text-align: justify; }
 
 /* Section Title with favicon icon */
 .pv-section-title { display: flex; align-items: center; gap: 8px; font-size: 15px; font-weight: 700; margin: 18px 0 10px; }
@@ -387,8 +389,8 @@ const styles = `
 
 /* Clarifications */
 .pv-clar-list { list-style: none; padding: 0; margin: 0 auto; max-width: 620px; text-align: left; }
-.pv-clar-list li { position: relative; padding-left: 20px; margin-bottom: 14px; font-size: 12px; line-height: 1.6; }
-.pv-clar-list li::before { content: ''; position: absolute; left: 0; top: 5px; width: 9px; height: 9px; background: #e53935; border-radius: 50%; }
+.pv-clar-list li { position: relative; padding-left: 18px; margin-bottom: 14px; font-size: 12px; line-height: 1.6; }
+.pv-clar-list li::before { content: ''; position: absolute; left: 0; top: 6px; width: 6px; height: 6px; background: #e53935; border-radius: 0; }
 
 /* Terms */
 .pv-term { margin-bottom: 18px; }
