@@ -1997,41 +1997,415 @@ function ScheduleTab({ agent }) {
 }
 
 function SettingsTab({ agent }) {
+  // Edit state for each section
+  const [editingSections, setEditingSections] = useState({})
+  const [saving, setSaving] = useState(false)
+  const [saveError, setSaveError] = useState(null)
+  const [saveSuccess, setSaveSuccess] = useState(false)
+
+  // Form data state
+  const [formData, setFormData] = useState({
+    name: agent.name || '',
+    description: agent.description || '',
+    model: agent.modelKey || agent.model || '',
+    tools: agent.tools || [],
+    communicationPreset: agent.communicationPreset || 'worker',
+    schedule: agent.schedule || 'always-on',
+  })
+
+  // Available options from backend
+  const [availableModels, setAvailableModels] = useState([])
+  const [availableTools, setAvailableTools] = useState([])
+  const [communicationPresets, setCommunicationPresets] = useState([
+    { id: "worker", name: "Worker", description: "Can be called by KO Prime and orchestrators" },
+    { id: "peer", name: "Peer", description: "Can call and be called by any agent" },
+    { id: "orchestrator", name: "Orchestrator", description: "Can call all agents, not called by others" },
+    { id: "isolated", name: "Isolated", description: "Cannot communicate with other agents" },
+  ])
+
+  const scheduleOptions = [
+    { id: "always-on", name: "Always On", description: "24/7 availability" },
+    { id: "business-hours", name: "Business Hours", description: "8AM-6PM EST" },
+    { id: "on-demand", name: "On Demand", description: "Only when called" },
+  ]
+
+  // Fetch available options
+  useEffect(() => {
+    async function fetchOptions() {
+      try {
+        const [modelsRes, toolsRes, presetsRes] = await Promise.all([
+          fetch('/api/ko/factory/models'),
+          fetch('/api/ko/factory/tools'),
+          fetch('/api/ko/factory/communication-presets'),
+        ])
+
+        if (modelsRes.ok) {
+          const data = await modelsRes.json()
+          setAvailableModels(data.models || [])
+        }
+        if (toolsRes.ok) {
+          const data = await toolsRes.json()
+          setAvailableTools(data.tools || [])
+        }
+        if (presetsRes.ok) {
+          const data = await presetsRes.json()
+          if (data.presets?.length > 0) {
+            setCommunicationPresets(data.presets)
+          }
+        }
+      } catch (err) {
+        console.error('Failed to fetch options:', err)
+      }
+    }
+    fetchOptions()
+  }, [])
+
+  const toggleEdit = (section) => {
+    setEditingSections(prev => ({ ...prev, [section]: !prev[section] }))
+    setSaveSuccess(false)
+  }
+
+  const updateFormData = (field, value) => {
+    setFormData(prev => ({ ...prev, [field]: value }))
+    setSaveSuccess(false)
+  }
+
+  const hasChanges = () => {
+    return (
+      formData.name !== (agent.name || '') ||
+      formData.description !== (agent.description || '') ||
+      formData.model !== (agent.modelKey || agent.model || '') ||
+      JSON.stringify(formData.tools) !== JSON.stringify(agent.tools || []) ||
+      formData.communicationPreset !== (agent.communicationPreset || 'worker') ||
+      formData.schedule !== (agent.schedule || 'always-on')
+    )
+  }
+
+  const handleSave = async () => {
+    setSaving(true)
+    setSaveError(null)
+    setSaveSuccess(false)
+
+    try {
+      const res = await fetch(`/api/ko/factory/agents/${agent.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: formData.name,
+          description: formData.description,
+          model: formData.model,
+          tools: formData.tools,
+          communication_preset: formData.communicationPreset,
+          settings: { schedule: formData.schedule },
+        }),
+      })
+
+      if (!res.ok) {
+        const errorText = await res.text()
+        throw new Error(errorText || 'Failed to save')
+      }
+
+      setSaveSuccess(true)
+      setEditingSections({})
+    } catch (err) {
+      console.error('Failed to save:', err)
+      setSaveError(err.message)
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  // Group models by provider
+  const modelsByProvider = availableModels.reduce((acc, model) => {
+    const provider = model.provider || 'other'
+    if (!acc[provider]) acc[provider] = []
+    acc[provider].push(model)
+    return acc
+  }, {})
+
+  // Group tools by category
+  const toolsByCategory = availableTools.reduce((acc, tool) => {
+    const category = tool.category || 'other'
+    if (!acc[category]) acc[category] = []
+    acc[category].push(tool)
+    return acc
+  }, {})
+
   return (
     <div className="space-y-6">
-      {/* Identity */}
+      {/* Identity Section */}
       <div className="bg-card border border-border rounded-xl p-6">
-        <h2 className="font-semibold text-foreground mb-4 flex items-center gap-2">
-          <Settings size={18} />
-          Identity
-        </h2>
-        <div className="space-y-4">
-          <div>
-            <label className="text-sm text-muted-foreground mb-2 block">Agent Name</label>
-            <input
-              type="text"
-              defaultValue={agent.name}
-              className="w-full px-4 py-2 bg-secondary border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
-            />
-          </div>
-          <div>
-            <label className="text-sm text-muted-foreground mb-2 block">Description</label>
-            <textarea
-              defaultValue={agent.description}
-              rows={3}
-              className="w-full px-4 py-2 bg-secondary border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary resize-none"
-            />
-          </div>
-          <div>
-            <label className="text-sm text-muted-foreground mb-2 block">Model</label>
-            <select className="w-full px-4 py-2 bg-secondary border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary">
-              <option>Gemini 2.0 Flash</option>
-              <option>Claude Sonnet</option>
-              <option>GPT-4o-mini</option>
-              <option>Vertex AI Search</option>
-            </select>
-          </div>
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="font-semibold text-foreground flex items-center gap-2">
+            <Bot size={18} />
+            Identity
+          </h2>
+          <button
+            onClick={() => toggleEdit('identity')}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm transition-colors ${
+              editingSections.identity
+                ? 'bg-primary/20 text-primary'
+                : 'bg-secondary text-muted-foreground hover:text-foreground'
+            }`}
+          >
+            <Pencil size={14} />
+            {editingSections.identity ? 'Editing' : 'Edit'}
+          </button>
         </div>
+
+        {editingSections.identity ? (
+          <div className="space-y-4">
+            <div>
+              <label className="text-sm text-muted-foreground mb-2 block">Agent Name</label>
+              <input
+                type="text"
+                value={formData.name}
+                onChange={(e) => updateFormData('name', e.target.value)}
+                className="w-full px-4 py-2 bg-secondary border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
+              />
+            </div>
+            <div>
+              <label className="text-sm text-muted-foreground mb-2 block">Description</label>
+              <textarea
+                value={formData.description}
+                onChange={(e) => updateFormData('description', e.target.value)}
+                rows={3}
+                className="w-full px-4 py-2 bg-secondary border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary resize-none"
+              />
+            </div>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Name</span>
+              <span className="font-medium">{formData.name}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Description</span>
+              <span className="text-sm text-right max-w-md">{formData.description}</span>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Model Section */}
+      <div className="bg-card border border-border rounded-xl p-6">
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="font-semibold text-foreground flex items-center gap-2">
+            <Brain size={18} className="text-purple-400" />
+            Model
+          </h2>
+          <button
+            onClick={() => toggleEdit('model')}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm transition-colors ${
+              editingSections.model
+                ? 'bg-primary/20 text-primary'
+                : 'bg-secondary text-muted-foreground hover:text-foreground'
+            }`}
+          >
+            <Pencil size={14} />
+            {editingSections.model ? 'Editing' : 'Edit'}
+          </button>
+        </div>
+
+        {editingSections.model ? (
+          <div className="space-y-4 max-h-80 overflow-y-auto">
+            {Object.entries(modelsByProvider).map(([provider, models]) => (
+              <div key={provider}>
+                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-2">{provider}</p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  {models.map((model) => (
+                    <button
+                      key={model.id}
+                      onClick={() => updateFormData('model', model.id)}
+                      className={`flex items-center gap-2 p-3 rounded-lg border-2 text-left transition-colors ${
+                        formData.model === model.id
+                          ? 'border-primary bg-primary/10'
+                          : 'border-border bg-secondary hover:border-muted-foreground'
+                      }`}
+                    >
+                      <span className="font-medium text-sm">{model.name}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="flex items-center gap-3">
+            <AgentModelIcon modelKey={agent.modelKey} size="sm" />
+            <span className="font-medium">{availableModels.find(m => m.id === formData.model)?.name || formData.model}</span>
+          </div>
+        )}
+      </div>
+
+      {/* Tools Section */}
+      <div className="bg-card border border-border rounded-xl p-6">
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="font-semibold text-foreground flex items-center gap-2">
+            <Database size={18} className="text-blue-400" />
+            Tools
+            <span className="text-xs text-muted-foreground">({formData.tools.length} selected)</span>
+          </h2>
+          <button
+            onClick={() => toggleEdit('tools')}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm transition-colors ${
+              editingSections.tools
+                ? 'bg-primary/20 text-primary'
+                : 'bg-secondary text-muted-foreground hover:text-foreground'
+            }`}
+          >
+            <Pencil size={14} />
+            {editingSections.tools ? 'Editing' : 'Edit'}
+          </button>
+        </div>
+
+        {editingSections.tools ? (
+          <div className="space-y-4 max-h-80 overflow-y-auto">
+            {Object.entries(toolsByCategory).map(([category, tools]) => (
+              <div key={category}>
+                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-2">{category}</p>
+                <div className="space-y-2">
+                  {tools.map((tool) => (
+                    <label
+                      key={tool.id}
+                      className={`flex items-center gap-3 p-3 rounded-lg cursor-pointer transition-colors ${
+                        formData.tools.includes(tool.id)
+                          ? 'bg-primary/10 border border-primary'
+                          : 'bg-secondary border border-transparent hover:bg-accent'
+                      }`}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={formData.tools.includes(tool.id)}
+                        onChange={(e) => {
+                          if (e.target.checked) {
+                            updateFormData('tools', [...formData.tools, tool.id])
+                          } else {
+                            updateFormData('tools', formData.tools.filter(t => t !== tool.id))
+                          }
+                        }}
+                        className="w-4 h-4"
+                      />
+                      <div>
+                        <span className="font-medium text-sm">{tool.name}</span>
+                        <p className="text-xs text-muted-foreground">{tool.description}</p>
+                      </div>
+                    </label>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="flex flex-wrap gap-2">
+            {formData.tools.length > 0 ? formData.tools.map((toolId) => {
+              const tool = availableTools.find(t => t.id === toolId)
+              return (
+                <span key={toolId} className="px-2 py-1 bg-blue-500/20 text-blue-400 rounded text-xs">
+                  {tool?.name || toolId}
+                </span>
+              )
+            }) : (
+              <span className="text-muted-foreground text-sm">No tools selected</span>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* Communication Section */}
+      <div className="bg-card border border-border rounded-xl p-6">
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="font-semibold text-foreground flex items-center gap-2">
+            <Network size={18} className="text-purple-400" />
+            Communication
+          </h2>
+          <button
+            onClick={() => toggleEdit('communication')}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm transition-colors ${
+              editingSections.communication
+                ? 'bg-primary/20 text-primary'
+                : 'bg-secondary text-muted-foreground hover:text-foreground'
+            }`}
+          >
+            <Pencil size={14} />
+            {editingSections.communication ? 'Editing' : 'Edit'}
+          </button>
+        </div>
+
+        {editingSections.communication ? (
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {communicationPresets.map((preset) => (
+              <button
+                key={preset.id}
+                onClick={() => updateFormData('communicationPreset', preset.id)}
+                className={`p-4 rounded-lg border-2 text-left transition-colors ${
+                  formData.communicationPreset === preset.id
+                    ? 'border-purple-500 bg-purple-500/10'
+                    : 'border-border bg-secondary hover:border-muted-foreground'
+                }`}
+              >
+                <p className="font-medium">{preset.name}</p>
+                <p className="text-xs text-muted-foreground mt-1">{preset.description}</p>
+              </button>
+            ))}
+          </div>
+        ) : (
+          <div className="flex items-center gap-2">
+            <span className="px-3 py-1.5 bg-purple-500/20 text-purple-400 rounded-lg text-sm font-medium">
+              {communicationPresets.find(p => p.id === formData.communicationPreset)?.name || formData.communicationPreset}
+            </span>
+            <span className="text-sm text-muted-foreground">
+              {communicationPresets.find(p => p.id === formData.communicationPreset)?.description}
+            </span>
+          </div>
+        )}
+      </div>
+
+      {/* Schedule Section */}
+      <div className="bg-card border border-border rounded-xl p-6">
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="font-semibold text-foreground flex items-center gap-2">
+            <Calendar size={18} className="text-amber-400" />
+            Schedule
+          </h2>
+          <button
+            onClick={() => toggleEdit('schedule')}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm transition-colors ${
+              editingSections.schedule
+                ? 'bg-primary/20 text-primary'
+                : 'bg-secondary text-muted-foreground hover:text-foreground'
+            }`}
+          >
+            <Pencil size={14} />
+            {editingSections.schedule ? 'Editing' : 'Edit'}
+          </button>
+        </div>
+
+        {editingSections.schedule ? (
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            {scheduleOptions.map((option) => (
+              <button
+                key={option.id}
+                onClick={() => updateFormData('schedule', option.id)}
+                className={`p-4 rounded-lg border-2 text-left transition-colors ${
+                  formData.schedule === option.id
+                    ? 'border-amber-500 bg-amber-500/10'
+                    : 'border-border bg-secondary hover:border-muted-foreground'
+                }`}
+              >
+                <p className="font-medium">{option.name}</p>
+                <p className="text-xs text-muted-foreground mt-1">{option.description}</p>
+              </button>
+            ))}
+          </div>
+        ) : (
+          <div className="flex items-center gap-2">
+            <span className="px-3 py-1.5 bg-amber-500/20 text-amber-400 rounded-lg text-sm font-medium">
+              {scheduleOptions.find(s => s.id === formData.schedule)?.name || formData.schedule}
+            </span>
+          </div>
+        )}
       </div>
 
       {/* Danger Zone */}
@@ -2060,12 +2434,39 @@ function SettingsTab({ agent }) {
         </div>
       </div>
 
-      {/* Save Button */}
-      <div className="flex justify-end">
-        <button className="px-6 py-2 bg-primary text-primary-foreground rounded-lg font-medium hover:bg-primary/90 transition-colors">
-          Save Changes
-        </button>
-      </div>
+      {/* Save Button - Fixed at bottom when there are changes */}
+      {hasChanges() && (
+        <div className="sticky bottom-4 flex justify-end">
+          <div className="bg-card border border-border rounded-xl p-4 shadow-lg flex items-center gap-4">
+            {saveError && (
+              <span className="text-red-400 text-sm">{saveError}</span>
+            )}
+            {saveSuccess && (
+              <span className="text-emerald-400 text-sm flex items-center gap-1">
+                <CheckCircle size={14} />
+                Saved successfully
+              </span>
+            )}
+            <button
+              onClick={handleSave}
+              disabled={saving}
+              className="flex items-center gap-2 px-6 py-2 bg-primary text-primary-foreground rounded-lg font-medium hover:bg-primary/90 transition-colors disabled:opacity-50"
+            >
+              {saving ? (
+                <>
+                  <Loader2 size={16} className="animate-spin" />
+                  Saving...
+                </>
+              ) : (
+                <>
+                  <Save size={16} />
+                  Save Changes
+                </>
+              )}
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
