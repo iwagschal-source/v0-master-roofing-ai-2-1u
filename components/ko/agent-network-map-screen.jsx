@@ -17,47 +17,69 @@ import {
 import { agents, statusConfig, connectionTypes, getAllConnections, getBottlenecks } from "@/data/agent-data"
 import { AgentModelIcon, StatusDot, QueueIndicator } from "./agent-model-icon"
 
-// Calculate node positions in a hierarchical layout
+// Ring configuration for concentric circle layout
+const RING_CONFIG = {
+  center: { x: 500, y: 280 },  // Center of the canvas
+  innerRadius: 0,              // USER at center
+  middleRadius: 140,           // Orchestrators
+  outerRadius: 240,            // All other agents
+}
+
+// Determine which ring an agent belongs to
+function getAgentRing(agent) {
+  // Orchestrators go in middle ring
+  if (agent.role === 'orchestrator' || agent.role === 'super_agent') return 'middle'
+  if (agent.id === 'CAO-GEM-001' || agent.id === 'CAO-PRIME-001') return 'middle'
+  // Everyone else goes in outer ring
+  return 'outer'
+}
+
+// Calculate node positions in concentric circles
 function calculatePositions(agentList) {
   const positions = {}
-  const layers = {
-    user: { y: 60, nodes: ["USER"] },
-    orchestrator: { y: 160, nodes: [] },
-    primary: { y: 290, nodes: [] },
-    support: { y: 420, nodes: [] },
+  const { center, middleRadius, outerRadius } = RING_CONFIG
+
+  // Categorize agents into rings
+  const rings = {
+    middle: [],  // Orchestrators
+    outer: [],   // All other agents
   }
 
-  // Categorize agents by role
   agentList.forEach((agent) => {
-    if (agent.id.includes("ORCH")) {
-      layers.orchestrator.nodes.push(agent.id)
-    } else if (agent.id.includes("AUDIT")) {
-      layers.support.nodes.push(agent.id) // Audit at bottom to show it monitoring all
-    } else if (["AGT-BQ-001", "AGT-HS-001", "AGT-EMAIL-001"].includes(agent.id)) {
-      layers.primary.nodes.push(agent.id)
-    } else {
-      layers.support.nodes.push(agent.id)
-    }
+    const ring = getAgentRing(agent)
+    rings[ring].push(agent.id)
   })
 
-  // Position nodes in each layer
-  const canvasWidth = 1000
-  Object.entries(layers).forEach(([layerName, layer]) => {
-    const nodeCount = layer.nodes.length
-    if (nodeCount === 0) return
-    const spacing = Math.min(200, (canvasWidth - 100) / nodeCount)
-    const startX = (canvasWidth - (nodeCount - 1) * spacing) / 2
+  // Position USER at center
+  positions["USER"] = { x: center.x, y: center.y }
 
-    layer.nodes.forEach((nodeId, idx) => {
+  // Position middle ring (orchestrators) - evenly spaced around circle
+  const middleCount = rings.middle.length
+  if (middleCount > 0) {
+    const angleStep = (2 * Math.PI) / middleCount
+    const startAngle = -Math.PI / 2  // Start from top
+    rings.middle.forEach((nodeId, idx) => {
+      const angle = startAngle + idx * angleStep
       positions[nodeId] = {
-        x: startX + idx * spacing,
-        y: layer.y,
+        x: center.x + middleRadius * Math.cos(angle),
+        y: center.y + middleRadius * Math.sin(angle),
       }
     })
-  })
+  }
 
-  // Add user node at top center
-  positions["USER"] = { x: canvasWidth / 2, y: 60 }
+  // Position outer ring (all other agents) - evenly spaced around circle
+  const outerCount = rings.outer.length
+  if (outerCount > 0) {
+    const angleStep = (2 * Math.PI) / outerCount
+    const startAngle = -Math.PI / 2  // Start from top
+    rings.outer.forEach((nodeId, idx) => {
+      const angle = startAngle + idx * angleStep
+      positions[nodeId] = {
+        x: center.x + outerRadius * Math.cos(angle),
+        y: center.y + outerRadius * Math.sin(angle),
+      }
+    })
+  }
 
   return positions
 }
@@ -342,12 +364,12 @@ export function AgentNetworkMapScreen({ onBack, onSelectAgent }) {
           >
             <svg
               ref={svgRef}
-              viewBox="0 0 1000 520"
+              viewBox="0 0 1000 560"
               className="w-full h-full"
               style={{
                 transform: `scale(${zoom})`,
                 transformOrigin: "center",
-                minHeight: "500px",
+                minHeight: "560px",
               }}
             >
               {/* Background grid */}
@@ -358,18 +380,68 @@ export function AgentNetworkMapScreen({ onBack, onSelectAgent }) {
               </defs>
               <rect width="100%" height="100%" fill="url(#grid)" />
 
+              {/* Concentric ring guides */}
+              <g className="ring-guides">
+                {/* Middle ring (orchestrators) */}
+                <circle
+                  cx={RING_CONFIG.center.x}
+                  cy={RING_CONFIG.center.y}
+                  r={RING_CONFIG.middleRadius}
+                  fill="none"
+                  stroke="#334155"
+                  strokeWidth="1"
+                  strokeDasharray="4,4"
+                  opacity="0.5"
+                />
+                {/* Outer ring (agents) */}
+                <circle
+                  cx={RING_CONFIG.center.x}
+                  cy={RING_CONFIG.center.y}
+                  r={RING_CONFIG.outerRadius}
+                  fill="none"
+                  stroke="#334155"
+                  strokeWidth="1"
+                  strokeDasharray="4,4"
+                  opacity="0.5"
+                />
+                {/* Ring labels */}
+                <text
+                  x={RING_CONFIG.center.x}
+                  y={RING_CONFIG.center.y - RING_CONFIG.middleRadius - 8}
+                  textAnchor="middle"
+                  fill="#64748b"
+                  fontSize="10"
+                  fontWeight="500"
+                >
+                  ORCHESTRATORS
+                </text>
+                <text
+                  x={RING_CONFIG.center.x}
+                  y={RING_CONFIG.center.y - RING_CONFIG.outerRadius - 8}
+                  textAnchor="middle"
+                  fill="#64748b"
+                  fontSize="10"
+                  fontWeight="500"
+                >
+                  AGENTS
+                </text>
+              </g>
+
               {/* Connection lines (rendered first, behind nodes) */}
               {filteredConnections.map((conn, idx) => {
-                const fromPos = positions[conn.from]
-                const toPos = positions[conn.to]
+                // Support both old (from/to) and new (sourceId/targetId) formats
+                const sourceId = conn.sourceId || conn.from
+                const targetId = conn.targetId || conn.to
+                const fromPos = positions[sourceId]
+                const toPos = positions[targetId]
                 if (!fromPos || !toPos) return null
 
                 const isActive =
-                  activeAgentIds.has(conn.from) || activeAgentIds.has(conn.to)
+                  activeAgentIds.has(sourceId) || activeAgentIds.has(targetId)
 
                 return (
                   <ConnectionLine
-                    key={`${conn.from}-${conn.to}-${idx}`}
+                    key={`${sourceId}-${targetId}-${idx}`}
                     from={fromPos}
                     to={toPos}
                     type={conn.type}
