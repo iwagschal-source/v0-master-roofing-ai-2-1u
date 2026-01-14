@@ -17,8 +17,8 @@ import {
 import { agents, statusConfig, connectionTypes, getAllConnections, getBottlenecks } from "@/data/agent-data"
 import { AgentModelIcon, StatusDot, QueueIndicator } from "./agent-model-icon"
 
-// Minimum spacing between nodes (node diameter + padding)
-const MIN_NODE_SPACING = 110
+// Minimum spacing between nodes (node diameter + generous padding for readability)
+const MIN_NODE_SPACING = 180
 
 // Determine which ring an agent belongs to
 function getAgentRing(agent) {
