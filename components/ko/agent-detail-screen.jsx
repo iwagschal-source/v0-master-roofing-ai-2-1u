@@ -530,7 +530,7 @@ function CodeTab({ agent }) {
             <Settings size={18} className="text-amber-400" />
             Full Configuration JSON
           </h2>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-shrink-0">
             {saveStatus === 'success' && (
               <span className="text-xs text-emerald-400 flex items-center gap-1">
                 <CheckCircle size={14} /> Saved
@@ -542,9 +542,9 @@ function CodeTab({ agent }) {
             {!editMode ? (
               <button
                 onClick={() => setEditMode(true)}
-                className="px-3 py-1.5 bg-primary text-primary-foreground rounded-lg text-sm flex items-center gap-1 hover:bg-primary/80"
+                className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-sm font-medium flex items-center gap-2 transition-colors"
               >
-                <Pencil size={14} /> Edit JSON
+                <Pencil size={16} /> Edit JSON
               </button>
             ) : (
               <>
