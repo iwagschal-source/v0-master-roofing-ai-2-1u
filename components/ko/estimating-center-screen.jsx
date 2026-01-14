@@ -129,6 +129,7 @@ export function EstimatingCenterScreen({ onSelectProject, onBack }) {
   const [showSheet, setShowSheet] = useState(false)
   const [uploadingFile, setUploadingFile] = useState(false)
   const [uploadResult, setUploadResult] = useState(null)
+  const [bluebeamData, setBluebeamData] = useState(null) // Converted Bluebeam data for sheet
   const fileInputRef = useRef(null)
 
   // Chat state
@@ -288,9 +289,14 @@ export function EstimatingCenterScreen({ onSelectProject, onBack }) {
       const data = await res.json()
 
       if (res.ok && data.success) {
+        // Convert Bluebeam items to EstimatingSheet format
+        const sheetData = convertBluebeamToSheetData(data.items || [])
+        setBluebeamData(sheetData)
+
         setUploadResult({
           success: true,
           summary: data.summary,
+          items: data.items,
           message: `Processed ${data.summary?.total_items || 0} items`
         })
       } else {
@@ -307,6 +313,84 @@ export function EstimatingCenterScreen({ onSelectProject, onBack }) {
     } finally {
       setUploadingFile(false)
     }
+  }
+
+  // Convert Bluebeam items to EstimatingSheet data format
+  const convertBluebeamToSheetData = (items) => {
+    // MR Template item mappings (fuzzy match Bluebeam subjects to template IDs)
+    const mappings = {
+      // Roofing
+      'vapor barrier': 'MR-001VB',
+      'temp waterproofing': 'MR-001VB',
+      'pitch': 'MR-002PITCH',
+      'built-up': 'MR-003BU2PLY',
+      '2 ply': 'MR-003BU2PLY',
+      'irma': 'MR-006IRMA',
+      'up and over': 'MR-004UO',
+      'scupper': 'MR-005SCUPPER',
+      'gutter': 'MR-005SCUPPER',
+      'pmma': 'MR-007PMMA',
+      'drain': 'MR-010DRAIN',
+      'doorpan': 'MR-011DOORSTD',
+      'door pan': 'MR-011DOORSTD',
+      'hatch': 'MR-013HATCHSF',
+      'skylight': 'MR-013HATCHSF',
+      'fence post': 'MR-016FENCE',
+      'railing': 'MR-017RAIL',
+      'plumbing': 'MR-018PLUMB',
+      'mechanical': 'MR-019MECH',
+      'davit': 'MR-020DAVIT',
+      'ac unit': 'MR-021AC',
+      'dunnage': 'MR-021AC',
+      'coping': 'MR-022COPELO',
+      'gravel stop': 'MR-022COPELO',
+      'edge metal': 'MR-022COPELO',
+      'flashing': 'MR-025FLASHBLDG',
+      'counter': 'MR-025FLASHBLDG',
+      'overburden': 'MR-027OBIRMA',
+      'paver': 'MR-028PAVER',
+      'green roof': 'MR-030GREEN',
+      // Balconies
+      'traffic coating': 'MR-033TRAFFIC',
+      'drip edge': 'MR-034DRIP',
+      'l flashing': 'MR-035LFLASH',
+      'liquid l': 'MR-035LFLASH',
+      // Exterior
+      'brick': 'MR-037BRICKWP',
+      'panel': 'MR-040PANELWP',
+      'eifs': 'MR-043EIFS',
+      'stucco': 'MR-046STUCCO',
+      'drip cap': 'MR-047DRIPCAP',
+      'sill': 'MR-048SILL',
+      'tie-in': 'MR-049TIEIN',
+      'tie in': 'MR-049TIEIN',
+    }
+
+    const data = {}
+
+    for (const item of items) {
+      const nameLower = item.item_name?.toLowerCase() || ''
+
+      // Find matching template item
+      let matchedId = null
+      for (const [keyword, templateId] of Object.entries(mappings)) {
+        if (nameLower.includes(keyword)) {
+          matchedId = templateId
+          break
+        }
+      }
+
+      if (matchedId) {
+        // For now, put all quantity in column 0 (first location)
+        // Could be smarter based on item.spaces array
+        data[matchedId] = {
+          rate: item.rate || 0,
+          values: { 0: item.quantity || 0 }
+        }
+      }
+    }
+
+    return { data }
   }
 
   const handleChatSend = async () => {
@@ -570,6 +654,7 @@ export function EstimatingCenterScreen({ onSelectProject, onBack }) {
                   projectId={selectedProject.project_id}
                   projectName={selectedProject.project_name}
                   gcName={selectedProject.gc_name}
+                  initialData={bluebeamData}
                   onClose={() => setShowSheet(false)}
                 />
               </div>
@@ -744,9 +829,21 @@ export function EstimatingCenterScreen({ onSelectProject, onBack }) {
                       <p>Estimated: {formatCurrency(uploadResult.summary.estimated_cost)}</p>
                     </div>
                   )}
+                  {uploadResult.success && (
+                    <button
+                      onClick={() => {
+                        setShowUploadModal(false)
+                        setShowSheet(true)
+                      }}
+                      className="mt-4 w-full py-2.5 bg-primary text-primary-foreground hover:bg-primary/90 rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-2"
+                    >
+                      <FileSpreadsheet className="w-4 h-4" />
+                      Open Takeoff Sheet
+                    </button>
+                  )}
                   <button
                     onClick={() => setUploadResult(null)}
-                    className="mt-4 w-full py-2 bg-muted hover:bg-muted/80 rounded-lg text-sm transition-colors"
+                    className="mt-2 w-full py-2 bg-muted hover:bg-muted/80 rounded-lg text-sm transition-colors"
                   >
                     Upload Another
                   </button>

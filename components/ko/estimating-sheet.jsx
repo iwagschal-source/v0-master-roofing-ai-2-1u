@@ -104,20 +104,52 @@ export function EstimatingSheet({
   className
 }) {
   // Initialize data structure: { itemId: { colIndex: value, rate: number } }
+  // Merge initialData (from Bluebeam) with template defaults
   const [data, setData] = useState(() => {
-    if (initialData?.data) return initialData.data
     const init = {}
+    // First, initialize all template items with defaults
     Object.values(MR_TEMPLATE).forEach(section => {
       section.items.forEach(item => {
         init[item.id] = { rate: item.rate, values: {} }
       })
     })
+    // Then merge in any initialData (from Bluebeam upload)
+    if (initialData?.data) {
+      Object.entries(initialData.data).forEach(([itemId, itemData]) => {
+        if (init[itemId]) {
+          // Keep template rate if initialData rate is 0 or missing
+          init[itemId] = {
+            rate: itemData.rate || init[itemId].rate,
+            values: itemData.values || {}
+          }
+        }
+      })
+    }
     return init
   })
 
   const [collapsedSections, setCollapsedSections] = useState({})
   const [saving, setSaving] = useState(false)
   const [hasChanges, setHasChanges] = useState(false)
+
+  // Update data when initialData changes (new Bluebeam upload)
+  useEffect(() => {
+    if (initialData?.data) {
+      setData(prev => {
+        const updated = { ...prev }
+        Object.entries(initialData.data).forEach(([itemId, itemData]) => {
+          if (updated[itemId]) {
+            updated[itemId] = {
+              rate: itemData.rate || updated[itemId].rate,
+              values: itemData.values || {}
+            }
+          }
+        })
+        return updated
+      })
+      setHasChanges(true)
+    }
+  }, [initialData])
 
   // Calculate totals
   const totals = useMemo(() => {
