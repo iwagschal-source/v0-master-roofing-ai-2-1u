@@ -29,6 +29,7 @@ const DEFAULT_AGENTS = {
     { id: 'INT-007', name: 'rfi_responder', displayName: 'RFI Responder', description: 'Suggests RFI answers from historical responses', category: 'communication' },
     { id: 'INT-008', name: 'session_summarizer', displayName: 'Session Summarizer', description: 'Summarizes user sessions and interactions', category: 'audit' },
     { id: 'INT-009', name: 'ko_orchestrator', displayName: 'KO Orchestrator', description: 'Main KO agent coordinating other agents', category: 'core' },
+    { id: 'INT-010', name: 'estimator_assistant', displayName: 'Estimator Assistant', description: 'AI assistant for junior estimators with GC history and pricing guidance', category: 'intelligence' },
   ],
 }
 
