@@ -380,8 +380,8 @@ export default function HomePage() {
 
   return (
     <div className="flex h-dvh bg-background text-foreground">
-      {/* Mini KO Chat - floating on all screens except main chat */}
-      {!showHomeScreen && activeMode !== "chat" && !showHistory && (
+      {/* Mini KO Chat - floating on all screens except main chat and project detail (which has its own chat) */}
+      {!showHomeScreen && activeMode !== "chat" && !showHistory && !selectedProject && (
         <MiniKOChat onMaximize={handleGoToKO} />
       )}
       {isMobileMenuOpen && (

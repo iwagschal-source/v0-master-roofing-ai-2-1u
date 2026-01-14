@@ -1009,6 +1009,114 @@ Chief Intelligence Agent for Master Roofing & Siding with full data access.
     },
   },
 
+  // ========== ESTIMATOR ASSISTANT ==========
+  {
+    id: "INT-010",
+    name: "Estimator Assistant",
+    description: "AI assistant that helps junior estimators understand GC history, pricing patterns, bundling preferences, and tribal knowledge when setting up projects. Provides contextual guidance based on 20+ years of company data.",
+    modelKey: "claude",
+    model: "claude-sonnet-4-20250514",
+    provider: "Anthropic",
+    status: "live",
+    role: "tool",
+    phase: "standalone",
+
+    stats: {
+      totalRequests: 0,
+      successRate: 95.0,
+      avgLatency: 1800,
+      errorsToday: 0,
+      requestsPerMinute: 0,
+    },
+
+    queueDepth: 0,
+    lastActivity: new Date().toISOString(),
+    currentAction: "Assisting estimators with GC intelligence",
+
+    configFiles: [
+      {
+        name: "system_prompt.md",
+        type: "markdown",
+        content: `# Estimator Assistant
+
+## Role
+AI assistant for junior estimators at Master Roofing & Siding.
+
+## Model
+- Provider: Anthropic
+- Model: claude-sonnet-4-20250514
+- Max Tokens: 1024
+- Temperature: 0.3
+
+## Data Sources (BigQuery)
+- \`mr_agent.project_llm\` - 1,529 projects with gc_preferences, gc_tribal_knowledge, gc_negotiation_patterns
+- \`mr_agent.gc_bundling_preferences\` - GC bundling patterns by section
+
+## Capabilities
+- GC Brief Generation - Quick stats, win rates, recent projects
+- Pricing Guidance - Historical rates with confidence levels
+- Bundling Patterns - What items GCs typically bundle vs break out
+- Tribal Knowledge - Preferences, quirks, contact tips
+- Negotiation Patterns - VE history, revision patterns
+
+## Response Style
+- Be concise - estimators are busy
+- Lead with the answer, then context
+- Always cite confidence levels
+- Never guess - say when data is missing
+`,
+      },
+    ],
+
+    permissions: {
+      readAccess: [
+        "BigQuery: mr_agent.project_llm",
+        "BigQuery: mr_agent.gc_bundling_preferences",
+        "BigQuery: mr_agent.proposal_revisions",
+      ],
+      writeAccess: [],
+      apiAccess: ["Anthropic API"],
+      agentCalls: [],
+    },
+
+    connections: [],
+
+    auditedBy: ["CAO-AUD-001"],
+
+    scoring: {
+      overallScore: 95,
+      accuracyScore: 94,
+      latencyScore: 88,
+      reliabilityScore: 96,
+      metrics: [
+        { name: "Response Quality", weight: 40, score: 95 },
+        { name: "Data Accuracy", weight: 30, score: 94 },
+        { name: "Response Time", weight: 20, score: 88 },
+        { name: "User Satisfaction", weight: 10, score: 96 },
+      ],
+    },
+
+    monitoring: {
+      auditors: ["CAO-AUD-001"],
+      alerts: [
+        { type: "latency", threshold: 5000, action: "warn" },
+        { type: "error_rate", threshold: 10, action: "alert" },
+      ],
+      channels: ["#ko-alerts"],
+    },
+
+    history: {
+      totalExecutions: 0,
+      firstActive: "2026-01-14",
+      uptimePercent: 100,
+      totalErrors: 0,
+      recentEvents: [],
+      versions: [
+        { version: "v1.0.0", date: "2026-01-14", changes: "Initial Estimator Assistant with GC Brief and chat" },
+      ],
+    },
+  },
+
   // ========== AUDIT AGENT ==========
   {
     id: "CAO-AUD-001",

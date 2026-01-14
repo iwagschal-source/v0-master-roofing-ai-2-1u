@@ -24,6 +24,11 @@ export async function GET(request) {
 
     // Try to fetch from backend API
     try {
+      // For self-signed cert, we need to use https agent
+      // In Next.js server components, this is handled by node's fetch
+      const controller = new AbortController()
+      const timeoutId = setTimeout(() => controller.abort(), 10000) // 10s timeout
+
       const backendResponse = await fetch(
         `${BACKEND_URL}/api/gc-brief?gc_name=${encodeURIComponent(gcName)}`,
         {
@@ -31,14 +36,18 @@ export async function GET(request) {
           headers: {
             "Content-Type": "application/json",
           },
-          // Skip SSL verification for self-signed cert
-          // In production, use proper SSL
+          signal: controller.signal,
+          // Note: NODE_TLS_REJECT_UNAUTHORIZED=0 should be set in env for self-signed cert
         }
       )
+      clearTimeout(timeoutId)
 
       if (backendResponse.ok) {
         const data = await backendResponse.json()
+        console.log(`GC Brief loaded for ${gcName}: ${data.total_projects} projects`)
         return NextResponse.json(data)
+      } else {
+        console.log(`Backend returned ${backendResponse.status} for ${gcName}`)
       }
     } catch (backendError) {
       console.log("Backend not available, using fallback data:", backendError.message)
