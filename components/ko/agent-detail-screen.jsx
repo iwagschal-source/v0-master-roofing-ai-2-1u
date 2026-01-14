@@ -470,14 +470,14 @@ function CodeTab({ agent }) {
         </div>
       </div>
 
-      {/* Settings */}
+      {/* Full Raw JSON */}
       <div className="bg-card border border-border rounded-xl p-6">
         <h2 className="font-semibold text-foreground mb-4 flex items-center gap-2">
           <Settings size={18} className="text-amber-400" />
-          Raw Settings
+          Full Configuration JSON
         </h2>
-        <pre className="p-4 bg-secondary rounded-lg text-sm font-mono overflow-x-auto">
-          {JSON.stringify(codeData?.settings || {}, null, 2)}
+        <pre className="p-4 bg-secondary rounded-lg text-sm font-mono overflow-x-auto max-h-96 overflow-y-auto">
+          {JSON.stringify(codeData, null, 2)}
         </pre>
       </div>
 
