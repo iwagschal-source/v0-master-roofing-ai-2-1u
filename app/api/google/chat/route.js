@@ -36,8 +36,10 @@ export async function GET(request) {
 
     // If spaceId provided, fetch messages from that space
     if (spaceId) {
+      // Normalize spaceId - remove "spaces/" prefix if present to avoid double path
+      const normalizedSpaceId = spaceId.startsWith('spaces/') ? spaceId.replace('spaces/', '') : spaceId
       const messagesRes = await fetch(
-        `${CHAT_API}/spaces/${spaceId}/messages?pageSize=50`,
+        `${CHAT_API}/spaces/${normalizedSpaceId}/messages?pageSize=50`,
         { headers: { 'Authorization': `Bearer ${token}` } }
       )
       const messagesData = await messagesRes.json()
@@ -132,9 +134,12 @@ export async function POST(request) {
       )
     }
 
+    // Normalize spaceId - remove "spaces/" prefix if present to avoid double path
+    const normalizedSpaceId = spaceId.startsWith('spaces/') ? spaceId.replace('spaces/', '') : spaceId
+
     // Send message via Google Chat API
     const sendRes = await fetch(
-      `${CHAT_API}/spaces/${spaceId}/messages`,
+      `${CHAT_API}/spaces/${normalizedSpaceId}/messages`,
       {
         method: 'POST',
         headers: {
