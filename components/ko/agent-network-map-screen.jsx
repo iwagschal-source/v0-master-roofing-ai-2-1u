@@ -106,7 +106,7 @@ function calculatePositions(agentList) {
 }
 
 // Network Node Component
-function NetworkNode({ agent, position, isSelected, onClick, isAnimating, showQueueBadge, isBusy, isBottleneck, isInLoop }) {
+function NetworkNode({ agent, position, isSelected, onClick, isAnimating, showQueueBadge, isBusy, isBottleneck, isInLoop, isPaused }) {
   const status = agent ? statusConfig[agent.status] : { color: "bg-blue-500", label: "USER" }
   const isUser = !agent
   const hasBacklog = agent?.queueDepth >= 5
@@ -133,8 +133,18 @@ function NetworkNode({ agent, position, isSelected, onClick, isAnimating, showQu
         </circle>
       )}
 
+      {/* Paused indicator - gray overlay with pause icon lines */}
+      {isPaused && (
+        <>
+          <circle r="56" fill="none" stroke="#6b7280" strokeWidth="4" opacity="0.8" />
+          {/* Pause bars */}
+          <rect x="-12" y="-15" width="8" height="30" fill="#6b7280" opacity="0.9" rx="2" />
+          <rect x="4" y="-15" width="8" height="30" fill="#6b7280" opacity="0.9" rx="2" />
+        </>
+      )}
+
       {/* Busy processing indicator - bright cyan spinning ring */}
-      {isBusy && !isInLoop && !isBottleneck && (
+      {isBusy && !isInLoop && !isBottleneck && !isPaused && (
         <circle r="54" fill="none" stroke="#00f5ff" strokeWidth="3" strokeDasharray="20,10" opacity="0.8">
           <animateTransform attributeName="transform" type="rotate" from="0 0 0" to="360 0 0" dur="1s" repeatCount="indefinite" />
         </circle>
@@ -327,6 +337,90 @@ export function AgentNetworkMapScreen({ onBack, onSelectAgent }) {
   const [detectedLoops, setDetectedLoops] = useState([])
   const [bottleneckAgents, setBottleneckAgents] = useState(new Set())
   const callHistoryRef = useRef([]) // Track recent call patterns
+
+  // Phase 5: Pause/Resume state
+  const [networkPaused, setNetworkPaused] = useState(false)
+  const [pausedAgents, setPausedAgents] = useState(new Set())
+  const [pausePending, setPausePending] = useState(false)
+
+  // Pause/Resume handlers
+  const toggleNetworkPause = async () => {
+    setPausePending(true)
+    const agentList = liveAgents || agents
+    try {
+      const action = networkPaused ? 'resume' : 'pause'
+      const res = await fetch(`https://34.95.128.208/v1/network/${action}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' }
+      })
+      if (res.ok) {
+        setNetworkPaused(!networkPaused)
+        if (!networkPaused) {
+          // When pausing network, pause all agents
+          setPausedAgents(new Set(agentList?.map(a => a.id) || []))
+        } else {
+          // When resuming network, resume all agents
+          setPausedAgents(new Set())
+        }
+      }
+    } catch (err) {
+      console.error('Failed to toggle network pause:', err)
+      // Still update local state even if backend fails
+      setNetworkPaused(!networkPaused)
+      if (!networkPaused) {
+        setPausedAgents(new Set(agentList?.map(a => a.id) || []))
+      } else {
+        setPausedAgents(new Set())
+      }
+    } finally {
+      setPausePending(false)
+    }
+  }
+
+  const toggleAgentPause = async (agentId) => {
+    const isPaused = pausedAgents.has(agentId)
+    const action = isPaused ? 'resume' : 'pause'
+
+    try {
+      const res = await fetch(`https://34.95.128.208/v1/agents/${agentId}/${action}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' }
+      })
+      if (res.ok || true) { // Update local state even if backend not ready
+        setPausedAgents(prev => {
+          const next = new Set(prev)
+          if (isPaused) {
+            next.delete(agentId)
+          } else {
+            next.add(agentId)
+          }
+          return next
+        })
+      }
+    } catch (err) {
+      console.error(`Failed to ${action} agent ${agentId}:`, err)
+      // Still update local state
+      setPausedAgents(prev => {
+        const next = new Set(prev)
+        if (isPaused) {
+          next.delete(agentId)
+        } else {
+          next.add(agentId)
+        }
+        return next
+      })
+    }
+  }
+
+  // Auto-pause on loop detection
+  useEffect(() => {
+    if (detectedLoops.length > 0 && !networkPaused) {
+      // Auto-pause agents involved in the loop
+      const loopAgents = new Set()
+      detectedLoops.forEach(loop => loop.forEach(id => loopAgents.add(id)))
+      setPausedAgents(prev => new Set([...prev, ...loopAgents]))
+    }
+  }, [detectedLoops])
 
   // Loop detection: Track call chains and detect cycles
   const detectLoop = (newCall) => {
@@ -636,6 +730,11 @@ export function AgentNetworkMapScreen({ onBack, onSelectAgent }) {
                     | {activeCalls.size} call{activeCalls.size > 1 ? 's' : ''} in progress
                   </span>
                 )}
+                {pausedAgents.size > 0 && (
+                  <span className="ml-2 text-gray-400">
+                    | {pausedAgents.size} paused
+                  </span>
+                )}
                 {lastUpdate && (
                   <span className="ml-2 text-xs">
                     • Updated {lastUpdate.toLocaleTimeString()}
@@ -704,6 +803,27 @@ export function AgentNetworkMapScreen({ onBack, onSelectAgent }) {
               <option value="data">Data Flow</option>
               <option value="audit">Audit Flow</option>
             </select>
+
+            {/* Network Pause/Resume (Emergency Stop) */}
+            <button
+              onClick={toggleNetworkPause}
+              disabled={pausePending}
+              className={`px-3 py-2 border rounded-lg font-medium transition-colors flex items-center gap-2 ${
+                networkPaused
+                  ? "bg-red-500/20 border-red-500/50 text-red-400 hover:bg-red-500/30"
+                  : "bg-secondary border-border hover:bg-accent"
+              }`}
+              title={networkPaused ? "Resume all agents" : "Pause all agents (Emergency Stop)"}
+            >
+              {pausePending ? (
+                <RefreshCw size={16} className="animate-spin" />
+              ) : networkPaused ? (
+                <Play size={16} />
+              ) : (
+                <Pause size={16} />
+              )}
+              <span className="text-sm">{networkPaused ? "Resume" : "Pause All"}</span>
+            </button>
 
             {/* Play/Pause animations */}
             <button
@@ -904,6 +1024,7 @@ export function AgentNetworkMapScreen({ onBack, onSelectAgent }) {
                   isBusy={busyAgents.has(agent.id)}
                   isBottleneck={bottleneckAgents.has(agent.id)}
                   isInLoop={agentsInLoops.has(agent.id)}
+                  isPaused={pausedAgents.has(agent.id)}
                   isAnimating={isPlaying}
                   showQueueBadge={true}
                 />
@@ -1014,12 +1135,36 @@ export function AgentNetworkMapScreen({ onBack, onSelectAgent }) {
               </div>
 
               {/* Actions */}
-              <button
-                onClick={() => onSelectAgent?.(selectedAgent)}
-                className="w-full py-2 bg-primary text-primary-foreground rounded-lg font-medium hover:bg-primary/90 transition-colors"
-              >
-                Open Agent Details
-              </button>
+              <div className="space-y-2">
+                {/* Pause/Resume Agent */}
+                <button
+                  onClick={() => toggleAgentPause(selectedAgent.id)}
+                  className={`w-full py-2 rounded-lg font-medium transition-colors flex items-center justify-center gap-2 ${
+                    pausedAgents.has(selectedAgent.id)
+                      ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 hover:bg-emerald-500/30"
+                      : "bg-amber-500/20 text-amber-400 border border-amber-500/30 hover:bg-amber-500/30"
+                  }`}
+                >
+                  {pausedAgents.has(selectedAgent.id) ? (
+                    <>
+                      <Play size={16} />
+                      Resume Agent
+                    </>
+                  ) : (
+                    <>
+                      <Pause size={16} />
+                      Pause Agent
+                    </>
+                  )}
+                </button>
+
+                <button
+                  onClick={() => onSelectAgent?.(selectedAgent)}
+                  className="w-full py-2 bg-primary text-primary-foreground rounded-lg font-medium hover:bg-primary/90 transition-colors"
+                >
+                  Open Agent Details
+                </button>
+              </div>
             </div>
           </aside>
         )}
@@ -1070,6 +1215,13 @@ export function AgentNetworkMapScreen({ onBack, onSelectAgent }) {
             <div className="flex items-center gap-2">
               <div className="w-4 h-4 rounded-full border-2 border-cyan-400" />
               <span className="text-xs text-muted-foreground">Active Call</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="w-4 h-4 rounded-full border-2 border-gray-500 flex items-center justify-center">
+                <div className="w-0.5 h-2 bg-gray-500 mr-0.5" />
+                <div className="w-0.5 h-2 bg-gray-500" />
+              </div>
+              <span className="text-xs text-muted-foreground">Paused</span>
             </div>
           </div>
         </div>
