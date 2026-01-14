@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { ArrowLeft, Calendar, DollarSign, Building2, ExternalLink, Link as LinkIcon, Plus, Loader2, Mail, Paperclip, RefreshCw, Reply, Forward, ChevronRight } from "lucide-react"
+import { ArrowLeft, Calendar, DollarSign, Building2, ExternalLink, Link as LinkIcon, Plus, Loader2, Mail, Paperclip, RefreshCw, Reply, Forward, ChevronRight, Upload, FolderOpen, File, FileText, Image, Trash2, Download, Eye } from "lucide-react"
 import { EmbeddedSheet } from "./embedded-sheet"
 import { ActionButtons } from "./action-buttons"
 import { GCBriefWithChat } from "./gc-brief-with-chat"
@@ -98,12 +98,84 @@ export function ProjectDetailScreen({ project, onBack, onPreviewProposal, onProj
   const [emailsLoading, setEmailsLoading] = useState(false)
   const [selectedEmail, setSelectedEmail] = useState(null)
 
-  // Load project emails when project changes
+  // Files state (G Folder)
+  const [projectFiles, setProjectFiles] = useState([])
+  const [filesLoading, setFilesLoading] = useState(false)
+  const [uploadingFile, setUploadingFile] = useState(false)
+  const [selectedFile, setSelectedFile] = useState(null)
+  const fileInputRef = useState(null)
+
+  // Load project emails and files when project changes
   useEffect(() => {
     if (project) {
       loadProjectEmails(project)
+      loadProjectFiles(project)
     }
   }, [project?.id])
+
+  // Load files from G Folder (GCS)
+  const loadProjectFiles = async (proj) => {
+    setFilesLoading(true)
+    try {
+      const res = await fetch(`/api/ko/projects/${proj.id}/files`)
+      if (res.ok) {
+        const data = await res.json()
+        setProjectFiles(data.files || [])
+      } else {
+        // Mock files for development
+        setProjectFiles(MOCK_PROJECT_FILES)
+      }
+    } catch (err) {
+      console.error('Failed to load project files:', err)
+      setProjectFiles(MOCK_PROJECT_FILES)
+    } finally {
+      setFilesLoading(false)
+    }
+  }
+
+  // Upload file to G Folder
+  const handleFileUpload = async (e) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    setUploadingFile(true)
+    try {
+      const formData = new FormData()
+      formData.append('file', file)
+      formData.append('projectId', project.id)
+      formData.append('projectName', project.name || project.address)
+
+      const res = await fetch('/api/ko/projects/files/upload', {
+        method: 'POST',
+        body: formData
+      })
+
+      if (res.ok) {
+        // Reload files after upload
+        loadProjectFiles(project)
+      }
+    } catch (err) {
+      console.error('Failed to upload file:', err)
+    } finally {
+      setUploadingFile(false)
+    }
+  }
+
+  // Get file icon based on type
+  const getFileIcon = (filename) => {
+    const ext = filename?.split('.').pop()?.toLowerCase()
+    if (['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(ext)) return Image
+    if (['pdf'].includes(ext)) return FileText
+    return File
+  }
+
+  // Mock files for development
+  const MOCK_PROJECT_FILES = [
+    { id: 'f1', name: 'ITB Package.pdf', size: 2456000, type: 'application/pdf', uploadedAt: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString(), uploadedBy: 'John Smith' },
+    { id: 'f2', name: 'Roof Plans.pdf', size: 8234000, type: 'application/pdf', uploadedAt: new Date(Date.now() - 4 * 24 * 60 * 60 * 1000).toISOString(), uploadedBy: 'John Smith' },
+    { id: 'f3', name: 'Site Photos.zip', size: 45000000, type: 'application/zip', uploadedAt: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString(), uploadedBy: 'Steve' },
+    { id: 'f4', name: 'Bluebeam Takeoff.csv', size: 125000, type: 'text/csv', uploadedAt: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString(), uploadedBy: 'Steve' },
+  ]
 
   const loadProjectEmails = async (proj) => {
     setEmailsLoading(true)
@@ -346,9 +418,9 @@ export function ProjectDetailScreen({ project, onBack, onPreviewProposal, onProj
         )}
 
         {activeTab === "emails" && (
-          <div className="space-y-4">
+          <div className="h-full flex flex-col -m-6">
             {/* Email Header */}
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between px-6 py-3 border-b border-border">
               <div className="flex items-center gap-2">
                 <Mail className="w-5 h-5 text-primary" />
                 <span className="font-medium">Project Emails</span>
@@ -365,116 +437,138 @@ export function ProjectDetailScreen({ project, onBack, onPreviewProposal, onProj
               </button>
             </div>
 
-            {/* Email Content */}
-            <div className="bg-card rounded-xl border border-border overflow-hidden">
-              {emailsLoading ? (
-                <div className="flex items-center justify-center h-48">
-                  <Loader2 className="w-6 h-6 animate-spin text-foreground-tertiary" />
-                </div>
-              ) : selectedEmail ? (
-                // Email Detail View
-                <div className="p-6">
-                  <button
-                    onClick={() => setSelectedEmail(null)}
-                    className="flex items-center gap-1 text-sm text-primary hover:underline mb-4"
-                  >
-                    <ChevronRight className="w-4 h-4 rotate-180" />
-                    Back to list
-                  </button>
-
-                  <div className="space-y-4">
-                    <div>
-                      <h3 className="font-semibold text-lg text-foreground">{selectedEmail.subject}</h3>
-                      <div className="flex items-center gap-3 mt-2 text-sm text-foreground-secondary">
-                        <span className="font-medium text-foreground">{selectedEmail.from?.name}</span>
-                        <span>&lt;{selectedEmail.from?.email}&gt;</span>
-                      </div>
-                      <div className="text-xs text-foreground-tertiary mt-1">
-                        {new Date(selectedEmail.date).toLocaleString()}
-                      </div>
-                    </div>
-
-                    <div className="border-t border-border pt-4">
-                      <p className="text-sm text-foreground whitespace-pre-wrap">
-                        {selectedEmail.snippet || selectedEmail.body || 'No content available'}
-                      </p>
-                    </div>
-
-                    {selectedEmail.hasAttachments && (
-                      <div className="flex items-center gap-2 text-sm text-foreground-secondary">
-                        <Paperclip className="w-4 h-4" />
-                        <span>Attachments available</span>
-                      </div>
-                    )}
-
-                    <div className="flex items-center gap-2 pt-4 border-t border-border">
-                      <button className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm hover:bg-primary/90 transition-colors">
-                        <Reply className="w-4 h-4" />
-                        Reply
+            {/* Split Email View */}
+            <div className="flex-1 flex min-h-0">
+              {/* Left: Email List */}
+              <div className="w-1/2 border-r border-border overflow-y-auto">
+                {emailsLoading ? (
+                  <div className="flex items-center justify-center h-48">
+                    <Loader2 className="w-6 h-6 animate-spin text-foreground-tertiary" />
+                  </div>
+                ) : projectEmails.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center h-48 text-foreground-tertiary">
+                    <Mail className="w-10 h-10 mb-3 opacity-50" />
+                    <p className="text-sm font-medium">No emails found</p>
+                  </div>
+                ) : (
+                  <div className="divide-y divide-border">
+                    {projectEmails.map((email) => (
+                      <button
+                        key={email.id}
+                        onClick={() => setSelectedEmail(email)}
+                        className={cn(
+                          "w-full p-4 text-left hover:bg-secondary/50 transition-colors",
+                          email.isUnread && "bg-primary/5",
+                          selectedEmail?.id === email.id && "bg-secondary"
+                        )}
+                      >
+                        <div className="flex items-start gap-3">
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center justify-between gap-2 mb-1">
+                              <span className={cn(
+                                "text-sm truncate",
+                                email.isUnread ? "font-semibold text-foreground" : "text-foreground"
+                              )}>
+                                {email.from?.name || email.from?.email}
+                              </span>
+                              <span className="text-xs text-foreground-tertiary whitespace-nowrap">
+                                {formatEmailDate(email.date)}
+                              </span>
+                            </div>
+                            <p className={cn(
+                              "text-sm truncate mb-1",
+                              email.isUnread ? "font-medium text-foreground" : "text-foreground"
+                            )}>
+                              {email.subject}
+                            </p>
+                            <p className="text-xs text-foreground-tertiary truncate">
+                              {email.snippet}
+                            </p>
+                          </div>
+                          <div className="flex items-center gap-2 shrink-0">
+                            {email.hasAttachments && (
+                              <Paperclip className="w-4 h-4 text-foreground-tertiary" />
+                            )}
+                            {email.isUnread && (
+                              <div className="w-2 h-2 rounded-full bg-primary" />
+                            )}
+                          </div>
+                        </div>
                       </button>
-                      <button className="flex items-center gap-2 px-4 py-2 bg-secondary text-foreground rounded-lg text-sm hover:bg-secondary/80 transition-colors">
-                        <Forward className="w-4 h-4" />
-                        Forward
-                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Right: Email Preview / Attachments */}
+              <div className="w-1/2 overflow-y-auto bg-card/50">
+                {selectedEmail ? (
+                  <div className="p-6">
+                    <div className="space-y-4">
+                      <div>
+                        <h3 className="font-semibold text-lg text-foreground">{selectedEmail.subject}</h3>
+                        <div className="flex items-center gap-3 mt-2 text-sm text-foreground-secondary">
+                          <span className="font-medium text-foreground">{selectedEmail.from?.name}</span>
+                          <span>&lt;{selectedEmail.from?.email}&gt;</span>
+                        </div>
+                        <div className="text-xs text-foreground-tertiary mt-1">
+                          {new Date(selectedEmail.date).toLocaleString()}
+                        </div>
+                      </div>
+
+                      <div className="border-t border-border pt-4">
+                        <p className="text-sm text-foreground whitespace-pre-wrap">
+                          {selectedEmail.snippet || selectedEmail.body || 'No content available'}
+                        </p>
+                      </div>
+
+                      {/* Attachments Section */}
+                      {selectedEmail.hasAttachments && (
+                        <div className="border-t border-border pt-4">
+                          <h4 className="text-sm font-medium mb-3 flex items-center gap-2">
+                            <Paperclip className="w-4 h-4" />
+                            Attachments
+                          </h4>
+                          <div className="space-y-2">
+                            {/* Mock attachments - would be real from API */}
+                            <div className="flex items-center gap-3 p-3 bg-secondary/50 rounded-lg">
+                              <FileText className="w-8 h-8 text-red-500" />
+                              <div className="flex-1 min-w-0">
+                                <p className="text-sm font-medium truncate">Attachment.pdf</p>
+                                <p className="text-xs text-foreground-tertiary">245 KB</p>
+                              </div>
+                              <div className="flex items-center gap-1">
+                                <button className="p-2 hover:bg-secondary rounded-lg transition-colors">
+                                  <Eye className="w-4 h-4" />
+                                </button>
+                                <button className="p-2 hover:bg-secondary rounded-lg transition-colors">
+                                  <Download className="w-4 h-4" />
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+
+                      <div className="flex items-center gap-2 pt-4 border-t border-border">
+                        <button className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm hover:bg-primary/90 transition-colors">
+                          <Reply className="w-4 h-4" />
+                          Reply
+                        </button>
+                        <button className="flex items-center gap-2 px-4 py-2 bg-secondary text-foreground rounded-lg text-sm hover:bg-secondary/80 transition-colors">
+                          <Forward className="w-4 h-4" />
+                          Forward
+                        </button>
+                      </div>
                     </div>
                   </div>
-                </div>
-              ) : projectEmails.length === 0 ? (
-                <div className="flex flex-col items-center justify-center h-48 text-foreground-tertiary">
-                  <Mail className="w-10 h-10 mb-3 opacity-50" />
-                  <p className="text-sm font-medium">No emails found for this project</p>
-                  <p className="text-xs mt-1">
-                    Emails mentioning "{project?.name || project?.address}" or "{project?.gc_name}" will appear here
-                  </p>
-                </div>
-              ) : (
-                // Email List View
-                <div className="divide-y divide-border">
-                  {projectEmails.map((email) => (
-                    <button
-                      key={email.id}
-                      onClick={() => setSelectedEmail(email)}
-                      className={cn(
-                        "w-full p-4 text-left hover:bg-secondary/50 transition-colors",
-                        email.isUnread && "bg-primary/5"
-                      )}
-                    >
-                      <div className="flex items-start gap-3">
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center justify-between gap-2 mb-1">
-                            <span className={cn(
-                              "text-sm truncate",
-                              email.isUnread ? "font-semibold text-foreground" : "text-foreground"
-                            )}>
-                              {email.from?.name || email.from?.email}
-                            </span>
-                            <span className="text-xs text-foreground-tertiary whitespace-nowrap">
-                              {formatEmailDate(email.date)}
-                            </span>
-                          </div>
-                          <p className={cn(
-                            "text-sm truncate mb-1",
-                            email.isUnread ? "font-medium text-foreground" : "text-foreground"
-                          )}>
-                            {email.subject}
-                          </p>
-                          <p className="text-xs text-foreground-tertiary truncate">
-                            {email.snippet}
-                          </p>
-                        </div>
-                        <div className="flex items-center gap-2 shrink-0">
-                          {email.hasAttachments && (
-                            <Paperclip className="w-4 h-4 text-foreground-tertiary" />
-                          )}
-                          {email.isUnread && (
-                            <div className="w-2 h-2 rounded-full bg-primary" />
-                          )}
-                        </div>
-                      </div>
-                    </button>
-                  ))}
-                </div>
-              )}
+                ) : (
+                  <div className="flex flex-col items-center justify-center h-full text-foreground-tertiary">
+                    <Mail className="w-12 h-12 mb-3 opacity-30" />
+                    <p className="text-sm">Select an email to preview</p>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         )}
@@ -502,17 +596,159 @@ export function ProjectDetailScreen({ project, onBack, onPreviewProposal, onProj
         )}
 
         {activeTab === "files" && (
-          <div className="bg-card rounded-xl border border-border p-8 text-center">
-            <div className="w-16 h-16 rounded-2xl bg-secondary flex items-center justify-center mx-auto mb-4">
-              <svg className="w-8 h-8 text-foreground-tertiary" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-                <polyline points="14,2 14,8 20,8" />
-              </svg>
+          <div className="h-full flex flex-col -m-6">
+            {/* Files Header */}
+            <div className="flex items-center justify-between px-6 py-3 border-b border-border">
+              <div className="flex items-center gap-2">
+                <FolderOpen className="w-5 h-5 text-yellow-500" />
+                <span className="font-medium">G Folder</span>
+                <span className="text-sm text-foreground-tertiary">
+                  {filesLoading ? 'Loading...' : `${projectFiles.length} files`}
+                </span>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => project && loadProjectFiles(project)}
+                  disabled={filesLoading}
+                  className="p-2 hover:bg-secondary rounded-lg transition-colors"
+                >
+                  <RefreshCw className={`w-4 h-4 ${filesLoading ? 'animate-spin' : ''}`} />
+                </button>
+                <label className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm hover:bg-primary/90 transition-colors cursor-pointer">
+                  {uploadingFile ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <Upload className="w-4 h-4" />
+                  )}
+                  {uploadingFile ? 'Uploading...' : 'Upload'}
+                  <input
+                    type="file"
+                    onChange={handleFileUpload}
+                    disabled={uploadingFile}
+                    className="hidden"
+                  />
+                </label>
+              </div>
             </div>
-            <h3 className="font-semibold text-foreground mb-2">Project Files</h3>
-            <p className="text-foreground-secondary text-sm">
-              File management coming soon. Connect to Google Drive or upload files directly.
-            </p>
+
+            {/* Split Files View */}
+            <div className="flex-1 flex min-h-0">
+              {/* Left: File List */}
+              <div className="w-1/2 border-r border-border overflow-y-auto">
+                {filesLoading ? (
+                  <div className="flex items-center justify-center h-48">
+                    <Loader2 className="w-6 h-6 animate-spin text-foreground-tertiary" />
+                  </div>
+                ) : projectFiles.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center h-48 text-foreground-tertiary">
+                    <FolderOpen className="w-10 h-10 mb-3 opacity-50" />
+                    <p className="text-sm font-medium">No files yet</p>
+                    <p className="text-xs mt-1">Upload files to the G Folder</p>
+                  </div>
+                ) : (
+                  <div className="divide-y divide-border">
+                    {projectFiles.map((file) => {
+                      const FileIcon = getFileIcon(file.name)
+                      return (
+                        <button
+                          key={file.id}
+                          onClick={() => setSelectedFile(file)}
+                          className={cn(
+                            "w-full p-4 text-left hover:bg-secondary/50 transition-colors",
+                            selectedFile?.id === file.id && "bg-secondary"
+                          )}
+                        >
+                          <div className="flex items-center gap-3">
+                            <FileIcon className={cn(
+                              "w-8 h-8",
+                              file.name.endsWith('.pdf') ? "text-red-500" :
+                              file.name.endsWith('.csv') ? "text-green-500" :
+                              file.name.match(/\.(jpg|jpeg|png|gif)$/i) ? "text-blue-500" :
+                              "text-foreground-tertiary"
+                            )} />
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-medium truncate">{file.name}</p>
+                              <p className="text-xs text-foreground-tertiary">
+                                {(file.size / 1024 / 1024).toFixed(2)} MB • {new Date(file.uploadedAt).toLocaleDateString()}
+                              </p>
+                            </div>
+                          </div>
+                        </button>
+                      )
+                    })}
+                  </div>
+                )}
+              </div>
+
+              {/* Right: File Preview */}
+              <div className="w-1/2 overflow-y-auto bg-card/50">
+                {selectedFile ? (
+                  <div className="p-6">
+                    <div className="space-y-4">
+                      {/* File Info */}
+                      <div className="flex items-start gap-4">
+                        {(() => {
+                          const FileIcon = getFileIcon(selectedFile.name)
+                          return <FileIcon className="w-12 h-12 text-foreground-tertiary" />
+                        })()}
+                        <div className="flex-1">
+                          <h3 className="font-semibold text-lg text-foreground">{selectedFile.name}</h3>
+                          <p className="text-sm text-foreground-secondary mt-1">
+                            {(selectedFile.size / 1024 / 1024).toFixed(2)} MB
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* File Details */}
+                      <div className="border-t border-border pt-4 space-y-2">
+                        <div className="flex justify-between text-sm">
+                          <span className="text-foreground-tertiary">Uploaded by</span>
+                          <span className="text-foreground">{selectedFile.uploadedBy}</span>
+                        </div>
+                        <div className="flex justify-between text-sm">
+                          <span className="text-foreground-tertiary">Date</span>
+                          <span className="text-foreground">{new Date(selectedFile.uploadedAt).toLocaleString()}</span>
+                        </div>
+                        <div className="flex justify-between text-sm">
+                          <span className="text-foreground-tertiary">Type</span>
+                          <span className="text-foreground">{selectedFile.type || 'Unknown'}</span>
+                        </div>
+                      </div>
+
+                      {/* Preview Area */}
+                      {selectedFile.name.match(/\.(jpg|jpeg|png|gif|webp)$/i) && (
+                        <div className="border-t border-border pt-4">
+                          <div className="bg-secondary/50 rounded-lg p-4 flex items-center justify-center min-h-[200px]">
+                            <p className="text-sm text-foreground-tertiary">Image preview</p>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Actions */}
+                      <div className="flex items-center gap-2 pt-4 border-t border-border">
+                        <button className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm hover:bg-primary/90 transition-colors">
+                          <Download className="w-4 h-4" />
+                          Download
+                        </button>
+                        <button className="flex items-center gap-2 px-4 py-2 bg-secondary text-foreground rounded-lg text-sm hover:bg-secondary/80 transition-colors">
+                          <Eye className="w-4 h-4" />
+                          Open
+                        </button>
+                        <button className="flex items-center gap-2 px-4 py-2 text-red-500 hover:bg-red-500/10 rounded-lg text-sm transition-colors ml-auto">
+                          <Trash2 className="w-4 h-4" />
+                          Delete
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex flex-col items-center justify-center h-full text-foreground-tertiary">
+                    <File className="w-12 h-12 mb-3 opacity-30" />
+                    <p className="text-sm">Select a file to preview</p>
+                  </div>
+                )}
+              </div>
+            </div>
           </div>
         )}
       </div>
