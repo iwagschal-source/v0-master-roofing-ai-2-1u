@@ -29,6 +29,7 @@ import { AgentDetailScreen } from "@/components/ko/agent-detail-screen"
 import { AgentNetworkMapScreen } from "@/components/ko/agent-network-map-screen"
 import { AddAgentScreen } from "@/components/ko/add-agent-screen"
 import { CloneAgentModal } from "@/components/ko/clone-agent-modal"
+import { EstimatingCenterScreen } from "@/components/ko/estimating-center-screen"
 import { agents as fallbackAgents } from "@/data/agent-data"
 
 export default function HomePage() {
@@ -51,6 +52,7 @@ export default function HomePage() {
   const [showMessages, setShowMessages] = useState(false)
   const [showAsana, setShowAsana] = useState(false)
   const [showAgents, setShowAgents] = useState(false)
+  const [showEstimating, setShowEstimating] = useState(false)
   const [selectedAgent, setSelectedAgent] = useState(null)
   const [showAgentNetwork, setShowAgentNetwork] = useState(false)
   const [showAddAgent, setShowAddAgent] = useState(false)
@@ -190,6 +192,7 @@ export default function HomePage() {
       setShowMessages(false)
       setShowAsana(false)
       setShowAgents(false)
+      setShowEstimating(false)
       setSelectedAgent(null)
       setShowAgentNetwork(false)
       setShowAddAgent(false)
@@ -330,6 +333,23 @@ export default function HomePage() {
       setShowZoom(false)
       setShowReports(false)
       setShowArena(false)
+      setShowEstimating(false)
+      setHasStartedChat(true)
+    } else if (mode === "estimating") {
+      setShowEstimating(true)
+      setSelectedProject(null)
+      setShowProposal(false)
+      setShowAgents(false)
+      setShowAsana(false)
+      setShowMessages(false)
+      setShowProjects(false)
+      setShowHistory(false)
+      setShowFiles(false)
+      setShowEmail(false)
+      setShowSettings(false)
+      setShowZoom(false)
+      setShowReports(false)
+      setShowArena(false)
       setHasStartedChat(true)
     } else {
       setActiveMode(mode)
@@ -390,7 +410,7 @@ export default function HomePage() {
       <div className={`${isMobileMenuOpen ? "fixed left-0 top-0 bottom-0 z-50" : "hidden"} md:block`}>
         <NavigationRail
           activeMode={
-            showEmail ? "email" : showFiles ? "documents" : showSettings ? "settings" : showZoom ? "zoom" : showReports ? "powerbi" : showArena ? "arena" : showHistory ? "history" : showProjects ? "projects" : showMessages ? "messages" : showAsana ? "asana" : showAgents ? "agents" : activeMode
+            showEmail ? "email" : showFiles ? "documents" : showSettings ? "settings" : showZoom ? "zoom" : showReports ? "powerbi" : showArena ? "arena" : showHistory ? "history" : showProjects ? "projects" : showEstimating ? "estimating" : showMessages ? "messages" : showAsana ? "asana" : showAgents ? "agents" : activeMode
           }
           onModeChange={handleModeChange}
           visible={true}
@@ -437,6 +457,22 @@ export default function HomePage() {
             <ChatScreen />
           ) : showAsana ? (
             <AsanaScreen />
+          ) : showEstimating ? (
+            selectedProject ? (
+              <ProjectDetailScreen
+                project={selectedProject}
+                onBack={() => setSelectedProject(null)}
+                onPreviewProposal={(project) => {
+                  setSelectedProject(project)
+                  setShowProposal(true)
+                }}
+              />
+            ) : (
+              <EstimatingCenterScreen
+                onSelectProject={(project) => setSelectedProject(project)}
+                onBack={() => setShowEstimating(false)}
+              />
+            )
           ) : showAgents ? (
             showAddAgent ? (
               <AddAgentScreen
