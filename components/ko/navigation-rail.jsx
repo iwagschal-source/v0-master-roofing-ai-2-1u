@@ -2,7 +2,7 @@
 
 import * as React from "react"
 
-import { Home, Clock, Settings, Mail, Sparkles, FolderKanban, MessageSquare, Bot, Calculator } from "lucide-react"
+import { Home, Clock, Settings, Mail, Sparkles, FolderKanban, MessageSquare, Bot } from "lucide-react"
 import Image from "next/image"
 
 /** @typedef {Object} NavigationRailProps */
@@ -13,7 +13,6 @@ export function NavigationRail({ activeMode, onModeChange, visible }) {
   const navItems = [
     { id: "home", icon: Home, label: "KO Home", type: "lucide" },
     { id: "projects", icon: FolderKanban, label: "Projects", type: "lucide" },
-    { id: "estimating", icon: Calculator, label: "Estimating", type: "lucide" },
     { id: "history", icon: Clock, label: "History", type: "lucide" },
     {
       id: "powerbi",
