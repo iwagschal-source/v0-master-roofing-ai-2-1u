@@ -87,30 +87,23 @@ async function main() {
   }
   console.log('PENDING not in Asana:', pendingNotInAsana.length)
   
-  // Search emails for each address
-  console.log('\nSearching emails for each address...')
+  console.log('\nSearching emails...\n')
   
-  let foundInEmail = 0
-  let notFound = []
-  let foundDetails = []
+  let results = []
   
   for (let i = 0; i < pendingNotInAsana.length; i++) {
     const proj = pendingNotInAsana[i]
     const addr = proj.addr
-    
-    // Extract street number for search
     const numMatch = addr.match(/\d+/)
-    const streetMatch = addr.match(/[a-zA-Z]+(?:\s+[a-zA-Z]+)?/)
     
     if (!numMatch) {
-      notFound.push({ addr, reason: 'no number' })
+      results.push({ addr, emails: 0, firstDate: '-', lastDate: '-', status: 'NO_NUMBER' })
       continue
     }
     
     const num = numMatch[0]
     const searchPattern = `%${num}%`
     
-    // Search in subject lines of fkohn and csufrin emails
     const searchResult = await runQuery(bqToken, `
       SELECT COUNT(*) as cnt, MIN(date) as first_date, MAX(date) as last_date
       FROM (
@@ -124,36 +117,41 @@ async function main() {
     
     const cnt = parseInt(searchResult.rows?.[0]?.f?.[0]?.v || '0')
     if (cnt > 0) {
-      foundInEmail++
-      foundDetails.push({
+      results.push({
         addr,
-        emailCount: cnt,
+        emails: cnt,
         firstDate: new Date(parseFloat(searchResult.rows[0].f[1].v) * 1000).toISOString().split('T')[0],
-        lastDate: new Date(parseFloat(searchResult.rows[0].f[2].v) * 1000).toISOString().split('T')[0]
+        lastDate: new Date(parseFloat(searchResult.rows[0].f[2].v) * 1000).toISOString().split('T')[0],
+        status: 'FOUND'
       })
     } else {
-      notFound.push({ addr, reason: 'no email match' })
+      results.push({ addr, emails: 0, firstDate: '-', lastDate: '-', status: 'NOT_FOUND' })
     }
     
-    if ((i + 1) % 20 === 0) {
-      console.log(`  Processed ${i + 1}/${pendingNotInAsana.length}...`)
-    }
+    if ((i + 1) % 30 === 0) process.stderr.write(`  ${i + 1}/${pendingNotInAsana.length}...\n`)
   }
   
-  console.log('\n=== RESULTS ===')
-  console.log('Total PENDING not in Asana:', pendingNotInAsana.length)
-  console.log('Found in emails:', foundInEmail)
-  console.log('Not found:', notFound.length)
+  // Sort by last date descending
+  results.sort((a, b) => b.lastDate.localeCompare(a.lastDate))
   
-  console.log('\nFound in emails (first 20):')
-  foundDetails.slice(0, 20).forEach(f => {
-    console.log(`  ${f.addr}: ${f.emailCount} emails (${f.firstDate} - ${f.lastDate})`)
+  // Output all
+  console.log('ADDRESS | EMAILS | FIRST | LAST | STATUS')
+  console.log('-'.repeat(80))
+  results.forEach(r => {
+    console.log(`${r.addr.padEnd(35).slice(0,35)} | ${String(r.emails).padStart(5)} | ${r.firstDate} | ${r.lastDate} | ${r.status}`)
   })
   
-  console.log('\nNot found (first 20):')
-  notFound.slice(0, 20).forEach(n => {
-    console.log(`  ${n.addr} (${n.reason})`)
-  })
+  // Summary
+  const found = results.filter(r => r.status === 'FOUND')
+  const recent = found.filter(r => r.lastDate >= '2024-01-01')
+  const older = found.filter(r => r.lastDate < '2024-01-01')
+  
+  console.log('\n=== SUMMARY ===')
+  console.log('Total:', results.length)
+  console.log('Found in emails:', found.length)
+  console.log('  Last contact 2024+:', recent.length)
+  console.log('  Last contact before 2024:', older.length)
+  console.log('Not found:', results.filter(r => r.status !== 'FOUND').length)
 }
 
 main().catch(console.error)

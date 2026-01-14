@@ -449,9 +449,22 @@ export default function HomePage() {
             showAddAgent ? (
               <AddAgentScreen
                 onBack={() => setShowAddAgent(false)}
-                onSave={(newAgent) => {
-                  setAgentsList([...agentsList, newAgent])
+                onSave={async (newAgent) => {
+                  // Add locally for immediate feedback
+                  setAgentsList(prev => [...prev, newAgent])
                   setShowAddAgent(false)
+                  // Then refresh from backend to get proper format
+                  try {
+                    const res = await fetch('/api/ko/factory/agents')
+                    if (res.ok) {
+                      const data = await res.json()
+                      if (data.agents?.length > 0) {
+                        setAgentsList(data.agents)
+                      }
+                    }
+                  } catch (e) {
+                    console.error('Failed to refresh agents:', e)
+                  }
                 }}
               />
             ) : showAgentNetwork ? (
