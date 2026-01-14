@@ -17,13 +17,8 @@ import {
 import { agents, statusConfig, connectionTypes, getAllConnections, getBottlenecks } from "@/data/agent-data"
 import { AgentModelIcon, StatusDot, QueueIndicator } from "./agent-model-icon"
 
-// Ring configuration for concentric circle layout
-const RING_CONFIG = {
-  center: { x: 500, y: 280 },  // Center of the canvas
-  innerRadius: 0,              // USER at center
-  middleRadius: 140,           // Orchestrators
-  outerRadius: 240,            // All other agents
-}
+// Minimum spacing between nodes (node diameter + padding)
+const MIN_NODE_SPACING = 110
 
 // Determine which ring an agent belongs to
 function getAgentRing(agent) {
@@ -34,10 +29,18 @@ function getAgentRing(agent) {
   return 'outer'
 }
 
+// Calculate dynamic ring radius based on node count
+function calculateRingRadius(nodeCount, minRadius) {
+  if (nodeCount <= 0) return minRadius
+  // Circumference = 2*PI*r = nodeCount * minSpacing
+  // r = (nodeCount * minSpacing) / (2 * PI)
+  const requiredRadius = (nodeCount * MIN_NODE_SPACING) / (2 * Math.PI)
+  return Math.max(minRadius, requiredRadius)
+}
+
 // Calculate node positions in concentric circles
 function calculatePositions(agentList) {
   const positions = {}
-  const { center, middleRadius, outerRadius } = RING_CONFIG
 
   // Categorize agents into rings
   const rings = {
@@ -49,6 +52,24 @@ function calculatePositions(agentList) {
     const ring = getAgentRing(agent)
     rings[ring].push(agent.id)
   })
+
+  // Calculate dynamic radii based on agent counts
+  const middleRadius = calculateRingRadius(rings.middle.length, 120)
+  const outerRadius = calculateRingRadius(rings.outer.length, middleRadius + 100)
+
+  // Calculate center based on the largest radius needed
+  const canvasSize = (outerRadius + 80) * 2  // Add padding for labels
+  const center = { x: canvasSize / 2, y: canvasSize / 2 }
+
+  // Store layout info for SVG viewBox
+  positions._layout = {
+    center,
+    middleRadius,
+    outerRadius,
+    canvasSize,
+    middleCount: rings.middle.length,
+    outerCount: rings.outer.length,
+  }
 
   // Position USER at center
   positions["USER"] = { x: center.x, y: center.y }
@@ -434,12 +455,12 @@ export function AgentNetworkMapScreen({ onBack, onSelectAgent }) {
           >
             <svg
               ref={svgRef}
-              viewBox="0 0 1000 560"
+              viewBox={`0 0 ${positions._layout?.canvasSize || 700} ${positions._layout?.canvasSize || 700}`}
               className="w-full h-full"
               style={{
                 transform: `scale(${zoom})`,
                 transformOrigin: "center",
-                minHeight: "560px",
+                minHeight: `${Math.min(positions._layout?.canvasSize || 700, 800)}px`,
               }}
             >
               {/* Background grid */}
@@ -451,12 +472,13 @@ export function AgentNetworkMapScreen({ onBack, onSelectAgent }) {
               <rect width="100%" height="100%" fill="url(#grid)" />
 
               {/* Concentric ring guides */}
+              {positions._layout && (
               <g className="ring-guides">
                 {/* Middle ring (orchestrators) */}
                 <circle
-                  cx={RING_CONFIG.center.x}
-                  cy={RING_CONFIG.center.y}
-                  r={RING_CONFIG.middleRadius}
+                  cx={positions._layout.center.x}
+                  cy={positions._layout.center.y}
+                  r={positions._layout.middleRadius}
                   fill="none"
                   stroke="#334155"
                   strokeWidth="1"
@@ -465,9 +487,9 @@ export function AgentNetworkMapScreen({ onBack, onSelectAgent }) {
                 />
                 {/* Outer ring (agents) */}
                 <circle
-                  cx={RING_CONFIG.center.x}
-                  cy={RING_CONFIG.center.y}
-                  r={RING_CONFIG.outerRadius}
+                  cx={positions._layout.center.x}
+                  cy={positions._layout.center.y}
+                  r={positions._layout.outerRadius}
                   fill="none"
                   stroke="#334155"
                   strokeWidth="1"
@@ -476,26 +498,27 @@ export function AgentNetworkMapScreen({ onBack, onSelectAgent }) {
                 />
                 {/* Ring labels */}
                 <text
-                  x={RING_CONFIG.center.x}
-                  y={RING_CONFIG.center.y - RING_CONFIG.middleRadius - 8}
+                  x={positions._layout.center.x}
+                  y={positions._layout.center.y - positions._layout.middleRadius - 8}
                   textAnchor="middle"
                   fill="#64748b"
                   fontSize="10"
                   fontWeight="500"
                 >
-                  ORCHESTRATORS
+                  ORCHESTRATORS ({positions._layout.middleCount})
                 </text>
                 <text
-                  x={RING_CONFIG.center.x}
-                  y={RING_CONFIG.center.y - RING_CONFIG.outerRadius - 8}
+                  x={positions._layout.center.x}
+                  y={positions._layout.center.y - positions._layout.outerRadius - 8}
                   textAnchor="middle"
                   fill="#64748b"
                   fontSize="10"
                   fontWeight="500"
                 >
-                  AGENTS
+                  AGENTS ({positions._layout.outerCount})
                 </text>
               </g>
+              )}
 
               {/* Connection lines (rendered first, behind nodes) */}
               {filteredConnections.map((conn, idx) => {
