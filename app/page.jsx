@@ -9,7 +9,7 @@ import { ConversationPane } from "@/components/ko/conversation-pane"
 import { StartupSequence } from "@/components/ko/startup-sequence"
 import { HomeScreen } from "@/components/ko/home-screen"
 import { DocumentsScreen } from "@/components/ko/documents-screen"
-import { EmailScreenV2 } from "@/components/ko/email-screen-v2"
+import { EmailScreen } from "@/components/ko/email-screen"
 import { SettingsScreen } from "@/components/ko/settings-screen"
 import { ZoomScreen } from "@/components/ko/zoom-screen"
 import { ReportsScreen } from "@/components/ko/reports-screen"
@@ -435,7 +435,7 @@ export default function HomePage() {
           ) : showFiles ? (
             <DocumentsScreen onBack={() => setShowFiles(false)} />
           ) : showEmail ? (
-            <EmailScreenV2 />
+            <EmailScreen />
           ) : showSettings ? (
             <SettingsScreen />
           ) : showZoom ? (
