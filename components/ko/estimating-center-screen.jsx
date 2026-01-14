@@ -18,7 +18,9 @@ import {
   Send,
   Bot,
   Sparkles,
-  Save
+  Save,
+  FileText,
+  ExternalLink
 } from "lucide-react"
 import { GCBrief } from "./gc-brief"
 import { cn } from "@/lib/utils"
@@ -531,13 +533,31 @@ export function EstimatingCenterScreen({ onSelectProject, onBack }) {
       <div ref={containerRef} className="flex-1 flex flex-col overflow-hidden">
         {selectedProject ? (
           <>
+            {/* Project Header with Actions */}
+            <div className="px-4 py-3 border-b border-border bg-muted/30 flex items-center justify-between">
+              <div>
+                <h2 className="text-lg font-semibold">{selectedProject.project_name}</h2>
+                <p className="text-sm text-muted-foreground">{selectedProject.gc_name} • {formatCurrency(selectedProject.proposal_total)}</p>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => {
+                    // Open proposal preview in new tab with project data
+                    const proposalUrl = `/proposal-preview?projectId=${selectedProject.project_id}&gcName=${encodeURIComponent(selectedProject.gc_name)}&projectName=${encodeURIComponent(selectedProject.project_name)}`
+                    window.open(proposalUrl, '_blank')
+                  }}
+                  className="flex items-center gap-2 px-3 py-2 bg-primary text-primary-foreground hover:bg-primary/90 rounded-lg text-sm transition-colors"
+                >
+                  <FileText className="w-4 h-4" />
+                  Generate Proposal
+                  <ExternalLink className="w-3 h-3" />
+                </button>
+              </div>
+            </div>
+
             {/* GC Brief - Top Section */}
             <div className="flex-1 min-h-0 overflow-y-auto">
               <div className="p-4">
-                <div className="mb-4">
-                  <h2 className="text-lg font-semibold">{selectedProject.project_name}</h2>
-                  <p className="text-sm text-muted-foreground">{selectedProject.gc_name} • {formatCurrency(selectedProject.proposal_total)}</p>
-                </div>
                 <GCBrief
                   gcName={selectedProject.gc_name}
                   projectName={selectedProject.project_name}

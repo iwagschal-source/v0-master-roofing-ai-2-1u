@@ -65,6 +65,9 @@ const SAMPLE_PROPOSAL = {
 function ProposalPreviewContent() {
   const searchParams = useSearchParams()
   const sheetId = searchParams.get("sheetId")
+  const projectId = searchParams.get("projectId")
+  const gcName = searchParams.get("gcName")
+  const projectName = searchParams.get("projectName")
 
   const [proposal, setProposal] = useState(null)
   const [loading, setLoading] = useState(false)
@@ -75,10 +78,43 @@ function ProposalPreviewContent() {
   useEffect(() => {
     if (sheetId) {
       fetchProposalFromSheet(sheetId)
+    } else if (projectId || (gcName && projectName)) {
+      fetchProposalFromProject(projectId, gcName, projectName)
     } else {
       setProposal(SAMPLE_PROPOSAL)
     }
-  }, [sheetId])
+  }, [sheetId, projectId, gcName, projectName])
+
+  async function fetchProposalFromProject(id, gc, project) {
+    setLoading(true)
+    setError(null)
+    try {
+      const params = new URLSearchParams()
+      if (id) params.append("projectId", id)
+      if (gc) params.append("gcName", gc)
+      if (project) params.append("projectName", project)
+
+      const res = await fetch(`/api/ko/proposal/generate?${params}`)
+      const data = await res.json()
+
+      if (!res.ok) {
+        throw new Error(data.error || "Failed to generate proposal")
+      }
+
+      setProposal(data.proposal)
+    } catch (err) {
+      console.error("Error generating proposal:", err)
+      setError(err.message)
+      // Use sample with overrides
+      setProposal({
+        ...SAMPLE_PROPOSAL,
+        gc_name: gc || SAMPLE_PROPOSAL.gc_name,
+        project_address: project || SAMPLE_PROPOSAL.project_address,
+      })
+    } finally {
+      setLoading(false)
+    }
+  }
 
   async function fetchProposalFromSheet(id) {
     setLoading(true)
