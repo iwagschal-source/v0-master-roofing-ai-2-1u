@@ -303,7 +303,7 @@ function CodeTab({ agent }) {
   useEffect(() => {
     async function fetchCode() {
       try {
-        const res = await fetch(`/api/ko/admin/agent-code/${agent.id}`)
+        const res = await fetch(`/api/ko/agents/config/${agent.id}`)
         if (res.ok) {
           const data = await res.json()
           setCodeData(data)
@@ -337,7 +337,7 @@ function CodeTab({ agent }) {
       setSaving(true)
       setSaveStatus(null)
 
-      const res = await fetch(`/api/ko/admin/agent-code/${agent.id}`, {
+      const res = await fetch(`/api/ko/agents/config/${agent.id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(parsed)

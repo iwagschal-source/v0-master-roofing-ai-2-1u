@@ -12,7 +12,7 @@ export async function GET(request, { params }) {
   try {
     const { agentId } = await params
 
-    const res = await fetch(`${BACKEND_URL}/v1/admin/agent-code/${agentId}`, {
+    const res = await fetch(`${BACKEND_URL}/v1/agent-config/${agentId}`, {
       cache: 'no-store',
     })
 
@@ -37,7 +37,7 @@ export async function PUT(request, { params }) {
     const { agentId } = await params
     const body = await request.json()
 
-    const res = await fetch(`${BACKEND_URL}/v1/admin/agent-code/${agentId}`, {
+    const res = await fetch(`${BACKEND_URL}/v1/agent-config/${agentId}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
