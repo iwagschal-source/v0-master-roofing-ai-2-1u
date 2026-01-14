@@ -2003,11 +2003,20 @@ function SettingsTab({ agent }) {
   const [saveError, setSaveError] = useState(null)
   const [saveSuccess, setSaveSuccess] = useState(false)
 
-  // Form data state
+  // Helper to find model ID from display name or return as-is
+  const findModelId = (modelValue) => {
+    if (!modelValue) return ''
+    // If it's already a valid model ID format (lowercase with dashes), return it
+    if (modelValue.match(/^[a-z0-9-]+$/)) return modelValue
+    // Otherwise try to find matching model by name (will be resolved when models load)
+    return modelValue
+  }
+
+  // Form data state - use agent.model (the actual model ID), not modelKey (icon key)
   const [formData, setFormData] = useState({
     name: agent.name || '',
     description: agent.description || '',
-    model: agent.modelKey || agent.model || '',
+    model: findModelId(agent.model) || '',  // This should be the model ID like "gemini-2.0-flash"
     tools: agent.tools || [],
     communicationPreset: agent.communicationPreset || 'worker',
     schedule: agent.schedule || 'always-on',
@@ -2074,7 +2083,7 @@ function SettingsTab({ agent }) {
     return (
       formData.name !== (agent.name || '') ||
       formData.description !== (agent.description || '') ||
-      formData.model !== (agent.modelKey || agent.model || '') ||
+      formData.model !== (agent.model || '') ||
       JSON.stringify(formData.tools) !== JSON.stringify(agent.tools || []) ||
       formData.communicationPreset !== (agent.communicationPreset || 'worker') ||
       formData.schedule !== (agent.schedule || 'always-on')
@@ -2235,6 +2244,11 @@ function SettingsTab({ agent }) {
           <div className="flex items-center gap-3">
             <AgentModelIcon modelKey={agent.modelKey} size="sm" />
             <span className="font-medium">{availableModels.find(m => m.id === formData.model)?.name || formData.model}</span>
+            {availableModels.length > 0 && !availableModels.find(m => m.id === formData.model) && (
+              <span className="px-2 py-0.5 bg-amber-500/20 text-amber-400 rounded text-xs">
+                Unknown model - click Edit to select valid model
+              </span>
+            )}
           </div>
         )}
       </div>
