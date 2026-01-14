@@ -21,15 +21,11 @@ import {
   Save,
   FileText,
   ExternalLink,
-  Mail,
   RefreshCw,
   DollarSign,
-  Calendar,
-  Paperclip,
-  Reply,
-  Forward,
-  MoreHorizontal
+  Calendar
 } from "lucide-react"
+import { GCBrief } from "./gc-brief"
 import { EstimatingSheet } from "./estimating-sheet"
 import { cn } from "@/lib/utils"
 
@@ -148,11 +144,6 @@ export function EstimatingCenterScreen({ onSelectProject, onBack }) {
   // Historical rates toggle
   const [useHistoricalRates, setUseHistoricalRates] = useState(true)
 
-  // Project emails state
-  const [projectEmails, setProjectEmails] = useState([])
-  const [emailsLoading, setEmailsLoading] = useState(false)
-  const [selectedEmail, setSelectedEmail] = useState(null)
-
   // Chat state
   const [chatHeight, setChatHeight] = useState(280)
   const [isDragging, setIsDragging] = useState(false)
@@ -186,81 +177,10 @@ export function EstimatingCenterScreen({ onSelectProject, onBack }) {
   useEffect(() => {
     setMessages([])
     setChatInput("")
-    setSelectedEmail(null)
     // Load sheet info from selected project
     setSheetId(selectedProject?.sheet_id || null)
     setSheetUrl(selectedProject?.sheet_url || null)
-    // Load project emails
-    if (selectedProject) {
-      loadProjectEmails(selectedProject)
-    } else {
-      setProjectEmails([])
-    }
   }, [selectedProject?.project_id])
-
-  // Load emails related to the selected project
-  const loadProjectEmails = async (project) => {
-    setEmailsLoading(true)
-    try {
-      // Search for emails mentioning project name or GC
-      const searchQueries = [project.project_name, project.gc_name].filter(Boolean)
-      const query = searchQueries.join(' OR ')
-
-      const res = await fetch(`/api/google/gmail/search?q=${encodeURIComponent(query)}&maxResults=20`)
-      if (res.ok) {
-        const data = await res.json()
-        setProjectEmails(data.emails || [])
-      } else {
-        // Mock data for development
-        setProjectEmails(MOCK_PROJECT_EMAILS)
-      }
-    } catch (err) {
-      console.error('Failed to load project emails:', err)
-      setProjectEmails(MOCK_PROJECT_EMAILS)
-    } finally {
-      setEmailsLoading(false)
-    }
-  }
-
-  // Mock project emails for development
-  const MOCK_PROJECT_EMAILS = [
-    {
-      id: 'email-1',
-      from: { name: 'John Smith', email: 'john@bmgmt.com' },
-      subject: 'RE: Takeoff Request - 1086 Dumont Ave',
-      snippet: 'Thanks for the quick turnaround on the estimate. Can you include the alternate pricing for the TPO system as well?',
-      date: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
-      isUnread: true,
-      hasAttachments: true
-    },
-    {
-      id: 'email-2',
-      from: { name: 'Steve', email: 'steve@masterroofing.com' },
-      subject: 'Takeoff Complete - 1086 Dumont Ave',
-      snippet: 'Hi John, I have completed the takeoff for 1086 Dumont Ave. Please find the attached spreadsheet with all measurements.',
-      date: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString(),
-      isUnread: false,
-      hasAttachments: true
-    },
-    {
-      id: 'email-3',
-      from: { name: 'John Smith', email: 'john@bmgmt.com' },
-      subject: 'Bid Due Date Extension - 1086 Dumont Ave',
-      snippet: 'The owner has granted us an extension. New bid due date is January 25th.',
-      date: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString(),
-      isUnread: false,
-      hasAttachments: false
-    },
-    {
-      id: 'email-4',
-      from: { name: 'John Smith', email: 'john@bmgmt.com' },
-      subject: 'Original ITB - 1086 Dumont Ave',
-      snippet: 'Please find attached the invitation to bid package for the roofing replacement at 1086 Dumont Ave...',
-      date: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(),
-      isUnread: false,
-      hasAttachments: true
-    }
-  ]
 
   // Scroll chat to bottom
   useEffect(() => {
@@ -407,25 +327,6 @@ export function EstimatingCenterScreen({ onSelectProject, onBack }) {
     inProgress: projects.filter(p => p.estimate_status === "in_progress").length,
     review: projects.filter(p => p.estimate_status === "review").length,
     submitted: projects.filter(p => p.estimate_status === "submitted").length
-  }
-
-  // Email date formatting
-  const formatEmailDate = (dateStr) => {
-    if (!dateStr) return ''
-    const date = new Date(dateStr)
-    const now = new Date()
-    const diff = now - date
-
-    // Less than 24 hours
-    if (diff < 24 * 60 * 60 * 1000) {
-      return date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
-    }
-    // Less than 7 days
-    if (diff < 7 * 24 * 60 * 60 * 1000) {
-      return date.toLocaleDateString('en-US', { weekday: 'short' })
-    }
-    // Otherwise show date
-    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
   }
 
   const formatCurrency = (value) => {
@@ -907,134 +808,14 @@ export function EstimatingCenterScreen({ onSelectProject, onBack }) {
               </div>
             )}
 
-            {/* Project Emails - Top Section */}
-            <div className="flex-1 min-h-0 overflow-hidden flex flex-col">
-              {/* Email Header */}
-              <div className="px-4 py-3 border-b border-border flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <Mail className="w-4 h-4 text-primary" />
-                  <span className="font-medium text-sm">Project Emails</span>
-                  <span className="text-xs text-muted-foreground">
-                    {emailsLoading ? 'Loading...' : `${projectEmails.length} messages`}
-                  </span>
-                </div>
-                <button
-                  onClick={() => selectedProject && loadProjectEmails(selectedProject)}
-                  disabled={emailsLoading}
-                  className="p-1.5 hover:bg-muted rounded-lg transition-colors"
-                >
-                  <RefreshCw className={`w-4 h-4 ${emailsLoading ? 'animate-spin' : ''}`} />
-                </button>
-              </div>
-
-              {/* Email List or Detail */}
-              <div className="flex-1 overflow-y-auto">
-                {emailsLoading ? (
-                  <div className="flex items-center justify-center h-32">
-                    <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
-                  </div>
-                ) : selectedEmail ? (
-                  // Email Detail View
-                  <div className="p-4">
-                    <button
-                      onClick={() => setSelectedEmail(null)}
-                      className="flex items-center gap-1 text-sm text-primary hover:underline mb-4"
-                    >
-                      <ChevronRight className="w-4 h-4 rotate-180" />
-                      Back to list
-                    </button>
-
-                    <div className="space-y-4">
-                      <div>
-                        <h3 className="font-semibold text-lg">{selectedEmail.subject}</h3>
-                        <div className="flex items-center gap-3 mt-2 text-sm text-muted-foreground">
-                          <span className="font-medium text-foreground">{selectedEmail.from?.name}</span>
-                          <span>&lt;{selectedEmail.from?.email}&gt;</span>
-                        </div>
-                        <div className="text-xs text-muted-foreground mt-1">
-                          {new Date(selectedEmail.date).toLocaleString()}
-                        </div>
-                      </div>
-
-                      <div className="border-t border-border pt-4">
-                        <p className="text-sm text-foreground whitespace-pre-wrap">
-                          {selectedEmail.snippet || selectedEmail.body || 'No content available'}
-                        </p>
-                      </div>
-
-                      {selectedEmail.hasAttachments && (
-                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                          <Paperclip className="w-4 h-4" />
-                          <span>Attachments available</span>
-                        </div>
-                      )}
-
-                      <div className="flex items-center gap-2 pt-4 border-t border-border">
-                        <button className="flex items-center gap-2 px-3 py-2 bg-primary text-primary-foreground rounded-lg text-sm hover:bg-primary/90">
-                          <Reply className="w-4 h-4" />
-                          Reply
-                        </button>
-                        <button className="flex items-center gap-2 px-3 py-2 bg-secondary text-foreground rounded-lg text-sm hover:bg-secondary/80">
-                          <Forward className="w-4 h-4" />
-                          Forward
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                ) : projectEmails.length === 0 ? (
-                  <div className="flex flex-col items-center justify-center h-32 text-muted-foreground">
-                    <Mail className="w-8 h-8 mb-2 opacity-50" />
-                    <p className="text-sm">No emails found for this project</p>
-                    <p className="text-xs mt-1">Emails mentioning "{selectedProject.project_name}" or "{selectedProject.gc_name}" will appear here</p>
-                  </div>
-                ) : (
-                  // Email List View
-                  <div className="divide-y divide-border">
-                    {projectEmails.map((email) => (
-                      <button
-                        key={email.id}
-                        onClick={() => setSelectedEmail(email)}
-                        className={cn(
-                          "w-full p-3 text-left hover:bg-muted/50 transition-colors",
-                          email.isUnread && "bg-primary/5"
-                        )}
-                      >
-                        <div className="flex items-start gap-3">
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center justify-between gap-2 mb-1">
-                              <span className={cn(
-                                "text-sm truncate",
-                                email.isUnread ? "font-semibold text-foreground" : "text-foreground"
-                              )}>
-                                {email.from?.name || email.from?.email}
-                              </span>
-                              <span className="text-xs text-muted-foreground whitespace-nowrap">
-                                {formatEmailDate(email.date)}
-                              </span>
-                            </div>
-                            <p className={cn(
-                              "text-sm truncate mb-1",
-                              email.isUnread ? "font-medium" : "text-foreground"
-                            )}>
-                              {email.subject}
-                            </p>
-                            <p className="text-xs text-muted-foreground truncate">
-                              {email.snippet}
-                            </p>
-                          </div>
-                          <div className="flex items-center gap-2 shrink-0">
-                            {email.hasAttachments && (
-                              <Paperclip className="w-3.5 h-3.5 text-muted-foreground" />
-                            )}
-                            {email.isUnread && (
-                              <div className="w-2 h-2 rounded-full bg-primary" />
-                            )}
-                          </div>
-                        </div>
-                      </button>
-                    ))}
-                  </div>
-                )}
+            {/* GC Brief - Top Section */}
+            <div className="flex-1 min-h-0 overflow-y-auto">
+              <div className="p-4">
+                <GCBrief
+                  gcName={selectedProject.gc_name}
+                  projectName={selectedProject.project_name}
+                  className="border-0 rounded-none"
+                />
               </div>
             </div>
 

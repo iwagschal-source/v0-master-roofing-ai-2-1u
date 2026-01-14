@@ -1,11 +1,12 @@
 "use client"
 
-import { useState } from "react"
-import { ArrowLeft, Calendar, DollarSign, Building2, ExternalLink, Link as LinkIcon, Plus, Loader2 } from "lucide-react"
+import { useState, useEffect } from "react"
+import { ArrowLeft, Calendar, DollarSign, Building2, ExternalLink, Link as LinkIcon, Plus, Loader2, Mail, Paperclip, RefreshCw, Reply, Forward, ChevronRight } from "lucide-react"
 import { EmbeddedSheet } from "./embedded-sheet"
 import { ActionButtons } from "./action-buttons"
 import { GCBriefWithChat } from "./gc-brief-with-chat"
 import { ResizablePanel } from "./resizable-panel"
+import { cn } from "@/lib/utils"
 
 const statusColors = {
   estimating: "bg-yellow-500",
@@ -40,9 +41,49 @@ function formatDate(dateString) {
 
 const SHEET_TABS = [
   { id: "estimate", label: "ESTIMATE" },
-  { id: "descriptions", label: "Descriptions" },
+  { id: "emails", label: "Emails" },
   { id: "proposal", label: "Proposal" },
   { id: "files", label: "Files" },
+]
+
+// Mock emails for development
+const MOCK_PROJECT_EMAILS = [
+  {
+    id: 'email-1',
+    from: { name: 'John Smith', email: 'john@gccompany.com' },
+    subject: 'RE: Takeoff Request',
+    snippet: 'Thanks for the quick turnaround on the estimate. Can you include the alternate pricing for the TPO system as well?',
+    date: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
+    isUnread: true,
+    hasAttachments: true
+  },
+  {
+    id: 'email-2',
+    from: { name: 'Steve', email: 'steve@masterroofing.com' },
+    subject: 'Takeoff Complete',
+    snippet: 'Hi John, I have completed the takeoff. Please find the attached spreadsheet with all measurements.',
+    date: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString(),
+    isUnread: false,
+    hasAttachments: true
+  },
+  {
+    id: 'email-3',
+    from: { name: 'John Smith', email: 'john@gccompany.com' },
+    subject: 'Bid Due Date Extension',
+    snippet: 'The owner has granted us an extension. New bid due date is January 25th.',
+    date: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString(),
+    isUnread: false,
+    hasAttachments: false
+  },
+  {
+    id: 'email-4',
+    from: { name: 'John Smith', email: 'john@gccompany.com' },
+    subject: 'Original ITB Package',
+    snippet: 'Please find attached the invitation to bid package for the roofing replacement...',
+    date: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(),
+    isUnread: false,
+    hasAttachments: true
+  }
 ]
 
 export function ProjectDetailScreen({ project, onBack, onPreviewProposal, onProjectUpdate }) {
@@ -51,6 +92,55 @@ export function ProjectDetailScreen({ project, onBack, onPreviewProposal, onProj
   const [sheetUrl, setSheetUrl] = useState(project?.sheet_url || null)
   const [isCreatingSheet, setIsCreatingSheet] = useState(false)
   const [sheetError, setSheetError] = useState(null)
+
+  // Email state
+  const [projectEmails, setProjectEmails] = useState([])
+  const [emailsLoading, setEmailsLoading] = useState(false)
+  const [selectedEmail, setSelectedEmail] = useState(null)
+
+  // Load project emails when project changes
+  useEffect(() => {
+    if (project) {
+      loadProjectEmails(project)
+    }
+  }, [project?.id])
+
+  const loadProjectEmails = async (proj) => {
+    setEmailsLoading(true)
+    setSelectedEmail(null)
+    try {
+      const searchQueries = [proj.name, proj.address, proj.gc_name].filter(Boolean)
+      const query = searchQueries.join(' OR ')
+
+      const res = await fetch(`/api/google/gmail/search?q=${encodeURIComponent(query)}&maxResults=20`)
+      if (res.ok) {
+        const data = await res.json()
+        setProjectEmails(data.emails || [])
+      } else {
+        // Use mock data for development
+        setProjectEmails(MOCK_PROJECT_EMAILS)
+      }
+    } catch (err) {
+      console.error('Failed to load project emails:', err)
+      setProjectEmails(MOCK_PROJECT_EMAILS)
+    } finally {
+      setEmailsLoading(false)
+    }
+  }
+
+  const formatEmailDate = (dateStr) => {
+    if (!dateStr) return ''
+    const date = new Date(dateStr)
+    const now = new Date()
+    const diff = now - date
+    if (diff < 24 * 60 * 60 * 1000) {
+      return date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
+    }
+    if (diff < 7 * 24 * 60 * 60 * 1000) {
+      return date.toLocaleDateString('en-US', { weekday: 'short' })
+    }
+    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+  }
 
   const status = project?.status || "pending"
 
@@ -255,15 +345,137 @@ export function ProjectDetailScreen({ project, onBack, onPreviewProposal, onProj
           </div>
         )}
 
-        {activeTab === "descriptions" && (
+        {activeTab === "emails" && (
           <div className="space-y-4">
-            {sheetId ? (
-              <EmbeddedSheet sheetId={sheetId} tab="Descriptions" height={600} />
-            ) : (
-              <div className="bg-card rounded-xl border border-border p-8 text-center">
-                <p className="text-foreground-secondary">Connect a Google Sheet to view descriptions</p>
+            {/* Email Header */}
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Mail className="w-5 h-5 text-primary" />
+                <span className="font-medium">Project Emails</span>
+                <span className="text-sm text-foreground-tertiary">
+                  {emailsLoading ? 'Loading...' : `${projectEmails.length} messages`}
+                </span>
               </div>
-            )}
+              <button
+                onClick={() => project && loadProjectEmails(project)}
+                disabled={emailsLoading}
+                className="p-2 hover:bg-secondary rounded-lg transition-colors"
+              >
+                <RefreshCw className={`w-4 h-4 ${emailsLoading ? 'animate-spin' : ''}`} />
+              </button>
+            </div>
+
+            {/* Email Content */}
+            <div className="bg-card rounded-xl border border-border overflow-hidden">
+              {emailsLoading ? (
+                <div className="flex items-center justify-center h-48">
+                  <Loader2 className="w-6 h-6 animate-spin text-foreground-tertiary" />
+                </div>
+              ) : selectedEmail ? (
+                // Email Detail View
+                <div className="p-6">
+                  <button
+                    onClick={() => setSelectedEmail(null)}
+                    className="flex items-center gap-1 text-sm text-primary hover:underline mb-4"
+                  >
+                    <ChevronRight className="w-4 h-4 rotate-180" />
+                    Back to list
+                  </button>
+
+                  <div className="space-y-4">
+                    <div>
+                      <h3 className="font-semibold text-lg text-foreground">{selectedEmail.subject}</h3>
+                      <div className="flex items-center gap-3 mt-2 text-sm text-foreground-secondary">
+                        <span className="font-medium text-foreground">{selectedEmail.from?.name}</span>
+                        <span>&lt;{selectedEmail.from?.email}&gt;</span>
+                      </div>
+                      <div className="text-xs text-foreground-tertiary mt-1">
+                        {new Date(selectedEmail.date).toLocaleString()}
+                      </div>
+                    </div>
+
+                    <div className="border-t border-border pt-4">
+                      <p className="text-sm text-foreground whitespace-pre-wrap">
+                        {selectedEmail.snippet || selectedEmail.body || 'No content available'}
+                      </p>
+                    </div>
+
+                    {selectedEmail.hasAttachments && (
+                      <div className="flex items-center gap-2 text-sm text-foreground-secondary">
+                        <Paperclip className="w-4 h-4" />
+                        <span>Attachments available</span>
+                      </div>
+                    )}
+
+                    <div className="flex items-center gap-2 pt-4 border-t border-border">
+                      <button className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm hover:bg-primary/90 transition-colors">
+                        <Reply className="w-4 h-4" />
+                        Reply
+                      </button>
+                      <button className="flex items-center gap-2 px-4 py-2 bg-secondary text-foreground rounded-lg text-sm hover:bg-secondary/80 transition-colors">
+                        <Forward className="w-4 h-4" />
+                        Forward
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ) : projectEmails.length === 0 ? (
+                <div className="flex flex-col items-center justify-center h-48 text-foreground-tertiary">
+                  <Mail className="w-10 h-10 mb-3 opacity-50" />
+                  <p className="text-sm font-medium">No emails found for this project</p>
+                  <p className="text-xs mt-1">
+                    Emails mentioning "{project?.name || project?.address}" or "{project?.gc_name}" will appear here
+                  </p>
+                </div>
+              ) : (
+                // Email List View
+                <div className="divide-y divide-border">
+                  {projectEmails.map((email) => (
+                    <button
+                      key={email.id}
+                      onClick={() => setSelectedEmail(email)}
+                      className={cn(
+                        "w-full p-4 text-left hover:bg-secondary/50 transition-colors",
+                        email.isUnread && "bg-primary/5"
+                      )}
+                    >
+                      <div className="flex items-start gap-3">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center justify-between gap-2 mb-1">
+                            <span className={cn(
+                              "text-sm truncate",
+                              email.isUnread ? "font-semibold text-foreground" : "text-foreground"
+                            )}>
+                              {email.from?.name || email.from?.email}
+                            </span>
+                            <span className="text-xs text-foreground-tertiary whitespace-nowrap">
+                              {formatEmailDate(email.date)}
+                            </span>
+                          </div>
+                          <p className={cn(
+                            "text-sm truncate mb-1",
+                            email.isUnread ? "font-medium text-foreground" : "text-foreground"
+                          )}>
+                            {email.subject}
+                          </p>
+                          <p className="text-xs text-foreground-tertiary truncate">
+                            {email.snippet}
+                          </p>
+                        </div>
+                        <div className="flex items-center gap-2 shrink-0">
+                          {email.hasAttachments && (
+                            <Paperclip className="w-4 h-4 text-foreground-tertiary" />
+                          )}
+                          {email.isUnread && (
+                            <div className="w-2 h-2 rounded-full bg-primary" />
+                          )}
+                        </div>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
         )}
 
