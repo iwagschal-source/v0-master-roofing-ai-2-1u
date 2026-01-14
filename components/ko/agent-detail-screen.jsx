@@ -108,6 +108,7 @@ export function AgentDetailScreen({ agent, onBack, onClone, onOpenNetwork }) {
     { id: "overview", label: "Overview", icon: Activity },
     { id: "chat", label: "Chat", icon: MessageSquare },
     { id: "readme", label: "README", icon: FileText },
+    { id: "code", label: "Code", icon: Terminal },
     { id: "permissions", label: "Permissions", icon: Shield },
     { id: "scoring", label: "Scoring", icon: Target },
     { id: "monitoring", label: "Monitoring", icon: Eye },
@@ -272,6 +273,7 @@ export function AgentDetailScreen({ agent, onBack, onClone, onOpenNetwork }) {
         {activeTab === "overview" && <OverviewTab agent={agent} />}
         {activeTab === "chat" && <ChatTab agent={agent} />}
         {activeTab === "readme" && <ReadmeTab agent={agent} agentConfig={agentConfig} setAgentConfig={setAgentConfig} />}
+        {activeTab === "code" && <CodeTab agent={agent} />}
         {activeTab === "permissions" && <PermissionsTab agent={agent} />}
         {activeTab === "scoring" && <ScoringTab agent={agent} />}
         {activeTab === "monitoring" && <MonitoringTab agent={agent} />}
@@ -287,6 +289,225 @@ export function AgentDetailScreen({ agent, onBack, onClone, onOpenNetwork }) {
 }
 
 // Tab Components
+
+function CodeTab({ agent }) {
+  const [codeData, setCodeData] = useState(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(null)
+
+  useEffect(() => {
+    async function fetchCode() {
+      try {
+        const res = await fetch(`/api/ko/admin/agent-code/${agent.id}`)
+        if (res.ok) {
+          const data = await res.json()
+          setCodeData(data)
+        } else {
+          setError('Failed to fetch agent configuration')
+        }
+      } catch (err) {
+        setError(err.message)
+      } finally {
+        setLoading(false)
+      }
+    }
+    fetchCode()
+  }, [agent.id])
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <div className="p-6 bg-red-500/10 border border-red-500/30 rounded-xl">
+        <p className="text-red-400">{error}</p>
+      </div>
+    )
+  }
+
+  return (
+    <div className="space-y-6">
+      {/* Handler Info */}
+      <div className="bg-card border border-border rounded-xl p-6">
+        <h2 className="font-semibold text-foreground mb-4 flex items-center gap-2">
+          <Terminal size={18} className="text-emerald-400" />
+          Execution Handler
+        </h2>
+        <div className="p-4 bg-secondary rounded-lg">
+          <div className="flex items-center gap-2 mb-2">
+            <span className={`px-2 py-0.5 rounded text-xs font-medium ${
+              codeData?.handler?.type === 'hardcoded'
+                ? 'bg-amber-500/20 text-amber-400'
+                : 'bg-emerald-500/20 text-emerald-400'
+            }`}>
+              {codeData?.handler?.type === 'hardcoded' ? 'Hardcoded Handler' : 'Dynamic Execution'}
+            </span>
+          </div>
+          <p className="text-sm text-muted-foreground font-mono">{codeData?.handler?.description}</p>
+        </div>
+      </div>
+
+      {/* Model Configuration */}
+      <div className="bg-card border border-border rounded-xl p-6">
+        <h2 className="font-semibold text-foreground mb-4 flex items-center gap-2">
+          <Brain size={18} className="text-purple-400" />
+          Model Configuration
+        </h2>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div className="p-3 bg-secondary rounded-lg">
+            <p className="text-xs text-muted-foreground">Model ID</p>
+            <p className="font-mono text-sm">{codeData?.model?.id}</p>
+          </div>
+          <div className="p-3 bg-secondary rounded-lg">
+            <p className="text-xs text-muted-foreground">Model Name</p>
+            <p className="font-mono text-sm">{codeData?.model?.model_name}</p>
+          </div>
+          <div className="p-3 bg-secondary rounded-lg">
+            <p className="text-xs text-muted-foreground">Provider</p>
+            <p className="font-mono text-sm">{codeData?.model?.provider}</p>
+          </div>
+          <div className="p-3 bg-secondary rounded-lg">
+            <p className="text-xs text-muted-foreground">Display Name</p>
+            <p className="font-mono text-sm">{codeData?.model?.name}</p>
+          </div>
+        </div>
+      </div>
+
+      {/* System Prompts */}
+      <div className="bg-card border border-border rounded-xl p-6">
+        <h2 className="font-semibold text-foreground mb-4 flex items-center gap-2">
+          <FileText size={18} className="text-blue-400" />
+          System Prompts
+          <span className="text-xs text-muted-foreground ml-2">
+            ({Object.keys(codeData?.prompts || {}).length} prompts)
+          </span>
+        </h2>
+        <div className="space-y-4">
+          {Object.entries(codeData?.prompts || {}).map(([key, value]) => (
+            <div key={key} className="border border-border rounded-lg overflow-hidden">
+              <div className="px-4 py-2 bg-secondary border-b border-border">
+                <span className="font-mono text-sm text-primary">{key}</span>
+              </div>
+              <pre className="p-4 text-sm text-muted-foreground overflow-x-auto whitespace-pre-wrap font-mono bg-background">
+                {value}
+              </pre>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Tools */}
+      <div className="bg-card border border-border rounded-xl p-6">
+        <h2 className="font-semibold text-foreground mb-4 flex items-center gap-2">
+          <Database size={18} className="text-cyan-400" />
+          Available Tools
+          <span className="text-xs text-muted-foreground ml-2">
+            ({codeData?.tools?.length || 0} tools)
+          </span>
+        </h2>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          {codeData?.tools?.map((tool, idx) => (
+            <div key={idx} className="p-3 bg-secondary rounded-lg">
+              <p className="font-medium text-sm">{tool.name || tool.id}</p>
+              <p className="text-xs text-muted-foreground mt-1">{tool.description}</p>
+              {tool.category && (
+                <span className="inline-block mt-2 px-2 py-0.5 bg-cyan-500/20 text-cyan-400 rounded text-xs">
+                  {tool.category}
+                </span>
+              )}
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Communication */}
+      <div className="bg-card border border-border rounded-xl p-6">
+        <h2 className="font-semibold text-foreground mb-4 flex items-center gap-2">
+          <Network size={18} className="text-purple-400" />
+          Communication Settings
+        </h2>
+        <div className="space-y-3">
+          <div className="p-3 bg-secondary rounded-lg">
+            <p className="text-xs text-muted-foreground">Preset</p>
+            <p className="font-medium">{codeData?.communication?.name} ({codeData?.communication?.id})</p>
+            <p className="text-xs text-muted-foreground mt-1">{codeData?.communication?.description}</p>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="p-3 bg-secondary rounded-lg">
+              <p className="text-xs text-muted-foreground mb-2">Can Call</p>
+              <div className="flex flex-wrap gap-1">
+                {codeData?.communication?.can_call?.length > 0 ? (
+                  codeData.communication.can_call.map((id, idx) => (
+                    <span key={idx} className="px-2 py-0.5 bg-emerald-500/20 text-emerald-400 rounded text-xs font-mono">
+                      {id}
+                    </span>
+                  ))
+                ) : (
+                  <span className="text-muted-foreground text-xs">None</span>
+                )}
+              </div>
+            </div>
+            <div className="p-3 bg-secondary rounded-lg">
+              <p className="text-xs text-muted-foreground mb-2">Can Be Called By</p>
+              <div className="flex flex-wrap gap-1">
+                {codeData?.communication?.can_be_called_by?.length > 0 ? (
+                  codeData.communication.can_be_called_by.map((id, idx) => (
+                    <span key={idx} className="px-2 py-0.5 bg-blue-500/20 text-blue-400 rounded text-xs font-mono">
+                      {id}
+                    </span>
+                  ))
+                ) : (
+                  <span className="text-muted-foreground text-xs">None</span>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Settings */}
+      <div className="bg-card border border-border rounded-xl p-6">
+        <h2 className="font-semibold text-foreground mb-4 flex items-center gap-2">
+          <Settings size={18} className="text-amber-400" />
+          Raw Settings
+        </h2>
+        <pre className="p-4 bg-secondary rounded-lg text-sm font-mono overflow-x-auto">
+          {JSON.stringify(codeData?.settings || {}, null, 2)}
+        </pre>
+      </div>
+
+      {/* Metadata */}
+      <div className="bg-card border border-border rounded-xl p-6">
+        <h2 className="font-semibold text-foreground mb-4">Metadata</h2>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+          <div>
+            <p className="text-muted-foreground">Agent ID</p>
+            <p className="font-mono">{codeData?.agent_id}</p>
+          </div>
+          <div>
+            <p className="text-muted-foreground">Enabled</p>
+            <p className={codeData?.enabled ? 'text-emerald-400' : 'text-red-400'}>
+              {codeData?.enabled ? 'Yes' : 'No'}
+            </p>
+          </div>
+          <div>
+            <p className="text-muted-foreground">Last Updated</p>
+            <p>{codeData?.updated_at ? new Date(codeData.updated_at).toLocaleString() : 'Never'}</p>
+          </div>
+          <div>
+            <p className="text-muted-foreground">Updated By</p>
+            <p>{codeData?.updated_by || 'Unknown'}</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
 
 function OverviewTab({ agent }) {
   const status = statusConfig[agent.status]
