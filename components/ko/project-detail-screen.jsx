@@ -5,6 +5,7 @@ import { ArrowLeft, Calendar, DollarSign, Building2, ExternalLink, Link as LinkI
 import { EmbeddedSheet } from "./embedded-sheet"
 import { ActionButtons } from "./action-buttons"
 import { GCIntelligence } from "./gc-intelligence"
+import { GCBrief } from "./gc-brief"
 
 const statusColors = {
   estimating: "bg-yellow-500",
@@ -225,8 +226,11 @@ export function ProjectDetailScreen({ project, onBack, onPreviewProposal, onProj
               </div>
             </div>
 
-            {/* GC Intelligence */}
-            <GCIntelligence gcId={project.gc_id} gcName={project.gc_name} />
+            {/* GC Brief - Detailed estimator intelligence */}
+            <GCBrief
+              gcName={project.gc_name}
+              projectName={project.name || project.address}
+            />
           </div>
         )}
 
@@ -348,22 +352,22 @@ export function ProjectDetailScreen({ project, onBack, onPreviewProposal, onProj
         )}
       </div>
 
-      {/* Bottom Bar - GC Intelligence (visible when not on overview) */}
-      {activeTab !== "overview" && project.gc_id && (
+      {/* Bottom Bar - GC Brief Quick Access (visible when not on overview) */}
+      {activeTab !== "overview" && project.gc_name && (
         <div className="border-t border-border p-4 bg-card/50">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
               <Building2 className="w-5 h-5 text-foreground-tertiary" />
               <div>
                 <span className="font-medium text-foreground">{project.gc_name}</span>
-                <span className="text-foreground-tertiary text-sm ml-2">67% win rate</span>
+                <span className="text-foreground-tertiary text-sm ml-2">Click to see pricing & bundling</span>
               </div>
             </div>
             <button
               onClick={() => setActiveTab("overview")}
-              className="text-primary text-sm hover:underline"
+              className="px-3 py-1.5 bg-primary/10 hover:bg-primary/20 text-primary rounded-lg text-sm font-medium transition-colors"
             >
-              View GC Intelligence
+              View GC Brief
             </button>
           </div>
         </div>
