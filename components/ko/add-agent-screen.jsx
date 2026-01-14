@@ -20,6 +20,8 @@ import {
   Globe,
   Code,
   Eye,
+  Network,
+  Users,
 } from "lucide-react"
 import { agents, modelConfig } from "@/data/agent-data"
 import { AgentModelIcon } from "./agent-model-icon"
@@ -36,6 +38,15 @@ const fallbackTools = [
   { id: "bigquery_sql", name: "BigQuery SQL", category: "data", description: "Execute SQL queries" },
   { id: "search_documents", name: "Document Search", category: "data", description: "Search documents" },
   { id: "hubspot_query", name: "HubSpot CRM", category: "data", description: "Query CRM data" },
+]
+
+// Fallback communication presets if backend is unavailable
+const fallbackCommunicationPresets = [
+  { id: "worker", name: "Worker", description: "Can be called by KO Prime and orchestrators", can_call: [], can_be_called_by: ["CAO-GEM-001", "CAO-PRIME-001"] },
+  { id: "peer", name: "Peer", description: "Can call and be called by any agent", can_call: ["*"], can_be_called_by: ["*"] },
+  { id: "orchestrator", name: "Orchestrator", description: "Can call all agents, not called by others", can_call: ["*"], can_be_called_by: [] },
+  { id: "isolated", name: "Isolated", description: "Cannot communicate with other agents", can_call: [], can_be_called_by: [] },
+  { id: "caller_only", name: "Caller Only", description: "Can call agents but not be called", can_call: ["*"], can_be_called_by: [] },
 ]
 
 const scheduleOptions = [
@@ -79,15 +90,19 @@ export function AddAgentScreen({ onBack, onSave }) {
   // Dynamic data from backend
   const [availableModels, setAvailableModels] = useState(fallbackModels)
   const [availableTools, setAvailableTools] = useState(fallbackTools)
+  const [communicationPresets, setCommunicationPresets] = useState(fallbackCommunicationPresets)
+  const [existingAgents, setExistingAgents] = useState([])
   const [isLoadingData, setIsLoadingData] = useState(true)
 
-  // Fetch models and tools from backend
+  // Fetch models, tools, communication presets, and existing agents from backend
   useEffect(() => {
     async function fetchFactoryData() {
       try {
-        const [modelsRes, toolsRes] = await Promise.all([
+        const [modelsRes, toolsRes, presetsRes, agentsRes] = await Promise.all([
           fetch('/api/ko/factory/models'),
           fetch('/api/ko/factory/tools'),
+          fetch('/api/ko/factory/communication-presets'),
+          fetch('/api/ko/factory/agents'),
         ])
 
         if (modelsRes.ok) {
@@ -101,6 +116,20 @@ export function AddAgentScreen({ onBack, onSave }) {
           const toolsData = await toolsRes.json()
           if (toolsData.tools?.length > 0) {
             setAvailableTools(toolsData.tools)
+          }
+        }
+
+        if (presetsRes.ok) {
+          const presetsData = await presetsRes.json()
+          if (presetsData.presets?.length > 0) {
+            setCommunicationPresets(presetsData.presets)
+          }
+        }
+
+        if (agentsRes.ok) {
+          const agentsData = await agentsRes.json()
+          if (agentsData.agents?.length > 0) {
+            setExistingAgents(agentsData.agents)
           }
         }
       } catch (error) {
@@ -134,6 +163,11 @@ export function AddAgentScreen({ onBack, onSave }) {
       { name: "Latency P95", weight: 30, threshold: "<300ms" },
       { name: "Error Rate", weight: 30, threshold: "<1%" },
     ],
+
+    // Step 6: Communication
+    communicationPreset: "worker",
+    customCanCall: [],
+    customCanBeCalledBy: [],
   })
 
   const updateFormData = (field, value) => {
@@ -164,6 +198,10 @@ export function AddAgentScreen({ onBack, onSave }) {
         schedule: formData.schedule,
         cronExpression: formData.cronExpression,
         scoringMetrics: formData.scoringMetrics,
+        communication_preset: formData.communicationPreset,
+        // For custom communication, include the lists
+        custom_can_call: formData.customCanCall,
+        custom_can_be_called_by: formData.customCanBeCalledBy,
       }
 
       console.log("Creating agent with payload:", payload)
@@ -231,7 +269,8 @@ export function AddAgentScreen({ onBack, onSave }) {
     { num: 2, label: "README", icon: FileText },
     { num: 3, label: "Tools", icon: Wrench },
     { num: 4, label: "Schedule", icon: Calendar },
-    { num: 5, label: "Scoring", icon: Target },
+    { num: 5, label: "Communication", icon: Network },
+    { num: 6, label: "Scoring", icon: Target },
   ]
 
   // Group models by provider for display
@@ -542,8 +581,102 @@ export function AddAgentScreen({ onBack, onSave }) {
             </div>
           )}
 
-          {/* Step 5: Scoring */}
+          {/* Step 5: Communication */}
           {step === 5 && (
+            <div className="space-y-6">
+              <div className="bg-card border border-border rounded-xl p-6">
+                <h2 className="font-semibold text-foreground mb-4 flex items-center gap-2">
+                  <Network size={20} className="text-purple-400" />
+                  Agent Communication
+                </h2>
+                <p className="text-sm text-muted-foreground mb-6">
+                  Configure how this agent communicates with other agents. This determines who can call this agent and who it can call.
+                </p>
+
+                {/* Preset Selection */}
+                <div className="space-y-4">
+                  <label className="text-sm font-medium text-foreground block">Communication Preset</label>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {communicationPresets.map((preset) => (
+                      <button
+                        key={preset.id}
+                        onClick={() => updateFormData("communicationPreset", preset.id)}
+                        className={`p-4 rounded-lg border-2 text-left transition-colors ${
+                          formData.communicationPreset === preset.id
+                            ? "border-purple-500 bg-purple-500/10"
+                            : "border-border bg-secondary hover:border-muted-foreground"
+                        }`}
+                      >
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className="font-medium">{preset.name}</span>
+                          {preset.id === "worker" && (
+                            <span className="text-xs px-1.5 py-0.5 bg-emerald-500/20 text-emerald-400 rounded">
+                              recommended
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-xs text-muted-foreground">{preset.description}</p>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Visual representation of communication */}
+                <div className="mt-6 p-4 bg-secondary/50 rounded-lg">
+                  <p className="text-sm font-medium text-foreground mb-3">Communication Flow</p>
+                  {(() => {
+                    const preset = communicationPresets.find(p => p.id === formData.communicationPreset)
+                    if (!preset) return null
+                    return (
+                      <div className="space-y-3 text-sm">
+                        <div className="flex items-center gap-3">
+                          <span className="text-muted-foreground w-32">Can call:</span>
+                          <span className={`${preset.can_call?.length > 0 ? "text-emerald-400" : "text-muted-foreground"}`}>
+                            {preset.can_call?.includes("*") ? "All agents" :
+                             preset.can_call?.length > 0 ? preset.can_call.join(", ") : "None"}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-3">
+                          <span className="text-muted-foreground w-32">Can be called by:</span>
+                          <span className={`${preset.can_be_called_by?.length > 0 ? "text-blue-400" : "text-muted-foreground"}`}>
+                            {preset.can_be_called_by?.includes("*") ? "All agents" :
+                             preset.can_be_called_by?.length > 0 ? preset.can_be_called_by.join(", ") : "None"}
+                          </span>
+                        </div>
+                      </div>
+                    )
+                  })()}
+                </div>
+
+                {/* Show existing agents for context */}
+                {existingAgents.length > 0 && (
+                  <div className="mt-6">
+                    <p className="text-sm font-medium text-muted-foreground mb-3">
+                      Existing Agents in System ({existingAgents.length})
+                    </p>
+                    <div className="flex flex-wrap gap-2">
+                      {existingAgents.slice(0, 10).map((agent) => (
+                        <span
+                          key={agent.id}
+                          className="px-2 py-1 text-xs bg-secondary rounded-md text-muted-foreground"
+                        >
+                          {agent.name || agent.id}
+                        </span>
+                      ))}
+                      {existingAgents.length > 10 && (
+                        <span className="px-2 py-1 text-xs text-muted-foreground">
+                          +{existingAgents.length - 10} more
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Step 6: Scoring */}
+          {step === 6 && (
             <div className="space-y-6">
               <div className="bg-card border border-border rounded-xl p-6">
                 <h2 className="font-semibold text-foreground mb-4 flex items-center gap-2">
@@ -662,6 +795,12 @@ export function AddAgentScreen({ onBack, onSave }) {
                     <span className="text-muted-foreground">Schedule</span>
                     <span>{scheduleOptions.find((s) => s.id === formData.schedule)?.name}</span>
                   </div>
+                  <div className="flex justify-between py-2 border-b border-border">
+                    <span className="text-muted-foreground">Communication</span>
+                    <span className="text-purple-400">
+                      {communicationPresets.find((p) => p.id === formData.communicationPreset)?.name || "Worker"}
+                    </span>
+                  </div>
                   <div className="flex justify-between py-2">
                     <span className="text-muted-foreground">Tools</span>
                     <span>{formData.selectedTools.length} selected</span>
@@ -692,9 +831,9 @@ export function AddAgentScreen({ onBack, onSave }) {
               Previous
             </button>
 
-            {step < 5 ? (
+            {step < 6 ? (
               <button
-                onClick={() => setStep((s) => Math.min(5, s + 1))}
+                onClick={() => setStep((s) => Math.min(6, s + 1))}
                 className="px-6 py-2 bg-primary text-primary-foreground rounded-lg font-medium hover:bg-primary/90 transition-colors"
               >
                 Next
