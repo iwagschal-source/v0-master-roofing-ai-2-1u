@@ -525,12 +525,12 @@ function CodeTab({ agent }) {
 
       {/* Full Raw JSON - Editable */}
       <div className="bg-card border border-border rounded-xl p-6">
-        <div className="flex items-center justify-between mb-4">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
           <h2 className="font-semibold text-foreground flex items-center gap-2">
             <Settings size={18} className="text-amber-400" />
             Full Configuration JSON
           </h2>
-          <div className="flex items-center gap-2 flex-shrink-0">
+          <div className="flex items-center gap-2">
             {saveStatus === 'success' && (
               <span className="text-xs text-emerald-400 flex items-center gap-1">
                 <CheckCircle size={14} /> Saved
