@@ -951,14 +951,14 @@ export function AgentNetworkMapScreen({ onBack, onSelectAgent }) {
                 const toPos = positions[targetId]
                 if (!fromPos || !toPos) return null
 
-                // Check if this connection has an active call
+                // Check if this connection has an active call (real-time from WebSocket)
                 const hasActiveCall = [...activeCalls.values()].some(
                   call => (call.source === sourceId && call.target === targetId) ||
                           (call.source === targetId && call.target === sourceId)
                 )
 
-                const isActive =
-                  hasActiveCall || activeAgentIds.has(sourceId) || activeAgentIds.has(targetId)
+                // Only animate if there's a REAL active call - not just because agents are "live"
+                const isActive = hasActiveCall
 
                 return (
                   <ConnectionLine
@@ -967,7 +967,7 @@ export function AgentNetworkMapScreen({ onBack, onSelectAgent }) {
                     to={toPos}
                     type={hasActiveCall ? 'active' : conn.type}
                     isActive={isActive}
-                    isAnimating={isPlaying || hasActiveCall}
+                    isAnimating={hasActiveCall} // Only animate on real calls
                     bidirectional={conn.bidirectional}
                   />
                 )
