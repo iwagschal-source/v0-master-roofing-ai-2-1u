@@ -169,6 +169,154 @@ export function ChatShell({ onOpenPowerBICustomView, initialContext, onClearCont
     }
   }
 
+  // Submit handler with file attachments
+  const submitWithFiles = async (text, files) => {
+    if (!text.trim() && files.length === 0) return
+
+    lastUserQuestionRef.current = text
+
+    // 0) Ensure we have a session ID
+    let sessionId = currentSessionId
+    if (!sessionId) {
+      sessionId = generateSessionId()
+      setCurrentSessionId(sessionId)
+      setActiveSessionId(sessionId)
+    }
+
+    // 1) Upload files to GCS if they have file objects
+    let uploadedFiles = []
+    const filesToUpload = files.filter(f => f.file)
+
+    if (filesToUpload.length > 0) {
+      try {
+        const formData = new FormData()
+        formData.append('sessionId', sessionId)
+        for (const f of filesToUpload) {
+          formData.append('files', f.file)
+        }
+
+        const uploadResponse = await fetch('/api/ko/chat/upload', {
+          method: 'POST',
+          body: formData,
+        })
+
+        if (uploadResponse.ok) {
+          const uploadResult = await uploadResponse.json()
+          uploadedFiles = uploadResult.files || []
+        }
+      } catch (e) {
+        console.error('File upload failed:', e)
+      }
+    }
+
+    // Merge uploaded info with original file data
+    const attachments = files.map((f, idx) => {
+      const uploaded = uploadedFiles.find(u => u.name === f.name) || {}
+      return {
+        id: f.id,
+        name: f.name,
+        type: f.type,
+        size: f.size,
+        content: f.content || uploaded.content,
+        preview: f.preview || uploaded.preview,
+        path: uploaded.path,
+        url: uploaded.url,
+      }
+    })
+
+    // 2) Add user message with attachments
+    setMessages((prev) => [
+      ...prev,
+      {
+        id: crypto.randomUUID?.() ?? String(Date.now()),
+        role: "user",
+        content: text || `Uploaded ${files.length} file(s)`,
+        attachments,
+        timestamp: new Date(),
+      },
+    ])
+
+    // 3) Switch view to chat
+    setView("chat")
+
+    // 4) Start thinking state
+    setIsThinking(true)
+    setShowReasoning(true)
+
+    // 5) Build context with file content for the AI
+    const fileContext = attachments.map(f => ({
+      name: f.name,
+      type: f.type,
+      content: f.content,
+      path: f.path,
+    })).filter(f => f.content || f.path)
+
+    const context = {
+      ...(followUpContext ? {
+        previous_visualization: {
+          type: followUpContext.type,
+          data: followUpContext.chartData,
+          original_question: followUpContext.originalQuestion,
+        },
+      } : {}),
+      attached_files: fileContext,
+    }
+
+    // 6) Send via WebSocket with file context
+    const messageWithFiles = fileContext.length > 0
+      ? `${text}\n\n[Attached files: ${fileContext.map(f => f.name).join(', ')}]\n\nFile contents:\n${fileContext.filter(f => f.content).map(f => `--- ${f.name} ---\n${f.content.substring(0, 5000)}`).join('\n\n')}`
+      : text
+
+    wsSendMessage(messageWithFiles, context)
+
+    // 7) Clear follow-up context after sending
+    if (followUpContext) {
+      setFollowUpContext(null)
+      setContextBanner(null)
+      onClearContext?.()
+    }
+  }
+
+  // Handle document link clicks
+  const handleDocumentClick = async (path) => {
+    if (!path) return
+
+    // For gs:// URLs, fetch a signed URL from the API
+    if (path.startsWith('gs://')) {
+      try {
+        const response = await fetch(`/api/ko/chat/upload?path=${encodeURIComponent(path)}`)
+        if (response.ok) {
+          const data = await response.json()
+          if (data.url) {
+            window.open(data.url, '_blank')
+            return
+          }
+        }
+      } catch (e) {
+        console.error('Failed to get document URL:', e)
+      }
+    }
+
+    // For http/https URLs, open directly
+    if (path.startsWith('http://') || path.startsWith('https://')) {
+      window.open(path, '_blank')
+      return
+    }
+
+    // For local paths, try to fetch through API
+    try {
+      const response = await fetch(`/api/ko/chat/upload?path=${encodeURIComponent(path)}`)
+      if (response.ok) {
+        const data = await response.json()
+        if (data.url) {
+          window.open(data.url, '_blank')
+        }
+      }
+    } catch (e) {
+      console.error('Failed to get document:', e)
+    }
+  }
+
   // Connection status indicator (optional, for debugging)
   const connectionStatus = isConnected ? "connected" : "disconnected"
 
@@ -211,8 +359,10 @@ export function ChatShell({ onOpenPowerBICustomView, initialContext, onClearCont
         messages={messages}
         isThinking={isThinking}
         onSubmit={submit}
+        onSubmitWithFiles={submitWithFiles}
         showReasoning={showReasoning}
         onSourceClick={onSourceClick}
+        onDocumentClick={handleDocumentClick}
         // Streaming props
         phases={phases}
         tools={tools}

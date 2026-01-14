@@ -17,12 +17,14 @@ import { useVoiceWebSocket } from "@/hooks/useVoiceWebSocket"
 export function ConversationPane({
   messages,
   onSubmit,
+  onSubmitWithFiles,
   isThinking,
   activeMode,
   onExpandStage,
   onKoStateChange,
   showReasoning,
   onSourceClick,
+  onDocumentClick,
   // New streaming props
   phases = [],
   tools = [],
@@ -167,7 +169,7 @@ export function ConversationPane({
         {/* Existing messages */}
         {messages.map((message) => (
           <div key={message.id}>
-            <ChatMessage message={message} onSourceClick={onSourceClick} />
+            <ChatMessage message={message} onSourceClick={onSourceClick} onDocumentClick={onDocumentClick} />
             {message.role === "assistant" && message.reasoning && (
               <ReasoningIndicator reasoning={message.reasoning} isActive={false} />
             )}
@@ -225,6 +227,7 @@ export function ConversationPane({
       <div className="p-4 border-t border-border">
         <MessageInput
           onSubmit={onSubmit}
+          onSubmitWithFiles={onSubmitWithFiles}
           isRecording={isRecording}
           onMicToggle={handleMicToggle}
           isVoiceEnabled={isVoiceEnabled}
