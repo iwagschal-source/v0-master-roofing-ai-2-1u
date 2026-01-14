@@ -1,22 +1,27 @@
 "use client"
 
-import { useState, useEffect, useRef } from "react"
+import { useState, useEffect, useRef, useCallback } from "react"
 import {
   Search,
   Calculator,
   Upload,
   Plus,
   Clock,
-  DollarSign,
   Building2,
   ChevronRight,
-  Filter,
   Loader2,
   AlertCircle,
   CheckCircle2,
   FileSpreadsheet,
-  X
+  X,
+  GripHorizontal,
+  Send,
+  Bot,
+  Sparkles,
+  Save
 } from "lucide-react"
+import { GCBrief } from "./gc-brief"
+import { cn } from "@/lib/utils"
 
 // Mock data for development - will be replaced with API calls
 const MOCK_PROJECTS = [
@@ -109,43 +114,69 @@ const STATUS_CONFIG = {
   lost: { label: "Lost", color: "bg-red-500", textColor: "text-red-400" }
 }
 
-const PRIORITY_CONFIG = {
-  urgent: { label: "Urgent", color: "text-red-400" },
-  high: { label: "High", color: "text-orange-400" },
-  normal: { label: "Normal", color: "text-muted-foreground" }
-}
-
 export function EstimatingCenterScreen({ onSelectProject, onBack }) {
-  const [activeTab, setActiveTab] = useState("queue") // queue | all
+  const [activeTab, setActiveTab] = useState("queue")
   const [searchQuery, setSearchQuery] = useState("")
   const [statusFilter, setStatusFilter] = useState("all")
   const [projects, setProjects] = useState([])
   const [loading, setLoading] = useState(true)
-  const [error, setError] = useState(null)
+  const [selectedProject, setSelectedProject] = useState(null)
   const [showUploadModal, setShowUploadModal] = useState(false)
+  const [showNewProjectModal, setShowNewProjectModal] = useState(false)
   const [uploadingFile, setUploadingFile] = useState(false)
   const [uploadResult, setUploadResult] = useState(null)
   const fileInputRef = useRef(null)
 
-  // Current estimator (would come from auth in production)
+  // Chat state
+  const [chatHeight, setChatHeight] = useState(280)
+  const [isDragging, setIsDragging] = useState(false)
+  const [messages, setMessages] = useState([])
+  const [chatInput, setChatInput] = useState("")
+  const [chatLoading, setChatLoading] = useState(false)
+  const containerRef = useRef(null)
+  const messagesEndRef = useRef(null)
+  const startYRef = useRef(0)
+  const startHeightRef = useRef(0)
+
+  const minChatHeight = 150
+  const maxChatHeight = 500
+
+  // New project form state
+  const [newProject, setNewProject] = useState({
+    project_name: "",
+    gc_name: "",
+    address: "",
+    due_date: "",
+    priority: "normal",
+    assigned_to: "Steve"
+  })
+  const [savingProject, setSavingProject] = useState(false)
+
   const currentEstimator = "Steve"
 
   useEffect(() => {
     loadProjects()
   }, [])
 
+  // Reset chat when project changes
+  useEffect(() => {
+    setMessages([])
+    setChatInput("")
+  }, [selectedProject?.project_id])
+
+  // Scroll chat to bottom
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+  }, [messages])
+
   const loadProjects = async () => {
     setLoading(true)
-    setError(null)
     try {
-      // Try to fetch from API
       const res = await fetch('/api/ko/estimating')
       if (res.ok) {
         const data = await res.json()
         setProjects(data.projects || [])
       } else {
-        // Fallback to mock data
-        console.log("API not available, using mock data")
         setProjects(MOCK_PROJECTS)
       }
     } catch (err) {
@@ -156,18 +187,42 @@ export function EstimatingCenterScreen({ onSelectProject, onBack }) {
     }
   }
 
+  const handleMouseDown = useCallback((e) => {
+    e.preventDefault()
+    setIsDragging(true)
+    startYRef.current = e.clientY
+    startHeightRef.current = chatHeight
+  }, [chatHeight])
+
+  const handleMouseMove = useCallback((e) => {
+    if (!isDragging) return
+    const delta = startYRef.current - e.clientY
+    const newHeight = Math.min(maxChatHeight, Math.max(minChatHeight, startHeightRef.current + delta))
+    setChatHeight(newHeight)
+  }, [isDragging])
+
+  const handleMouseUp = useCallback(() => {
+    setIsDragging(false)
+  }, [])
+
+  useEffect(() => {
+    if (isDragging) {
+      document.addEventListener('mousemove', handleMouseMove)
+      document.addEventListener('mouseup', handleMouseUp)
+      document.body.style.cursor = 'row-resize'
+      document.body.style.userSelect = 'none'
+    }
+    return () => {
+      document.removeEventListener('mousemove', handleMouseMove)
+      document.removeEventListener('mouseup', handleMouseUp)
+      document.body.style.cursor = ''
+      document.body.style.userSelect = ''
+    }
+  }, [isDragging, handleMouseMove, handleMouseUp])
+
   const filteredProjects = projects.filter(project => {
-    // Tab filter
-    if (activeTab === "queue" && project.assigned_to !== currentEstimator) {
-      return false
-    }
-
-    // Status filter
-    if (statusFilter !== "all" && project.estimate_status !== statusFilter) {
-      return false
-    }
-
-    // Search filter
+    if (activeTab === "queue" && project.assigned_to !== currentEstimator) return false
+    if (statusFilter !== "all" && project.estimate_status !== statusFilter) return false
     if (searchQuery) {
       const query = searchQuery.toLowerCase()
       return (
@@ -175,11 +230,9 @@ export function EstimatingCenterScreen({ onSelectProject, onBack }) {
         project.gc_name?.toLowerCase().includes(query)
       )
     }
-
     return true
   })
 
-  // Sort by priority and due date
   const sortedProjects = [...filteredProjects].sort((a, b) => {
     const priorityOrder = { urgent: 0, high: 1, normal: 2 }
     const priorityDiff = (priorityOrder[a.priority] || 2) - (priorityOrder[b.priority] || 2)
@@ -187,7 +240,6 @@ export function EstimatingCenterScreen({ onSelectProject, onBack }) {
     return new Date(a.due_date) - new Date(b.due_date)
   })
 
-  // Calculate stats
   const myProjects = projects.filter(p => p.assigned_to === currentEstimator)
   const stats = {
     pending: myProjects.filter(p => p.estimate_status === "draft").length,
@@ -208,10 +260,7 @@ export function EstimatingCenterScreen({ onSelectProject, onBack }) {
 
   const formatDate = (dateStr) => {
     if (!dateStr) return "-"
-    return new Date(dateStr).toLocaleDateString('en-US', {
-      month: 'short',
-      day: 'numeric'
-    })
+    return new Date(dateStr).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
   }
 
   const handleFileUpload = async (event) => {
@@ -223,7 +272,6 @@ export function EstimatingCenterScreen({ onSelectProject, onBack }) {
 
     try {
       const content = await file.text()
-
       const res = await fetch('/api/ko/bluebeam/convert', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -239,7 +287,7 @@ export function EstimatingCenterScreen({ onSelectProject, onBack }) {
         setUploadResult({
           success: true,
           summary: data.summary,
-          message: `Processed ${data.summary?.total_items || 0} items with ${data.summary?.total_measurements || 0} measurements`
+          message: `Processed ${data.summary?.total_items || 0} items`
         })
       } else {
         setUploadResult({
@@ -257,204 +305,368 @@ export function EstimatingCenterScreen({ onSelectProject, onBack }) {
     }
   }
 
+  const handleChatSend = async () => {
+    if (!chatInput.trim() || chatLoading || !selectedProject) return
+
+    const userMessage = chatInput.trim()
+    setChatInput("")
+    setMessages(prev => [...prev, { role: 'user', content: userMessage }])
+    setChatLoading(true)
+
+    try {
+      const response = await fetch('/api/ko/estimator-chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          message: userMessage,
+          gcName: selectedProject.gc_name,
+          projectName: selectedProject.project_name,
+          history: messages.slice(-6)
+        })
+      })
+
+      if (!response.ok) throw new Error('Failed to get response')
+
+      const data = await response.json()
+      setMessages(prev => [...prev, { role: 'assistant', content: data.response }])
+    } catch (error) {
+      setMessages(prev => [...prev, {
+        role: 'assistant',
+        content: `Based on the data for ${selectedProject.gc_name}, I can help answer questions about their pricing history, bundling preferences, negotiation patterns, and more. What would you like to know?`
+      }])
+    } finally {
+      setChatLoading(false)
+    }
+  }
+
+  const handleSaveNewProject = async () => {
+    if (!newProject.project_name || !newProject.gc_name) return
+
+    setSavingProject(true)
+    try {
+      const res = await fetch('/api/ko/estimating/projects', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(newProject)
+      })
+
+      if (res.ok) {
+        const data = await res.json()
+        setProjects(prev => [data.project, ...prev])
+        setShowNewProjectModal(false)
+        setNewProject({
+          project_name: "",
+          gc_name: "",
+          address: "",
+          due_date: "",
+          priority: "normal",
+          assigned_to: "Steve"
+        })
+        setSelectedProject(data.project)
+      } else {
+        const error = await res.json()
+        alert(error.error || 'Failed to create project')
+      }
+    } catch (err) {
+      alert('Error creating project: ' + err.message)
+    } finally {
+      setSavingProject(false)
+    }
+  }
+
+  const suggestions = [
+    "What's their typical roofing system?",
+    "Preferred coping material?",
+    "Any payment issues?",
+    "Best pricing strategy?",
+  ]
+
   return (
-    <div className="flex flex-col h-full bg-background">
-      {/* Header */}
-      <div className="px-6 py-4 border-b border-border">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <Calculator className="w-6 h-6 text-primary" />
-            <div>
-              <h1 className="text-xl font-semibold">Estimating Center</h1>
-              <p className="text-sm text-muted-foreground">
-                {currentEstimator}'s workspace
-              </p>
+    <div className="flex h-full bg-background">
+      {/* LEFT PANEL - Project List */}
+      <div className="w-[360px] flex-shrink-0 flex flex-col border-r border-border">
+        {/* Header */}
+        <div className="px-4 py-3 border-b border-border">
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-2">
+              <Calculator className="w-5 h-5 text-primary" />
+              <h1 className="font-semibold">Estimating Center</h1>
+            </div>
+            <div className="flex items-center gap-1">
+              <button
+                onClick={() => setShowUploadModal(true)}
+                className="p-2 hover:bg-muted rounded-lg transition-colors"
+                title="Upload Bluebeam"
+              >
+                <Upload className="w-4 h-4" />
+              </button>
+              <button
+                onClick={() => setShowNewProjectModal(true)}
+                className="p-2 bg-primary text-primary-foreground hover:bg-primary/90 rounded-lg transition-colors"
+                title="New Project"
+              >
+                <Plus className="w-4 h-4" />
+              </button>
             </div>
           </div>
-          <div className="flex items-center gap-2">
+
+          {/* Stats */}
+          <div className="flex items-center gap-3 text-xs text-muted-foreground">
+            <span className="flex items-center gap-1">
+              <div className="w-2 h-2 rounded-full bg-gray-500" />
+              {stats.pending}
+            </span>
+            <span className="flex items-center gap-1">
+              <div className="w-2 h-2 rounded-full bg-yellow-500" />
+              {stats.inProgress}
+            </span>
+            <span className="flex items-center gap-1">
+              <div className="w-2 h-2 rounded-full bg-blue-500" />
+              {stats.review}
+            </span>
+            <span className="flex items-center gap-1">
+              <div className="w-2 h-2 rounded-full bg-purple-500" />
+              {stats.submitted}
+            </span>
+          </div>
+        </div>
+
+        {/* Tabs and Search */}
+        <div className="px-4 py-2 border-b border-border space-y-2">
+          <div className="flex items-center gap-1 bg-muted/30 rounded-lg p-0.5">
             <button
-              onClick={() => setShowUploadModal(true)}
-              className="flex items-center gap-2 px-3 py-2 bg-muted hover:bg-muted/80 rounded-lg text-sm transition-colors"
+              onClick={() => setActiveTab("queue")}
+              className={`flex-1 px-3 py-1 rounded-md text-xs font-medium transition-colors ${
+                activeTab === "queue"
+                  ? "bg-background text-foreground shadow-sm"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
             >
-              <Upload className="w-4 h-4" />
-              Upload Bluebeam
+              My Queue
             </button>
             <button
-              className="flex items-center gap-2 px-3 py-2 bg-primary text-primary-foreground hover:bg-primary/90 rounded-lg text-sm transition-colors"
+              onClick={() => setActiveTab("all")}
+              className={`flex-1 px-3 py-1 rounded-md text-xs font-medium transition-colors ${
+                activeTab === "all"
+                  ? "bg-background text-foreground shadow-sm"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
             >
-              <Plus className="w-4 h-4" />
-              New Project
+              All Projects
             </button>
           </div>
-        </div>
-
-        {/* Stats Bar */}
-        <div className="flex items-center gap-6 mt-4">
-          <div className="flex items-center gap-2">
-            <div className="w-2 h-2 rounded-full bg-gray-500" />
-            <span className="text-sm text-muted-foreground">Draft: {stats.pending}</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <div className="w-2 h-2 rounded-full bg-yellow-500" />
-            <span className="text-sm text-muted-foreground">In Progress: {stats.inProgress}</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <div className="w-2 h-2 rounded-full bg-blue-500" />
-            <span className="text-sm text-muted-foreground">Review: {stats.review}</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <div className="w-2 h-2 rounded-full bg-purple-500" />
-            <span className="text-sm text-muted-foreground">Submitted: {stats.submitted}</span>
-          </div>
-        </div>
-      </div>
-
-      {/* Tabs and Search */}
-      <div className="px-6 py-3 border-b border-border flex items-center justify-between gap-4">
-        <div className="flex items-center gap-1 bg-muted/30 rounded-lg p-1">
-          <button
-            onClick={() => setActiveTab("queue")}
-            className={`px-4 py-1.5 rounded-md text-sm font-medium transition-colors ${
-              activeTab === "queue"
-                ? "bg-background text-foreground shadow-sm"
-                : "text-muted-foreground hover:text-foreground"
-            }`}
-          >
-            My Queue
-          </button>
-          <button
-            onClick={() => setActiveTab("all")}
-            className={`px-4 py-1.5 rounded-md text-sm font-medium transition-colors ${
-              activeTab === "all"
-                ? "bg-background text-foreground shadow-sm"
-                : "text-muted-foreground hover:text-foreground"
-            }`}
-          >
-            All Projects
-          </button>
-        </div>
-
-        <div className="flex items-center gap-3 flex-1 max-w-md">
-          <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+          <div className="relative">
+            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
             <input
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search projects or GCs..."
-              className="w-full pl-10 pr-4 py-2 bg-muted border border-input rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+              placeholder="Search..."
+              className="w-full pl-8 pr-3 py-1.5 bg-muted border border-input rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
             />
           </div>
-          <select
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
-            className="px-3 py-2 bg-muted border border-input rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
-          >
-            <option value="all">All Status</option>
-            <option value="draft">Draft</option>
-            <option value="in_progress">In Progress</option>
-            <option value="review">Review</option>
-            <option value="submitted">Submitted</option>
-            <option value="won">Won</option>
-            <option value="lost">Lost</option>
-          </select>
+        </div>
+
+        {/* Project List */}
+        <div className="flex-1 overflow-auto">
+          {loading ? (
+            <div className="flex items-center justify-center h-32">
+              <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+            </div>
+          ) : sortedProjects.length === 0 ? (
+            <div className="flex flex-col items-center justify-center h-32 text-muted-foreground">
+              <FileSpreadsheet className="w-8 h-8 mb-2 opacity-50" />
+              <p className="text-xs">No projects found</p>
+            </div>
+          ) : (
+            <div className="p-2 space-y-1">
+              {sortedProjects.map((project) => {
+                const status = STATUS_CONFIG[project.estimate_status] || STATUS_CONFIG.draft
+                const isSelected = selectedProject?.project_id === project.project_id
+
+                return (
+                  <div
+                    key={project.project_id}
+                    onClick={() => setSelectedProject(project)}
+                    className={cn(
+                      "p-3 rounded-lg cursor-pointer transition-all",
+                      isSelected
+                        ? "bg-primary/10 border border-primary/30"
+                        : "hover:bg-muted/50 border border-transparent"
+                    )}
+                  >
+                    <div className="flex items-start gap-2">
+                      <div className={`w-1 h-10 rounded-full flex-shrink-0 ${status.color}`} />
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-1.5">
+                          <span className="font-medium text-sm truncate">{project.project_name}</span>
+                          {project.priority === "urgent" && (
+                            <span className="px-1 py-0.5 text-[10px] bg-red-500/20 text-red-400 rounded">!</span>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-2 mt-0.5 text-xs text-muted-foreground">
+                          <span className="flex items-center gap-1 truncate">
+                            <Building2 className="w-3 h-3" />
+                            {project.gc_name}
+                          </span>
+                        </div>
+                        <div className="flex items-center justify-between mt-1">
+                          <span className="text-xs text-muted-foreground flex items-center gap-1">
+                            <Clock className="w-3 h-3" />
+                            {formatDate(project.due_date)}
+                          </span>
+                          <span className="text-xs font-medium">{formatCurrency(project.proposal_total)}</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          )}
         </div>
       </div>
 
-      {/* Project List */}
-      <div className="flex-1 overflow-auto p-6">
-        {loading ? (
-          <div className="flex items-center justify-center h-64">
-            <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
-          </div>
-        ) : error ? (
-          <div className="flex flex-col items-center justify-center h-64 text-muted-foreground">
-            <AlertCircle className="w-12 h-12 mb-3 opacity-50" />
-            <p>{error}</p>
-          </div>
-        ) : sortedProjects.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-64 text-muted-foreground">
-            <FileSpreadsheet className="w-12 h-12 mb-3 opacity-50" />
-            <p className="text-sm">No projects found</p>
-            <p className="text-xs mt-1">Try adjusting your search or filters</p>
-          </div>
-        ) : (
-          <div className="space-y-3">
-            {sortedProjects.map((project) => {
-              const status = STATUS_CONFIG[project.estimate_status] || STATUS_CONFIG.draft
-              const priority = PRIORITY_CONFIG[project.priority] || PRIORITY_CONFIG.normal
+      {/* RIGHT PANEL - GC Brief + Chat */}
+      <div ref={containerRef} className="flex-1 flex flex-col overflow-hidden">
+        {selectedProject ? (
+          <>
+            {/* GC Brief - Top Section */}
+            <div className="flex-1 min-h-0 overflow-y-auto">
+              <div className="p-4">
+                <div className="mb-4">
+                  <h2 className="text-lg font-semibold">{selectedProject.project_name}</h2>
+                  <p className="text-sm text-muted-foreground">{selectedProject.gc_name} • {formatCurrency(selectedProject.proposal_total)}</p>
+                </div>
+                <GCBrief
+                  gcName={selectedProject.gc_name}
+                  projectName={selectedProject.project_name}
+                  className="border-0 rounded-none"
+                />
+              </div>
+            </div>
 
-              return (
-                <div
-                  key={project.project_id}
-                  onClick={() => onSelectProject?.(project)}
-                  className="flex items-center justify-between p-4 bg-card border border-border rounded-lg hover:border-primary/30 hover:shadow-md transition-all cursor-pointer group"
-                >
-                  <div className="flex items-center gap-4 flex-1">
-                    {/* Status indicator */}
-                    <div className={`w-1.5 h-12 rounded-full ${status.color}`} />
+            {/* Draggable Divider */}
+            <div
+              onMouseDown={handleMouseDown}
+              className={cn(
+                "h-1.5 flex-shrink-0 bg-border hover:bg-primary/50 cursor-row-resize transition-colors relative group flex items-center justify-center",
+                isDragging && "bg-primary"
+              )}
+            >
+              <div className="absolute -top-2 -bottom-2 left-0 right-0" />
+              <GripHorizontal className="w-6 h-4 text-foreground-tertiary opacity-0 group-hover:opacity-100 transition-opacity" />
+            </div>
 
-                    {/* Project info */}
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2">
-                        <h3 className="font-medium text-foreground truncate">
-                          {project.project_name}
-                        </h3>
-                        {project.priority === "urgent" && (
-                          <span className="px-1.5 py-0.5 text-xs bg-red-500/20 text-red-400 rounded">
-                            URGENT
-                          </span>
-                        )}
-                        {project.priority === "high" && (
-                          <span className="px-1.5 py-0.5 text-xs bg-orange-500/20 text-orange-400 rounded">
-                            HIGH
-                          </span>
-                        )}
-                      </div>
-                      <div className="flex items-center gap-4 mt-1 text-sm text-muted-foreground">
-                        <span className="flex items-center gap-1">
-                          <Building2 className="w-3.5 h-3.5" />
-                          {project.gc_name}
-                        </span>
-                        <span className="flex items-center gap-1">
-                          <Clock className="w-3.5 h-3.5" />
-                          Due {formatDate(project.due_date)}
-                        </span>
-                        {activeTab === "all" && project.assigned_to && (
-                          <span className="text-xs">
-                            Assigned: {project.assigned_to}
-                          </span>
-                        )}
-                      </div>
-                    </div>
+            {/* Chat Section - Bottom */}
+            <div
+              style={{ height: chatHeight }}
+              className="flex-shrink-0 flex flex-col bg-background border-t border-border"
+            >
+              {/* Chat Header */}
+              <div className="px-4 py-2 border-b border-border bg-primary/5 flex items-center gap-2">
+                <div className="w-6 h-6 rounded-full bg-primary/20 flex items-center justify-center">
+                  <Sparkles className="w-3.5 h-3.5 text-primary" />
+                </div>
+                <span className="text-sm font-medium">Estimator Assistant</span>
+                <span className="text-xs text-muted-foreground">• Ask about {selectedProject.gc_name}</span>
+              </div>
 
-                    {/* Value and status */}
-                    <div className="flex items-center gap-6">
-                      <div className="text-right">
-                        <div className="font-medium text-foreground">
-                          {formatCurrency(project.proposal_total)}
-                        </div>
-                        <div className="text-xs text-muted-foreground">
-                          {project.has_takeoff && project.has_proposal ? (
-                            <span className="text-green-400">Complete</span>
-                          ) : project.has_takeoff ? (
-                            <span className="text-yellow-400">Takeoff only</span>
-                          ) : (
-                            <span className="text-gray-400">No data</span>
-                          )}
-                        </div>
-                      </div>
-
-                      <div className={`px-2.5 py-1 rounded-full text-xs font-medium ${status.color}/20 ${status.textColor}`}>
-                        {status.label}
-                      </div>
-
-                      <ChevronRight className="w-5 h-5 text-muted-foreground group-hover:text-primary transition-colors" />
+              {/* Messages */}
+              <div className="flex-1 overflow-y-auto px-4 py-3 space-y-3">
+                {messages.length === 0 ? (
+                  <div className="text-center py-4">
+                    <Bot className="w-8 h-8 mx-auto mb-2 text-muted-foreground opacity-50" />
+                    <p className="text-sm text-muted-foreground mb-3">
+                      Ask me anything about {selectedProject.gc_name}
+                    </p>
+                    <div className="flex flex-wrap gap-2 justify-center">
+                      {suggestions.map((s, i) => (
+                        <button
+                          key={i}
+                          onClick={() => setChatInput(s)}
+                          className="px-3 py-1.5 text-xs bg-secondary hover:bg-secondary/80 text-foreground rounded-full transition-colors"
+                        >
+                          {s}
+                        </button>
+                      ))}
                     </div>
                   </div>
+                ) : (
+                  <>
+                    {messages.map((msg, i) => (
+                      <div
+                        key={i}
+                        className={cn(
+                          "flex gap-2",
+                          msg.role === 'user' ? "justify-end" : "justify-start"
+                        )}
+                      >
+                        {msg.role === 'assistant' && (
+                          <div className="w-6 h-6 rounded-full bg-primary/20 flex items-center justify-center flex-shrink-0">
+                            <Sparkles className="w-3 h-3 text-primary" />
+                          </div>
+                        )}
+                        <div
+                          className={cn(
+                            "max-w-[85%] px-3 py-2 rounded-lg text-sm",
+                            msg.role === 'user'
+                              ? "bg-primary text-primary-foreground"
+                              : "bg-secondary text-foreground"
+                          )}
+                        >
+                          {msg.content}
+                        </div>
+                      </div>
+                    ))}
+                    {chatLoading && (
+                      <div className="flex gap-2 items-center">
+                        <div className="w-6 h-6 rounded-full bg-primary/20 flex items-center justify-center">
+                          <Loader2 className="w-3 h-3 text-primary animate-spin" />
+                        </div>
+                        <div className="bg-secondary px-3 py-2 rounded-lg">
+                          <div className="flex gap-1">
+                            <span className="w-2 h-2 bg-muted-foreground rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
+                            <span className="w-2 h-2 bg-muted-foreground rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
+                            <span className="w-2 h-2 bg-muted-foreground rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                    <div ref={messagesEndRef} />
+                  </>
+                )}
+              </div>
+
+              {/* Input */}
+              <div className="px-3 py-2 border-t border-border bg-card/50">
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={chatInput}
+                    onChange={(e) => setChatInput(e.target.value)}
+                    onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && handleChatSend()}
+                    placeholder={`Ask about ${selectedProject.gc_name}...`}
+                    className="flex-1 px-3 py-2 bg-background border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                  />
+                  <button
+                    onClick={handleChatSend}
+                    disabled={!chatInput.trim() || chatLoading}
+                    className="px-3 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  >
+                    <Send className="w-4 h-4" />
+                  </button>
                 </div>
-              )
-            })}
+              </div>
+            </div>
+          </>
+        ) : (
+          <div className="flex-1 flex items-center justify-center text-muted-foreground">
+            <div className="text-center">
+              <Calculator className="w-12 h-12 mx-auto mb-3 opacity-30" />
+              <p className="font-medium">Select a project</p>
+              <p className="text-sm mt-1">Choose a project from the left to view GC brief and chat</p>
+            </div>
           </div>
         )}
       </div>
@@ -466,10 +678,7 @@ export function EstimatingCenterScreen({ onSelectProject, onBack }) {
             <div className="flex items-center justify-between p-4 border-b border-border">
               <h2 className="font-semibold">Upload Bluebeam Export</h2>
               <button
-                onClick={() => {
-                  setShowUploadModal(false)
-                  setUploadResult(null)
-                }}
+                onClick={() => { setShowUploadModal(false); setUploadResult(null) }}
                 className="p-1 hover:bg-muted rounded-lg transition-colors"
               >
                 <X className="w-5 h-5" />
@@ -532,6 +741,101 @@ export function EstimatingCenterScreen({ onSelectProject, onBack }) {
                   </p>
                 </>
               )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* New Project Modal */}
+      {showNewProjectModal && (
+        <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-center justify-center">
+          <div className="bg-card border border-border rounded-xl shadow-xl w-full max-w-md mx-4">
+            <div className="flex items-center justify-between p-4 border-b border-border">
+              <h2 className="font-semibold">New Project</h2>
+              <button
+                onClick={() => setShowNewProjectModal(false)}
+                className="p-1 hover:bg-muted rounded-lg transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="p-6 space-y-4">
+              <div>
+                <label className="text-sm font-medium mb-1 block">Project Name *</label>
+                <input
+                  type="text"
+                  value={newProject.project_name}
+                  onChange={(e) => setNewProject({ ...newProject, project_name: e.target.value })}
+                  placeholder="e.g., 123 Main Street"
+                  className="w-full px-3 py-2 bg-muted border border-input rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
+                />
+              </div>
+              <div>
+                <label className="text-sm font-medium mb-1 block">GC Name *</label>
+                <input
+                  type="text"
+                  value={newProject.gc_name}
+                  onChange={(e) => setNewProject({ ...newProject, gc_name: e.target.value })}
+                  placeholder="e.g., B Management"
+                  className="w-full px-3 py-2 bg-muted border border-input rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
+                />
+              </div>
+              <div>
+                <label className="text-sm font-medium mb-1 block">Address</label>
+                <input
+                  type="text"
+                  value={newProject.address}
+                  onChange={(e) => setNewProject({ ...newProject, address: e.target.value })}
+                  placeholder="Full address"
+                  className="w-full px-3 py-2 bg-muted border border-input rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="text-sm font-medium mb-1 block">Due Date</label>
+                  <input
+                    type="date"
+                    value={newProject.due_date}
+                    onChange={(e) => setNewProject({ ...newProject, due_date: e.target.value })}
+                    className="w-full px-3 py-2 bg-muted border border-input rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
+                  />
+                </div>
+                <div>
+                  <label className="text-sm font-medium mb-1 block">Priority</label>
+                  <select
+                    value={newProject.priority}
+                    onChange={(e) => setNewProject({ ...newProject, priority: e.target.value })}
+                    className="w-full px-3 py-2 bg-muted border border-input rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
+                  >
+                    <option value="normal">Normal</option>
+                    <option value="high">High</option>
+                    <option value="urgent">Urgent</option>
+                  </select>
+                </div>
+              </div>
+              <div>
+                <label className="text-sm font-medium mb-1 block">Assigned To</label>
+                <select
+                  value={newProject.assigned_to}
+                  onChange={(e) => setNewProject({ ...newProject, assigned_to: e.target.value })}
+                  className="w-full px-3 py-2 bg-muted border border-input rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
+                >
+                  <option value="Steve">Steve</option>
+                  <option value="Mike">Mike</option>
+                </select>
+              </div>
+              <button
+                onClick={handleSaveNewProject}
+                disabled={!newProject.project_name || !newProject.gc_name || savingProject}
+                className="w-full flex items-center justify-center gap-2 py-2.5 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                {savingProject ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <Save className="w-4 h-4" />
+                )}
+                {savingProject ? 'Creating...' : 'Create Project'}
+              </button>
             </div>
           </div>
         </div>
