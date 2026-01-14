@@ -524,13 +524,13 @@ function CodeTab({ agent }) {
       </div>
 
       {/* Full Raw JSON - Editable */}
-      <div className="bg-card border border-border rounded-xl p-6">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
+      <div className="bg-card border border-border rounded-xl p-6 overflow-visible">
+        <div className="flex flex-wrap items-center gap-3 mb-4">
           <h2 className="font-semibold text-foreground flex items-center gap-2">
             <Settings size={18} className="text-amber-400" />
             Full Configuration JSON
           </h2>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 ml-auto">
             {saveStatus === 'success' && (
               <span className="text-xs text-emerald-400 flex items-center gap-1">
                 <CheckCircle size={14} /> Saved
@@ -542,7 +542,7 @@ function CodeTab({ agent }) {
             {!editMode ? (
               <button
                 onClick={() => setEditMode(true)}
-                className="px-4 py-2 bg-amber-500 hover:bg-amber-400 text-black font-semibold rounded-lg text-sm flex items-center gap-2 transition-colors border border-amber-400 shadow-md"
+                className="px-4 py-2 bg-amber-500 hover:bg-amber-400 text-black font-semibold rounded-lg text-sm flex items-center gap-2 transition-colors border border-amber-400 shadow-md relative z-10"
               >
                 <Pencil size={16} /> Edit JSON
               </button>
