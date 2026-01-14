@@ -1,11 +1,11 @@
 "use client"
 
 import { useTheme } from "@/components/theme-provider"
-import { Moon, Sun, Monitor, UserPlus, Users, Trash2, Copy, Check, Mail, Shield, Clock, Loader2, Bot, ChevronRight } from "lucide-react"
+import { Moon, Sun, Monitor, UserPlus, Users, Trash2, Copy, Check, Mail, Shield, Clock, Loader2 } from "lucide-react"
 import { useEffect, useState, useCallback } from "react"
 
 /** @param {any} props */
-export function SettingsScreen({ onOpenAgentPermissions }) {
+export function SettingsScreen() {
   const { theme, setTheme, resolvedTheme } = useTheme()
   const [mounted, setMounted] = useState(false)
 
@@ -172,36 +172,6 @@ export function SettingsScreen({ onOpenAgentPermissions }) {
                 )
               })}
             </div>
-          </div>
-
-          {/* Admin Section */}
-          <div className="pt-6 border-t border-border space-y-4">
-            <div>
-              <h2 className="text-lg font-medium flex items-center gap-2">
-                <Shield className="w-5 h-5" />
-                Administration
-              </h2>
-              <p className="text-sm text-muted-foreground">Manage team and agent permissions</p>
-            </div>
-
-            {/* Agent Permissions Card */}
-            {onOpenAgentPermissions && (
-              <button
-                onClick={onOpenAgentPermissions}
-                className="w-full flex items-center justify-between p-4 rounded-lg bg-gradient-to-r from-primary/10 to-primary/5 border border-primary/20 hover:border-primary/40 transition-colors group"
-              >
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-lg bg-primary/20 flex items-center justify-center">
-                    <Bot className="w-5 h-5 text-primary" />
-                  </div>
-                  <div className="text-left">
-                    <p className="font-medium text-sm">Agent Permissions</p>
-                    <p className="text-xs text-muted-foreground">Configure which agents each role can access</p>
-                  </div>
-                </div>
-                <ChevronRight className="w-5 h-5 text-muted-foreground group-hover:text-foreground transition-colors" />
-              </button>
-            )}
           </div>
 
           {/* Team Management */}

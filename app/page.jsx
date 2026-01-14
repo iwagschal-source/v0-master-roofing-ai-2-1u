@@ -24,7 +24,6 @@ import { ProposalPreviewScreen } from "@/components/ko/proposal-preview-screen"
 import { ChatScreen } from "@/components/ko/chat-screen"
 import { AsanaScreen } from "@/components/ko/asana-screen"
 import { MiniKOChat } from "@/components/ko/mini-ko-chat"
-import { AgentPermissionsScreen } from "@/components/ko/agent-permissions-screen"
 import { AgentDashboardScreen } from "@/components/ko/agent-dashboard-screen"
 import { AgentDetailScreen } from "@/components/ko/agent-detail-screen"
 import { AgentNetworkMapScreen } from "@/components/ko/agent-network-map-screen"
@@ -51,7 +50,6 @@ export default function HomePage() {
   const [showProposal, setShowProposal] = useState(false)
   const [showMessages, setShowMessages] = useState(false)
   const [showAsana, setShowAsana] = useState(false)
-  const [showAgentPermissions, setShowAgentPermissions] = useState(false)
   const [showAgents, setShowAgents] = useState(false)
   const [selectedAgent, setSelectedAgent] = useState(null)
   const [showAgentNetwork, setShowAgentNetwork] = useState(false)
@@ -191,7 +189,6 @@ export default function HomePage() {
       setShowProjects(false)
       setShowMessages(false)
       setShowAsana(false)
-      setShowAgentPermissions(false)
       setShowAgents(false)
       setSelectedAgent(null)
       setShowAgentNetwork(false)
@@ -242,7 +239,6 @@ export default function HomePage() {
       setShowArena(false)
       setShowProjects(false)
       setShowAgents(false)
-      setShowAgentPermissions(false)
       setHasStartedChat(true)
       setShowHistory(false)
     } else if (mode === "zoom") {
@@ -421,11 +417,7 @@ export default function HomePage() {
           ) : showEmail ? (
             <EmailScreen />
           ) : showSettings ? (
-            showAgentPermissions ? (
-              <AgentPermissionsScreen onBack={() => setShowAgentPermissions(false)} />
-            ) : (
-              <SettingsScreen onOpenAgentPermissions={() => setShowAgentPermissions(true)} />
-            )
+            <SettingsScreen />
           ) : showZoom ? (
             <ZoomScreen />
           ) : showReports ? (
