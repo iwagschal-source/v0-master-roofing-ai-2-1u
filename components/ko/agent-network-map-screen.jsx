@@ -238,20 +238,61 @@ export function AgentNetworkMapScreen({ onBack, onSelectAgent }) {
   const [filter, setFilter] = useState("all")
   const svgRef = useRef(null)
 
-  const positions = useMemo(() => calculatePositions(agents), [])
-  const connections = useMemo(() => getAllConnections(), [])
-  const bottlenecks = useMemo(() => getBottlenecks(5), [])
+  // Live data state
+  const [liveAgents, setLiveAgents] = useState(null)
+  const [liveConnections, setLiveConnections] = useState(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(null)
+  const [lastUpdate, setLastUpdate] = useState(null)
+
+  // Fetch live agents from backend
+  const fetchNetworkData = async () => {
+    try {
+      const res = await fetch('/api/ko/network/agents')
+      if (res.ok) {
+        const data = await res.json()
+        setLiveAgents(data.agents)
+        setLiveConnections(data.connections)
+        setLastUpdate(new Date())
+        setError(null)
+      } else {
+        throw new Error('Failed to fetch network data')
+      }
+    } catch (err) {
+      console.error('Network fetch error:', err)
+      setError(err.message)
+      // Keep using static data as fallback
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  // Initial fetch and auto-refresh
+  useEffect(() => {
+    fetchNetworkData()
+
+    // Auto-refresh every 30 seconds
+    const interval = setInterval(fetchNetworkData, 30000)
+    return () => clearInterval(interval)
+  }, [])
+
+  // Use live data if available, otherwise fall back to static
+  const currentAgents = liveAgents || agents
+  const currentConnections = liveConnections || getAllConnections()
+
+  const positions = useMemo(() => calculatePositions(currentAgents), [currentAgents])
+  const bottlenecks = useMemo(() => currentAgents.filter(a => a.queueDepth >= 5), [currentAgents])
 
   // Filter connections
   const filteredConnections = useMemo(() => {
-    if (filter === "all") return connections
-    return connections.filter((c) => c.type === filter)
-  }, [connections, filter])
+    if (filter === "all") return currentConnections
+    return currentConnections.filter((c) => c.type === filter)
+  }, [currentConnections, filter])
 
   // Get active agents (live status)
   const activeAgentIds = useMemo(
-    () => new Set(agents.filter((a) => a.status === "live").map((a) => a.id)),
-    []
+    () => new Set(currentAgents.filter((a) => a.status === "live").map((a) => a.id)),
+    [currentAgents]
   )
 
   const handleZoomIn = () => setZoom((z) => Math.min(z + 0.2, 2))
@@ -266,7 +307,12 @@ export function AgentNetworkMapScreen({ onBack, onSelectAgent }) {
     setSelectedNode(nodeId)
   }
 
-  const selectedAgent = selectedNode ? agents.find((a) => a.id === selectedNode) : null
+  const handleRefresh = () => {
+    setLoading(true)
+    fetchNetworkData()
+  }
+
+  const selectedAgent = selectedNode ? currentAgents.find((a) => a.id === selectedNode) : null
 
   return (
     <div className="flex-1 flex flex-col overflow-hidden bg-background">
@@ -281,15 +327,38 @@ export function AgentNetworkMapScreen({ onBack, onSelectAgent }) {
               <ArrowLeft size={20} />
             </button>
             <div>
-              <h1 className="text-2xl font-bold text-foreground">Agent Network Map</h1>
+              <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
+                Agent Network Map
+                {liveAgents && (
+                  <span className="px-2 py-0.5 bg-emerald-500/20 text-emerald-400 text-xs rounded-full font-normal">
+                    LIVE
+                  </span>
+                )}
+                {loading && (
+                  <RefreshCw size={16} className="animate-spin text-muted-foreground" />
+                )}
+              </h1>
               <p className="text-sm text-muted-foreground">
-                {agents.length} agents | {connections.length} connections |{" "}
+                {currentAgents.length} agents | {currentConnections.length} connections |{" "}
                 {activeAgentIds.size} active
+                {lastUpdate && (
+                  <span className="ml-2 text-xs">
+                    • Updated {lastUpdate.toLocaleTimeString()}
+                  </span>
+                )}
               </p>
             </div>
           </div>
 
           {/* Alerts */}
+          {error && (
+            <div className="flex items-center gap-2 px-4 py-2 bg-red-500/10 border border-red-500/30 rounded-lg">
+              <AlertTriangle size={16} className="text-red-400" />
+              <span className="text-sm text-red-400">
+                Using fallback data: {error}
+              </span>
+            </div>
+          )}
           {bottlenecks.length > 0 && (
             <div className="flex items-center gap-2 px-4 py-2 bg-amber-500/10 border border-amber-500/30 rounded-lg">
               <AlertTriangle size={16} className="text-amber-400" />
@@ -308,10 +377,9 @@ export function AgentNetworkMapScreen({ onBack, onSelectAgent }) {
               className="px-3 py-2 bg-secondary border border-border rounded-lg text-sm"
             >
               <option value="all">All Connections</option>
-              <option value="query">Query Flow</option>
+              <option value="control">Control Flow</option>
               <option value="data">Data Flow</option>
               <option value="audit">Audit Flow</option>
-              <option value="alert">Alert Flow</option>
             </select>
 
             {/* Play/Pause animations */}
@@ -345,10 +413,12 @@ export function AgentNetworkMapScreen({ onBack, onSelectAgent }) {
             </button>
 
             <button
-              className="p-2 bg-secondary border border-border rounded-lg hover:bg-accent"
-              title="Refresh"
+              onClick={handleRefresh}
+              disabled={loading}
+              className="p-2 bg-secondary border border-border rounded-lg hover:bg-accent disabled:opacity-50"
+              title="Refresh network data"
             >
-              <RefreshCw size={18} />
+              <RefreshCw size={18} className={loading ? "animate-spin" : ""} />
             </button>
           </div>
         </div>
@@ -463,7 +533,7 @@ export function AgentNetworkMapScreen({ onBack, onSelectAgent }) {
               />
 
               {/* Agent nodes */}
-              {agents.map((agent) => (
+              {currentAgents.map((agent) => (
                 <NetworkNode
                   key={agent.id}
                   agent={agent}
