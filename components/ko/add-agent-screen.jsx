@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import {
   ArrowLeft,
   Save,
@@ -15,28 +15,28 @@ import {
   CheckCircle,
   Loader2,
   AlertCircle,
+  Wrench,
+  Database,
+  Globe,
+  Code,
+  Eye,
 } from "lucide-react"
 import { agents, modelConfig } from "@/data/agent-data"
 import { AgentModelIcon } from "./agent-model-icon"
 
-const modelOptions = [
-  { id: "gemini-2.0-flash", name: "Gemini 2.0 Flash", key: "gemini", backendModel: "gemini-2.0-flash" },
-  { id: "claude-sonnet-4", name: "Claude Sonnet 4", key: "claude", backendModel: "claude-sonnet-4" },
-  { id: "claude-haiku-3.5", name: "Claude Haiku 3.5", key: "claude", backendModel: "claude-haiku-3.5" },
-  { id: "gpt-4o", name: "GPT-4o", key: "gpt", backendModel: "gpt-4o" },
-  { id: "gpt-4o-mini", name: "GPT-4o Mini", key: "gpt", backendModel: "gpt-4o-mini" },
+// Fallback models if backend is unavailable
+const fallbackModels = [
+  { id: "gemini-2.0-flash", name: "Gemini 2.0 Flash", provider: "google", tier: "standard" },
+  { id: "claude-sonnet-4", name: "Claude Sonnet 4", provider: "anthropic", tier: "standard" },
+  { id: "gpt-4o", name: "GPT-4o", provider: "openai", tier: "standard" },
 ]
 
-// Map read access selections to backend tool IDs
-const readAccessToTools = {
-  "BigQuery - mr_core": "bigquery_sql",
-  "BigQuery - mr_raw": "bigquery_sql",
-  "BigQuery - mr_agent": "bigquery_sql",
-  "HubSpot CRM": "hubspot_query",
-  "Google Drive": "read_gcs_file",
-  "Gmail": "search_emails",
-  "Asana": "bigquery_sql",
-}
+// Fallback tools if backend is unavailable
+const fallbackTools = [
+  { id: "bigquery_sql", name: "BigQuery SQL", category: "data", description: "Execute SQL queries" },
+  { id: "search_documents", name: "Document Search", category: "data", description: "Search documents" },
+  { id: "hubspot_query", name: "HubSpot CRM", category: "data", description: "Query CRM data" },
+]
 
 const scheduleOptions = [
   { id: "always-on", name: "Always On", description: "24/7 availability" },
@@ -45,24 +45,84 @@ const scheduleOptions = [
   { id: "scheduled", name: "Scheduled", description: "Cron-based schedule" },
 ]
 
+// Helper to get model key for icons
+function getModelKey(provider) {
+  if (!provider) return 'unknown'
+  const p = provider.toLowerCase()
+  if (p.includes('anthropic') || p.includes('claude')) return 'claude'
+  if (p.includes('openai') || p.includes('gpt')) return 'gpt'
+  if (p.includes('google') || p.includes('gemini') || p.includes('vertex')) return 'gemini'
+  if (p.includes('deepseek')) return 'deepseek'
+  if (p.includes('mistral')) return 'mistral'
+  if (p.includes('meta') || p.includes('llama')) return 'llama'
+  if (p.includes('cohere')) return 'cohere'
+  if (p.includes('xai') || p.includes('grok')) return 'grok'
+  return 'unknown'
+}
+
+// Helper to get tool category icon
+function getToolCategoryIcon(category) {
+  switch (category) {
+    case 'data': return Database
+    case 'web': return Globe
+    case 'execution': return Code
+    case 'meta': return Eye
+    default: return Wrench
+  }
+}
+
 export function AddAgentScreen({ onBack, onSave }) {
   const [step, setStep] = useState(1)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState(null)
+
+  // Dynamic data from backend
+  const [availableModels, setAvailableModels] = useState(fallbackModels)
+  const [availableTools, setAvailableTools] = useState(fallbackTools)
+  const [isLoadingData, setIsLoadingData] = useState(true)
+
+  // Fetch models and tools from backend
+  useEffect(() => {
+    async function fetchFactoryData() {
+      try {
+        const [modelsRes, toolsRes] = await Promise.all([
+          fetch('/api/ko/factory/models'),
+          fetch('/api/ko/factory/tools'),
+        ])
+
+        if (modelsRes.ok) {
+          const modelsData = await modelsRes.json()
+          if (modelsData.models?.length > 0) {
+            setAvailableModels(modelsData.models)
+          }
+        }
+
+        if (toolsRes.ok) {
+          const toolsData = await toolsRes.json()
+          if (toolsData.tools?.length > 0) {
+            setAvailableTools(toolsData.tools)
+          }
+        }
+      } catch (error) {
+        console.error('Failed to fetch factory data:', error)
+      } finally {
+        setIsLoadingData(false)
+      }
+    }
+    fetchFactoryData()
+  }, [])
+
   const [formData, setFormData] = useState({
     // Step 1: Identity
     name: "",
     description: "",
-    modelKey: "",
+    modelId: "",
 
     // Step 2: README / System Prompt
     readme: "# Agent Name\n\n## Purpose\nDescribe what this agent does.\n\n## Instructions\nStep by step instructions for the agent.\n\n## Constraints\nWhat the agent should NOT do.",
 
-    // Step 3: Permissions
-    readAccess: [],
-    writeAccess: [],
-    userSynteraction: [],
-    agentSynteraction: [],
+    // Step 3: Tools
+    selectedTools: [],
 
     // Step 4: Schedule
     schedule: "always-on",
@@ -91,39 +151,24 @@ export function AddAgentScreen({ onBack, onSave }) {
     setError(null)
 
     try {
-      // Get unique tools from read access selections
-      const tools = [...new Set(
-        formData.readAccess
-          .map(access => readAccessToTools[access])
-          .filter(Boolean)
-      )]
-
-      // Add search_documents and resolve_project as defaults
-      if (!tools.includes('search_documents')) tools.push('search_documents')
-      if (!tools.includes('resolve_project')) tools.push('resolve_project')
-
-      // Get backend model ID
-      const selectedModel = modelOptions.find((m) => m.id === formData.modelKey)
-      const backendModel = selectedModel?.backendModel || formData.modelKey
+      // Get selected model
+      const selectedModel = availableModels.find((m) => m.id === formData.modelId)
 
       // Build payload for backend
       const payload = {
         name: formData.name,
-        model: backendModel,
-        tools: tools,
+        model: formData.modelId,
+        tools: formData.selectedTools,
         system_prompt: formData.readme,
         description: formData.description,
         schedule: formData.schedule,
         cronExpression: formData.cronExpression,
-        readAccess: formData.readAccess,
-        writeAccess: formData.writeAccess,
-        agentSynteraction: formData.agentSynteraction,
         scoringMetrics: formData.scoringMetrics,
       }
 
       console.log("Creating agent with payload:", payload)
 
-      const res = await fetch('/api/ko/agents/config', {
+      const res = await fetch('/api/ko/factory/agents', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
@@ -142,21 +187,21 @@ export function AddAgentScreen({ onBack, onSave }) {
         id: data.agent?.id || generateAgentId(),
         name: formData.name,
         description: formData.description,
-        model: selectedModel?.name || "Unknown",
-        modelKey: selectedModel?.key || formData.modelKey,
+        model: selectedModel?.name || formData.modelId,
+        modelKey: getModelKey(selectedModel?.provider),
+        provider: selectedModel?.provider,
+        tools: formData.selectedTools,
         status: "offline",
         stats: { totalRequests: 0, successRate: 0, avgLatency: 0, errorsToday: 0, requestsPerMinute: 0 },
         lastActivity: new Date().toISOString(),
         currentAction: "Newly created - awaiting activation",
         queueDepth: 0,
-        connections: formData.agentSynteraction.map((a) => a.agentId),
+        connections: [],
         auditedBy: [],
         schedule: scheduleOptions.find((s) => s.id === formData.schedule)?.name || "Always On",
         permissions: {
-          readAccess: formData.readAccess.map((r) => ({ resource: r, scope: "All", enabled: true })),
-          writeAccess: formData.writeAccess.map((w) => ({ resource: w, scope: "All", enabled: true })),
-          userSynteraction: formData.userSynteraction,
-          agentSynteraction: formData.agentSynteraction,
+          readAccess: [],
+          writeAccess: [],
         },
         scoring: {
           overallScore: 0,
@@ -184,10 +229,26 @@ export function AddAgentScreen({ onBack, onSave }) {
   const steps = [
     { num: 1, label: "Identity", icon: Bot },
     { num: 2, label: "README", icon: FileText },
-    { num: 3, label: "Permissions", icon: Shield },
+    { num: 3, label: "Tools", icon: Wrench },
     { num: 4, label: "Schedule", icon: Calendar },
     { num: 5, label: "Scoring", icon: Target },
   ]
+
+  // Group models by provider for display
+  const modelsByProvider = availableModels.reduce((acc, model) => {
+    const provider = model.provider || 'other'
+    if (!acc[provider]) acc[provider] = []
+    acc[provider].push(model)
+    return acc
+  }, {})
+
+  // Group tools by category for display
+  const toolsByCategory = availableTools.reduce((acc, tool) => {
+    const category = tool.category || 'other'
+    if (!acc[category]) acc[category] = []
+    acc[category].push(tool)
+    return acc
+  }, {})
 
   const totalWeight = formData.scoringMetrics.reduce((sum, m) => sum + (m.weight || 0), 0)
 
@@ -272,21 +333,45 @@ export function AddAgentScreen({ onBack, onSave }) {
                   </div>
 
                   <div>
-                    <label className="text-sm text-muted-foreground mb-2 block">Model *</label>
-                    <div className="grid grid-cols-2 gap-3">
-                      {modelOptions.map((model) => (
-                        <button
-                          key={model.id}
-                          onClick={() => updateFormData("modelKey", model.id)}
-                          className={`flex items-center gap-3 p-4 rounded-lg border-2 transition-colors ${
-                            formData.modelKey === model.id
-                              ? "border-primary bg-primary/10"
-                              : "border-border bg-secondary hover:border-muted-foreground"
-                          }`}
-                        >
-                          <AgentModelIcon modelKey={model.key} size="sm" />
-                          <span className="font-medium">{model.name}</span>
-                        </button>
+                    <label className="text-sm text-muted-foreground mb-2 block">
+                      Model * {isLoadingData && <Loader2 className="inline w-4 h-4 animate-spin ml-2" />}
+                    </label>
+                    <p className="text-xs text-muted-foreground mb-3">
+                      {availableModels.length} models available from {Object.keys(modelsByProvider).length} providers
+                    </p>
+                    <div className="space-y-4 max-h-80 overflow-y-auto pr-2">
+                      {Object.entries(modelsByProvider).map(([provider, models]) => (
+                        <div key={provider}>
+                          <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-2">
+                            {provider}
+                          </p>
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                            {models.map((model) => (
+                              <button
+                                key={model.id}
+                                onClick={() => updateFormData("modelId", model.id)}
+                                className={`flex items-center gap-3 p-3 rounded-lg border-2 transition-colors text-left ${
+                                  formData.modelId === model.id
+                                    ? "border-primary bg-primary/10"
+                                    : "border-border bg-secondary hover:border-muted-foreground"
+                                }`}
+                              >
+                                <AgentModelIcon modelKey={getModelKey(model.provider)} size="sm" />
+                                <div className="min-w-0 flex-1">
+                                  <span className="font-medium text-sm block truncate">{model.name}</span>
+                                  {model.tier && (
+                                    <span className={`text-xs ${
+                                      model.tier === 'premium' ? 'text-amber-400' :
+                                      model.tier === 'economy' ? 'text-emerald-400' : 'text-muted-foreground'
+                                    }`}>
+                                      {model.tier}
+                                    </span>
+                                  )}
+                                </div>
+                              </button>
+                            ))}
+                          </div>
+                        </div>
                       ))}
                     </div>
                   </div>
@@ -326,134 +411,92 @@ export function AddAgentScreen({ onBack, onSave }) {
             </div>
           )}
 
-          {/* Step 3: Permissions */}
+          {/* Step 3: Tools */}
           {step === 3 && (
             <div className="space-y-6">
-              {/* Read Access */}
               <div className="bg-card border border-border rounded-xl p-6">
                 <h2 className="font-semibold text-foreground mb-4 flex items-center gap-2">
-                  <Shield size={20} className="text-blue-400" />
-                  Read Access
+                  <Wrench size={20} className="text-blue-400" />
+                  Available Tools
+                  {isLoadingData && <Loader2 className="w-4 h-4 animate-spin ml-2" />}
                 </h2>
                 <p className="text-sm text-muted-foreground mb-4">
-                  What data sources can this agent read from?
+                  Select the tools this agent can use. {availableTools.length} tools available across {Object.keys(toolsByCategory).length} categories.
                 </p>
 
-                <div className="space-y-2">
-                  {[
-                    "BigQuery - mr_core",
-                    "BigQuery - mr_raw",
-                    "BigQuery - mr_agent",
-                    "HubSpot CRM",
-                    "Google Drive",
-                    "Gmail",
-                    "Asana",
-                  ].map((resource) => (
-                    <label
-                      key={resource}
-                      className="flex items-center gap-3 p-3 bg-secondary rounded-lg cursor-pointer hover:bg-accent"
+                <div className="flex items-center gap-2 mb-4">
+                  <span className="text-sm text-muted-foreground">Selected:</span>
+                  <span className="text-sm font-medium text-primary">{formData.selectedTools.length} tools</span>
+                  {formData.selectedTools.length > 0 && (
+                    <button
+                      onClick={() => updateFormData("selectedTools", [])}
+                      className="text-xs text-red-400 hover:text-red-300 ml-2"
                     >
-                      <input
-                        type="checkbox"
-                        checked={formData.readAccess.includes(resource)}
-                        onChange={(e) => {
-                          if (e.target.checked) {
-                            updateFormData("readAccess", [...formData.readAccess, resource])
-                          } else {
-                            updateFormData(
-                              "readAccess",
-                              formData.readAccess.filter((r) => r !== resource)
-                            )
-                          }
-                        }}
-                        className="w-4 h-4"
-                      />
-                      <span>{resource}</span>
-                    </label>
-                  ))}
-                </div>
-              </div>
-
-              {/* Write Access */}
-              <div className="bg-card border border-border rounded-xl p-6">
-                <h2 className="font-semibold text-foreground mb-4 flex items-center gap-2">
-                  <Shield size={20} className="text-amber-400" />
-                  Write Access
-                </h2>
-                <p className="text-sm text-muted-foreground mb-4">
-                  What data sources can this agent modify?
-                </p>
-
-                <div className="space-y-2">
-                  {["BigQuery - mr_agent", "HubSpot CRM", "Gmail Drafts", "Asana Tasks"].map(
-                    (resource) => (
-                      <label
-                        key={resource}
-                        className="flex items-center gap-3 p-3 bg-secondary rounded-lg cursor-pointer hover:bg-accent"
-                      >
-                        <input
-                          type="checkbox"
-                          checked={formData.writeAccess.includes(resource)}
-                          onChange={(e) => {
-                            if (e.target.checked) {
-                              updateFormData("writeAccess", [...formData.writeAccess, resource])
-                            } else {
-                              updateFormData(
-                                "writeAccess",
-                                formData.writeAccess.filter((r) => r !== resource)
-                              )
-                            }
-                          }}
-                          className="w-4 h-4"
-                        />
-                        <span>{resource}</span>
-                      </label>
-                    )
+                      Clear all
+                    </button>
                   )}
+                  <button
+                    onClick={() => updateFormData("selectedTools", availableTools.map(t => t.id))}
+                    className="text-xs text-emerald-400 hover:text-emerald-300 ml-auto"
+                  >
+                    Select all
+                  </button>
                 </div>
-              </div>
 
-              {/* Agent Synteraction */}
-              <div className="bg-card border border-border rounded-xl p-6">
-                <h2 className="font-semibold text-foreground mb-4 flex items-center gap-2">
-                  <Bot size={20} className="text-cyan-400" />
-                  Agent Connections
-                </h2>
-                <p className="text-sm text-muted-foreground mb-4">
-                  Which other agents can this agent communicate with?
-                </p>
-
-                <div className="space-y-2">
-                  {agents.map((agent) => (
-                    <label
-                      key={agent.id}
-                      className="flex items-center gap-3 p-3 bg-secondary rounded-lg cursor-pointer hover:bg-accent"
-                    >
-                      <input
-                        type="checkbox"
-                        checked={formData.agentSynteraction.some((a) => a.agentId === agent.id)}
-                        onChange={(e) => {
-                          if (e.target.checked) {
-                            updateFormData("agentSynteraction", [
-                              ...formData.agentSynteraction,
-                              { agentId: agent.id, canCall: true, canReceiveFrom: true, priority: 5 },
-                            ])
-                          } else {
-                            updateFormData(
-                              "agentSynteraction",
-                              formData.agentSynteraction.filter((a) => a.agentId !== agent.id)
-                            )
-                          }
-                        }}
-                        className="w-4 h-4"
-                      />
-                      <AgentModelIcon modelKey={agent.modelKey} size="sm" />
-                      <div>
-                        <span className="font-medium">{agent.name}</span>
-                        <span className="text-xs text-muted-foreground ml-2">({agent.id})</span>
+                <div className="space-y-6 max-h-96 overflow-y-auto pr-2">
+                  {Object.entries(toolsByCategory).map(([category, tools]) => {
+                    const CategoryIcon = getToolCategoryIcon(category)
+                    return (
+                      <div key={category}>
+                        <div className="flex items-center gap-2 mb-3">
+                          <CategoryIcon size={16} className="text-muted-foreground" />
+                          <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                            {category}
+                          </p>
+                          <span className="text-xs text-muted-foreground">({tools.length})</span>
+                        </div>
+                        <div className="grid grid-cols-1 gap-2">
+                          {tools.map((tool) => (
+                            <label
+                              key={tool.id}
+                              className={`flex items-start gap-3 p-3 rounded-lg cursor-pointer transition-colors ${
+                                formData.selectedTools.includes(tool.id)
+                                  ? "bg-primary/10 border border-primary"
+                                  : "bg-secondary border border-transparent hover:bg-accent"
+                              }`}
+                            >
+                              <input
+                                type="checkbox"
+                                checked={formData.selectedTools.includes(tool.id)}
+                                onChange={(e) => {
+                                  if (e.target.checked) {
+                                    updateFormData("selectedTools", [...formData.selectedTools, tool.id])
+                                  } else {
+                                    updateFormData(
+                                      "selectedTools",
+                                      formData.selectedTools.filter((t) => t !== tool.id)
+                                    )
+                                  }
+                                }}
+                                className="w-4 h-4 mt-0.5"
+                              />
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-2">
+                                  <span className="font-medium text-sm">{tool.name}</span>
+                                  {tool.risk_level === 'high' && (
+                                    <span className="text-xs px-1.5 py-0.5 bg-red-500/20 text-red-400 rounded">
+                                      high risk
+                                    </span>
+                                  )}
+                                </div>
+                                <p className="text-xs text-muted-foreground mt-1">{tool.description}</p>
+                              </div>
+                            </label>
+                          ))}
+                        </div>
                       </div>
-                    </label>
-                  ))}
+                    )
+                  })}
                 </div>
               </div>
             </div>
@@ -612,7 +655,7 @@ export function AddAgentScreen({ onBack, onSave }) {
                   <div className="flex justify-between py-2 border-b border-border">
                     <span className="text-muted-foreground">Model</span>
                     <span>
-                      {modelOptions.find((m) => m.id === formData.modelKey)?.name || "(not set)"}
+                      {availableModels.find((m) => m.id === formData.modelId)?.name || "(not set)"}
                     </span>
                   </div>
                   <div className="flex justify-between py-2 border-b border-border">
@@ -620,8 +663,8 @@ export function AddAgentScreen({ onBack, onSave }) {
                     <span>{scheduleOptions.find((s) => s.id === formData.schedule)?.name}</span>
                   </div>
                   <div className="flex justify-between py-2">
-                    <span className="text-muted-foreground">Connections</span>
-                    <span>{formData.agentSynteraction.length} agents</span>
+                    <span className="text-muted-foreground">Tools</span>
+                    <span>{formData.selectedTools.length} selected</span>
                   </div>
                 </div>
               </div>
@@ -659,7 +702,7 @@ export function AddAgentScreen({ onBack, onSave }) {
             ) : (
               <button
                 onClick={handleSubmit}
-                disabled={!formData.name || !formData.modelKey || totalWeight !== 100 || isSubmitting}
+                disabled={!formData.name || !formData.modelId || totalWeight !== 100 || isSubmitting}
                 className="flex items-center gap-2 px-6 py-2 bg-emerald-600 text-white rounded-lg font-medium hover:bg-emerald-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {isSubmitting ? (

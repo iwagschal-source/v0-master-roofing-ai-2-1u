@@ -1,7 +1,7 @@
 "use client"
 
 // Agent Control Dashboard v1.0
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { NavigationRail } from "@/components/ko/navigation-rail"
 import { TopHeader } from "@/components/ko/top-header"
 import { KOStage } from "@/components/ko/ko-stage"
@@ -30,7 +30,7 @@ import { AgentDetailScreen } from "@/components/ko/agent-detail-screen"
 import { AgentNetworkMapScreen } from "@/components/ko/agent-network-map-screen"
 import { AddAgentScreen } from "@/components/ko/add-agent-screen"
 import { CloneAgentModal } from "@/components/ko/clone-agent-modal"
-import { agents as initialAgents } from "@/data/agent-data"
+import { agents as fallbackAgents } from "@/data/agent-data"
 
 export default function HomePage() {
   const [isStartupComplete, setIsStartupComplete] = useState(false)
@@ -57,12 +57,34 @@ export default function HomePage() {
   const [showAgentNetwork, setShowAgentNetwork] = useState(false)
   const [showAddAgent, setShowAddAgent] = useState(false)
   const [agentToClone, setAgentToClone] = useState(null)
-  const [agentsList, setAgentsList] = useState(initialAgents)
+  const [agentsList, setAgentsList] = useState(fallbackAgents)
+  const [agentsLoading, setAgentsLoading] = useState(true)
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
   const [topPaneHeight, setTopPaneHeight] = useState(0)
   const [koState, setKoState] = useState("idle")
   const [selectedHistoryItem, setSelectedHistoryItem] = useState()
   const [selectedSource, setSelectedSource] = useState(null)
+
+  // Fetch agents from backend on mount
+  useEffect(() => {
+    async function fetchAgents() {
+      try {
+        const res = await fetch('/api/ko/factory/agents')
+        if (res.ok) {
+          const data = await res.json()
+          if (data.agents && data.agents.length > 0) {
+            setAgentsList(data.agents)
+          }
+        }
+      } catch (error) {
+        console.error('Failed to fetch agents from backend:', error)
+        // Keep fallback agents on error
+      } finally {
+        setAgentsLoading(false)
+      }
+    }
+    fetchAgents()
+  }, [])
 
   const [historyItems] = useState([
     {
