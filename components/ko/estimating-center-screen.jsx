@@ -20,9 +20,16 @@ import {
   Sparkles,
   Save,
   FileText,
-  ExternalLink
+  ExternalLink,
+  Mail,
+  RefreshCw,
+  DollarSign,
+  Calendar,
+  Paperclip,
+  Reply,
+  Forward,
+  MoreHorizontal
 } from "lucide-react"
-import { GCBrief } from "./gc-brief"
 import { EstimatingSheet } from "./estimating-sheet"
 import { cn } from "@/lib/utils"
 
@@ -118,7 +125,6 @@ const STATUS_CONFIG = {
 }
 
 export function EstimatingCenterScreen({ onSelectProject, onBack }) {
-  const [activeTab, setActiveTab] = useState("queue")
   const [searchQuery, setSearchQuery] = useState("")
   const [statusFilter, setStatusFilter] = useState("all")
   const [projects, setProjects] = useState([])
@@ -131,6 +137,7 @@ export function EstimatingCenterScreen({ onSelectProject, onBack }) {
   const [uploadResult, setUploadResult] = useState(null)
   const [bluebeamData, setBluebeamData] = useState(null) // Converted Bluebeam data for sheet
   const fileInputRef = useRef(null)
+  const projectListRef = useRef(null)
 
   // Google Sheets state
   const [sheetId, setSheetId] = useState(null)
@@ -140,6 +147,11 @@ export function EstimatingCenterScreen({ onSelectProject, onBack }) {
 
   // Historical rates toggle
   const [useHistoricalRates, setUseHistoricalRates] = useState(true)
+
+  // Project emails state
+  const [projectEmails, setProjectEmails] = useState([])
+  const [emailsLoading, setEmailsLoading] = useState(false)
+  const [selectedEmail, setSelectedEmail] = useState(null)
 
   // Chat state
   const [chatHeight, setChatHeight] = useState(280)
@@ -166,20 +178,89 @@ export function EstimatingCenterScreen({ onSelectProject, onBack }) {
   })
   const [savingProject, setSavingProject] = useState(false)
 
-  const currentEstimator = "Steve"
-
   useEffect(() => {
     loadProjects()
   }, [])
 
-  // Reset chat and load sheet info when project changes
+  // Reset chat and load data when project changes
   useEffect(() => {
     setMessages([])
     setChatInput("")
+    setSelectedEmail(null)
     // Load sheet info from selected project
     setSheetId(selectedProject?.sheet_id || null)
     setSheetUrl(selectedProject?.sheet_url || null)
+    // Load project emails
+    if (selectedProject) {
+      loadProjectEmails(selectedProject)
+    } else {
+      setProjectEmails([])
+    }
   }, [selectedProject?.project_id])
+
+  // Load emails related to the selected project
+  const loadProjectEmails = async (project) => {
+    setEmailsLoading(true)
+    try {
+      // Search for emails mentioning project name or GC
+      const searchQueries = [project.project_name, project.gc_name].filter(Boolean)
+      const query = searchQueries.join(' OR ')
+
+      const res = await fetch(`/api/google/gmail/search?q=${encodeURIComponent(query)}&maxResults=20`)
+      if (res.ok) {
+        const data = await res.json()
+        setProjectEmails(data.emails || [])
+      } else {
+        // Mock data for development
+        setProjectEmails(MOCK_PROJECT_EMAILS)
+      }
+    } catch (err) {
+      console.error('Failed to load project emails:', err)
+      setProjectEmails(MOCK_PROJECT_EMAILS)
+    } finally {
+      setEmailsLoading(false)
+    }
+  }
+
+  // Mock project emails for development
+  const MOCK_PROJECT_EMAILS = [
+    {
+      id: 'email-1',
+      from: { name: 'John Smith', email: 'john@bmgmt.com' },
+      subject: 'RE: Takeoff Request - 1086 Dumont Ave',
+      snippet: 'Thanks for the quick turnaround on the estimate. Can you include the alternate pricing for the TPO system as well?',
+      date: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
+      isUnread: true,
+      hasAttachments: true
+    },
+    {
+      id: 'email-2',
+      from: { name: 'Steve', email: 'steve@masterroofing.com' },
+      subject: 'Takeoff Complete - 1086 Dumont Ave',
+      snippet: 'Hi John, I have completed the takeoff for 1086 Dumont Ave. Please find the attached spreadsheet with all measurements.',
+      date: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString(),
+      isUnread: false,
+      hasAttachments: true
+    },
+    {
+      id: 'email-3',
+      from: { name: 'John Smith', email: 'john@bmgmt.com' },
+      subject: 'Bid Due Date Extension - 1086 Dumont Ave',
+      snippet: 'The owner has granted us an extension. New bid due date is January 25th.',
+      date: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString(),
+      isUnread: false,
+      hasAttachments: false
+    },
+    {
+      id: 'email-4',
+      from: { name: 'John Smith', email: 'john@bmgmt.com' },
+      subject: 'Original ITB - 1086 Dumont Ave',
+      snippet: 'Please find attached the invitation to bid package for the roofing replacement at 1086 Dumont Ave...',
+      date: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(),
+      isUnread: false,
+      hasAttachments: true
+    }
+  ]
 
   // Scroll chat to bottom
   useEffect(() => {
@@ -301,7 +382,6 @@ export function EstimatingCenterScreen({ onSelectProject, onBack }) {
   }, [isDragging, handleMouseMove, handleMouseUp])
 
   const filteredProjects = projects.filter(project => {
-    if (activeTab === "queue" && project.assigned_to !== currentEstimator) return false
     if (statusFilter !== "all" && project.estimate_status !== statusFilter) return false
     if (searchQuery) {
       const query = searchQuery.toLowerCase()
@@ -320,12 +400,32 @@ export function EstimatingCenterScreen({ onSelectProject, onBack }) {
     return new Date(a.due_date) - new Date(b.due_date)
   })
 
-  const myProjects = projects.filter(p => p.assigned_to === currentEstimator)
+  // Stats for all projects
   const stats = {
-    pending: myProjects.filter(p => p.estimate_status === "draft").length,
-    inProgress: myProjects.filter(p => p.estimate_status === "in_progress").length,
-    review: myProjects.filter(p => p.estimate_status === "review").length,
-    submitted: myProjects.filter(p => p.estimate_status === "submitted").length
+    total: projects.length,
+    pending: projects.filter(p => p.estimate_status === "draft").length,
+    inProgress: projects.filter(p => p.estimate_status === "in_progress").length,
+    review: projects.filter(p => p.estimate_status === "review").length,
+    submitted: projects.filter(p => p.estimate_status === "submitted").length
+  }
+
+  // Email date formatting
+  const formatEmailDate = (dateStr) => {
+    if (!dateStr) return ''
+    const date = new Date(dateStr)
+    const now = new Date()
+    const diff = now - date
+
+    // Less than 24 hours
+    if (diff < 24 * 60 * 60 * 1000) {
+      return date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
+    }
+    // Less than 7 days
+    if (diff < 7 * 24 * 60 * 60 * 1000) {
+      return date.toLocaleDateString('en-US', { weekday: 'short' })
+    }
+    // Otherwise show date
+    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
   }
 
   const formatCurrency = (value) => {
@@ -559,15 +659,28 @@ export function EstimatingCenterScreen({ onSelectProject, onBack }) {
   return (
     <div className="flex h-full bg-background">
       {/* LEFT PANEL - Project List */}
-      <div className="w-[360px] flex-shrink-0 flex flex-col border-r border-border">
+      <div className="w-[400px] flex-shrink-0 flex flex-col border-r border-border">
         {/* Header */}
-        <div className="px-4 py-3 border-b border-border">
-          <div className="flex items-center justify-between mb-3">
+        <div className="px-4 py-4 border-b border-border">
+          <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-2">
-              <Calculator className="w-5 h-5 text-primary" />
-              <h1 className="font-semibold">Estimating Center</h1>
+              <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
+                <Calculator className="w-4 h-4 text-primary" />
+              </div>
+              <div>
+                <h1 className="font-semibold">Estimating Center</h1>
+                <p className="text-xs text-muted-foreground">{stats.total} projects</p>
+              </div>
             </div>
-            <div className="flex items-center gap-1">
+            <div className="flex items-center gap-2">
+              <button
+                onClick={loadProjects}
+                disabled={loading}
+                className="p-2 hover:bg-muted rounded-lg transition-colors"
+                title="Refresh"
+              >
+                <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+              </button>
               <button
                 onClick={() => setShowUploadModal(true)}
                 className="p-2 hover:bg-muted rounded-lg transition-colors"
@@ -585,65 +698,46 @@ export function EstimatingCenterScreen({ onSelectProject, onBack }) {
             </div>
           </div>
 
-          {/* Stats */}
-          <div className="flex items-center gap-3 text-xs text-muted-foreground">
-            <span className="flex items-center gap-1">
-              <div className="w-2 h-2 rounded-full bg-gray-500" />
-              {stats.pending}
-            </span>
-            <span className="flex items-center gap-1">
-              <div className="w-2 h-2 rounded-full bg-yellow-500" />
-              {stats.inProgress}
-            </span>
-            <span className="flex items-center gap-1">
-              <div className="w-2 h-2 rounded-full bg-blue-500" />
-              {stats.review}
-            </span>
-            <span className="flex items-center gap-1">
-              <div className="w-2 h-2 rounded-full bg-purple-500" />
-              {stats.submitted}
-            </span>
-          </div>
-        </div>
-
-        {/* Tabs and Search */}
-        <div className="px-4 py-2 border-b border-border space-y-2">
-          <div className="flex items-center gap-1 bg-muted/30 rounded-lg p-0.5">
-            <button
-              onClick={() => setActiveTab("queue")}
-              className={`flex-1 px-3 py-1 rounded-md text-xs font-medium transition-colors ${
-                activeTab === "queue"
-                  ? "bg-background text-foreground shadow-sm"
-                  : "text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              My Queue
-            </button>
-            <button
-              onClick={() => setActiveTab("all")}
-              className={`flex-1 px-3 py-1 rounded-md text-xs font-medium transition-colors ${
-                activeTab === "all"
-                  ? "bg-background text-foreground shadow-sm"
-                  : "text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              All Projects
-            </button>
-          </div>
+          {/* Search */}
           <div className="relative">
-            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
             <input
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search..."
-              className="w-full pl-8 pr-3 py-1.5 bg-muted border border-input rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
+              placeholder="Search projects, GCs..."
+              className="w-full pl-10 pr-4 py-2.5 bg-muted border border-input rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
             />
+          </div>
+
+          {/* Status Filter Pills */}
+          <div className="flex items-center gap-2 mt-3 overflow-x-auto pb-1">
+            {[
+              { value: 'all', label: 'All' },
+              { value: 'draft', label: 'Draft', color: 'bg-gray-500' },
+              { value: 'in_progress', label: 'In Progress', color: 'bg-yellow-500' },
+              { value: 'review', label: 'Review', color: 'bg-blue-500' },
+              { value: 'submitted', label: 'Submitted', color: 'bg-purple-500' },
+            ].map(opt => (
+              <button
+                key={opt.value}
+                onClick={() => setStatusFilter(opt.value)}
+                className={cn(
+                  "px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-colors flex items-center gap-1.5",
+                  statusFilter === opt.value
+                    ? "bg-primary text-primary-foreground"
+                    : "bg-secondary text-muted-foreground hover:text-foreground"
+                )}
+              >
+                {opt.color && <div className={`w-2 h-2 rounded-full ${opt.color}`} />}
+                {opt.label}
+              </button>
+            ))}
           </div>
         </div>
 
         {/* Project List */}
-        <div className="flex-1 overflow-auto">
+        <div ref={projectListRef} className="flex-1 overflow-auto p-3">
           {loading ? (
             <div className="flex items-center justify-center h-32">
               <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
@@ -651,50 +745,92 @@ export function EstimatingCenterScreen({ onSelectProject, onBack }) {
           ) : sortedProjects.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-32 text-muted-foreground">
               <FileSpreadsheet className="w-8 h-8 mb-2 opacity-50" />
-              <p className="text-xs">No projects found</p>
+              <p className="text-sm">No projects found</p>
+              {searchQuery && (
+                <button onClick={() => setSearchQuery('')} className="text-primary text-xs mt-2 hover:underline">
+                  Clear search
+                </button>
+              )}
             </div>
           ) : (
-            <div className="p-2 space-y-1">
-              {sortedProjects.map((project) => {
+            <div className="space-y-2">
+              {sortedProjects.map((project, index) => {
                 const status = STATUS_CONFIG[project.estimate_status] || STATUS_CONFIG.draft
                 const isSelected = selectedProject?.project_id === project.project_id
 
                 return (
-                  <div
+                  <button
                     key={project.project_id}
                     onClick={() => setSelectedProject(project)}
+                    style={{
+                      animationDelay: `${index * 30}ms`,
+                      animation: "fadeInUp 0.3s ease-out forwards",
+                      opacity: 0,
+                    }}
                     className={cn(
-                      "p-3 rounded-lg cursor-pointer transition-all",
+                      "w-full group relative bg-card rounded-xl p-4 text-left transition-all duration-200 hover:scale-[1.01] border hover:shadow-lg",
                       isSelected
-                        ? "bg-primary/10 border border-primary/30"
-                        : "hover:bg-muted/50 border border-transparent"
+                        ? "border-primary/50 bg-primary/5 shadow-md"
+                        : "border-border/50 hover:border-primary/20"
                     )}
                   >
-                    <div className="flex items-start gap-2">
-                      <div className={`w-1 h-10 rounded-full flex-shrink-0 ${status.color}`} />
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-1.5">
-                          <span className="font-medium text-sm truncate">{project.project_name}</span>
+                    {/* Active indicator line */}
+                    <div className={cn(
+                      "absolute left-0 top-4 bottom-4 w-[3px] rounded-r-full transition-all",
+                      isSelected ? "bg-primary opacity-100" : "bg-primary opacity-0 group-hover:opacity-50"
+                    )} />
+
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex-1 min-w-0 pl-2">
+                        {/* Project Name */}
+                        <div className="flex items-center gap-2 mb-1">
+                          <h3 className="font-semibold text-foreground truncate">
+                            {project.project_name}
+                          </h3>
                           {project.priority === "urgent" && (
-                            <span className="px-1 py-0.5 text-[10px] bg-red-500/20 text-red-400 rounded">!</span>
+                            <span className="px-1.5 py-0.5 text-[10px] font-medium bg-red-500/20 text-red-400 rounded">
+                              URGENT
+                            </span>
+                          )}
+                          {project.priority === "high" && (
+                            <span className="px-1.5 py-0.5 text-[10px] font-medium bg-orange-500/20 text-orange-400 rounded">
+                              HIGH
+                            </span>
                           )}
                         </div>
-                        <div className="flex items-center gap-2 mt-0.5 text-xs text-muted-foreground">
-                          <span className="flex items-center gap-1 truncate">
-                            <Building2 className="w-3 h-3" />
-                            {project.gc_name}
+
+                        {/* GC Name */}
+                        <p className="text-muted-foreground text-sm truncate mb-2 flex items-center gap-1.5">
+                          <Building2 className="w-3.5 h-3.5" />
+                          {project.gc_name || "No GC assigned"}
+                        </p>
+
+                        {/* Bottom row */}
+                        <div className="flex items-center gap-3 text-sm">
+                          <span className="font-semibold text-foreground flex items-center gap-1">
+                            <DollarSign className="w-3.5 h-3.5 text-green-500" />
+                            {formatCurrency(project.proposal_total).replace('$', '')}
                           </span>
-                        </div>
-                        <div className="flex items-center justify-between mt-1">
-                          <span className="text-xs text-muted-foreground flex items-center gap-1">
-                            <Clock className="w-3 h-3" />
+                          <span className="text-muted-foreground">•</span>
+                          <span className="text-muted-foreground flex items-center gap-1">
+                            <Calendar className="w-3.5 h-3.5" />
                             {formatDate(project.due_date)}
                           </span>
-                          <span className="text-xs font-medium">{formatCurrency(project.proposal_total)}</span>
                         </div>
                       </div>
+
+                      {/* Status + Arrow */}
+                      <div className="flex items-center gap-2 shrink-0">
+                        <div className="flex items-center gap-1.5">
+                          <span className={`w-2 h-2 rounded-full ${status.color}`} />
+                          <span className="text-xs text-muted-foreground hidden sm:inline">
+                            {status.label}
+                          </span>
+                        </div>
+                        <ChevronRight className="w-5 h-5 text-muted-foreground group-hover:text-primary transition-colors" />
+                      </div>
                     </div>
-                  </div>
+                  </button>
                 )
               })}
             </div>
@@ -702,7 +838,7 @@ export function EstimatingCenterScreen({ onSelectProject, onBack }) {
         </div>
       </div>
 
-      {/* RIGHT PANEL - GC Brief + Chat */}
+      {/* RIGHT PANEL - Emails + Chat */}
       <div ref={containerRef} className="flex-1 flex flex-col overflow-hidden">
         {selectedProject ? (
           <>
@@ -771,14 +907,134 @@ export function EstimatingCenterScreen({ onSelectProject, onBack }) {
               </div>
             )}
 
-            {/* GC Brief - Top Section */}
-            <div className="flex-1 min-h-0 overflow-y-auto">
-              <div className="p-4">
-                <GCBrief
-                  gcName={selectedProject.gc_name}
-                  projectName={selectedProject.project_name}
-                  className="border-0 rounded-none"
-                />
+            {/* Project Emails - Top Section */}
+            <div className="flex-1 min-h-0 overflow-hidden flex flex-col">
+              {/* Email Header */}
+              <div className="px-4 py-3 border-b border-border flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Mail className="w-4 h-4 text-primary" />
+                  <span className="font-medium text-sm">Project Emails</span>
+                  <span className="text-xs text-muted-foreground">
+                    {emailsLoading ? 'Loading...' : `${projectEmails.length} messages`}
+                  </span>
+                </div>
+                <button
+                  onClick={() => selectedProject && loadProjectEmails(selectedProject)}
+                  disabled={emailsLoading}
+                  className="p-1.5 hover:bg-muted rounded-lg transition-colors"
+                >
+                  <RefreshCw className={`w-4 h-4 ${emailsLoading ? 'animate-spin' : ''}`} />
+                </button>
+              </div>
+
+              {/* Email List or Detail */}
+              <div className="flex-1 overflow-y-auto">
+                {emailsLoading ? (
+                  <div className="flex items-center justify-center h-32">
+                    <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+                  </div>
+                ) : selectedEmail ? (
+                  // Email Detail View
+                  <div className="p-4">
+                    <button
+                      onClick={() => setSelectedEmail(null)}
+                      className="flex items-center gap-1 text-sm text-primary hover:underline mb-4"
+                    >
+                      <ChevronRight className="w-4 h-4 rotate-180" />
+                      Back to list
+                    </button>
+
+                    <div className="space-y-4">
+                      <div>
+                        <h3 className="font-semibold text-lg">{selectedEmail.subject}</h3>
+                        <div className="flex items-center gap-3 mt-2 text-sm text-muted-foreground">
+                          <span className="font-medium text-foreground">{selectedEmail.from?.name}</span>
+                          <span>&lt;{selectedEmail.from?.email}&gt;</span>
+                        </div>
+                        <div className="text-xs text-muted-foreground mt-1">
+                          {new Date(selectedEmail.date).toLocaleString()}
+                        </div>
+                      </div>
+
+                      <div className="border-t border-border pt-4">
+                        <p className="text-sm text-foreground whitespace-pre-wrap">
+                          {selectedEmail.snippet || selectedEmail.body || 'No content available'}
+                        </p>
+                      </div>
+
+                      {selectedEmail.hasAttachments && (
+                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                          <Paperclip className="w-4 h-4" />
+                          <span>Attachments available</span>
+                        </div>
+                      )}
+
+                      <div className="flex items-center gap-2 pt-4 border-t border-border">
+                        <button className="flex items-center gap-2 px-3 py-2 bg-primary text-primary-foreground rounded-lg text-sm hover:bg-primary/90">
+                          <Reply className="w-4 h-4" />
+                          Reply
+                        </button>
+                        <button className="flex items-center gap-2 px-3 py-2 bg-secondary text-foreground rounded-lg text-sm hover:bg-secondary/80">
+                          <Forward className="w-4 h-4" />
+                          Forward
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ) : projectEmails.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center h-32 text-muted-foreground">
+                    <Mail className="w-8 h-8 mb-2 opacity-50" />
+                    <p className="text-sm">No emails found for this project</p>
+                    <p className="text-xs mt-1">Emails mentioning "{selectedProject.project_name}" or "{selectedProject.gc_name}" will appear here</p>
+                  </div>
+                ) : (
+                  // Email List View
+                  <div className="divide-y divide-border">
+                    {projectEmails.map((email) => (
+                      <button
+                        key={email.id}
+                        onClick={() => setSelectedEmail(email)}
+                        className={cn(
+                          "w-full p-3 text-left hover:bg-muted/50 transition-colors",
+                          email.isUnread && "bg-primary/5"
+                        )}
+                      >
+                        <div className="flex items-start gap-3">
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center justify-between gap-2 mb-1">
+                              <span className={cn(
+                                "text-sm truncate",
+                                email.isUnread ? "font-semibold text-foreground" : "text-foreground"
+                              )}>
+                                {email.from?.name || email.from?.email}
+                              </span>
+                              <span className="text-xs text-muted-foreground whitespace-nowrap">
+                                {formatEmailDate(email.date)}
+                              </span>
+                            </div>
+                            <p className={cn(
+                              "text-sm truncate mb-1",
+                              email.isUnread ? "font-medium" : "text-foreground"
+                            )}>
+                              {email.subject}
+                            </p>
+                            <p className="text-xs text-muted-foreground truncate">
+                              {email.snippet}
+                            </p>
+                          </div>
+                          <div className="flex items-center gap-2 shrink-0">
+                            {email.hasAttachments && (
+                              <Paperclip className="w-3.5 h-3.5 text-muted-foreground" />
+                            )}
+                            {email.isUnread && (
+                              <div className="w-2 h-2 rounded-full bg-primary" />
+                            )}
+                          </div>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
 
@@ -1153,6 +1409,20 @@ export function EstimatingCenterScreen({ onSelectProject, onBack }) {
           </div>
         </div>
       )}
+
+      {/* Animation Keyframes */}
+      <style jsx>{`
+        @keyframes fadeInUp {
+          from {
+            opacity: 0;
+            transform: translateY(10px);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0);
+          }
+        }
+      `}</style>
     </div>
   )
 }
