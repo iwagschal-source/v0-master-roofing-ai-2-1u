@@ -68,6 +68,7 @@ export const connectionTypes = {
   control: { color: "#8b5cf6", label: "Control Signal" },
   audit: { color: "#f59e0b", label: "Audit" },
   sync: { color: "#10b981", label: "Sync" },
+  active: { color: "#00f5ff", label: "Active Call", glow: true },  // Bright cyan for real-time calls
 }
 
 // Model configuration for icons

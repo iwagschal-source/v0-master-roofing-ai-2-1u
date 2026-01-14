@@ -106,7 +106,7 @@ function calculatePositions(agentList) {
 }
 
 // Network Node Component
-function NetworkNode({ agent, position, isSelected, onClick, isAnimating, showQueueBadge }) {
+function NetworkNode({ agent, position, isSelected, onClick, isAnimating, showQueueBadge, isBusy }) {
   const status = agent ? statusConfig[agent.status] : { color: "bg-blue-500", label: "USER" }
   const isUser = !agent
   const hasBacklog = agent?.queueDepth >= 5
@@ -117,8 +117,15 @@ function NetworkNode({ agent, position, isSelected, onClick, isAnimating, showQu
       onClick={() => onClick(agent?.id || "USER")}
       className="cursor-pointer"
     >
+      {/* Busy processing indicator - bright cyan spinning ring */}
+      {isBusy && (
+        <circle r="54" fill="none" stroke="#00f5ff" strokeWidth="3" strokeDasharray="20,10" opacity="0.8">
+          <animateTransform attributeName="transform" type="rotate" from="0 0 0" to="360 0 0" dur="1s" repeatCount="indefinite" />
+        </circle>
+      )}
+
       {/* Outer glow for live/error agents */}
-      {isAnimating && agent?.status === "live" && (
+      {isAnimating && agent?.status === "live" && !isBusy && (
         <circle r="52" fill="none" stroke="#10b981" strokeWidth="2" opacity="0.4">
           <animate attributeName="r" values="48;56;48" dur="2s" repeatCount="indefinite" />
           <animate attributeName="opacity" values="0.4;0.1;0.4" dur="2s" repeatCount="indefinite" />
@@ -126,7 +133,7 @@ function NetworkNode({ agent, position, isSelected, onClick, isAnimating, showQu
       )}
 
       {/* Backlog warning ring */}
-      {hasBacklog && (
+      {hasBacklog && !isBusy && (
         <circle r="50" fill="none" stroke="#f59e0b" strokeWidth="3" strokeDasharray="8,4">
           <animate attributeName="stroke-dashoffset" values="0;24" dur="1s" repeatCount="indefinite" />
         </circle>
@@ -294,6 +301,12 @@ export function AgentNetworkMapScreen({ onBack, onSelectAgent }) {
     }
   }
 
+  // Real-time WebSocket state for live call tracking
+  const [activeCalls, setActiveCalls] = useState(new Map())
+  const [busyAgents, setBusyAgents] = useState(new Set())
+  const [wsConnected, setWsConnected] = useState(false)
+  const wsRef = useRef(null)
+
   // Initial fetch and auto-refresh
   useEffect(() => {
     fetchNetworkData()
@@ -301,6 +314,110 @@ export function AgentNetworkMapScreen({ onBack, onSelectAgent }) {
     // Auto-refresh every 30 seconds
     const interval = setInterval(fetchNetworkData, 30000)
     return () => clearInterval(interval)
+  }, [])
+
+  // WebSocket connection for real-time updates
+  useEffect(() => {
+    const connectWebSocket = () => {
+      try {
+        const ws = new WebSocket('wss://34.95.128.208/ws/network')
+        wsRef.current = ws
+
+        ws.onopen = () => {
+          console.log('Network WebSocket connected')
+          setWsConnected(true)
+        }
+
+        ws.onmessage = (event) => {
+          try {
+            const data = JSON.parse(event.data)
+
+            switch (data.type) {
+              case 'connected':
+                // Initialize with current active calls
+                if (data.active_calls) {
+                  const callMap = new Map()
+                  data.active_calls.forEach(call => {
+                    callMap.set(call.call_id, call)
+                  })
+                  setActiveCalls(callMap)
+                }
+                break
+
+              case 'call_start':
+                setActiveCalls(prev => {
+                  const next = new Map(prev)
+                  next.set(data.call_id, {
+                    source: data.source,
+                    target: data.target,
+                    type: data.call_type,
+                    started_at: data.timestamp
+                  })
+                  return next
+                })
+                setBusyAgents(prev => new Set([...prev, data.target]))
+                break
+
+              case 'call_end':
+                setActiveCalls(prev => {
+                  const next = new Map(prev)
+                  const call = next.get(data.call_id)
+                  next.delete(data.call_id)
+                  // Check if target agent has other active calls
+                  if (call) {
+                    const hasOtherCalls = [...next.values()].some(c => c.target === call.target)
+                    if (!hasOtherCalls) {
+                      setBusyAgents(prev => {
+                        const next = new Set(prev)
+                        next.delete(call.target)
+                        return next
+                      })
+                    }
+                  }
+                  return next
+                })
+                break
+
+              case 'agent_status':
+                if (data.status === 'busy') {
+                  setBusyAgents(prev => new Set([...prev, data.agent_id]))
+                } else {
+                  setBusyAgents(prev => {
+                    const next = new Set(prev)
+                    next.delete(data.agent_id)
+                    return next
+                  })
+                }
+                break
+            }
+          } catch (e) {
+            console.error('WebSocket message parse error:', e)
+          }
+        }
+
+        ws.onclose = () => {
+          console.log('Network WebSocket disconnected')
+          setWsConnected(false)
+          // Attempt reconnect after 5 seconds
+          setTimeout(connectWebSocket, 5000)
+        }
+
+        ws.onerror = (error) => {
+          console.error('Network WebSocket error:', error)
+        }
+      } catch (e) {
+        console.error('WebSocket connection error:', e)
+        setTimeout(connectWebSocket, 5000)
+      }
+    }
+
+    connectWebSocket()
+
+    return () => {
+      if (wsRef.current) {
+        wsRef.current.close()
+      }
+    }
   }, [])
 
   // Use live data if available, otherwise fall back to static
@@ -364,6 +481,12 @@ export function AgentNetworkMapScreen({ onBack, onSelectAgent }) {
                     LIVE
                   </span>
                 )}
+                {wsConnected && (
+                  <span className="px-2 py-0.5 bg-blue-500/20 text-blue-400 text-xs rounded-full font-normal flex items-center gap-1">
+                    <span className="w-1.5 h-1.5 bg-blue-400 rounded-full animate-pulse" />
+                    REALTIME
+                  </span>
+                )}
                 {loading && (
                   <RefreshCw size={16} className="animate-spin text-muted-foreground" />
                 )}
@@ -371,6 +494,11 @@ export function AgentNetworkMapScreen({ onBack, onSelectAgent }) {
               <p className="text-sm text-muted-foreground">
                 {currentAgents.length} agents | {currentConnections.length} connections |{" "}
                 {activeAgentIds.size} active
+                {activeCalls.size > 0 && (
+                  <span className="ml-2 text-blue-400">
+                    | {activeCalls.size} call{activeCalls.size > 1 ? 's' : ''} in progress
+                  </span>
+                )}
                 {lastUpdate && (
                   <span className="ml-2 text-xs">
                     • Updated {lastUpdate.toLocaleTimeString()}
@@ -538,18 +666,53 @@ export function AgentNetworkMapScreen({ onBack, onSelectAgent }) {
                 const toPos = positions[targetId]
                 if (!fromPos || !toPos) return null
 
+                // Check if this connection has an active call
+                const hasActiveCall = [...activeCalls.values()].some(
+                  call => (call.source === sourceId && call.target === targetId) ||
+                          (call.source === targetId && call.target === sourceId)
+                )
+
                 const isActive =
-                  activeAgentIds.has(sourceId) || activeAgentIds.has(targetId)
+                  hasActiveCall || activeAgentIds.has(sourceId) || activeAgentIds.has(targetId)
 
                 return (
                   <ConnectionLine
                     key={`${sourceId}-${targetId}-${idx}`}
                     from={fromPos}
                     to={toPos}
-                    type={conn.type}
+                    type={hasActiveCall ? 'active' : conn.type}
                     isActive={isActive}
-                    isAnimating={isPlaying}
+                    isAnimating={isPlaying || hasActiveCall}
                     bidirectional={conn.bidirectional}
+                  />
+                )
+              })}
+
+              {/* Render active calls that may not have static connections */}
+              {[...activeCalls.values()].map((call, idx) => {
+                const fromPos = positions[call.source]
+                const toPos = positions[call.target]
+                if (!fromPos || !toPos) return null
+
+                // Check if already rendered in static connections
+                const existsInStatic = filteredConnections.some(conn => {
+                  const sourceId = conn.sourceId || conn.from
+                  const targetId = conn.targetId || conn.to
+                  return (sourceId === call.source && targetId === call.target) ||
+                         (sourceId === call.target && targetId === call.source)
+                })
+
+                if (existsInStatic) return null
+
+                return (
+                  <ConnectionLine
+                    key={`active-${call.source}-${call.target}-${idx}`}
+                    from={fromPos}
+                    to={toPos}
+                    type="active"
+                    isActive={true}
+                    isAnimating={true}
+                    bidirectional={false}
                   />
                 )
               })}
@@ -562,6 +725,7 @@ export function AgentNetworkMapScreen({ onBack, onSelectAgent }) {
                 onClick={handleNodeClick}
                 isAnimating={isPlaying}
                 showQueueBadge={true}
+                isBusy={false}
               />
 
               {/* Agent nodes */}
@@ -572,6 +736,7 @@ export function AgentNetworkMapScreen({ onBack, onSelectAgent }) {
                   position={positions[agent.id]}
                   isSelected={selectedNode === agent.id}
                   onClick={handleNodeClick}
+                  isBusy={busyAgents.has(agent.id)}
                   isAnimating={isPlaying}
                   showQueueBadge={true}
                 />
