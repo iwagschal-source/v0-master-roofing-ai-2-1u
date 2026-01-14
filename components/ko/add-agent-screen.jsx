@@ -139,7 +139,7 @@ export function AddAgentScreen({ onBack, onSave }) {
 
       // Build local agent object for UI update
       const newAgent = {
-        id: data.agent_id || generateAgentId(),
+        id: data.agent?.id || generateAgentId(),
         name: formData.name,
         description: formData.description,
         model: selectedModel?.name || "Unknown",
