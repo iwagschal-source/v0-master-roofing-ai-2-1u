@@ -2,12 +2,139 @@
  * Bluebeam CSV Converter API
  *
  * Converts Bluebeam markup export CSV files into structured takeoff data.
- * Proxies to backend /v1/bluebeam/convert or processes locally.
+ * Returns both:
+ * - items: array for React EstimatingSheet
+ * - template_data: object for Google Sheets populate-takeoff
  */
 
 import { NextResponse } from 'next/server'
 
 const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'https://34.95.128.208'
+
+// MR Template rates by scope item
+const MR_RATES = {
+  // Roofing
+  'vapor barrier': 6.95,
+  'temp waterproofing': 6.95,
+  'pitch': 1.50,
+  'built-up': 16.25,
+  '2 ply': 16.25,
+  '3 ply': 18.50,
+  'mod bit': 14.00,
+  'tpo': 12.00,
+  'epdm': 11.00,
+  'irma': 18.00,
+  'up and over': 12.00,
+  'scupper': 2500.00,
+  'gutter': 2500.00,
+  'pmma': 48.00,
+  'drain': 550.00,
+  'doorpan': 550.00,
+  'door pan': 550.00,
+  'hatch': 48.00,
+  'skylight': 48.00,
+  'fence post': 250.00,
+  'railing': 250.00,
+  'plumbing': 250.00,
+  'mechanical': 250.00,
+  'davit': 150.00,
+  'ac unit': 550.00,
+  'dunnage': 550.00,
+  'coping': 32.00,
+  'gravel stop': 32.00,
+  'edge metal': 32.00,
+  'flashing': 24.00,
+  'counter': 24.00,
+  'reglet': 24.00,
+  'overburden': 14.00,
+  'paver': 24.00,
+  'green roof': 48.00,
+  'insulation': 8.00,
+  'cover board': 4.50,
+  // Balconies
+  'traffic coating': 17.00,
+  'drip edge': 22.00,
+  'l flashing': 48.00,
+  'liquid l': 48.00,
+  // Exterior
+  'brick': 5.25,
+  'panel': 5.25,
+  'eifs': 5.25,
+  'stucco': 17.00,
+  'drip cap': 33.00,
+  'sill': 33.00,
+  'tie-in': 48.00,
+  'tie in': 48.00,
+}
+
+// Floor name mappings (normalize various naming conventions)
+const FLOOR_MAPPINGS = {
+  'cellar': 'Cellar Floor',
+  'basement': 'Cellar Floor',
+  'ground': 'GROUND Floor',
+  '1st': 'GROUND Floor',
+  'first': 'GROUND Floor',
+  '2nd': '2nd Floor',
+  'second': '2nd Floor',
+  '3rd': '3rd Floor',
+  'third': '3rd Floor',
+  '4th': '4th Floor',
+  'fourth': '4th Floor',
+  '5th': '5th Floor',
+  'fifth': '5th Floor',
+  '6th': '6th Floor',
+  'sixth': '6th Floor',
+  '7th': '7th Floor',
+  'seventh': '7th Floor',
+  'roof': 'Main Roof',
+  'main roof': 'Main Roof',
+  'bulkhead': 'Bulkhead',
+  'bh': 'Bulkhead',
+  'elevator': 'Elevator Bulkhead',
+  'elev': 'Elevator Bulkhead',
+}
+
+/**
+ * Normalize floor/space name to standard format
+ */
+function normalizeFloor(space) {
+  if (!space) return 'Main Roof' // Default to main roof
+  const spaceLower = space.toLowerCase().trim()
+
+  for (const [key, value] of Object.entries(FLOOR_MAPPINGS)) {
+    if (spaceLower.includes(key)) {
+      return value
+    }
+  }
+
+  // Check for floor numbers like "Floor 3" or "Level 2"
+  const floorMatch = spaceLower.match(/(?:floor|level|flr|lvl)\s*(\d+)/i)
+  if (floorMatch) {
+    const num = parseInt(floorMatch[1])
+    if (num === 1) return 'GROUND Floor'
+    if (num <= 7) return `${num}${num === 2 ? 'nd' : num === 3 ? 'rd' : 'th'} Floor`
+  }
+
+  return 'Main Roof' // Default
+}
+
+/**
+ * Get rate for a scope item
+ */
+function getRate(itemName, unit) {
+  const nameLower = itemName.toLowerCase()
+
+  for (const [keyword, rate] of Object.entries(MR_RATES)) {
+    if (nameLower.includes(keyword)) {
+      return rate
+    }
+  }
+
+  // Default rates by unit
+  if (unit === 'SF') return 12.00
+  if (unit === 'LF') return 25.00
+  return 150.00 // EA
+}
 
 /**
  * Parse Bluebeam CSV export into structured takeoff items
@@ -31,14 +158,13 @@ function parseBluebeamCSV(csvContent) {
     throw new Error('CSV must have a "Subject" column')
   }
 
-  const items = []
-  const itemMap = {} // Group by subject
+  // Group by subject AND space for floor breakdown
+  const itemMap = {} // { subject: { floors: { floorName: qty }, total: qty, unit, labels, pages } }
 
   for (let i = 1; i < lines.length; i++) {
     const line = lines[i]
     if (!line.trim()) continue
 
-    // Parse CSV line (handle quoted values with commas)
     const values = parseCSVLine(line)
 
     const subject = values[subjectIdx]?.trim() || ''
@@ -54,42 +180,49 @@ function parseBluebeamCSV(csvContent) {
     const quantity = measurementMatch ? parseFloat(measurementMatch[1].replace(/,/g, '')) : 0
     const unit = measurementMatch ? (measurementMatch[2] || 'EA').toUpperCase() : 'EA'
 
-    // Group by subject
+    // Normalize floor name
+    const floorName = normalizeFloor(space)
+
+    // Initialize subject if not exists
     if (!itemMap[subject]) {
       itemMap[subject] = {
         subject,
         labels: [],
+        floors: {},
         total_quantity: 0,
         unit,
-        spaces: [],
         pages: []
       }
     }
 
+    // Add to floor
+    itemMap[subject].floors[floorName] = (itemMap[subject].floors[floorName] || 0) + quantity
     itemMap[subject].total_quantity += quantity
+
     if (label && !itemMap[subject].labels.includes(label)) {
       itemMap[subject].labels.push(label)
-    }
-    if (space && !itemMap[subject].spaces.includes(space)) {
-      itemMap[subject].spaces.push(space)
     }
     if (page && !itemMap[subject].pages.includes(page)) {
       itemMap[subject].pages.push(page)
     }
   }
 
-  // Convert to array
+  // Convert to items array
+  const items = []
   for (const key of Object.keys(itemMap)) {
     const item = itemMap[key]
+    const rate = getRate(item.subject, item.unit)
+    const total = Math.round(item.total_quantity * rate)
+
     items.push({
       item_name: item.subject,
       description: item.labels.join(', ') || item.subject,
       quantity: Math.round(item.total_quantity * 100) / 100,
       unit: item.unit,
-      spaces: item.spaces,
+      floors: item.floors,
       pages: item.pages,
-      rate: null,
-      total: null
+      rate,
+      total
     })
   }
 
@@ -121,6 +254,24 @@ function parseCSVLine(line) {
 }
 
 /**
+ * Convert items to Google Sheets template_data format
+ */
+function convertToTemplateData(items, projectName) {
+  const rows = items.map(item => ({
+    unit_cost: item.rate || 0,
+    scope: item.item_name,
+    floors: item.floors || {},
+    total_qty: item.quantity || 0,
+    total_cost: item.total || 0
+  }))
+
+  return {
+    project_name: projectName || 'Untitled',
+    rows
+  }
+}
+
+/**
  * Match items to Master Roofing template categories
  */
 function categorizeItems(items) {
@@ -131,10 +282,9 @@ function categorizeItems(items) {
     misc: []
   }
 
-  // Keywords for categorization
-  const roofingKeywords = ['roof', 'membrane', 'epdm', 'tpo', 'mod bit', 'shingle', 'insulation', 'cover board', 'gypsum']
+  const roofingKeywords = ['roof', 'membrane', 'epdm', 'tpo', 'mod bit', 'shingle', 'insulation', 'cover board', 'gypsum', 'built-up', 'ply', 'irma']
   const metalKeywords = ['coping', 'flashing', 'edge metal', 'gravel stop', 'counter', 'cap', 'reglet', 'drip']
-  const accessoryKeywords = ['drain', 'scupper', 'vent', 'pitch pan', 'stack', 'curb', 'skylight', 'hatch']
+  const accessoryKeywords = ['drain', 'scupper', 'vent', 'pitch pan', 'stack', 'curb', 'skylight', 'hatch', 'doorpan', 'door pan', 'ac unit', 'dunnage']
 
   for (const item of items) {
     const nameLower = item.item_name.toLowerCase()
@@ -169,13 +319,13 @@ export async function POST(request) {
       )
     }
 
-    // Try backend first
+    // Try backend first (may have better parsing/ML matching)
     try {
       const backendRes = await fetch(`${BACKEND_URL}/v1/bluebeam/convert`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ csv_content, project_name, project_id }),
-        signal: AbortSignal.timeout(30000)
+        signal: AbortSignal.timeout(10000) // 10s timeout
       })
 
       if (backendRes.ok) {
@@ -187,43 +337,29 @@ export async function POST(request) {
         })
       }
     } catch (err) {
-      console.log('Backend not available for Bluebeam conversion, processing locally')
+      console.log('Backend not available, processing locally')
     }
 
     // Local processing
     const items = parseBluebeamCSV(csv_content)
     const categories = categorizeItems(items)
+    const template_data = convertToTemplateData(items, project_name)
 
     // Calculate summary
     const totalItems = items.length
     const totalMeasurements = items.reduce((sum, item) => sum + (item.quantity || 0), 0)
-
-    // Estimate costs using rough rates (will be overwritten with actual rates)
-    let estimatedCost = 0
-    for (const item of items) {
-      const unit = item.unit?.toUpperCase() || 'EA'
-      // Rough estimates
-      if (unit === 'SF') {
-        item.rate = 12 // $12/SF default for roofing
-        item.total = Math.round(item.quantity * item.rate)
-      } else if (unit === 'LF') {
-        item.rate = 25 // $25/LF default for metal
-        item.total = Math.round(item.quantity * item.rate)
-      } else {
-        item.rate = 150 // $150/EA default for accessories
-        item.total = Math.round(item.quantity * item.rate)
-      }
-      estimatedCost += item.total
-    }
+    const estimatedCost = items.reduce((sum, item) => sum + (item.total || 0), 0)
 
     return NextResponse.json({
       success: true,
       items,
       categories,
+      template_data, // For Google Sheets
       summary: {
         total_items: totalItems,
         total_measurements: Math.round(totalMeasurements),
         estimated_cost: estimatedCost,
+        scope_items: totalItems,
         breakdown: {
           roofing_systems: categories.roofing_systems.length,
           metal_work: categories.metal_work.length,

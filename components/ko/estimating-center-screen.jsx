@@ -132,6 +132,12 @@ export function EstimatingCenterScreen({ onSelectProject, onBack }) {
   const [bluebeamData, setBluebeamData] = useState(null) // Converted Bluebeam data for sheet
   const fileInputRef = useRef(null)
 
+  // Google Sheets state
+  const [sheetId, setSheetId] = useState(null)
+  const [sheetUrl, setSheetUrl] = useState(null)
+  const [creatingSheet, setCreatingSheet] = useState(false)
+  const [populatingSheet, setPopulatingSheet] = useState(false)
+
   // Chat state
   const [chatHeight, setChatHeight] = useState(280)
   const [isDragging, setIsDragging] = useState(false)
@@ -163,10 +169,13 @@ export function EstimatingCenterScreen({ onSelectProject, onBack }) {
     loadProjects()
   }, [])
 
-  // Reset chat when project changes
+  // Reset chat and load sheet info when project changes
   useEffect(() => {
     setMessages([])
     setChatInput("")
+    // Load sheet info from selected project
+    setSheetId(selectedProject?.sheet_id || null)
+    setSheetUrl(selectedProject?.sheet_url || null)
   }, [selectedProject?.project_id])
 
   // Scroll chat to bottom
@@ -189,6 +198,69 @@ export function EstimatingCenterScreen({ onSelectProject, onBack }) {
       setProjects(MOCK_PROJECTS)
     } finally {
       setLoading(false)
+    }
+  }
+
+  // Create a new Google Sheet from template
+  const handleCreateSheet = async () => {
+    if (!selectedProject) return
+    setCreatingSheet(true)
+
+    try {
+      const res = await fetch(`/api/ko/projects/${selectedProject.project_id}/create-sheet`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          projectName: selectedProject.project_name,
+          gcName: selectedProject.gc_name,
+          address: selectedProject.address || selectedProject.project_name,
+          amount: selectedProject.proposal_total,
+          dueDate: selectedProject.due_date
+        })
+      })
+
+      const data = await res.json()
+
+      if (res.ok && data.sheetId) {
+        setSheetId(data.sheetId)
+        setSheetUrl(data.sheetUrl)
+        // Update project in list
+        setProjects(prev => prev.map(p =>
+          p.project_id === selectedProject.project_id
+            ? { ...p, sheet_id: data.sheetId, sheet_url: data.sheetUrl }
+            : p
+        ))
+        setSelectedProject(prev => ({ ...prev, sheet_id: data.sheetId, sheet_url: data.sheetUrl }))
+      } else {
+        alert(data.error || 'Failed to create sheet')
+      }
+    } catch (err) {
+      console.error('Create sheet error:', err)
+      alert('Error creating sheet: ' + err.message)
+    } finally {
+      setCreatingSheet(false)
+    }
+  }
+
+  // Populate Google Sheet with Bluebeam data
+  const populateGoogleSheet = async (templateData) => {
+    if (!sheetId || !templateData) return false
+    setPopulatingSheet(true)
+
+    try {
+      const res = await fetch('/api/ko/populate-takeoff', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sheetId, templateData })
+      })
+
+      const data = await res.json()
+      return res.ok && data.success
+    } catch (err) {
+      console.error('Populate sheet error:', err)
+      return false
+    } finally {
+      setPopulatingSheet(false)
     }
   }
 
@@ -293,10 +365,18 @@ export function EstimatingCenterScreen({ onSelectProject, onBack }) {
         const sheetData = convertBluebeamToSheetData(data.items || [])
         setBluebeamData(sheetData)
 
+        // If we have a Google Sheet connected, populate it
+        let sheetPopulated = false
+        if (sheetId && data.template_data) {
+          sheetPopulated = await populateGoogleSheet(data.template_data)
+        }
+
         setUploadResult({
           success: true,
           summary: data.summary,
           items: data.items,
+          template_data: data.template_data,
+          sheetPopulated,
           message: `Processed ${data.summary?.total_items || 0} items`
         })
       } else {
@@ -626,12 +706,36 @@ export function EstimatingCenterScreen({ onSelectProject, onBack }) {
                 <p className="text-sm text-muted-foreground">{selectedProject.gc_name} • {formatCurrency(selectedProject.proposal_total)}</p>
               </div>
               <div className="flex items-center gap-2">
+                {/* Google Sheet buttons */}
+                {sheetId ? (
+                  <button
+                    onClick={() => window.open(sheetUrl || `https://docs.google.com/spreadsheets/d/${sheetId}`, '_blank')}
+                    className="flex items-center gap-2 px-3 py-2 bg-green-600 text-white hover:bg-green-700 rounded-lg text-sm transition-colors"
+                  >
+                    <FileSpreadsheet className="w-4 h-4" />
+                    View Sheet
+                    <ExternalLink className="w-3 h-3" />
+                  </button>
+                ) : (
+                  <button
+                    onClick={handleCreateSheet}
+                    disabled={creatingSheet}
+                    className="flex items-center gap-2 px-3 py-2 bg-green-600 text-white hover:bg-green-700 rounded-lg text-sm transition-colors disabled:opacity-50"
+                  >
+                    {creatingSheet ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <Plus className="w-4 h-4" />
+                    )}
+                    {creatingSheet ? 'Creating...' : 'Create Sheet'}
+                  </button>
+                )}
                 <button
                   onClick={() => setShowSheet(true)}
                   className="flex items-center gap-2 px-3 py-2 bg-secondary hover:bg-secondary/80 rounded-lg text-sm transition-colors"
                 >
                   <FileSpreadsheet className="w-4 h-4" />
-                  Takeoff Sheet
+                  Takeoff
                 </button>
                 <button
                   onClick={() => {
@@ -824,22 +928,58 @@ export function EstimatingCenterScreen({ onSelectProject, onBack }) {
                   </div>
                   <p className="text-sm text-muted-foreground">{uploadResult.message}</p>
                   {uploadResult.summary && (
-                    <div className="mt-3 pt-3 border-t border-border text-sm">
+                    <div className="mt-3 pt-3 border-t border-border text-sm space-y-1">
                       <p>Items: {uploadResult.summary.total_items}</p>
                       <p>Estimated: {formatCurrency(uploadResult.summary.estimated_cost)}</p>
+                      {uploadResult.sheetPopulated && (
+                        <p className="text-green-400 flex items-center gap-1">
+                          <CheckCircle2 className="w-3 h-3" />
+                          Google Sheet populated
+                        </p>
+                      )}
+                      {sheetId && !uploadResult.sheetPopulated && uploadResult.template_data && (
+                        <button
+                          onClick={async () => {
+                            const success = await populateGoogleSheet(uploadResult.template_data)
+                            if (success) {
+                              setUploadResult(prev => ({ ...prev, sheetPopulated: true }))
+                            }
+                          }}
+                          disabled={populatingSheet}
+                          className="text-primary hover:underline text-xs flex items-center gap-1"
+                        >
+                          {populatingSheet ? <Loader2 className="w-3 h-3 animate-spin" /> : null}
+                          {populatingSheet ? 'Populating...' : 'Populate Google Sheet'}
+                        </button>
+                      )}
                     </div>
                   )}
                   {uploadResult.success && (
-                    <button
-                      onClick={() => {
-                        setShowUploadModal(false)
-                        setShowSheet(true)
-                      }}
-                      className="mt-4 w-full py-2.5 bg-primary text-primary-foreground hover:bg-primary/90 rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-2"
-                    >
-                      <FileSpreadsheet className="w-4 h-4" />
-                      Open Takeoff Sheet
-                    </button>
+                    <div className="mt-4 space-y-2">
+                      {sheetId && (
+                        <button
+                          onClick={() => {
+                            setShowUploadModal(false)
+                            window.open(sheetUrl || `https://docs.google.com/spreadsheets/d/${sheetId}`, '_blank')
+                          }}
+                          className="w-full py-2.5 bg-green-600 text-white hover:bg-green-700 rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-2"
+                        >
+                          <FileSpreadsheet className="w-4 h-4" />
+                          Open Google Sheet
+                          <ExternalLink className="w-3 h-3" />
+                        </button>
+                      )}
+                      <button
+                        onClick={() => {
+                          setShowUploadModal(false)
+                          setShowSheet(true)
+                        }}
+                        className="w-full py-2.5 bg-primary text-primary-foreground hover:bg-primary/90 rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-2"
+                      >
+                        <FileSpreadsheet className="w-4 h-4" />
+                        Open Takeoff Sheet
+                      </button>
+                    </div>
                   )}
                   <button
                     onClick={() => setUploadResult(null)}
