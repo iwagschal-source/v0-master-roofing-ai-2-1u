@@ -13,16 +13,30 @@ import {
   Plus,
   Trash2,
   CheckCircle,
+  Loader2,
+  AlertCircle,
 } from "lucide-react"
 import { agents, modelConfig } from "@/data/agent-data"
 import { AgentModelIcon } from "./agent-model-icon"
 
 const modelOptions = [
-  { id: "gemini", name: "Gemini 2.0 Flash", key: "gemini" },
-  { id: "claude", name: "Claude Sonnet", key: "claude" },
-  { id: "gpt", name: "GPT-4o-mini", key: "gpt" },
-  { id: "vertex", name: "Vertex AI Search", key: "vertex" },
+  { id: "gemini-2.0-flash", name: "Gemini 2.0 Flash", key: "gemini", backendModel: "gemini-2.0-flash" },
+  { id: "claude-sonnet-4", name: "Claude Sonnet 4", key: "claude", backendModel: "claude-sonnet-4" },
+  { id: "claude-haiku-3.5", name: "Claude Haiku 3.5", key: "claude", backendModel: "claude-haiku-3.5" },
+  { id: "gpt-4o", name: "GPT-4o", key: "gpt", backendModel: "gpt-4o" },
+  { id: "gpt-4o-mini", name: "GPT-4o Mini", key: "gpt", backendModel: "gpt-4o-mini" },
 ]
+
+// Map read access selections to backend tool IDs
+const readAccessToTools = {
+  "BigQuery - mr_core": "bigquery_sql",
+  "BigQuery - mr_raw": "bigquery_sql",
+  "BigQuery - mr_agent": "bigquery_sql",
+  "HubSpot CRM": "hubspot_query",
+  "Google Drive": "read_gcs_file",
+  "Gmail": "search_emails",
+  "Asana": "bigquery_sql",
+}
 
 const scheduleOptions = [
   { id: "always-on", name: "Always On", description: "24/7 availability" },
@@ -33,6 +47,8 @@ const scheduleOptions = [
 
 export function AddAgentScreen({ onBack, onSave }) {
   const [step, setStep] = useState(1)
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [error, setError] = useState(null)
   const [formData, setFormData] = useState({
     // Step 1: Identity
     name: "",
@@ -70,42 +86,99 @@ export function AddAgentScreen({ onBack, onSave }) {
     return `AGT-${prefix}-${num}`
   }
 
-  const handleSubmit = () => {
-    const newAgent = {
-      id: generateAgentId(),
-      name: formData.name,
-      description: formData.description,
-      model: modelOptions.find((m) => m.id === formData.modelKey)?.name || "Unknown",
-      modelKey: formData.modelKey,
-      status: "offline",
-      stats: { totalRequests: 0, successRate: 0, avgLatency: 0, errorsToday: 0, requestsPerMinute: 0 },
-      lastActivity: new Date().toISOString(),
-      currentAction: "Newly created - awaiting activation",
-      queueDepth: 0,
-      connections: formData.agentSynteraction.map((a) => a.agentId),
-      auditedBy: [],
-      schedule: scheduleOptions.find((s) => s.id === formData.schedule)?.name || "Always On",
-      permissions: {
-        readAccess: formData.readAccess.map((r) => ({ resource: r, scope: "All", enabled: true })),
-        writeAccess: formData.writeAccess.map((w) => ({ resource: w, scope: "All", enabled: true })),
-        userSynteraction: formData.userSynteraction,
+  const handleSubmit = async () => {
+    setIsSubmitting(true)
+    setError(null)
+
+    try {
+      // Get unique tools from read access selections
+      const tools = [...new Set(
+        formData.readAccess
+          .map(access => readAccessToTools[access])
+          .filter(Boolean)
+      )]
+
+      // Add search_documents and resolve_project as defaults
+      if (!tools.includes('search_documents')) tools.push('search_documents')
+      if (!tools.includes('resolve_project')) tools.push('resolve_project')
+
+      // Get backend model ID
+      const selectedModel = modelOptions.find((m) => m.id === formData.modelKey)
+      const backendModel = selectedModel?.backendModel || formData.modelKey
+
+      // Build payload for backend
+      const payload = {
+        name: formData.name,
+        model: backendModel,
+        tools: tools,
+        system_prompt: formData.readme,
+        description: formData.description,
+        schedule: formData.schedule,
+        cronExpression: formData.cronExpression,
+        readAccess: formData.readAccess,
+        writeAccess: formData.writeAccess,
         agentSynteraction: formData.agentSynteraction,
-      },
-      scoring: {
-        overallScore: 0,
-        accuracyScore: 0,
-        latencyScore: 0,
-        reliabilityScore: 0,
-        evaluationFrequency: "Every 6 hours",
-        lastEvaluation: "Never",
-        nextEvaluation: "After activation",
-        metrics: formData.scoringMetrics,
-      },
-      configFiles: [{ name: "README.md", content: formData.readme, type: "markdown" }],
+        scoringMetrics: formData.scoringMetrics,
+      }
+
+      console.log("Creating agent with payload:", payload)
+
+      const res = await fetch('/api/ko/agents/config', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      })
+
+      const data = await res.json()
+
+      if (!res.ok) {
+        throw new Error(data.error || 'Failed to create agent')
+      }
+
+      console.log("Agent created successfully:", data)
+
+      // Build local agent object for UI update
+      const newAgent = {
+        id: data.agent_id || generateAgentId(),
+        name: formData.name,
+        description: formData.description,
+        model: selectedModel?.name || "Unknown",
+        modelKey: selectedModel?.key || formData.modelKey,
+        status: "offline",
+        stats: { totalRequests: 0, successRate: 0, avgLatency: 0, errorsToday: 0, requestsPerMinute: 0 },
+        lastActivity: new Date().toISOString(),
+        currentAction: "Newly created - awaiting activation",
+        queueDepth: 0,
+        connections: formData.agentSynteraction.map((a) => a.agentId),
+        auditedBy: [],
+        schedule: scheduleOptions.find((s) => s.id === formData.schedule)?.name || "Always On",
+        permissions: {
+          readAccess: formData.readAccess.map((r) => ({ resource: r, scope: "All", enabled: true })),
+          writeAccess: formData.writeAccess.map((w) => ({ resource: w, scope: "All", enabled: true })),
+          userSynteraction: formData.userSynteraction,
+          agentSynteraction: formData.agentSynteraction,
+        },
+        scoring: {
+          overallScore: 0,
+          accuracyScore: 0,
+          latencyScore: 0,
+          reliabilityScore: 0,
+          evaluationFrequency: "Every 6 hours",
+          lastEvaluation: "Never",
+          nextEvaluation: "After activation",
+          metrics: formData.scoringMetrics,
+        },
+        configFiles: [{ name: "README.md", content: formData.readme, type: "markdown" }],
+      }
+
+      onSave?.(newAgent)
+      onBack?.()
+    } catch (err) {
+      console.error("Failed to create agent:", err)
+      setError(err.message)
+    } finally {
+      setIsSubmitting(false)
     }
-    console.log("Creating agent:", newAgent)
-    onSave?.(newAgent)
-    onBack?.()
   }
 
   const steps = [
@@ -555,11 +628,22 @@ export function AddAgentScreen({ onBack, onSave }) {
             </div>
           )}
 
+          {/* Error display */}
+          {error && (
+            <div className="mt-6 p-4 bg-red-500/10 border border-red-500/30 rounded-lg flex items-start gap-3">
+              <AlertCircle className="w-5 h-5 text-red-400 shrink-0 mt-0.5" />
+              <div>
+                <p className="font-medium text-red-400">Failed to create agent</p>
+                <p className="text-sm text-red-400/80 mt-1">{error}</p>
+              </div>
+            </div>
+          )}
+
           {/* Navigation buttons */}
           <div className="flex items-center justify-between mt-8">
             <button
               onClick={() => setStep((s) => Math.max(1, s - 1))}
-              disabled={step === 1}
+              disabled={step === 1 || isSubmitting}
               className="px-6 py-2 bg-secondary text-foreground rounded-lg font-medium disabled:opacity-50 disabled:cursor-not-allowed hover:bg-accent transition-colors"
             >
               Previous
@@ -575,11 +659,20 @@ export function AddAgentScreen({ onBack, onSave }) {
             ) : (
               <button
                 onClick={handleSubmit}
-                disabled={!formData.name || !formData.modelKey || totalWeight !== 100}
+                disabled={!formData.name || !formData.modelKey || totalWeight !== 100 || isSubmitting}
                 className="flex items-center gap-2 px-6 py-2 bg-emerald-600 text-white rounded-lg font-medium hover:bg-emerald-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                <Save size={18} />
-                Create Agent
+                {isSubmitting ? (
+                  <>
+                    <Loader2 size={18} className="animate-spin" />
+                    Creating...
+                  </>
+                ) : (
+                  <>
+                    <Save size={18} />
+                    Create Agent
+                  </>
+                )}
               </button>
             )}
           </div>
