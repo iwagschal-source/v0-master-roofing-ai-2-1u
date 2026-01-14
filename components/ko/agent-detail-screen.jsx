@@ -294,6 +294,11 @@ function CodeTab({ agent }) {
   const [codeData, setCodeData] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
+  const [editMode, setEditMode] = useState(false)
+  const [jsonText, setJsonText] = useState('')
+  const [jsonError, setJsonError] = useState(null)
+  const [saving, setSaving] = useState(false)
+  const [saveStatus, setSaveStatus] = useState(null)
 
   useEffect(() => {
     async function fetchCode() {
@@ -302,6 +307,7 @@ function CodeTab({ agent }) {
         if (res.ok) {
           const data = await res.json()
           setCodeData(data)
+          setJsonText(JSON.stringify(data, null, 2))
         } else {
           setError('Failed to fetch agent configuration')
         }
@@ -313,6 +319,53 @@ function CodeTab({ agent }) {
     }
     fetchCode()
   }, [agent.id])
+
+  const handleJsonChange = (e) => {
+    setJsonText(e.target.value)
+    setJsonError(null)
+    setSaveStatus(null)
+    try {
+      JSON.parse(e.target.value)
+    } catch (err) {
+      setJsonError(`Invalid JSON: ${err.message}`)
+    }
+  }
+
+  const handleSave = async () => {
+    try {
+      const parsed = JSON.parse(jsonText)
+      setSaving(true)
+      setSaveStatus(null)
+
+      const res = await fetch(`/api/ko/admin/agent-code/${agent.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(parsed)
+      })
+
+      if (res.ok) {
+        const updated = await res.json()
+        setCodeData(updated)
+        setJsonText(JSON.stringify(updated, null, 2))
+        setSaveStatus('success')
+        setEditMode(false)
+      } else {
+        const err = await res.json()
+        setSaveStatus(`Error: ${err.error || 'Failed to save'}`)
+      }
+    } catch (err) {
+      setSaveStatus(`Error: ${err.message}`)
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const handleCancel = () => {
+    setJsonText(JSON.stringify(codeData, null, 2))
+    setJsonError(null)
+    setSaveStatus(null)
+    setEditMode(false)
+  }
 
   if (loading) {
     return (
@@ -470,15 +523,66 @@ function CodeTab({ agent }) {
         </div>
       </div>
 
-      {/* Full Raw JSON */}
+      {/* Full Raw JSON - Editable */}
       <div className="bg-card border border-border rounded-xl p-6">
-        <h2 className="font-semibold text-foreground mb-4 flex items-center gap-2">
-          <Settings size={18} className="text-amber-400" />
-          Full Configuration JSON
-        </h2>
-        <pre className="p-4 bg-secondary rounded-lg text-sm font-mono overflow-x-auto max-h-96 overflow-y-auto">
-          {JSON.stringify(codeData, null, 2)}
-        </pre>
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="font-semibold text-foreground flex items-center gap-2">
+            <Settings size={18} className="text-amber-400" />
+            Full Configuration JSON
+          </h2>
+          <div className="flex items-center gap-2">
+            {saveStatus === 'success' && (
+              <span className="text-xs text-emerald-400 flex items-center gap-1">
+                <CheckCircle size={14} /> Saved
+              </span>
+            )}
+            {saveStatus && saveStatus !== 'success' && (
+              <span className="text-xs text-red-400">{saveStatus}</span>
+            )}
+            {!editMode ? (
+              <button
+                onClick={() => setEditMode(true)}
+                className="px-3 py-1.5 bg-primary text-primary-foreground rounded-lg text-sm flex items-center gap-1 hover:bg-primary/80"
+              >
+                <Pencil size={14} /> Edit JSON
+              </button>
+            ) : (
+              <>
+                <button
+                  onClick={handleCancel}
+                  className="px-3 py-1.5 bg-secondary text-foreground rounded-lg text-sm hover:bg-secondary/80"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleSave}
+                  disabled={!!jsonError || saving}
+                  className="px-3 py-1.5 bg-emerald-600 text-white rounded-lg text-sm flex items-center gap-1 hover:bg-emerald-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {saving ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
+                  Save
+                </button>
+              </>
+            )}
+          </div>
+        </div>
+        {jsonError && (
+          <div className="mb-3 p-2 bg-red-500/10 border border-red-500/30 rounded text-red-400 text-xs font-mono">
+            {jsonError}
+          </div>
+        )}
+        {editMode ? (
+          <textarea
+            value={jsonText}
+            onChange={handleJsonChange}
+            className="w-full h-96 p-4 bg-secondary rounded-lg text-sm font-mono text-foreground border border-border focus:border-primary focus:outline-none resize-none"
+            spellCheck={false}
+          />
+        ) : (
+          <pre className="p-4 bg-secondary rounded-lg text-sm font-mono overflow-x-auto max-h-96 overflow-y-auto">
+            {jsonText}
+          </pre>
+        )}
       </div>
 
       {/* Metadata */}
