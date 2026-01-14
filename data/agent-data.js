@@ -1,51 +1,27 @@
-/**
- * REAL Agent Data - Master Roofing Multi-Agent System
- *
- * This file contains the actual agents running in production at 34.95.128.208
- * Data extracted from:
- * - /home/iwagschal/gemini_orchestrator_v2.py
- * - /home/iwagschal/chief_agent_v2.py
- * - /home/iwagschal/claude_sql_v2.py
- * - /home/iwagschal/vertex_search_v2.py
- * - /home/iwagschal/hubspot_v2.py
- * - /home/iwagschal/powerbi_v2.py
- */
+// Agent Command Center - Agent Registry Data
+// This data will eventually come from the backend API
 
-// Status configuration with colors
-// Note: "live" = actively transmitting (green throb), "idle" = ready/standing by (orange)
 export const statusConfig = {
   live: {
     label: "LIVE",
-    color: "bg-emerald-600",  // Darker green
-    pulseColor: "bg-emerald-500",
+    color: "bg-emerald-500",
     textColor: "text-emerald-400",
     borderColor: "border-emerald-500",
-    animation: "animate-throb",  // Use throb instead of pulse
-    description: "Actively transmitting",
-  },
-  busy: {
-    // Alias for live - when backend sends "busy" status
-    label: "LIVE",
-    color: "bg-emerald-600",
-    pulseColor: "bg-emerald-500",
-    textColor: "text-emerald-400",
-    borderColor: "border-emerald-500",
-    animation: "animate-throb",
-    description: "Actively transmitting",
+    animation: "animate-pulse",
+    description: "Actively processing",
   },
   idle: {
     label: "IDLE",
     color: "bg-amber-500",
-    pulseColor: "bg-amber-400",
     textColor: "text-amber-400",
     borderColor: "border-amber-500",
     animation: "",
+    opacity: "opacity-60",
     description: "Ready, awaiting request",
   },
   error: {
     label: "ERROR",
     color: "bg-red-500",
-    pulseColor: "bg-red-400",
     textColor: "text-red-400",
     borderColor: "border-red-500",
     animation: "animate-pulse",
@@ -54,7 +30,6 @@ export const statusConfig = {
   paused: {
     label: "PAUSED",
     color: "bg-purple-500",
-    pulseColor: "bg-purple-400",
     textColor: "text-purple-400",
     borderColor: "border-purple-500",
     animation: "",
@@ -63,7 +38,6 @@ export const statusConfig = {
   offline: {
     label: "OFFLINE",
     color: "bg-gray-500",
-    pulseColor: "bg-gray-400",
     textColor: "text-gray-400",
     borderColor: "border-gray-500",
     animation: "",
@@ -74,1281 +48,684 @@ export const statusConfig = {
 
 // Connection types for network visualization
 export const connectionTypes = {
-  data: { color: "#3b82f6", label: "Data Flow" },
-  control: { color: "#8b5cf6", label: "Control Signal" },
-  audit: { color: "#f59e0b", label: "Audit" },
-  sync: { color: "#10b981", label: "Sync" },
-  active: { color: "#00f5ff", label: "Active Call", glow: true },  // Bright cyan for real-time calls
+  query: { color: "#3b82f6", label: "Query Flow", dash: false },
+  data: { color: "#10b981", label: "Data Flow", dash: false },
+  audit: { color: "#a855f7", label: "Audit Flow", dash: true },
+  alert: { color: "#ef4444", label: "Alert Flow", dash: true },
 }
 
-// Model configuration for icons
+// Model/Provider configurations for icons
 export const modelConfig = {
-  gemini: {
-    name: "Google Gemini",
-    color: "#4285F4",
-    icon: "G",
-  },
-  claude: {
-    name: "Anthropic Claude",
-    color: "#D97706",
-    icon: "C",
-  },
-  openai: {
-    name: "OpenAI GPT",
-    color: "#10A37F",
-    icon: "O",
-  },
-  vertex: {
-    name: "Vertex AI",
-    color: "#EA4335",
-    icon: "V",
-  },
-  custom: {
-    name: "Custom Model",
-    color: "#6B7280",
-    icon: "?",
-  },
+  "gemini": { name: "Gemini", color: "#4285F4", icon: "G" },
+  "claude": { name: "Claude", color: "#D4A574", icon: "C" },
+  "gpt": { name: "GPT", color: "#10A37F", icon: "O" },
+  "vertex": { name: "Vertex AI", color: "#4285F4", icon: "V" },
+  "custom": { name: "Custom", color: "#6366F1", icon: "?" },
 }
 
-// ============================================================================
-// REAL AGENT PROMPTS (extracted from production code)
-// ============================================================================
-
-const PROMPTS = {
-  // Gemini Orchestrator - Project Resolver
-  PROJECT_RESOLVER: `You are analyzing a user's question to identify any PROJECT NAMES mentioned.
-
-Your job is to extract project name mentions that refer to roofing/construction projects.
-Projects are typically identified by:
-- Street addresses (e.g., "203 Sutter", "1451 Sutter Ave", "261 Grand Concourse")
-- Building names (e.g., "Empire State Building", "Brooklyn Heights Tower")
-- Project codes or numbers
-
-IMPORTANT:
-- Extract the project names EXACTLY as the user wrote them
-- If the user mentions multiple projects, extract ALL of them
-- If no specific project is mentioned, return an empty list
-- Do NOT invent project names - only extract what's explicitly mentioned
-
-Return JSON only with this structure:
-{
-  "project_mentions": ["project name 1", "project name 2"],
-  "reasoning": "brief explanation of what you found"
-}`,
-
-  // Gemini Orchestrator - Router
-  ROUTER: `You are the CAO (Chief Agent Orchestrator) for a roofing intelligence system.
-
-Your job is to analyze the user's question and select the best tools to answer it.
-Tool selection MUST be based on reasoning, not keyword matching.
-
-AVAILABLE TOOLS:
-- hubspot: CRM truth for deals, pipelines, contacts, companies, engagement activity.
-  Best for RECENT data (latest updates, last 7-30 days, most recently changed).
-- claude_sql: Generates SQL for analytics using BigQuery tables.
-  Best for HISTORICAL, aggregated, longitudinal, KPI, trends, cohort analysis.
-- vertex_search: Searches documents such as SOPs, handbooks, internal policies, guides.
-  Best for questions answered from text/document knowledge rather than metrics.
-- powerbi: Use ONLY when user explicitly requests a new visualization/chart/dashboard
-  OR when a chart is clearly needed to communicate results.
-
-ROUTING RULES:
-1) If the user asks for general summaries or policies, instructions, SOPs: prefer vertex_search.
-2) If the user asks for trends over time, historical summaries: prefer claude_sql.
-3) If the user asks for "latest", "recent", changes, updates: prefer hubspot
-4) If the request requires BOTH CRM recency and historical/trend analysis, return BOTH tools.
-5) ALWAYS return a confidence score 0-1.`,
-
-  // Gemini Orchestrator - Merge Results
-  MERGE_RESULTS: `You are the CAO (Chief Agent Orchestrator) merging results from multiple data sources.
-
-Your task is to combine the tool outputs into a coherent summary that the CEO Front Agent can use to compose the final user response.
-
-INSTRUCTIONS:
-1. Synthesize information from all sources
-2. Highlight key findings and metrics
-3. Note any conflicts or discrepancies between sources
-4. Structure the summary logically
-5. Do NOT compose the final user response - just provide a structured summary`,
-
-  // CEO Response Agent
-  CEO_RESPONSE: `You are the CEO's executive assistant providing clear, professional insights.
-
-Your role is to compose a helpful, conversational response for the CEO based on:
-1. The merged summary from data sources (provided below)
-2. Key metrics and insights extracted
-
-GUIDELINES:
-- Be concise but thorough
-- Use natural, professional language
-- Highlight the most important findings first
-- If data is incomplete, acknowledge it gracefully
-- Format numbers clearly (use commas, round appropriately)
-- Use bullet points for multiple items when appropriate`,
-
-  // Claude SQL Agent
-  CLAUDE_SQL: `You are a BigQuery SQL expert for a roofing intelligence system.
-Generate ONLY valid BigQuery SQL queries.
-
-<available_tables>
-## Primary Table: v_project_intelligence_full (AI-ready denormalized view)
-Full path: \`master-roofing-intelligence.mr_agent.v_project_intelligence_full\`
-
-Columns:
-- project_id (STRING, PRIMARY KEY): Unique identifier
-- project_name (STRING): Project name/address
-- gc_name (STRING): General Contractor name
-- gc_email, gc_contact (STRING): GC contact info
-- award_status (STRING): WON, PENDING, LOST, NULL
-- proposal_total (FLOAT): Proposal value in dollars
-- takeoff_total (FLOAT): Takeoff estimate in dollars
-- financial_total_costs, financial_total_revenue, financial_net_amount (FLOAT)
-- profit_margin_pct (FLOAT)
-- lifecycle_stage (STRING): PROPOSED, IN_PROGRESS, BILLING, AWARDED
-- data_richness_score (INT): 0-7 score of data completeness
-
-## Document Index: v_document_index
-## Project Lookup: v_project_lookup
-</available_tables>
-
-<query_guidelines>
-1. Use v_project_intelligence_full for most queries
-2. Always use the full table path with backticks
-3. Use LOWER() for text searches
-4. Add LIMIT clause for safety (default 100)
-5. Round money values with ROUND(x, 2)
-</query_guidelines>
-
-Return ONLY raw SQL - no markdown, no explanations.`,
-
-  // HubSpot Agent
-  HUBSPOT: `You are a HubSpot CRM query expert. Generate search parameters for the HubSpot API.
-
-<available_objects>
-1. deals - Sales deals/opportunities
-   Common properties: dealname, amount, dealstage, closedate, pipeline, mr_project_id
-
-2. contacts - Individual people
-   Common properties: firstname, lastname, email, phone, company, jobtitle
-
-3. companies - Organizations
-   Common properties: name, domain, industry, city, state, country
-</available_objects>
-
-<filter_operators>
-- EQ: equals (exact match)
-- CONTAINS_TOKEN: contains word/phrase
-- IN: in list
-- GTE/LTE: greater/less than or equal
-</filter_operators>`,
-}
-
-// ============================================================================
-// REAL AGENTS - Production Configuration
-// ============================================================================
-
+// Agent registry - in production this comes from database/API
 export const agents = [
-  // ========== ORCHESTRATOR ==========
   {
-    id: "CAO-GEM-001",
-    name: "Gemini Orchestrator",
-    description: "Chief Agent Orchestrator (CAO) - The brain that decides which tools to use and how to combine outputs. Handles project resolution, intent classification, tool routing, and result merging.",
+    id: "AGT-ORCH-001",
+    name: "Gemini Router",
+    description: "Central orchestrator that routes queries to specialized agents based on intent",
+    model: "Gemini 2.0 Flash",
     modelKey: "gemini",
-    model: "gemini-2.0-flash",
-    provider: "Google Vertex AI",
     status: "live",
-    role: "orchestrator",
-    phase: "0,1,3",
-
-    // Live stats (will be populated from API)
-    stats: {
-      totalRequests: 0,
-      successRate: 98.5,
-      avgLatency: 450,
-      errorsToday: 0,
-      requestsPerMinute: 0,
-    },
-
-    queueDepth: 0,
     lastActivity: new Date().toISOString(),
-    currentAction: "Routing queries and resolving projects",
+    currentAction: "Routing query to BigQuery Agent... contacting AGT-BQ-001 for project data",
+    queueDepth: 3, // requests waiting
+    stats: {
+      totalRequests: 15420,
+      successRate: 99.2,
+      avgLatency: 120,
+      errorsToday: 3,
+      requestsPerMinute: 12,
+    },
+    connections: ["AGT-BQ-001", "AGT-HS-001", "AGT-EMAIL-001", "AGT-PBI-001", "AGT-RISK-001"],
+    auditedBy: ["AGT-AUDIT-001"],
+    schedule: "Always On",
 
-    // Real prompts from gemini_orchestrator_v2.py
-    configFiles: [
-      {
-        name: "system_prompt.md",
-        type: "markdown",
-        content: `# Gemini Orchestrator (CAO)
-
-## Role
-Chief Agent Orchestrator for Master Roofing intelligence system.
-
-## Responsibilities
-- **Phase 0**: Project Resolution - Extract project mentions, resolve to project_ids via BigQuery
-- **Phase 1**: Query Routing - Decide which tools to call based on user intent
-- **Phase 3**: Result Merging - Combine tool outputs into coherent summary
-
-## Model
-- Provider: Google Vertex AI
-- Model: gemini-2.0-flash
-- Temperature: 0.1 (low for consistent routing)
-- Max Tokens: 1024
-
-## Prompts
-### Project Resolver Prompt
-${PROMPTS.PROJECT_RESOLVER}
-
-### Router Prompt
-${PROMPTS.ROUTER}
-
-### Merge Results Prompt
-${PROMPTS.MERGE_RESULTS}
-`,
-      },
-    ],
-
-    // Real permissions
     permissions: {
       readAccess: [
-        "BigQuery: mr_agent.v_project_lookup",
-        "BigQuery: mr_agent.v_project_intelligence_full",
+        { resource: "BigQuery - mr_core", scope: "All tables", enabled: true },
+        { resource: "BigQuery - mr_raw", scope: "All tables", enabled: true },
+        { resource: "BigQuery - mr_agent", scope: "All tables", enabled: true },
+        { resource: "HubSpot CRM", scope: "Jobs, Contacts, Companies", enabled: true },
+        { resource: "Google Drive", scope: "Proposals folder", enabled: true },
+        { resource: "Asana", scope: "All projects", enabled: true },
       ],
-      writeAccess: [],
-      apiAccess: [
-        "Google Vertex AI (Gemini)",
+      writeAccess: [
+        { resource: "BigQuery - mr_agent", scope: "agent_logs, agent_metrics", enabled: true },
+        { resource: "HubSpot CRM", scope: "None", enabled: false },
+        { resource: "Asana", scope: "None", enabled: false },
       ],
-      agentCalls: [
-        "CAO-SQL-001 (Claude SQL)",
-        "CAO-VTX-001 (Vertex Search)",
-        "CAO-HUB-001 (HubSpot)",
-        "CAO-PBI-001 (Power BI)",
+      userSynteraction: [
+        { id: "user_isaac", name: "Isaac", role: "CEO", canInitiate: true, canReceive: true },
+        { id: "user_joel", name: "Joel", role: "Operations", canInitiate: true, canReceive: true },
+        { id: "user_maria", name: "Maria", role: "Estimator", canInitiate: true, canReceive: false },
       ],
-    },
-
-    // Communication - who this agent talks to
-    connections: [
-      { targetId: "CAO-SQL-001", type: "control", label: "Routes SQL queries" },
-      { targetId: "CAO-VTX-001", type: "control", label: "Routes doc searches" },
-      { targetId: "CAO-HUB-001", type: "control", label: "Routes CRM queries" },
-      { targetId: "CAO-PBI-001", type: "control", label: "Routes viz requests" },
-      { targetId: "CAO-CEO-001", type: "data", label: "Sends merged results" },
-    ],
-
-    auditedBy: ["CAO-AUD-001"],
-
-    scoring: {
-      overallScore: 95,
-      accuracyScore: 97,
-      latencyScore: 92,
-      reliabilityScore: 98,
-      metrics: [
-        { name: "Routing Accuracy", weight: 40, score: 97 },
-        { name: "Project Resolution", weight: 30, score: 96 },
-        { name: "Response Time", weight: 20, score: 92 },
-        { name: "Error Rate", weight: 10, score: 99 },
+      agentSynteraction: [
+        { agentId: "AGT-BQ-001", canCall: true, canReceiveFrom: true, priority: 1 },
+        { agentId: "AGT-HS-001", canCall: true, canReceiveFrom: true, priority: 2 },
+        { agentId: "AGT-EMAIL-001", canCall: true, canReceiveFrom: true, priority: 3 },
+        { agentId: "AGT-PBI-001", canCall: true, canReceiveFrom: true, priority: 4 },
+        { agentId: "AGT-RISK-001", canCall: true, canReceiveFrom: true, priority: 2 },
       ],
     },
-
-    monitoring: {
-      auditors: ["CAO-AUD-001"],
-      alerts: [
-        { type: "latency", threshold: 2000, action: "warn" },
-        { type: "error_rate", threshold: 5, action: "alert" },
-      ],
-      channels: ["#ko-alerts", "isaac@masterroofingus.com"],
-    },
-
-    history: {
-      totalExecutions: 0,
-      firstActive: "2026-01-01",
-      uptimePercent: 99.9,
-      totalErrors: 0,
-      recentEvents: [],
-      versions: [
-        { version: "v2.0.0", date: "2026-01-01", changes: "Added project resolution (Phase 0)" },
-        { version: "v1.0.0", date: "2025-12-15", changes: "Initial Gemini orchestrator" },
-      ],
-    },
-  },
-
-  // ========== CEO RESPONSE AGENT ==========
-  {
-    id: "CAO-CEO-001",
-    name: "CEO Response Agent",
-    description: "Composes the final human-facing response for the CEO. Only handles Phase 4 - transforming merged data into natural language.",
-    modelKey: "openai",
-    model: "gpt-4o-mini",
-    provider: "OpenAI",
-    status: "live",
-    role: "responder",
-    phase: "4",
-
-    stats: {
-      totalRequests: 0,
-      successRate: 99.2,
-      avgLatency: 800,
-      errorsToday: 0,
-      requestsPerMinute: 0,
-    },
-
-    queueDepth: 0,
-    lastActivity: new Date().toISOString(),
-    currentAction: "Composing CEO responses",
-
-    configFiles: [
-      {
-        name: "system_prompt.md",
-        type: "markdown",
-        content: `# CEO Response Agent
-
-## Role
-Final response composer for the CEO.
-
-## Model
-- Provider: OpenAI
-- Model: gpt-4o-mini
-
-## System Prompt
-${PROMPTS.CEO_RESPONSE}
-
-## Guidelines
-- Be concise but thorough
-- Use natural, professional language
-- Highlight the most important findings first
-- Format numbers clearly (use commas, round appropriately)
-`,
-      },
-    ],
-
-    permissions: {
-      readAccess: [],
-      writeAccess: [],
-      apiAccess: ["OpenAI API"],
-      agentCalls: [],
-    },
-
-    connections: [
-      { targetId: "CAO-GEM-001", type: "data", label: "Receives merged data" },
-    ],
-
-    auditedBy: ["CAO-AUD-001"],
 
     scoring: {
       overallScore: 94,
-      accuracyScore: 95,
-      latencyScore: 90,
-      reliabilityScore: 98,
-      metrics: [
-        { name: "Response Quality", weight: 50, score: 95 },
-        { name: "Tone Accuracy", weight: 25, score: 94 },
-        { name: "Response Time", weight: 15, score: 90 },
-        { name: "Error Rate", weight: 10, score: 99 },
-      ],
-    },
-
-    monitoring: {
-      auditors: ["CAO-AUD-001"],
-      alerts: [
-        { type: "latency", threshold: 3000, action: "warn" },
-      ],
-      channels: ["#ko-alerts"],
-    },
-
-    history: {
-      totalExecutions: 0,
-      firstActive: "2025-12-15",
-      uptimePercent: 99.8,
-      totalErrors: 0,
-      recentEvents: [],
-      versions: [
-        { version: "v1.1.0", date: "2026-01-01", changes: "Added resolved projects context" },
-        { version: "v1.0.0", date: "2025-12-15", changes: "Initial CEO response agent" },
-      ],
-    },
-  },
-
-  // ========== CLAUDE SQL AGENT ==========
-  {
-    id: "CAO-SQL-001",
-    name: "Claude SQL Agent",
-    description: "Generates BigQuery SQL from natural language questions. Enforces project_id filtering when projects are resolved.",
-    modelKey: "claude",
-    model: "claude-sonnet-4-20250514",
-    provider: "Anthropic",
-    status: "live",
-    role: "tool",
-    phase: "2",
-
-    stats: {
-      totalRequests: 0,
-      successRate: 96.8,
-      avgLatency: 1200,
-      errorsToday: 0,
-      requestsPerMinute: 0,
-    },
-
-    queueDepth: 0,
-    lastActivity: new Date().toISOString(),
-    currentAction: "Generating SQL queries",
-
-    configFiles: [
-      {
-        name: "system_prompt.md",
-        type: "markdown",
-        content: `# Claude SQL Agent
-
-## Role
-BigQuery SQL generator for analytics queries.
-
-## Model
-- Provider: Anthropic
-- Model: claude-sonnet-4-20250514
-- Max Tokens: 2000
-
-## System Prompt
-${PROMPTS.CLAUDE_SQL}
-
-## Available Tables
-- \`mr_agent.v_project_intelligence_full\` - Primary denormalized view (2,160 projects)
-- \`mr_agent.v_document_index\` - Document GCS paths (17,260 docs)
-- \`mr_agent.v_project_lookup\` - Lean lookup view
-
-## Critical Rules
-- ALWAYS filter by project_id when provided
-- Use LIMIT clause for safety
-- Round money values with ROUND(x, 2)
-`,
-      },
-    ],
-
-    permissions: {
-      readAccess: [
-        "BigQuery: mr_agent.v_project_intelligence_full",
-        "BigQuery: mr_agent.v_document_index",
-        "BigQuery: mr_agent.v_project_lookup",
-        "BigQuery: mr_agent.v_pbi_* (all Power BI views)",
-        "BigQuery: mr_agent.v_ceo_* (CEO KPI views)",
-      ],
-      writeAccess: [],
-      apiAccess: ["Anthropic API", "BigQuery API"],
-      agentCalls: [],
-    },
-
-    connections: [
-      { targetId: "CAO-GEM-001", type: "data", label: "Returns SQL results" },
-    ],
-
-    auditedBy: ["CAO-AUD-001"],
-
-    scoring: {
-      overallScore: 92,
-      accuracyScore: 94,
-      latencyScore: 88,
-      reliabilityScore: 96,
-      metrics: [
-        { name: "SQL Accuracy", weight: 40, score: 94 },
-        { name: "Query Efficiency", weight: 25, score: 90 },
-        { name: "Response Time", weight: 20, score: 88 },
-        { name: "Error Handling", weight: 15, score: 96 },
-      ],
-    },
-
-    monitoring: {
-      auditors: ["CAO-AUD-001"],
-      alerts: [
-        { type: "query_timeout", threshold: 30000, action: "alert" },
-        { type: "syntax_error", threshold: 3, action: "warn" },
-      ],
-      channels: ["#ko-alerts"],
-    },
-
-    history: {
-      totalExecutions: 0,
-      firstActive: "2025-12-15",
-      uptimePercent: 99.5,
-      totalErrors: 0,
-      recentEvents: [],
-      versions: [
-        { version: "v2.0.0", date: "2026-01-01", changes: "Added project_id filtering" },
-        { version: "v1.0.0", date: "2025-12-15", changes: "Initial SQL generator" },
-      ],
-    },
-  },
-
-  // ========== VERTEX SEARCH AGENT ==========
-  {
-    id: "CAO-VTX-001",
-    name: "Vertex Search Agent",
-    description: "Searches documents using Vertex AI Discovery Engine or BigQuery document index. Returns proposals, takeoffs, and policy documents.",
-    modelKey: "vertex",
-    model: "Vertex AI Discovery Engine",
-    provider: "Google Cloud",
-    status: "live",
-    role: "tool",
-    phase: "2",
-
-    stats: {
-      totalRequests: 0,
-      successRate: 97.5,
-      avgLatency: 600,
-      errorsToday: 0,
-      requestsPerMinute: 0,
-    },
-
-    queueDepth: 0,
-    lastActivity: new Date().toISOString(),
-    currentAction: "Searching documents",
-
-    configFiles: [
-      {
-        name: "system_prompt.md",
-        type: "markdown",
-        content: `# Vertex Search Agent
-
-## Role
-Document search using Vertex AI Discovery Engine and BigQuery document index.
-
-## Search Modes
-1. **Project-Specific**: When project_ids provided, queries v_document_index
-2. **Full-Text**: When no project_ids, uses Vertex AI Search for SOPs, handbooks, guides
-
-## Data Sources
-- BigQuery: mr_agent.v_document_index (17,260 documents)
-- GCS: gs://mr-agent-docs-us-east4/proposals/
-- GCS: gs://mr-agent-docs-us-east4/takeoffs/
-- Vertex Search Engine: mr-agent-docs-search_1765860810364
-
-## Document Types
-- Proposals (PDF)
-- Takeoffs (Excel/CSV)
-- SOPs and Handbooks
-- Policy Documents
-`,
-      },
-    ],
-
-    permissions: {
-      readAccess: [
-        "BigQuery: mr_agent.v_document_index",
-        "GCS: gs://mr-agent-docs-us-east4/proposals/*",
-        "GCS: gs://mr-agent-docs-us-east4/takeoffs/*",
-        "GCS: gs://mr-agent-docs-us-east4/manifests/*",
-        "Vertex AI Search: mr-agent-docs-search_1765860810364",
-      ],
-      writeAccess: [],
-      apiAccess: ["Vertex AI Discovery Engine", "BigQuery API", "GCS API"],
-      agentCalls: [],
-    },
-
-    connections: [
-      { targetId: "CAO-GEM-001", type: "data", label: "Returns documents" },
-    ],
-
-    auditedBy: ["CAO-AUD-001"],
-
-    scoring: {
-      overallScore: 93,
-      accuracyScore: 95,
-      latencyScore: 94,
-      reliabilityScore: 92,
-      metrics: [
-        { name: "Search Relevance", weight: 40, score: 95 },
-        { name: "Document Coverage", weight: 25, score: 90 },
-        { name: "Response Time", weight: 20, score: 94 },
-        { name: "Availability", weight: 15, score: 92 },
-      ],
-    },
-
-    monitoring: {
-      auditors: ["CAO-AUD-001"],
-      alerts: [
-        { type: "no_results", threshold: 5, action: "warn" },
-        { type: "gcs_error", threshold: 1, action: "alert" },
-      ],
-      channels: ["#ko-alerts"],
-    },
-
-    history: {
-      totalExecutions: 0,
-      firstActive: "2025-12-15",
-      uptimePercent: 99.2,
-      totalErrors: 0,
-      recentEvents: [],
-      versions: [
-        { version: "v2.0.0", date: "2026-01-01", changes: "Added project_id filtering via v_document_index" },
-        { version: "v1.0.0", date: "2025-12-15", changes: "Initial Vertex Search integration" },
-      ],
-    },
-  },
-
-  // ========== HUBSPOT AGENT ==========
-  {
-    id: "CAO-HUB-001",
-    name: "HubSpot CRM Agent",
-    description: "Searches HubSpot CRM for deals, contacts, and companies. Uses OpenAI to generate intelligent search parameters. Supports mr_project_id filtering.",
-    modelKey: "openai",
-    model: "gpt-4o-mini",
-    provider: "OpenAI + HubSpot",
-    status: "live",
-    role: "tool",
-    phase: "2",
-
-    stats: {
-      totalRequests: 0,
-      successRate: 95.0,
-      avgLatency: 900,
-      errorsToday: 0,
-      requestsPerMinute: 0,
-    },
-
-    queueDepth: 0,
-    lastActivity: new Date().toISOString(),
-    currentAction: "Querying CRM",
-
-    configFiles: [
-      {
-        name: "system_prompt.md",
-        type: "markdown",
-        content: `# HubSpot CRM Agent
-
-## Role
-Intelligent CRM search using HubSpot API with OpenAI-generated queries.
-
-## Model (Query Generation)
-- Provider: OpenAI
-- Model: gpt-4o-mini
-
-## System Prompt
-${PROMPTS.HUBSPOT}
-
-## CRM Objects
-- **Deals**: dealname, amount, dealstage, closedate, pipeline, mr_project_id
-- **Contacts**: firstname, lastname, email, phone, company
-- **Companies**: name, domain, industry, city
-
-## Project Linking
-Uses custom property \`mr_project_id\` to link HubSpot deals to MR projects.
-`,
-      },
-    ],
-
-    permissions: {
-      readAccess: [
-        "HubSpot: Deals (read)",
-        "HubSpot: Contacts (read)",
-        "HubSpot: Companies (read)",
-      ],
-      writeAccess: [],
-      apiAccess: ["OpenAI API", "HubSpot API"],
-      agentCalls: [],
-    },
-
-    connections: [
-      { targetId: "CAO-GEM-001", type: "data", label: "Returns CRM data" },
-    ],
-
-    auditedBy: ["CAO-AUD-001"],
-
-    scoring: {
-      overallScore: 90,
-      accuracyScore: 92,
-      latencyScore: 88,
-      reliabilityScore: 91,
-      metrics: [
-        { name: "Query Accuracy", weight: 40, score: 92 },
-        { name: "Data Freshness", weight: 25, score: 95 },
-        { name: "Response Time", weight: 20, score: 88 },
-        { name: "API Reliability", weight: 15, score: 91 },
-      ],
-    },
-
-    monitoring: {
-      auditors: ["CAO-AUD-001"],
-      alerts: [
-        { type: "api_error", threshold: 3, action: "alert" },
-        { type: "rate_limit", threshold: 1, action: "warn" },
-      ],
-      channels: ["#ko-alerts"],
-    },
-
-    history: {
-      totalExecutions: 0,
-      firstActive: "2025-12-15",
-      uptimePercent: 98.5,
-      totalErrors: 0,
-      recentEvents: [],
-      versions: [
-        { version: "v2.0.0", date: "2026-01-01", changes: "Added mr_project_id filtering" },
-        { version: "v1.0.0", date: "2025-12-15", changes: "Initial HubSpot integration" },
-      ],
-    },
-  },
-
-  // ========== POWER BI AGENT ==========
-  {
-    id: "CAO-PBI-001",
-    name: "Power BI Dashboard Agent",
-    description: "Generates custom visualizations and KPI dashboards. Queries BigQuery for live data and generates chart configurations.",
-    modelKey: "claude",
-    model: "claude-sonnet-4-20250514",
-    provider: "Anthropic + Power BI",
-    status: "live",
-    role: "tool",
-    phase: "2",
-
-    stats: {
-      totalRequests: 0,
-      successRate: 94.0,
-      avgLatency: 1500,
-      errorsToday: 0,
-      requestsPerMinute: 0,
-    },
-
-    queueDepth: 0,
-    lastActivity: new Date().toISOString(),
-    currentAction: "Generating visualizations",
-
-    configFiles: [
-      {
-        name: "system_prompt.md",
-        type: "markdown",
-        content: `# Power BI Dashboard Agent
-
-## Role
-Custom visualization generator using BigQuery data and Power BI.
-
-## Data Sources (BigQuery Views)
-- v_pbi_kpi_summary: Live KPI metrics
-- v_pbi_fact_proposal: Proposal facts
-- v_pbi_gc_scorecard: GC analytics
-- v_pbi_project_360: Project details
-- v_pbi_fact_takeoff_agg: Takeoff metrics
-- v_ceo_kpis: CEO-level KPIs
-- v_ceo_stuck_jobs: Jobs stuck in pipeline
-- v_ceo_at_risk: At-risk projects
-
-## Dashboard Types
-- CEO Overview: Pipeline value, win rates
-- GC Analytics: Contractor performance
-- Project Deep Dive: Status, timeline, risk
-- Estimating: Rate cards, takeoff analysis
-- Pipeline: Opportunities forecast
-- Win/Loss: Conversion analysis
-`,
-      },
-    ],
-
-    permissions: {
-      readAccess: [
-        "BigQuery: mr_agent.v_pbi_kpi_summary",
-        "BigQuery: mr_agent.v_pbi_fact_proposal",
-        "BigQuery: mr_agent.v_pbi_gc_scorecard",
-        "BigQuery: mr_agent.v_pbi_project_360",
-        "BigQuery: mr_agent.v_pbi_fact_takeoff_agg",
-        "BigQuery: mr_agent.v_ceo_kpis",
-        "BigQuery: mr_agent.v_ceo_stuck_jobs",
-        "BigQuery: mr_agent.v_ceo_at_risk",
-      ],
-      writeAccess: [],
-      apiAccess: ["Anthropic API", "BigQuery API", "Power BI Embed API"],
-      agentCalls: [],
-    },
-
-    connections: [
-      { targetId: "CAO-GEM-001", type: "data", label: "Returns visualizations" },
-    ],
-
-    auditedBy: ["CAO-AUD-001"],
-
-    scoring: {
-      overallScore: 88,
-      accuracyScore: 90,
-      latencyScore: 82,
-      reliabilityScore: 92,
-      metrics: [
-        { name: "Viz Accuracy", weight: 35, score: 90 },
-        { name: "Data Freshness", weight: 25, score: 95 },
-        { name: "Generation Time", weight: 25, score: 82 },
-        { name: "Embed Success", weight: 15, score: 92 },
-      ],
-    },
-
-    monitoring: {
-      auditors: ["CAO-AUD-001"],
-      alerts: [
-        { type: "embed_failure", threshold: 2, action: "alert" },
-        { type: "stale_data", threshold: 600, action: "warn" },
-      ],
-      channels: ["#ko-alerts"],
-    },
-
-    history: {
-      totalExecutions: 0,
-      firstActive: "2025-12-15",
-      uptimePercent: 97.0,
-      totalErrors: 0,
-      recentEvents: [],
-      versions: [
-        { version: "v2.0.0", date: "2026-01-07", changes: "Added CEO KPI views" },
-        { version: "v1.0.0", date: "2025-12-15", changes: "Initial Power BI integration" },
-      ],
-    },
-  },
-
-  // ========== KO PRIME - SUPER AGENT ==========
-  {
-    id: "CAO-PRIME-001",
-    name: "KO Prime",
-    description: "Chief Intelligence Agent with full tool access. Powered by Opus 4, this super agent can autonomously query BigQuery, search documents, access HubSpot CRM, search emails, and read files from cloud storage. Mirrors Claude Code's architecture with multi-step reasoning and tool chaining.",
-    modelKey: "claude",
-    model: "claude-opus-4-20250514",
-    provider: "Anthropic",
-    status: "live",
-    role: "super_agent",
-    phase: "all",
-
-    stats: {
-      totalRequests: 0,
-      successRate: 99.0,
-      avgLatency: 2500,
-      errorsToday: 0,
-      requestsPerMinute: 0,
-    },
-
-    queueDepth: 0,
-    lastActivity: new Date().toISOString(),
-    currentAction: "Ready for complex queries",
-
-    configFiles: [
-      {
-        name: "system_prompt.md",
-        type: "markdown",
-        content: `# KO Prime - Super Agent
-
-## Role
-Chief Intelligence Agent for Master Roofing & Siding with full data access.
-
-## Model
-- Provider: Anthropic
-- Model: claude-opus-4-20250514 (Opus 4)
-- Max Tokens: 4096
-- Temperature: 0.3
-
-## Available Tools
-1. **bigquery_sql**: Run SQL queries against the data warehouse
-2. **hubspot_query**: Query CRM for deals, contacts, companies
-3. **search_documents**: Find proposals, takeoffs, and documents
-4. **search_emails**: Search through email communications
-5. **resolve_project**: Convert project names to canonical IDs
-6. **read_gcs_file**: Read file contents from cloud storage
-
-## Architecture
-- Multi-step reasoning with up to 10 tool iterations
-- Automatic tool chaining (e.g., resolve project → search documents → read file)
-- Error recovery with alternative approaches
-
-## Use Cases
-- Complex business intelligence queries
-- Cross-system data analysis
-- Document retrieval and synthesis
-- Email thread analysis
-- Pipeline and project status
-`,
-      },
-    ],
-
-    permissions: {
-      readAccess: [
-        "BigQuery: mr_agent.* (all agent views)",
-        "BigQuery: mr_brain.* (emails)",
-        "BigQuery: raw_data.* (proposals, takeoffs)",
-        "GCS: gs://mr-agent-docs-us-east4/*",
-        "HubSpot: Deals, Contacts, Companies",
-      ],
-      writeAccess: [],
-      apiAccess: [
-        "Anthropic API (Opus 4)",
-        "BigQuery API",
-        "HubSpot API",
-        "GCS API",
-        "Vertex AI Search",
-      ],
-      agentCalls: [],
-    },
-
-    connections: [
-      { targetId: "CAO-SQL-001", type: "data", label: "Uses for SQL" },
-      { targetId: "CAO-VTX-001", type: "data", label: "Uses for doc search" },
-      { targetId: "CAO-HUB-001", type: "data", label: "Uses for CRM" },
-    ],
-
-    auditedBy: ["CAO-AUD-001"],
-
-    scoring: {
-      overallScore: 96,
       accuracyScore: 98,
-      latencyScore: 85,
-      reliabilityScore: 97,
-      metrics: [
-        { name: "Response Quality", weight: 40, score: 98 },
-        { name: "Tool Selection", weight: 25, score: 97 },
-        { name: "Response Time", weight: 20, score: 85 },
-        { name: "Error Recovery", weight: 15, score: 96 },
-      ],
-    },
-
-    monitoring: {
-      auditors: ["CAO-AUD-001"],
-      alerts: [
-        { type: "latency", threshold: 10000, action: "warn" },
-        { type: "error_rate", threshold: 5, action: "alert" },
-        { type: "tool_failure", threshold: 3, action: "warn" },
-      ],
-      channels: ["#ko-alerts", "isaac@masterroofingus.com"],
-    },
-
-    history: {
-      totalExecutions: 0,
-      firstActive: "2026-01-13",
-      uptimePercent: 100,
-      totalErrors: 0,
-      recentEvents: [],
-      versions: [
-        { version: "v1.0.0", date: "2026-01-13", changes: "Initial KO Prime super agent" },
-      ],
-    },
-  },
-
-  // ========== ESTIMATOR ASSISTANT ==========
-  {
-    id: "INT-010",
-    name: "Estimator Assistant",
-    description: "AI assistant that helps junior estimators understand GC history, pricing patterns, bundling preferences, and tribal knowledge when setting up projects. Provides contextual guidance based on 20+ years of company data.",
-    modelKey: "claude",
-    model: "claude-sonnet-4-20250514",
-    provider: "Anthropic",
-    status: "live",
-    role: "tool",
-    phase: "standalone",
-
-    stats: {
-      totalRequests: 0,
-      successRate: 95.0,
-      avgLatency: 1800,
-      errorsToday: 0,
-      requestsPerMinute: 0,
-    },
-
-    queueDepth: 0,
-    lastActivity: new Date().toISOString(),
-    currentAction: "Assisting estimators with GC intelligence",
-
-    configFiles: [
-      {
-        name: "system_prompt.md",
-        type: "markdown",
-        content: `# Estimator Assistant
-
-## Role
-AI assistant for junior estimators at Master Roofing & Siding.
-
-## Model
-- Provider: Anthropic
-- Model: claude-sonnet-4-20250514
-- Max Tokens: 1024
-- Temperature: 0.3
-
-## Data Sources (BigQuery)
-- \`mr_agent.project_llm\` - 1,529 projects with gc_preferences, gc_tribal_knowledge, gc_negotiation_patterns
-- \`mr_agent.gc_bundling_preferences\` - GC bundling patterns by section
-
-## Capabilities
-- GC Brief Generation - Quick stats, win rates, recent projects
-- Pricing Guidance - Historical rates with confidence levels
-- Bundling Patterns - What items GCs typically bundle vs break out
-- Tribal Knowledge - Preferences, quirks, contact tips
-- Negotiation Patterns - VE history, revision patterns
-
-## Response Style
-- Be concise - estimators are busy
-- Lead with the answer, then context
-- Always cite confidence levels
-- Never guess - say when data is missing
-`,
-      },
-    ],
-
-    permissions: {
-      readAccess: [
-        "BigQuery: mr_agent.project_llm",
-        "BigQuery: mr_agent.gc_bundling_preferences",
-        "BigQuery: mr_agent.proposal_revisions",
-      ],
-      writeAccess: [],
-      apiAccess: ["Anthropic API"],
-      agentCalls: [],
-    },
-
-    connections: [],
-
-    auditedBy: ["CAO-AUD-001"],
-
-    scoring: {
-      overallScore: 95,
-      accuracyScore: 94,
-      latencyScore: 88,
+      latencyScore: 92,
       reliabilityScore: 96,
+      evaluationFrequency: "Every 6 hours",
+      lastEvaluation: "2026-01-13 12:00",
+      nextEvaluation: "2026-01-13 18:00",
       metrics: [
-        { name: "Response Quality", weight: 40, score: 95 },
-        { name: "Data Accuracy", weight: 30, score: 94 },
-        { name: "Response Time", weight: 20, score: 88 },
-        { name: "User Satisfaction", weight: 10, score: 96 },
+        { name: "Response Accuracy", description: "Correct routing decisions", weight: 40, threshold: "95%" },
+        { name: "Latency P95", description: "95th percentile response time", weight: 25, threshold: "<200ms" },
+        { name: "Error Rate", description: "Failed requests percentage", weight: 20, threshold: "<1%" },
+        { name: "Throughput", description: "Requests handled per minute", weight: 15, threshold: ">100/min" },
       ],
     },
 
     monitoring: {
-      auditors: ["CAO-AUD-001"],
-      alerts: [
-        { type: "latency", threshold: 5000, action: "warn" },
-        { type: "error_rate", threshold: 10, action: "alert" },
+      auditors: [
+        { id: "user_isaac", name: "Isaac", type: "user", role: "Primary Auditor", since: "2025-12-01", active: true },
+        { id: "AGT-AUDIT-001", name: "Audit Agent", type: "agent", role: "Automated Monitoring", since: "2025-12-15", active: true },
       ],
-      channels: ["#ko-alerts"],
+      alerts: [
+        { type: "Error Spike", description: "More than 5 errors in 5 minutes", threshold: "5 errors/5min", enabled: true },
+        { type: "Latency Warning", description: "P95 latency exceeds threshold", threshold: ">500ms", enabled: true },
+        { type: "Downtime", description: "Agent unresponsive", threshold: ">30 seconds", enabled: true },
+        { type: "Score Drop", description: "Overall score drops below threshold", threshold: "<85", enabled: true },
+      ],
+      channels: [
+        { type: "Email", target: "isaac@masterroofing.com", enabled: true },
+        { type: "Slack", target: "#ko-alerts", enabled: true },
+        { type: "SMS", target: "+1-xxx-xxx-xxxx", enabled: false },
+        { type: "Dashboard", target: "KO Command Center", enabled: true },
+      ],
     },
 
     history: {
-      totalExecutions: 0,
-      firstActive: "2026-01-14",
-      uptimePercent: 100,
-      totalErrors: 0,
-      recentEvents: [],
-      versions: [
-        { version: "v1.0.0", date: "2026-01-14", changes: "Initial Estimator Assistant with GC Brief and chat" },
+      totalExecutions: 15420,
+      firstActive: "2025-12-01",
+      uptimePercent: 99.7,
+      totalErrors: 127,
+      recentEvents: [
+        { type: "info", message: "Routed query to AGT-BQ-001", timestamp: "15:23:45", details: "Query: project summary for Beach 67th" },
+        { type: "success", message: "Response delivered to user", timestamp: "15:23:47", details: "Latency: 1.2s" },
+        { type: "info", message: "Routed query to AGT-EMAIL-001", timestamp: "15:22:30", details: "Query: draft reply to GC" },
+        { type: "warning", message: "Slow response from AGT-PBI-001", timestamp: "15:20:15", details: "Latency: 2.8s (threshold: 2s)" },
+        { type: "error", message: "AGT-PBI-001 connection timeout", timestamp: "15:10:00", details: "Token refresh failed" },
       ],
+      versions: [
+        { version: "v2.3.1", date: "2026-01-10", changes: "Added fallback routing" },
+        { version: "v2.3.0", date: "2026-01-05", changes: "New scoring metrics" },
+        { version: "v2.2.0", date: "2025-12-20", changes: "Multi-agent synteraction" },
+      ],
+    },
+
+    configFiles: [
+      { name: "README.md", content: "# Gemini Router\n\nCentral orchestrator for the KO multi-agent system.\n\n## Purpose\nRoute incoming user queries to the appropriate specialized agent.\n\n## Instructions\n1. Parse user intent\n2. Identify relevant data sources\n3. Select best agent(s) to handle query\n4. Coordinate responses from multiple agents\n5. Merge and format final response\n\n## Constraints\n- Never modify data directly\n- Always log routing decisions\n- Escalate ambiguous queries to user", type: "markdown" },
+      { name: "system_prompt.txt", content: "You are the central routing orchestrator for Master Roofing's KO system. Your job is to analyze incoming queries and route them to the appropriate specialized agents.", type: "text" },
+    ],
+
+    training: {
+      lastTrained: "2026-01-10",
+      datasetVersion: "v2.3",
+      accuracy: 98.5,
+    },
+    mapping: {
+      inputSources: ["User Query", "API Gateway"],
+      outputTargets: ["All Specialized Agents"],
+      routingRules: 12,
     },
   },
 
-  // ========== AUDIT AGENT ==========
   {
-    id: "CAO-AUD-001",
-    name: "System Auditor",
-    description: "Monitors all agent activity, scores performance, and can pause agents if quality drops below threshold.",
-    modelKey: "gemini",
-    model: "gemini-2.0-flash",
-    provider: "Google Vertex AI",
+    id: "AGT-BQ-001",
+    name: "BigQuery Analytics",
+    description: "Queries Master Roofing data warehouse for historical analysis and reporting",
+    model: "Claude Sonnet",
+    modelKey: "claude",
     status: "live",
-    role: "auditor",
-    phase: "all",
-
+    lastActivity: new Date(Date.now() - 5000).toISOString(),
+    currentAction: "Executing query: SELECT project_name, total_amount FROM proposals WHERE gc_id = 'MJH'...",
+    queueDepth: 1,
     stats: {
-      totalRequests: 0,
-      successRate: 100,
-      avgLatency: 100,
-      errorsToday: 0,
-      requestsPerMinute: 0,
+      totalRequests: 8934,
+      successRate: 97.8,
+      avgLatency: 450,
+      errorsToday: 12,
+      requestsPerMinute: 8,
     },
-
-    queueDepth: 0,
-    lastActivity: new Date().toISOString(),
-    currentAction: "Monitoring agent performance",
-
-    configFiles: [
-      {
-        name: "system_prompt.md",
-        type: "markdown",
-        content: `# System Auditor
-
-## Role
-Performance monitoring and quality assurance for all agents.
-
-## Responsibilities
-- Monitor agent response quality
-- Track latency and error rates
-- Score agent outputs
-- Pause agents if quality drops
-- Generate audit reports
-
-## Audit Thresholds
-- Success Rate: <90% triggers warning
-- Latency: >3s triggers warning
-- Error Rate: >5% triggers pause
-- Quality Score: <70% triggers review
-
-## Monitored Agents
-- CAO-GEM-001 (Gemini Orchestrator)
-- CAO-CEO-001 (CEO Response)
-- CAO-SQL-001 (Claude SQL)
-- CAO-VTX-001 (Vertex Search)
-- CAO-HUB-001 (HubSpot)
-- CAO-PBI-001 (Power BI)
-`,
-      },
-    ],
+    connections: ["AGT-ORCH-001"],
+    auditedBy: ["AGT-AUDIT-001"],
+    schedule: "Always On",
 
     permissions: {
       readAccess: [
-        "All agent logs",
-        "All agent metrics",
-        "BigQuery: ko_audit.agent_registry",
-        "BigQuery: ko_audit.agent_logs",
+        { resource: "BigQuery - mr_core", scope: "All tables", enabled: true },
+        { resource: "BigQuery - mr_raw", scope: "All tables", enabled: true },
+        { resource: "BigQuery - mr_agent", scope: "Read only", enabled: true },
       ],
       writeAccess: [
-        "BigQuery: ko_audit.agent_scores",
-        "BigQuery: ko_audit.audit_events",
+        { resource: "BigQuery - mr_agent", scope: "query_cache table", enabled: true },
       ],
-      apiAccess: ["Google Vertex AI"],
-      agentCalls: [
-        "CAO-GEM-001 (pause/resume)",
-        "CAO-CEO-001 (pause/resume)",
-        "CAO-SQL-001 (pause/resume)",
-        "CAO-VTX-001 (pause/resume)",
-        "CAO-HUB-001 (pause/resume)",
-        "CAO-PBI-001 (pause/resume)",
+      userSynteraction: [
+        { id: "user_isaac", name: "Isaac", role: "CEO", canInitiate: false, canReceive: true },
+      ],
+      agentSynteraction: [
+        { agentId: "AGT-ORCH-001", canCall: false, canReceiveFrom: true, priority: 1 },
       ],
     },
 
-    connections: [
-      { targetId: "CAO-GEM-001", type: "audit", label: "Audits orchestrator" },
-      { targetId: "CAO-CEO-001", type: "audit", label: "Audits responses" },
-      { targetId: "CAO-SQL-001", type: "audit", label: "Audits SQL" },
-      { targetId: "CAO-VTX-001", type: "audit", label: "Audits search" },
-      { targetId: "CAO-HUB-001", type: "audit", label: "Audits CRM" },
-      { targetId: "CAO-PBI-001", type: "audit", label: "Audits dashboards" },
-    ],
-
-    auditedBy: [],
-
     scoring: {
-      overallScore: 100,
-      accuracyScore: 100,
-      latencyScore: 100,
-      reliabilityScore: 100,
+      overallScore: 91,
+      accuracyScore: 96,
+      latencyScore: 85,
+      reliabilityScore: 94,
+      evaluationFrequency: "Every 6 hours",
+      lastEvaluation: "2026-01-13 12:00",
+      nextEvaluation: "2026-01-13 18:00",
       metrics: [
-        { name: "Audit Coverage", weight: 40, score: 100 },
-        { name: "Alert Accuracy", weight: 30, score: 100 },
-        { name: "Response Time", weight: 20, score: 100 },
-        { name: "Uptime", weight: 10, score: 100 },
+        { name: "Query Accuracy", description: "Correct SQL generation", weight: 50, threshold: "95%" },
+        { name: "Query Latency", description: "Average execution time", weight: 30, threshold: "<500ms" },
+        { name: "Error Rate", description: "Failed queries percentage", weight: 20, threshold: "<2%" },
       ],
     },
 
     monitoring: {
-      auditors: [],
-      alerts: [],
-      channels: ["#ko-alerts", "isaac@masterroofingus.com"],
+      auditors: [
+        { id: "user_isaac", name: "Isaac", type: "user", role: "Data Owner", since: "2025-12-01", active: true },
+        { id: "AGT-AUDIT-001", name: "Audit Agent", type: "agent", role: "Query Monitoring", since: "2025-12-15", active: true },
+      ],
+      alerts: [
+        { type: "Slow Query", description: "Query takes more than 5 seconds", threshold: ">5s", enabled: true },
+        { type: "Error Rate", description: "More than 10% queries failing", threshold: ">10%", enabled: true },
+      ],
+      channels: [
+        { type: "Slack", target: "#ko-alerts", enabled: true },
+        { type: "Dashboard", target: "KO Command Center", enabled: true },
+      ],
     },
 
     history: {
-      totalExecutions: 0,
-      firstActive: "2026-01-01",
-      uptimePercent: 100,
-      totalErrors: 0,
-      recentEvents: [],
+      totalExecutions: 8934,
+      firstActive: "2025-12-05",
+      uptimePercent: 99.2,
+      totalErrors: 198,
+      recentEvents: [
+        { type: "success", message: "Query executed successfully", timestamp: "15:23:42", details: "247 rows returned" },
+        { type: "info", message: "Query received from AGT-ORCH-001", timestamp: "15:23:40", details: null },
+      ],
       versions: [
-        { version: "v1.0.0", date: "2026-01-01", changes: "Initial audit agent" },
+        { version: "v1.9.0", date: "2026-01-08", changes: "Improved SQL generation" },
+        { version: "v1.8.0", date: "2025-12-28", changes: "Added query caching" },
       ],
     },
+
+    configFiles: [
+      { name: "README.md", content: "# BigQuery Analytics Agent\n\nGenerates and executes SQL queries against Master Roofing's data warehouse.", type: "markdown" },
+    ],
+
+    training: { lastTrained: "2026-01-08", datasetVersion: "v1.9", accuracy: 96.2 },
+    mapping: { inputSources: ["Gemini Router"], outputTargets: ["Query Results"], routingRules: 0 },
+  },
+
+  {
+    id: "AGT-HS-001",
+    name: "HubSpot CRM",
+    description: "Manages customer relationships, deals (Jobs), and communications via HubSpot",
+    model: "GPT-4o-mini",
+    modelKey: "gpt",
+    status: "idle",
+    lastActivity: new Date(Date.now() - 300000).toISOString(),
+    currentAction: "Idle - awaiting next request",
+    queueDepth: 0,
+    stats: { totalRequests: 4521, successRate: 98.1, avgLatency: 195, errorsToday: 5, requestsPerMinute: 0 },
+    connections: ["AGT-ORCH-001"],
+    auditedBy: ["AGT-AUDIT-001"],
+    schedule: "Business Hours (8AM-6PM EST)",
+
+    permissions: {
+      readAccess: [
+        { resource: "HubSpot - Jobs", scope: "All", enabled: true },
+        { resource: "HubSpot - Contacts", scope: "All", enabled: true },
+        { resource: "HubSpot - Companies", scope: "All", enabled: true },
+      ],
+      writeAccess: [
+        { resource: "HubSpot - Jobs", scope: "Update only", enabled: true },
+        { resource: "HubSpot - Notes", scope: "Create", enabled: true },
+      ],
+      userSynteraction: [
+        { id: "user_isaac", name: "Isaac", role: "CEO", canInitiate: true, canReceive: true },
+        { id: "user_joel", name: "Joel", role: "Operations", canInitiate: true, canReceive: true },
+      ],
+      agentSynteraction: [
+        { agentId: "AGT-ORCH-001", canCall: false, canReceiveFrom: true, priority: 1 },
+        { agentId: "AGT-EMAIL-001", canCall: false, canReceiveFrom: true, priority: 2 },
+      ],
+    },
+
+    scoring: {
+      overallScore: 93, accuracyScore: 97, latencyScore: 94, reliabilityScore: 91,
+      evaluationFrequency: "Every 12 hours", lastEvaluation: "2026-01-13 06:00", nextEvaluation: "2026-01-13 18:00",
+      metrics: [
+        { name: "CRM Accuracy", description: "Correct data retrieval", weight: 50, threshold: "95%" },
+        { name: "API Latency", description: "HubSpot API response time", weight: 30, threshold: "<300ms" },
+        { name: "Sync Status", description: "Data freshness", weight: 20, threshold: "<5min" },
+      ],
+    },
+
+    monitoring: {
+      auditors: [
+        { id: "user_isaac", name: "Isaac", type: "user", role: "CRM Owner", since: "2025-12-01", active: true },
+        { id: "AGT-AUDIT-001", name: "Audit Agent", type: "agent", role: "API Monitoring", since: "2025-12-15", active: true },
+      ],
+      alerts: [
+        { type: "API Error", description: "HubSpot API failures", threshold: ">3/hour", enabled: true },
+      ],
+      channels: [
+        { type: "Slack", target: "#ko-alerts", enabled: true },
+      ],
+    },
+
+    history: {
+      totalExecutions: 4521, firstActive: "2025-12-10", uptimePercent: 98.5, totalErrors: 86,
+      recentEvents: [
+        { type: "info", message: "Entered idle state", timestamp: "15:20:12", details: null },
+      ],
+      versions: [
+        { version: "v1.4.0", date: "2026-01-05", changes: "Added email integration" },
+      ],
+    },
+
+    configFiles: [
+      { name: "README.md", content: "# HubSpot CRM Agent\n\nManages interactions with HubSpot CRM for Master Roofing.", type: "markdown" },
+    ],
+
+    training: { lastTrained: "2026-01-05", datasetVersion: "v1.4", accuracy: 94.8 },
+    mapping: { inputSources: ["Gemini Router", "Scheduled Tasks"], outputTargets: ["HubSpot API", "Email Gateway"], routingRules: 0 },
+  },
+
+  {
+    id: "AGT-EMAIL-001",
+    name: "Email Drafting Agent",
+    description: "Drafts professional emails in employee voice based on communication history",
+    model: "Claude Sonnet",
+    modelKey: "claude",
+    status: "live",
+    lastActivity: new Date(Date.now() - 2000).toISOString(),
+    currentAction: "Drafting reply to MJH Construction regarding Beach 67th St change order...",
+    queueDepth: 7, // Backlog building up!
+    stats: { totalRequests: 2341, successRate: 96.5, avgLatency: 890, errorsToday: 8, requestsPerMinute: 15 },
+    connections: ["AGT-ORCH-001", "AGT-HS-001"],
+    auditedBy: ["AGT-AUDIT-001"],
+    schedule: "Business Hours (7AM-7PM EST)",
+
+    permissions: {
+      readAccess: [
+        { resource: "Gmail - Sent", scope: "Last 90 days", enabled: true },
+        { resource: "Gmail - Inbox", scope: "Last 30 days", enabled: true },
+        { resource: "HubSpot - Contacts", scope: "Read only", enabled: true },
+      ],
+      writeAccess: [
+        { resource: "Gmail - Drafts", scope: "Create only", enabled: true },
+      ],
+      userSynteraction: [
+        { id: "user_isaac", name: "Isaac", role: "CEO", canInitiate: true, canReceive: true },
+        { id: "user_joel", name: "Joel", role: "Operations", canInitiate: true, canReceive: true },
+        { id: "user_maria", name: "Maria", role: "Estimator", canInitiate: true, canReceive: true },
+      ],
+      agentSynteraction: [
+        { agentId: "AGT-ORCH-001", canCall: false, canReceiveFrom: true, priority: 1 },
+        { agentId: "AGT-HS-001", canCall: true, canReceiveFrom: false, priority: 2 },
+      ],
+    },
+
+    scoring: {
+      overallScore: 88, accuracyScore: 92, latencyScore: 78, reliabilityScore: 90,
+      evaluationFrequency: "Every 6 hours", lastEvaluation: "2026-01-13 12:00", nextEvaluation: "2026-01-13 18:00",
+      metrics: [
+        { name: "Tone Accuracy", description: "Matches employee voice", weight: 40, threshold: "90%" },
+        { name: "Draft Quality", description: "User acceptance rate", weight: 35, threshold: "85%" },
+        { name: "Response Time", description: "Draft generation time", weight: 25, threshold: "<2s" },
+      ],
+    },
+
+    monitoring: {
+      auditors: [
+        { id: "user_isaac", name: "Isaac", type: "user", role: "Content Reviewer", since: "2025-12-15", active: true },
+        { id: "AGT-AUDIT-001", name: "Audit Agent", type: "agent", role: "Quality Monitoring", since: "2025-12-20", active: true },
+      ],
+      alerts: [
+        { type: "Queue Backlog", description: "More than 5 pending drafts", threshold: ">5", enabled: true },
+        { type: "Quality Drop", description: "Acceptance rate below threshold", threshold: "<80%", enabled: true },
+      ],
+      channels: [
+        { type: "Slack", target: "#ko-alerts", enabled: true },
+        { type: "Dashboard", target: "KO Command Center", enabled: true },
+      ],
+    },
+
+    history: {
+      totalExecutions: 2341, firstActive: "2025-12-15", uptimePercent: 97.8, totalErrors: 82,
+      recentEvents: [
+        { type: "warning", message: "Queue depth exceeding threshold", timestamp: "15:23:50", details: "7 drafts pending" },
+        { type: "info", message: "Draft request received", timestamp: "15:23:48", details: "Reply to MJH Construction" },
+        { type: "success", message: "Draft delivered", timestamp: "15:23:30", details: "Email to Beach 67th PM" },
+      ],
+      versions: [
+        { version: "v1.2.0", date: "2026-01-08", changes: "Improved voice matching" },
+      ],
+    },
+
+    configFiles: [
+      { name: "README.md", content: "# Email Drafting Agent\n\nDrafts emails matching each employee's communication style.", type: "markdown" },
+    ],
+
+    training: { lastTrained: "2026-01-08", datasetVersion: "v1.2", accuracy: 91.5 },
+    mapping: { inputSources: ["Gemini Router", "Direct User Request"], outputTargets: ["Gmail Drafts"], routingRules: 3 },
+  },
+
+  {
+    id: "AGT-PBI-001",
+    name: "Power BI Dashboard",
+    description: "Generates and updates executive dashboards and reports in Power BI",
+    model: "Claude Sonnet",
+    modelKey: "claude",
+    status: "error",
+    lastActivity: new Date(Date.now() - 780000).toISOString(),
+    currentAction: "ERROR: Failed to refresh dataset - Azure AD token expired",
+    queueDepth: 0,
+    stats: { totalRequests: 1876, successRate: 94.2, avgLatency: 340, errorsToday: 24, requestsPerMinute: 0 },
+    connections: ["AGT-ORCH-001", "AGT-BQ-001"],
+    auditedBy: ["AGT-AUDIT-001"],
+    schedule: "Hourly Refresh",
+
+    permissions: {
+      readAccess: [
+        { resource: "Power BI - Datasets", scope: "All", enabled: true },
+        { resource: "Power BI - Reports", scope: "All", enabled: true },
+      ],
+      writeAccess: [
+        { resource: "Power BI - Datasets", scope: "Refresh only", enabled: true },
+      ],
+      userSynteraction: [
+        { id: "user_isaac", name: "Isaac", role: "CEO", canInitiate: true, canReceive: true },
+      ],
+      agentSynteraction: [
+        { agentId: "AGT-ORCH-001", canCall: false, canReceiveFrom: true, priority: 1 },
+        { agentId: "AGT-BQ-001", canCall: true, canReceiveFrom: false, priority: 2 },
+      ],
+    },
+
+    scoring: {
+      overallScore: 78, accuracyScore: 92, latencyScore: 81, reliabilityScore: 65,
+      evaluationFrequency: "Every 6 hours", lastEvaluation: "2026-01-13 12:00", nextEvaluation: "2026-01-13 18:00",
+      metrics: [
+        { name: "Refresh Success", description: "Dataset refresh completion", weight: 50, threshold: "95%" },
+        { name: "Data Accuracy", description: "Report accuracy", weight: 30, threshold: "99%" },
+        { name: "Availability", description: "Dashboard uptime", weight: 20, threshold: "99%" },
+      ],
+    },
+
+    monitoring: {
+      auditors: [
+        { id: "user_isaac", name: "Isaac", type: "user", role: "Dashboard Owner", since: "2025-12-01", active: true },
+        { id: "AGT-AUDIT-001", name: "Audit Agent", type: "agent", role: "Health Monitoring", since: "2025-12-15", active: true },
+      ],
+      alerts: [
+        { type: "Refresh Failed", description: "Dataset refresh failure", threshold: "1 failure", enabled: true },
+        { type: "Token Expiry", description: "Auth token expiring soon", threshold: "<24 hours", enabled: true },
+      ],
+      channels: [
+        { type: "Email", target: "isaac@masterroofing.com", enabled: true },
+        { type: "Slack", target: "#ko-alerts", enabled: true },
+      ],
+    },
+
+    history: {
+      totalExecutions: 1876, firstActive: "2025-12-15", uptimePercent: 94.1, totalErrors: 109,
+      recentEvents: [
+        { type: "error", message: "Token refresh failed", timestamp: "15:10:00", details: "Azure AD token expired" },
+        { type: "warning", message: "Retry attempt 1/3", timestamp: "15:10:01", details: null },
+        { type: "error", message: "All retries exhausted", timestamp: "15:10:05", details: "Manual intervention required" },
+      ],
+      versions: [
+        { version: "v1.2.0", date: "2026-01-02", changes: "Added auto-refresh" },
+      ],
+    },
+
+    configFiles: [
+      { name: "README.md", content: "# Power BI Dashboard Agent\n\nManages Power BI dataset refreshes and report generation.", type: "markdown" },
+    ],
+
+    training: { lastTrained: "2026-01-02", datasetVersion: "v1.2", accuracy: 91.5 },
+    mapping: { inputSources: ["Gemini Router", "Scheduled Refresh"], outputTargets: ["Power BI Service"], routingRules: 0 },
+  },
+
+  {
+    id: "AGT-RISK-001",
+    name: "Risk Monitor",
+    description: "Monitors project risks, deadlines, budget anomalies, and potential issues",
+    model: "Gemini 2.0 Flash",
+    modelKey: "gemini",
+    status: "live",
+    lastActivity: new Date(Date.now() - 1000).toISOString(),
+    currentAction: "Scanning 23 active projects for deadline risks...",
+    queueDepth: 0,
+    stats: { totalRequests: 5621, successRate: 99.5, avgLatency: 85, errorsToday: 1, requestsPerMinute: 4 },
+    connections: ["AGT-ORCH-001", "AGT-BQ-001", "AGT-HS-001"],
+    auditedBy: ["AGT-AUDIT-001"],
+    schedule: "Every 15 minutes",
+
+    permissions: {
+      readAccess: [
+        { resource: "BigQuery - All", scope: "Read only", enabled: true },
+        { resource: "HubSpot - Jobs", scope: "Read only", enabled: true },
+        { resource: "Asana - Projects", scope: "Read only", enabled: true },
+      ],
+      writeAccess: [
+        { resource: "BigQuery - mr_agent", scope: "risk_alerts table", enabled: true },
+      ],
+      userSynteraction: [
+        { id: "user_isaac", name: "Isaac", role: "CEO", canInitiate: false, canReceive: true },
+        { id: "user_joel", name: "Joel", role: "Operations", canInitiate: false, canReceive: true },
+      ],
+      agentSynteraction: [
+        { agentId: "AGT-ORCH-001", canCall: true, canReceiveFrom: true, priority: 1 },
+        { agentId: "AGT-BQ-001", canCall: true, canReceiveFrom: false, priority: 2 },
+        { agentId: "AGT-HS-001", canCall: true, canReceiveFrom: false, priority: 3 },
+      ],
+    },
+
+    scoring: {
+      overallScore: 97, accuracyScore: 98, latencyScore: 99, reliabilityScore: 96,
+      evaluationFrequency: "Every 6 hours", lastEvaluation: "2026-01-13 12:00", nextEvaluation: "2026-01-13 18:00",
+      metrics: [
+        { name: "Detection Accuracy", description: "True positive rate", weight: 50, threshold: "95%" },
+        { name: "False Positive Rate", description: "Incorrect alerts", weight: 30, threshold: "<5%" },
+        { name: "Coverage", description: "Projects monitored", weight: 20, threshold: "100%" },
+      ],
+    },
+
+    monitoring: {
+      auditors: [
+        { id: "user_isaac", name: "Isaac", type: "user", role: "Risk Owner", since: "2025-12-01", active: true },
+        { id: "AGT-AUDIT-001", name: "Audit Agent", type: "agent", role: "Accuracy Monitoring", since: "2025-12-15", active: true },
+      ],
+      alerts: [
+        { type: "High Risk Detected", description: "Critical risk identified", threshold: "Any", enabled: true },
+        { type: "Scan Failed", description: "Risk scan incomplete", threshold: "1 failure", enabled: true },
+      ],
+      channels: [
+        { type: "Email", target: "isaac@masterroofing.com", enabled: true },
+        { type: "Slack", target: "#ko-alerts", enabled: true },
+        { type: "SMS", target: "+1-xxx-xxx-xxxx", enabled: true },
+      ],
+    },
+
+    history: {
+      totalExecutions: 5621, firstActive: "2025-12-10", uptimePercent: 99.8, totalErrors: 28,
+      recentEvents: [
+        { type: "info", message: "Risk scan started", timestamp: "15:23:44", details: "23 projects" },
+        { type: "success", message: "Previous scan complete", timestamp: "15:08:44", details: "0 risks detected" },
+      ],
+      versions: [
+        { version: "v2.4.0", date: "2026-01-11", changes: "Added deadline prediction" },
+      ],
+    },
+
+    configFiles: [
+      { name: "README.md", content: "# Risk Monitor Agent\n\nContinuously monitors projects for risks and anomalies.", type: "markdown" },
+    ],
+
+    training: { lastTrained: "2026-01-11", datasetVersion: "v2.4", accuracy: 97.8 },
+    mapping: { inputSources: ["Scheduled Scan", "Gemini Router"], outputTargets: ["Risk Alerts", "Dashboard"], routingRules: 5 },
+  },
+
+  {
+    id: "AGT-AUDIT-001",
+    name: "Audit Agent",
+    description: "Monitors all agent activity, enforces governance, scores performance, and can pause agents",
+    model: "Claude Sonnet",
+    modelKey: "claude",
+    status: "live",
+    lastActivity: new Date().toISOString(),
+    currentAction: "Auditing AGT-EMAIL-001 queue depth... WARNING: backlog detected",
+    queueDepth: 0,
+    stats: { totalRequests: 45210, successRate: 99.9, avgLatency: 45, errorsToday: 0, requestsPerMinute: 50 },
+    connections: ["AGT-ORCH-001", "AGT-BQ-001", "AGT-HS-001", "AGT-EMAIL-001", "AGT-PBI-001", "AGT-RISK-001"],
+    auditedBy: [], // The auditor audits itself
+    schedule: "Always On - Real-time",
+
+    permissions: {
+      readAccess: [
+        { resource: "All Agent Logs", scope: "Full access", enabled: true },
+        { resource: "All Agent Configs", scope: "Full access", enabled: true },
+        { resource: "BigQuery - mr_agent", scope: "All tables", enabled: true },
+      ],
+      writeAccess: [
+        { resource: "BigQuery - mr_agent", scope: "audit_logs, scores, violations", enabled: true },
+        { resource: "Agent Configs", scope: "Emergency disable only", enabled: true },
+      ],
+      userSynteraction: [
+        { id: "user_isaac", name: "Isaac", role: "CEO", canInitiate: false, canReceive: true },
+      ],
+      agentSynteraction: [
+        { agentId: "AGT-ORCH-001", canCall: true, canReceiveFrom: true, priority: 1 },
+        { agentId: "AGT-BQ-001", canCall: true, canReceiveFrom: true, priority: 1 },
+        { agentId: "AGT-HS-001", canCall: true, canReceiveFrom: true, priority: 1 },
+        { agentId: "AGT-EMAIL-001", canCall: true, canReceiveFrom: true, priority: 1 },
+        { agentId: "AGT-PBI-001", canCall: true, canReceiveFrom: true, priority: 1 },
+        { agentId: "AGT-RISK-001", canCall: true, canReceiveFrom: true, priority: 1 },
+      ],
+    },
+
+    scoring: {
+      overallScore: 99, accuracyScore: 99, latencyScore: 100, reliabilityScore: 99,
+      evaluationFrequency: "Continuous", lastEvaluation: "2026-01-13 15:23", nextEvaluation: "N/A - Real-time",
+      metrics: [
+        { name: "Coverage", description: "% of actions audited", weight: 40, threshold: "100%" },
+        { name: "Latency Impact", description: "Overhead added to requests", weight: 30, threshold: "<50ms" },
+        { name: "False Violations", description: "Incorrect violation flags", weight: 30, threshold: "<0.1%" },
+      ],
+    },
+
+    monitoring: {
+      auditors: [
+        { id: "user_isaac", name: "Isaac", type: "user", role: "System Administrator", since: "2025-12-01", active: true },
+        { id: "external_aeye", name: "A-EYE Platform", type: "user", role: "Platform Oversight", since: "2025-12-01", active: true },
+      ],
+      alerts: [
+        { type: "Governance Violation", description: "Agent exceeded permissions", threshold: "Any", enabled: true },
+        { type: "Audit Gap", description: "Actions not audited", threshold: ">0", enabled: true },
+        { type: "Score Threshold", description: "Agent score below minimum", threshold: "<70", enabled: true },
+        { type: "Agent Paused", description: "Audit agent paused another agent", threshold: "Any", enabled: true },
+      ],
+      channels: [
+        { type: "Email", target: "isaac@masterroofing.com", enabled: true },
+        { type: "Slack", target: "#ko-governance", enabled: true },
+        { type: "Dashboard", target: "KO Command Center", enabled: true },
+      ],
+    },
+
+    history: {
+      totalExecutions: 45210, firstActive: "2025-12-15", uptimePercent: 99.99, totalErrors: 3,
+      recentEvents: [
+        { type: "warning", message: "AGT-EMAIL-001 queue backlog detected", timestamp: "15:23:50", details: "Recommend scaling" },
+        { type: "info", message: "Audited AGT-ORCH-001 routing", timestamp: "15:23:46", details: "PASS" },
+        { type: "info", message: "Audited AGT-BQ-001 query", timestamp: "15:23:42", details: "PASS" },
+        { type: "error", message: "AGT-PBI-001 score dropped below threshold", timestamp: "15:10:00", details: "Score: 78 (threshold: 85)" },
+        { type: "warning", message: "Considering pause for AGT-PBI-001", timestamp: "15:10:01", details: "Awaiting manual review" },
+      ],
+      versions: [
+        { version: "v3.0.0", date: "2026-01-12", changes: "Real-time scoring" },
+        { version: "v2.5.0", date: "2026-01-05", changes: "Governance rules engine" },
+      ],
+    },
+
+    configFiles: [
+      { name: "README.md", content: "# Audit Agent\n\nCentral governance and monitoring for all KO agents.\n\n## Capabilities\n- Real-time activity monitoring\n- Performance scoring\n- Governance enforcement\n- Emergency agent pause/disable\n\n## Rules\n- Score < 70 = Pause agent, notify admin\n- Score < 85 = Warning, increase monitoring\n- Governance violation = Immediate pause", type: "markdown" },
+    ],
+
+    training: { lastTrained: "2026-01-12", datasetVersion: "v3.0", accuracy: 99.5 },
+    mapping: { inputSources: ["All Agent Activity Streams"], outputTargets: ["Audit Logs", "Governance Dashboard", "Alert System"], routingRules: 0 },
   },
 ]
 
-// ============================================================================
-// HELPER FUNCTIONS
-// ============================================================================
-
+// Helper function to get agent by ID
 export function getAgentById(id) {
-  return agents.find((agent) => agent.id === id)
+  return agents.find(a => a.id === id)
 }
 
+// Helper function to get agents by status
 export function getAgentsByStatus(status) {
-  return agents.filter((agent) => agent.status === status)
+  return agents.filter(a => a.status === status)
 }
 
-export function getAgentsByRole(role) {
-  return agents.filter((agent) => agent.role === role)
-}
-
+// Helper to get all connections for network map
 export function getAllConnections() {
   const connections = []
-  for (const agent of agents) {
-    if (agent.connections) {
-      for (const conn of agent.connections) {
+
+  agents.forEach(agent => {
+    // Query/data flow connections
+    agent.permissions?.agentSynteraction?.forEach(synteract => {
+      if (synteract.canCall) {
         connections.push({
-          sourceId: agent.id,
-          targetId: conn.targetId,
-          type: conn.type,
-          label: conn.label,
+          from: agent.id,
+          to: synteract.agentId,
+          type: "query",
+          bidirectional: synteract.canReceiveFrom,
         })
       }
-    }
-  }
+    })
+
+    // Audit connections
+    agent.auditedBy?.forEach(auditorId => {
+      connections.push({
+        from: auditorId,
+        to: agent.id,
+        type: "audit",
+        bidirectional: false,
+      })
+    })
+  })
+
   return connections
 }
 
+// Helper to detect bottlenecks (agents with high queue depth)
 export function getBottlenecks(threshold = 5) {
-  return agents.filter((agent) => agent.queueDepth >= threshold)
+  return agents.filter(a => a.queueDepth >= threshold)
 }
 
+// Helper to get agents with errors or paused status
 export function getProblemAgents() {
-  return agents.filter(
-    (agent) => agent.status === "error" || agent.status === "paused" || agent.scoring.overallScore < 80
-  )
-}
-
-export function getAuditChain(agentId) {
-  const agent = getAgentById(agentId)
-  if (!agent) return []
-
-  const chain = []
-  for (const auditorId of agent.auditedBy || []) {
-    const auditor = getAgentById(auditorId)
-    if (auditor) {
-      chain.push(auditor)
-    }
-  }
-  return chain
-}
-
-// Communication flow (5-phase)
-export const COMMUNICATION_FLOW = {
-  phases: [
-    {
-      phase: 0,
-      name: "Project Resolution",
-      agent: "CAO-GEM-001",
-      description: "Gemini extracts project mentions and resolves to project_ids",
-    },
-    {
-      phase: 1,
-      name: "Query Routing",
-      agent: "CAO-GEM-001",
-      description: "Gemini decides which tools to call based on intent",
-    },
-    {
-      phase: 2,
-      name: "Tool Execution",
-      agents: ["CAO-SQL-001", "CAO-VTX-001", "CAO-HUB-001", "CAO-PBI-001"],
-      description: "Selected tools execute with project_id filtering",
-    },
-    {
-      phase: 3,
-      name: "Result Merging",
-      agent: "CAO-GEM-001",
-      description: "Gemini combines tool outputs into structured summary",
-    },
-    {
-      phase: 4,
-      name: "CEO Response",
-      agent: "CAO-CEO-001",
-      description: "OpenAI composes final human-facing answer",
-    },
-  ],
-}
-
-// Backend API endpoint for live status
-export const BACKEND_API = {
-  baseUrl: "https://34.95.128.208",
-  endpoints: {
-    health: "/health",
-    config: "/v1/config",
-    chat: "/v1/chat",
-    sessions: "/v1/sessions",
-  },
+  return agents.filter(a => a.status === "error" || a.status === "paused")
 }
