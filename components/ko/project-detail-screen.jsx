@@ -4,8 +4,8 @@ import { useState } from "react"
 import { ArrowLeft, Calendar, DollarSign, Building2, ExternalLink, Link as LinkIcon, Plus, Loader2 } from "lucide-react"
 import { EmbeddedSheet } from "./embedded-sheet"
 import { ActionButtons } from "./action-buttons"
-import { GCIntelligence } from "./gc-intelligence"
 import { GCBrief } from "./gc-brief"
+import { ResizablePanel } from "./resizable-panel"
 
 const statusColors = {
   estimating: "bg-yellow-500",
@@ -39,7 +39,6 @@ function formatDate(dateString) {
 }
 
 const SHEET_TABS = [
-  { id: "overview", label: "Overview" },
   { id: "estimate", label: "ESTIMATE" },
   { id: "descriptions", label: "Descriptions" },
   { id: "proposal", label: "Proposal" },
@@ -132,10 +131,11 @@ export function ProjectDetailScreen({ project, onBack, onPreviewProposal, onProj
     )
   }
 
-  return (
-    <div className="flex-1 flex flex-col bg-background overflow-hidden">
+  // Main content (left side)
+  const mainContent = (
+    <div className="flex-1 flex flex-col h-full overflow-hidden">
       {/* Header */}
-      <div className="px-6 py-4 border-b border-border">
+      <div className="px-6 py-4 border-b border-border flex-shrink-0">
         <div className="flex items-center gap-4 mb-4">
           <button
             onClick={onBack}
@@ -151,25 +151,18 @@ export function ProjectDetailScreen({ project, onBack, onPreviewProposal, onProj
 
         {/* Project Stats Bar */}
         <div className="flex flex-wrap items-center gap-6 text-sm">
-          {/* Status */}
           <div className="flex items-center gap-2">
             <span className={`w-2 h-2 rounded-full ${statusColors[status]}`} />
             <span className="text-foreground">{statusLabels[status]}</span>
           </div>
-
-          {/* Due Date */}
           <div className="flex items-center gap-2 text-foreground-secondary">
             <Calendar className="w-4 h-4" />
             <span>{formatDate(project.due_date)}</span>
           </div>
-
-          {/* Amount */}
           <div className="flex items-center gap-2 text-foreground-secondary">
             <DollarSign className="w-4 h-4" />
             <span className="font-medium text-foreground">{formatCurrency(project.amount)}</span>
           </div>
-
-          {/* GC */}
           <div className="flex items-center gap-2 text-foreground-secondary">
             <Building2 className="w-4 h-4" />
             <span>{project.gc_name}</span>
@@ -178,7 +171,7 @@ export function ProjectDetailScreen({ project, onBack, onPreviewProposal, onProj
       </div>
 
       {/* Tabs */}
-      <div className="px-6 border-b border-border">
+      <div className="px-6 border-b border-border flex-shrink-0">
         <div className="flex items-center gap-1 -mb-px overflow-x-auto">
           {SHEET_TABS.map(tab => (
             <button
@@ -198,45 +191,8 @@ export function ProjectDetailScreen({ project, onBack, onPreviewProposal, onProj
 
       {/* Content */}
       <div className="flex-1 overflow-y-auto p-6">
-        {activeTab === "overview" && (
-          <div className="space-y-6">
-            {/* Project Summary */}
-            <div className="bg-card rounded-xl border border-border p-6">
-              <h2 className="font-semibold text-foreground mb-4">Project Summary</h2>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                <div>
-                  <span className="text-xs text-foreground-tertiary uppercase tracking-wider">Address</span>
-                  <p className="text-foreground mt-1">{project.address || project.name}</p>
-                </div>
-                <div>
-                  <span className="text-xs text-foreground-tertiary uppercase tracking-wider">Total Value</span>
-                  <p className="text-foreground mt-1 font-medium">{formatCurrency(project.amount)}</p>
-                </div>
-                <div>
-                  <span className="text-xs text-foreground-tertiary uppercase tracking-wider">Due Date</span>
-                  <p className="text-foreground mt-1">{formatDate(project.due_date)}</p>
-                </div>
-                <div>
-                  <span className="text-xs text-foreground-tertiary uppercase tracking-wider">Status</span>
-                  <div className="flex items-center gap-2 mt-1">
-                    <span className={`w-2 h-2 rounded-full ${statusColors[status]}`} />
-                    <span className="text-foreground">{statusLabels[status]}</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* GC Brief - Detailed estimator intelligence */}
-            <GCBrief
-              gcName={project.gc_name}
-              projectName={project.name || project.address}
-            />
-          </div>
-        )}
-
         {activeTab === "estimate" && (
           <div className="space-y-4">
-            {/* Sheet Connection */}
             {!sheetId ? (
               <div className="bg-card rounded-xl border border-border p-8 text-center">
                 <div className="w-16 h-16 rounded-2xl bg-secondary flex items-center justify-center mx-auto mb-4">
@@ -286,10 +242,7 @@ export function ProjectDetailScreen({ project, onBack, onPreviewProposal, onProj
               </div>
             ) : (
               <>
-                {/* Embedded Sheet */}
                 <EmbeddedSheet sheetId={sheetId} tab="Systems" height={500} />
-
-                {/* Action Buttons */}
                 <div className="mt-4">
                   <ActionButtons
                     projectId={project.id}
@@ -351,27 +304,36 @@ export function ProjectDetailScreen({ project, onBack, onPreviewProposal, onProj
           </div>
         )}
       </div>
+    </div>
+  )
 
-      {/* Bottom Bar - GC Brief Quick Access (visible when not on overview) */}
-      {activeTab !== "overview" && project.gc_name && (
-        <div className="border-t border-border p-4 bg-card/50">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <Building2 className="w-5 h-5 text-foreground-tertiary" />
-              <div>
-                <span className="font-medium text-foreground">{project.gc_name}</span>
-                <span className="text-foreground-tertiary text-sm ml-2">Click to see pricing & bundling</span>
-              </div>
-            </div>
-            <button
-              onClick={() => setActiveTab("overview")}
-              className="px-3 py-1.5 bg-primary/10 hover:bg-primary/20 text-primary rounded-lg text-sm font-medium transition-colors"
-            >
-              View GC Brief
-            </button>
-          </div>
-        </div>
-      )}
+  // GC Brief panel (right side) - no card wrapper since GCBrief already has styling
+  const gcBriefPanel = project.gc_name ? (
+    <GCBrief
+      gcName={project.gc_name}
+      projectName={project.name || project.address}
+      className="border-0 rounded-none"
+    />
+  ) : (
+    <div className="p-6 text-center text-foreground-tertiary">
+      <Building2 className="w-8 h-8 mx-auto mb-3 opacity-50" />
+      <p>No GC assigned to this project</p>
+    </div>
+  )
+
+  return (
+    <div className="flex-1 flex flex-col bg-background overflow-hidden">
+      <ResizablePanel
+        panel={gcBriefPanel}
+        panelTitle="GC Brief"
+        defaultPanelWidth={400}
+        minPanelWidth={320}
+        maxPanelWidth={550}
+        defaultOpen={true}
+        className="flex-1"
+      >
+        {mainContent}
+      </ResizablePanel>
     </div>
   )
 }
