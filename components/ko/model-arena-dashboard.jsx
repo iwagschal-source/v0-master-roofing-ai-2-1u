@@ -780,10 +780,10 @@ export function ModelArenaDashboard({ onBack, agents = [] }) {
               <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2 max-h-60 overflow-y-auto">
                 {models.map(model => (
                   <button
-                    key={model.id}
-                    onClick={() => toggleModelSelection(model.id)}
+                    key={model.model_id || model.id}
+                    onClick={() => toggleModelSelection(model.model_id || model.id)}
                     className={`p-2 rounded-lg border text-left transition-colors ${
-                      selectedModelIds.includes(model.id)
+                      selectedModelIds.includes(model.model_id || model.id)
                         ? "border-blue-500 bg-blue-500/20"
                         : "border-gray-600 bg-gray-700/50 hover:border-gray-500"
                     }`}
@@ -793,7 +793,7 @@ export function ModelArenaDashboard({ onBack, agents = [] }) {
                         className="w-2 h-2 rounded-full"
                         style={{ backgroundColor: PROVIDER_COLORS[model.provider] || "#666" }}
                       />
-                      <span className="text-sm text-white truncate">{model.name}</span>
+                      <span className="text-sm text-white truncate">{model.display_name || model.name}</span>
                     </div>
                     <span className="text-xs text-gray-500">{model.provider}</span>
                   </button>
@@ -801,7 +801,7 @@ export function ModelArenaDashboard({ onBack, agents = [] }) {
               </div>
               <div className="flex gap-2 mt-3">
                 <button
-                  onClick={() => setSelectedModelIds(models.filter(m => m.provider === "anthropic" || m.provider === "openai").map(m => m.id))}
+                  onClick={() => setSelectedModelIds(models.filter(m => m.provider === "anthropic" || m.provider === "openai").map(m => m.model_id || m.id))}
                   className="text-xs px-2 py-1 bg-gray-700 rounded hover:bg-gray-600"
                 >
                   Select Top Providers
