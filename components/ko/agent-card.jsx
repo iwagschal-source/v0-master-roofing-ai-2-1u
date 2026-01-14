@@ -95,18 +95,28 @@ export function AgentCard({ agent, onClick }) {
         )}
       </div>
 
-      {/* Scrolling activity bar */}
-      <div className="bg-secondary/50 border-t border-border px-3 py-2 overflow-hidden">
+      {/* Scrolling activity bar - lights up green when live */}
+      <div
+        className={`border-t px-3 py-2 overflow-hidden transition-all duration-300 ${
+          agent.status === "busy"
+            ? "bg-emerald-500/20 border-emerald-500/30"
+            : "bg-secondary/50 border-border"
+        }`}
+      >
         <div className="relative h-5 overflow-hidden">
           <div
-            className="absolute whitespace-nowrap text-xs text-muted-foreground font-mono flex items-center"
+            className={`absolute whitespace-nowrap text-xs font-mono flex items-center transition-colors duration-300 ${
+              agent.status === "busy"
+                ? "text-emerald-300"
+                : "text-muted-foreground"
+            }`}
             style={{
               transform: `translateX(-${scrollPosition % scrollReset}px)`,
             }}
           >
             <StatusDot status={displayStatus} size="sm" isTransmitting={agent.status === "busy"} className="mr-2 flex-shrink-0" />
             <span>{agent.currentAction}</span>
-            <span className="mx-8 text-muted-foreground/50">|</span>
+            <span className={`mx-8 ${agent.status === "busy" ? "text-emerald-500/50" : "text-muted-foreground/50"}`}>|</span>
             <StatusDot status={displayStatus} size="sm" isTransmitting={agent.status === "busy"} className="mr-2 flex-shrink-0" />
             <span>{agent.currentAction}</span>
           </div>
