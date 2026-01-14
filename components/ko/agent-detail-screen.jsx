@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useCallback } from "react"
+import { useState, useEffect, useCallback, useRef } from "react"
 import {
   ArrowLeft,
   Activity,
@@ -33,6 +33,10 @@ import {
   Loader2,
   MessageSquare,
   Send,
+  Paperclip,
+  X,
+  File,
+  Image as ImageIcon,
 } from "lucide-react"
 import { statusConfig, agents, getAgentById } from "@/data/agent-data"
 import { AgentModelIcon, StatusDot, QueueIndicator } from "./agent-model-icon"
@@ -745,16 +749,91 @@ function KOPrimeAssistantChat({ agentId, agentName, onConfigUpdated }) {
   const [input, setInput] = useState("")
   const [loading, setLoading] = useState(false)
   const [conversationHistory, setConversationHistory] = useState([])
+  const [attachedFiles, setAttachedFiles] = useState([])
+  const [isUploading, setIsUploading] = useState(false)
+  const fileInputRef = useRef(null)
   const messagesEndRef = useCallback((node) => {
     if (node) node.scrollIntoView({ behavior: 'smooth' })
   }, [])
 
-  const sendMessage = async () => {
-    if (!input.trim() || loading) return
+  // Handle file selection
+  const handleFileSelect = async (e) => {
+    const files = Array.from(e.target.files || [])
+    if (files.length === 0) return
 
-    const userMessage = { role: 'user', content: input.trim(), timestamp: new Date() }
+    setIsUploading(true)
+    const newFiles = []
+
+    for (const file of files) {
+      let content = null
+      let preview = null
+
+      if (file.type.startsWith('text/') ||
+          file.name.endsWith('.csv') ||
+          file.name.endsWith('.json') ||
+          file.name.endsWith('.md')) {
+        content = await file.text()
+        preview = content.substring(0, 500) + (content.length > 500 ? '...' : '')
+      } else if (file.type.startsWith('image/')) {
+        preview = URL.createObjectURL(file)
+      }
+
+      newFiles.push({
+        id: `file-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+        name: file.name,
+        type: file.type,
+        size: file.size,
+        content,
+        preview,
+        file,
+      })
+    }
+
+    setAttachedFiles(prev => [...prev, ...newFiles])
+    setIsUploading(false)
+    if (fileInputRef.current) fileInputRef.current.value = ''
+  }
+
+  const removeFile = (fileId) => {
+    setAttachedFiles(prev => prev.filter(f => f.id !== fileId))
+  }
+
+  const getFileIcon = (file) => {
+    if (file.type?.startsWith('image/')) return <ImageIcon className="w-4 h-4" />
+    if (file.name?.endsWith('.csv') || file.name?.endsWith('.json')) return <FileText className="w-4 h-4" />
+    return <File className="w-4 h-4" />
+  }
+
+  const formatFileSize = (bytes) => {
+    if (bytes < 1024) return `${bytes} B`
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
+  }
+
+  const sendMessage = async () => {
+    if ((!input.trim() && attachedFiles.length === 0) || loading) return
+
+    // Build message with file content
+    let messageContent = input.trim()
+    const fileContext = attachedFiles.filter(f => f.content).map(f => ({
+      name: f.name,
+      content: f.content
+    }))
+
+    if (fileContext.length > 0) {
+      messageContent += `\n\n[Attached files: ${fileContext.map(f => f.name).join(', ')}]\n\nFile contents:\n${fileContext.map(f => `--- ${f.name} ---\n${f.content.substring(0, 10000)}`).join('\n\n')}`
+    }
+
+    const userMessage = {
+      role: 'user',
+      content: input.trim() || `Uploaded ${attachedFiles.length} file(s)`,
+      attachments: attachedFiles.map(f => ({ name: f.name, type: f.type, size: f.size })),
+      timestamp: new Date()
+    }
+
     setMessages(prev => [...prev, userMessage])
     setInput("")
+    setAttachedFiles([])
     setLoading(true)
 
     try {
@@ -762,7 +841,7 @@ function KOPrimeAssistantChat({ agentId, agentName, onConfigUpdated }) {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          message: userMessage.content,
+          message: messageContent,
           conversation_history: conversationHistory,
           target_agent_id: agentId  // This gives KO Prime context about the agent
         })
@@ -861,6 +940,17 @@ function KOPrimeAssistantChat({ agentId, agentName, onConfigUpdated }) {
                       : 'bg-gradient-to-br from-purple-500/10 to-blue-500/10 border border-purple-500/20 text-foreground'
               }`}
             >
+              {/* Attachments for user messages */}
+              {msg.role === 'user' && msg.attachments?.length > 0 && (
+                <div className="mb-2 pb-2 border-b border-primary-foreground/20 flex flex-wrap gap-1.5">
+                  {msg.attachments.map((file, i) => (
+                    <span key={i} className="inline-flex items-center gap-1 text-xs bg-primary-foreground/10 rounded px-2 py-0.5">
+                      <Paperclip size={10} />
+                      {file.name}
+                    </span>
+                  ))}
+                </div>
+              )}
               {/* Tools used badge */}
               {msg.toolsUsed?.length > 0 && (
                 <div className="mb-2 pb-2 border-b border-purple-500/30">
@@ -902,18 +992,60 @@ function KOPrimeAssistantChat({ agentId, agentName, onConfigUpdated }) {
 
       {/* Input */}
       <div className="p-4 border-t border-border bg-secondary/30">
+        {/* Attached Files Preview */}
+        {attachedFiles.length > 0 && (
+          <div className="flex flex-wrap gap-2 mb-3">
+            {attachedFiles.map(file => (
+              <div
+                key={file.id}
+                className="flex items-center gap-2 px-3 py-1.5 bg-purple-500/20 border border-purple-500/30 rounded-lg text-sm"
+              >
+                {getFileIcon(file)}
+                <span className="text-foreground max-w-[120px] truncate">{file.name}</span>
+                <span className="text-xs text-muted-foreground">{formatFileSize(file.size)}</span>
+                <button
+                  onClick={() => removeFile(file.id)}
+                  className="text-muted-foreground hover:text-foreground ml-1"
+                >
+                  <X size={14} />
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+
         <div className="flex items-center gap-3">
+          {/* Hidden file input */}
+          <input
+            type="file"
+            ref={fileInputRef}
+            onChange={handleFileSelect}
+            multiple
+            accept=".csv,.json,.txt,.md,.pdf,.doc,.docx,.xls,.xlsx,.png,.jpg,.jpeg,.gif"
+            className="hidden"
+          />
+
+          {/* Attach button */}
+          <button
+            onClick={() => fileInputRef.current?.click()}
+            disabled={isUploading || loading}
+            className="p-2 text-muted-foreground hover:text-purple-400 transition-colors disabled:opacity-50"
+            title="Attach files"
+          >
+            {isUploading ? <Loader2 size={18} className="animate-spin" /> : <Paperclip size={18} />}
+          </button>
+
           <textarea
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder={`Ask KO Prime to test or improve ${agentName}...`}
+            placeholder={attachedFiles.length > 0 ? "Add a message about these files..." : `Ask KO Prime to test or improve ${agentName}...`}
             rows={2}
             className="flex-1 px-4 py-2 bg-background border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 resize-none text-sm"
           />
           <button
             onClick={sendMessage}
-            disabled={!input.trim() || loading}
+            disabled={(!input.trim() && attachedFiles.length === 0) || loading}
             className="p-3 bg-gradient-to-r from-purple-600 to-blue-600 text-white rounded-lg hover:from-purple-700 hover:to-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {loading ? <Loader2 size={18} className="animate-spin" /> : <Send size={18} />}

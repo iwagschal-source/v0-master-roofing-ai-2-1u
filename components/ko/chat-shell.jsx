@@ -1,14 +1,28 @@
 "use client"
 
-import { useEffect, useRef, useState } from "react"
+import { useEffect, useRef, useState, useCallback } from "react"
 import { HomeScreen } from "./home-screen"
 import { ConversationPane } from "./conversation-pane"
 import { useWebSocketChat } from "@/hooks/useWebSocketChat"
 import apiClient from "@/lib/api"
+import { Plus, Download } from "lucide-react"
+import {
+  getConversations,
+  getConversation,
+  getActiveSessionId,
+  setActiveSessionId,
+  saveMessages,
+  deleteConversation,
+  exportConversation,
+  downloadExport,
+  generateSessionId,
+} from "@/lib/chat-storage"
 
 export function ChatShell({ onOpenPowerBICustomView, initialContext, onClearContext, historyItem, activeMode, onSourceClick, ...props }) {
   const [view, setView] = useState(activeMode) // "home" | "chat"
   const [messages, setMessages] = useState([])
+  const [currentSessionId, setCurrentSessionId] = useState(null)
+  const [savedConversations, setSavedConversations] = useState([])
 
   // WebSocket streaming hook
   const {
@@ -34,11 +48,79 @@ export function ChatShell({ onOpenPowerBICustomView, initialContext, onClearCont
 
   const lastUserQuestionRef = useRef("")
 
+  // Load saved conversations on mount
+  useEffect(() => {
+    const loadedConversations = getConversations()
+    setSavedConversations(loadedConversations)
+
+    // Check for active session or last session
+    const activeId = getActiveSessionId()
+    if (activeId) {
+      const activeConv = loadedConversations.find(c => c.session_id === activeId)
+      if (activeConv && activeConv.messages.length > 0) {
+        setCurrentSessionId(activeId)
+        setMessages(activeConv.messages)
+        setView("chat")
+      }
+    }
+  }, [])
+
+  // Auto-save messages whenever they change
+  useEffect(() => {
+    if (currentSessionId && messages.length > 0) {
+      saveMessages(currentSessionId, messages)
+      // Update saved conversations list
+      setSavedConversations(getConversations())
+    }
+  }, [messages, currentSessionId])
+
+  // Start a new conversation
+  const startNewConversation = useCallback(() => {
+    const newId = generateSessionId()
+    setCurrentSessionId(newId)
+    setMessages([])
+    setActiveSessionId(newId)
+    setView("home")
+    wsReset()
+  }, [wsReset])
+
+  // Load a saved conversation
+  const loadConversation = useCallback((sessionId) => {
+    const conv = getConversation(sessionId)
+    if (conv) {
+      setCurrentSessionId(sessionId)
+      setMessages(conv.messages)
+      setActiveSessionId(sessionId)
+      setView("chat")
+    }
+  }, [])
+
+  // Delete a conversation
+  const handleDeleteConversation = useCallback((sessionId) => {
+    deleteConversation(sessionId)
+    setSavedConversations(getConversations())
+
+    // If we deleted the current conversation, start fresh
+    if (sessionId === currentSessionId) {
+      startNewConversation()
+    }
+  }, [currentSessionId, startNewConversation])
+
+  // Export a conversation
+  const handleExportConversation = useCallback((sessionId) => {
+    const data = exportConversation(sessionId)
+    if (data) {
+      const filename = `ko-chat-${data.preview?.substring(0, 30).replace(/[^a-z0-9]/gi, '-') || sessionId}.json`
+      downloadExport(data, filename)
+    }
+  }, [])
+
   // Handle activeMode changes
   useEffect(() => {
     console.log("ChatShell view:", view, "activeMode:", activeMode)
     if (activeMode === "home") {
-      setMessages([])
+      // Don't clear messages when going home - they're saved
+      // Only reset streaming state
       wsReset()
     }
     setView(activeMode)
@@ -129,6 +211,14 @@ export function ChatShell({ onOpenPowerBICustomView, initialContext, onClearCont
     if (!text.trim()) return
 
     lastUserQuestionRef.current = text
+
+    // 0) Ensure we have a session ID
+    let sessionId = currentSessionId
+    if (!sessionId) {
+      sessionId = generateSessionId()
+      setCurrentSessionId(sessionId)
+      setActiveSessionId(sessionId)
+    }
 
     // 1) Add user message immediately
     setMessages((prev) => [
@@ -324,9 +414,40 @@ export function ChatShell({ onOpenPowerBICustomView, initialContext, onClearCont
     <HomeScreen
       {...props}
       onSubmit={submit}
+      savedConversations={savedConversations}
+      currentSessionId={currentSessionId}
+      onSelectConversation={loadConversation}
+      onNewConversation={startNewConversation}
+      onDeleteConversation={handleDeleteConversation}
+      onExportConversation={handleExportConversation}
     />
   ) : (
     <>
+      {/* Chat header with New Chat and Export buttons */}
+      <div className="flex items-center justify-between px-4 py-2 border-b border-border bg-card/50">
+        <div className="text-sm text-foreground-secondary">
+          {messages.length > 0 ? `${messages.length} messages` : 'New conversation'}
+        </div>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => currentSessionId && handleExportConversation(currentSessionId)}
+            className="flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-lg bg-secondary/50 hover:bg-secondary text-foreground-secondary hover:text-foreground transition-colors"
+            title="Export this conversation"
+          >
+            <Download className="w-3.5 h-3.5" />
+            Export
+          </button>
+          <button
+            onClick={startNewConversation}
+            className="flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-lg bg-primary/10 hover:bg-primary/20 text-primary transition-colors"
+            title="Start a new conversation"
+          >
+            <Plus className="w-3.5 h-3.5" />
+            New Chat
+          </button>
+        </div>
+      </div>
+
       {/* Context banner */}
       {contextBanner && (
         <div className="bg-primary/5 border-b border-primary/10 px-4 py-3">

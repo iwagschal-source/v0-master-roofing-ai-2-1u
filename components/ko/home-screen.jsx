@@ -7,12 +7,23 @@ import Image from "next/image"
 import { MessageInput } from "./message-input"
 import { VoiceIndicator } from "./voice-indicator"
 import { useVoiceWebSocket } from "@/hooks/useVoiceWebSocket"
+import { ConversationList } from "./conversation-list"
 
 /** @typedef {Object} HomeScreenProps */
 
 /** @param {any} props */
 /** @param {any} props */
-export function HomeScreen({ onSubmit, onStartChat, onNavigateToFiles }) {
+export function HomeScreen({
+  onSubmit,
+  onStartChat,
+  onNavigateToFiles,
+  savedConversations = [],
+  currentSessionId,
+  onSelectConversation,
+  onNewConversation,
+  onDeleteConversation,
+  onExportConversation,
+}) {
   const [isVoiceEnabled, setIsVoiceEnabled] = useState(false)
 
   // Voice WebSocket hook - same as ConversationPane
@@ -137,6 +148,22 @@ export function HomeScreen({ onSubmit, onStartChat, onNavigateToFiles }) {
             </button>
           ))}
         </div>
+
+        {/* Recent Conversations */}
+        {savedConversations.length > 0 && (
+          <div className="mt-8 w-full max-w-md">
+            <div className="bg-card/30 border border-border/50 rounded-xl">
+              <ConversationList
+                conversations={savedConversations}
+                currentSessionId={currentSessionId}
+                onSelectConversation={onSelectConversation}
+                onNewConversation={onNewConversation}
+                onDeleteConversation={onDeleteConversation}
+                onExportConversation={onExportConversation}
+              />
+            </div>
+          </div>
+        )}
       </div>
 
       <div className="p-4 border-t border-border">
