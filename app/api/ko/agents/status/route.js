@@ -1,6 +1,7 @@
 /**
  * Agent Live Status API
  * Fetches real-time status from backend at 34.95.128.208
+ * Supports both hardcoded agents and factory-created agents
  */
 
 // Allow self-signed SSL certificate
@@ -10,37 +11,71 @@ import { NextResponse } from 'next/server'
 
 const BACKEND_URL = 'https://34.95.128.208'
 
+// Map provider to service key for status checking
+function providerToServiceKey(provider) {
+  if (!provider) return null
+  const p = provider.toLowerCase()
+  if (p.includes('anthropic') || p.includes('claude')) return 'anthropic'
+  if (p.includes('openai') || p.includes('gpt')) return 'openai'
+  if (p.includes('google') || p.includes('gemini') || p.includes('vertex')) return 'gemini'
+  if (p.includes('deepseek')) return 'deepseek'
+  if (p.includes('mistral')) return 'mistral'
+  if (p.includes('cohere')) return 'cohere'
+  if (p.includes('groq')) return 'groq'
+  return 'gemini' // Default fallback
+}
+
 // Map backend service status to agent status
-function mapServiceToAgentStatus(services, stubMode) {
+function mapServiceToAgentStatus(services, stubMode, factoryAgents = []) {
+  const now = new Date().toISOString()
+
+  // Start with hardcoded core agents
   const agentStatus = {
     'CAO-GEM-001': {
       status: services.gemini && !stubMode.gemini ? 'live' : 'offline',
-      lastChecked: new Date().toISOString(),
+      lastChecked: now,
     },
     'CAO-CEO-001': {
       status: services.openai && !stubMode.openai ? 'live' : 'offline',
-      lastChecked: new Date().toISOString(),
+      lastChecked: now,
     },
     'CAO-SQL-001': {
       status: services.anthropic && !stubMode.anthropic ? 'live' : 'offline',
-      lastChecked: new Date().toISOString(),
+      lastChecked: now,
     },
     'CAO-VTX-001': {
       status: services.gcp && !stubMode.gcp ? 'live' : 'offline',
-      lastChecked: new Date().toISOString(),
+      lastChecked: now,
     },
     'CAO-HUB-001': {
       status: services.hubspot && !stubMode.hubspot ? 'live' : 'offline',
-      lastChecked: new Date().toISOString(),
+      lastChecked: now,
     },
     'CAO-PBI-001': {
       status: services.powerbi && !stubMode.powerbi ? 'live' : 'offline',
-      lastChecked: new Date().toISOString(),
+      lastChecked: now,
     },
     'CAO-AUD-001': {
       status: 'live', // Auditor is always on if backend is healthy
-      lastChecked: new Date().toISOString(),
+      lastChecked: now,
     },
+  }
+
+  // Add factory-created agents with status based on their provider
+  for (const agent of factoryAgents) {
+    // Skip if already in hardcoded list
+    if (agentStatus[agent.id]) continue
+
+    const serviceKey = providerToServiceKey(agent.provider)
+    const isServiceUp = serviceKey ? (services[serviceKey] || services.gemini) : true
+    const isStubbed = serviceKey ? stubMode[serviceKey] : false
+
+    // Agent is "live" if enabled and its provider service is up
+    const isEnabled = agent.enabled !== false
+    agentStatus[agent.id] = {
+      status: isEnabled && isServiceUp && !isStubbed ? 'live' : (isEnabled ? 'idle' : 'offline'),
+      lastChecked: now,
+    }
   }
 
   return agentStatus
@@ -48,10 +83,11 @@ function mapServiceToAgentStatus(services, stubMode) {
 
 export async function GET() {
   try {
-    // Fetch health and config from backend in parallel
-    const [healthRes, configRes] = await Promise.all([
+    // Fetch health, config, and factory agents from backend in parallel
+    const [healthRes, configRes, agentsRes] = await Promise.all([
       fetch(`${BACKEND_URL}/health`, { cache: 'no-store' }),
-      fetch(`${BACKEND_URL}/v1/config`, { cache: 'no-store' })
+      fetch(`${BACKEND_URL}/v1/config`, { cache: 'no-store' }),
+      fetch(`${BACKEND_URL}/v1/factory/agents`, { cache: 'no-store' }),
     ])
 
     if (!healthRes.ok) {
@@ -65,11 +101,13 @@ export async function GET() {
 
     const health = await healthRes.json()
     const config = configRes.ok ? await configRes.json() : {}
+    const agentsData = agentsRes.ok ? await agentsRes.json() : { agents: [] }
 
-    // Build agent status from backend response
+    // Build agent status from backend response, including factory agents
     const agentStatus = mapServiceToAgentStatus(
       config.services_configured || {},
-      health.stub_mode || config.stub_mode || {}
+      health.stub_mode || config.stub_mode || {},
+      agentsData.agents || []
     )
 
     return NextResponse.json({
