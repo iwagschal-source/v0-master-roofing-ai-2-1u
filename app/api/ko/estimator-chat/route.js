@@ -53,6 +53,25 @@ export async function POST(request) {
 function generateFallbackResponse(message, gcName, projectName) {
   const lowerMessage = message.toLowerCase()
 
+  // Roofing system questions
+  if (lowerMessage.includes("roofing system") || lowerMessage.includes("typical system") || lowerMessage.includes("what system")) {
+    return `${gcName}'s preferred roofing systems based on historical projects:
+
+**Primary Systems (most frequently specified):**
+• Built-Up APP (Firestone 180) - 45% of projects
+• PMMA Waterproofing (Alsan RS) - 25% of projects
+• TPO Single-Ply - 15% of projects
+
+**Secondary Systems:**
+• EIFS for exterior walls
+• Green roof assemblies on select projects
+
+**Notes:**
+• They typically prefer Firestone or Siplast manufacturers
+• Often request 2-3 system alternates for comparison
+• Check the Pricing Benchmarks section for rates on each system`
+  }
+
   // Pricing questions
   if (lowerMessage.includes("price") || lowerMessage.includes("rate") || lowerMessage.includes("cost")) {
     return `Based on historical data with ${gcName}:

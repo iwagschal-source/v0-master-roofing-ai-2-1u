@@ -24,7 +24,7 @@ export function GCBriefWithChat({ gcName, projectName, className }) {
 
   // Suggested questions
   const suggestions = [
-    "What's their typical VE?",
+    "What's their typical roofing system?",
     "Preferred coping material?",
     "Any payment issues?",
     "Best pricing strategy?",
