@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useMemo } from "react"
+import { useState, useMemo, useEffect, useRef } from "react"
 import {
   Search,
   Plus,
@@ -39,20 +39,131 @@ export function AgentDashboardScreen({
     error: statusError,
   } = useAgentStatus(true)
 
-  // Merge agent data with live status
+  // Real-time WebSocket state for live call tracking
+  const [busyAgents, setBusyAgents] = useState(new Set())
+  const [currentActions, setCurrentActions] = useState(new Map()) // Track what each agent is doing
+  const [wsConnected, setWsConnected] = useState(false)
+  const wsRef = useRef(null)
+
+  // WebSocket connection for real-time updates
+  useEffect(() => {
+    const connectWebSocket = () => {
+      try {
+        const ws = new WebSocket('wss://34.95.128.208/ws/network')
+        wsRef.current = ws
+
+        ws.onopen = () => {
+          console.log('Dashboard WebSocket connected')
+          setWsConnected(true)
+        }
+
+        ws.onmessage = (event) => {
+          try {
+            const data = JSON.parse(event.data)
+
+            switch (data.type) {
+              case 'call_start':
+                setBusyAgents(prev => new Set([...prev, data.target]))
+                // Update current action if provided
+                if (data.action) {
+                  setCurrentActions(prev => {
+                    const next = new Map(prev)
+                    next.set(data.target, data.action)
+                    return next
+                  })
+                }
+                break
+
+              case 'call_end':
+                // Small delay before removing busy state for visual feedback
+                setTimeout(() => {
+                  setBusyAgents(prev => {
+                    const next = new Set(prev)
+                    next.delete(data.target)
+                    return next
+                  })
+                }, 500)
+                break
+
+              case 'agent_status':
+                if (data.status === 'busy') {
+                  setBusyAgents(prev => new Set([...prev, data.agent_id]))
+                  if (data.message) {
+                    setCurrentActions(prev => {
+                      const next = new Map(prev)
+                      next.set(data.agent_id, data.message)
+                      return next
+                    })
+                  }
+                } else {
+                  setBusyAgents(prev => {
+                    const next = new Set(prev)
+                    next.delete(data.agent_id)
+                    return next
+                  })
+                }
+                break
+            }
+          } catch (e) {
+            console.error('WebSocket message parse error:', e)
+          }
+        }
+
+        ws.onclose = () => {
+          console.log('Dashboard WebSocket disconnected')
+          setWsConnected(false)
+          // Attempt reconnect after 5 seconds
+          setTimeout(connectWebSocket, 5000)
+        }
+
+        ws.onerror = (error) => {
+          console.error('Dashboard WebSocket error:', error)
+        }
+      } catch (e) {
+        console.error('WebSocket connection error:', e)
+        setTimeout(connectWebSocket, 5000)
+      }
+    }
+
+    connectWebSocket()
+
+    return () => {
+      if (wsRef.current) {
+        wsRef.current.close()
+      }
+    }
+  }, [])
+
+  // Merge agent data with live status AND real-time busy state
   const agents = useMemo(() => {
     return baseAgents.map((agent) => {
       const liveStatus = agentStatuses[agent.id]
+      const isBusy = busyAgents.has(agent.id)
+      const currentAction = currentActions.get(agent.id)
+
+      let status = agent.status
+      let action = agent.currentAction
+
       if (liveStatus) {
-        return {
-          ...agent,
-          status: liveStatus.status,
-          lastActivity: liveStatus.lastChecked,
+        status = liveStatus.status
+      }
+
+      // Override with real-time busy state from WebSocket
+      if (isBusy) {
+        status = "busy"
+        if (currentAction) {
+          action = currentAction
         }
       }
-      return agent
+
+      return {
+        ...agent,
+        status,
+        currentAction: action,
+        lastActivity: liveStatus?.lastChecked,
+      }
     })
-  }, [baseAgents, agentStatuses])
+  }, [baseAgents, agentStatuses, busyAgents, currentActions])
 
   // Count agents by status
   // Note: "live" from backend means available/ready, "busy" means actively processing
@@ -136,6 +247,14 @@ export function AgentDashboardScreen({
                 {isBackendHealthy ? "Backend Online" : statusError || "Backend Offline"}
               </span>
             </div>
+
+            {/* Real-time WebSocket indicator */}
+            {wsConnected && (
+              <div className="flex items-center gap-2 px-3 py-1.5 bg-blue-500/10 border border-blue-500/30 rounded-lg">
+                <span className="w-1.5 h-1.5 bg-blue-400 rounded-full animate-pulse" />
+                <span className="text-xs text-blue-400">Real-time</span>
+              </div>
+            )}
 
             {/* Alerts summary */}
             {(bottlenecks.length > 0 || problemAgents.length > 0) && (
