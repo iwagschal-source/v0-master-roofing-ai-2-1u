@@ -252,8 +252,14 @@ function ConnectionLine({ from, to, type, isActive, isAnimating, bidirectional }
   )
 }
 
+// Zoom configuration: 0.5 scale = 100% display (comfortable default view)
+const ZOOM_BASE = 0.5  // This scale = 100% in UI
+const ZOOM_MIN = 0.1   // Allows zooming out to see everything
+const ZOOM_MAX = 1.5   // Allows zooming in for detail
+const ZOOM_STEP = 0.1  // Finer zoom control
+
 export function AgentNetworkMapScreen({ onBack, onSelectAgent }) {
-  const [zoom, setZoom] = useState(1)
+  const [zoom, setZoom] = useState(ZOOM_BASE)
   const [selectedNode, setSelectedNode] = useState(null)
   const [isPlaying, setIsPlaying] = useState(true)
   const [filter, setFilter] = useState("all")
@@ -316,9 +322,12 @@ export function AgentNetworkMapScreen({ onBack, onSelectAgent }) {
     [currentAgents]
   )
 
-  const handleZoomIn = () => setZoom((z) => Math.min(z + 0.2, 2))
-  const handleZoomOut = () => setZoom((z) => Math.max(z - 0.2, 0.5))
-  const handleReset = () => setZoom(1)
+  const handleZoomIn = () => setZoom((z) => Math.min(z + ZOOM_STEP, ZOOM_MAX))
+  const handleZoomOut = () => setZoom((z) => Math.max(z - ZOOM_STEP, ZOOM_MIN))
+  const handleReset = () => setZoom(ZOOM_BASE)
+
+  // Display percentage relative to base (0.5 scale = 100%)
+  const displayZoomPercent = Math.round((zoom / ZOOM_BASE) * 100)
 
   const handleNodeClick = (nodeId) => {
     if (nodeId === "USER") {
@@ -414,13 +423,13 @@ export function AgentNetworkMapScreen({ onBack, onSelectAgent }) {
 
             {/* Zoom controls */}
             <div className="flex items-center border border-border rounded-lg overflow-hidden">
-              <button onClick={handleZoomOut} className="p-2 bg-secondary hover:bg-accent">
+              <button onClick={handleZoomOut} className="p-2 bg-secondary hover:bg-accent" title="Zoom out (min 20%)">
                 <ZoomOut size={18} />
               </button>
               <span className="px-3 text-sm bg-secondary min-w-[60px] text-center">
-                {Math.round(zoom * 100)}%
+                {displayZoomPercent}%
               </span>
-              <button onClick={handleZoomIn} className="p-2 bg-secondary hover:bg-accent">
+              <button onClick={handleZoomIn} className="p-2 bg-secondary hover:bg-accent" title="Zoom in (max 300%)">
                 <ZoomIn size={18} />
               </button>
             </div>
