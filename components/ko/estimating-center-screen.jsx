@@ -138,6 +138,9 @@ export function EstimatingCenterScreen({ onSelectProject, onBack }) {
   const [creatingSheet, setCreatingSheet] = useState(false)
   const [populatingSheet, setPopulatingSheet] = useState(false)
 
+  // Historical rates toggle
+  const [useHistoricalRates, setUseHistoricalRates] = useState(true)
+
   // Chat state
   const [chatHeight, setChatHeight] = useState(280)
   const [isDragging, setIsDragging] = useState(false)
@@ -354,7 +357,9 @@ export function EstimatingCenterScreen({ onSelectProject, onBack }) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           csv_content: content,
-          project_name: file.name.replace('.csv', '')
+          project_name: selectedProject?.project_name || file.name.replace('.csv', ''),
+          gc_name: selectedProject?.gc_name || null,
+          use_historical_rates: useHistoricalRates
         })
       })
 
@@ -377,6 +382,8 @@ export function EstimatingCenterScreen({ onSelectProject, onBack }) {
           items: data.items,
           template_data: data.template_data,
           sheetPopulated,
+          rateSource: data.rate_source,
+          historicalRatesUsed: data.summary?.historical_rates_used || 0,
           message: `Processed ${data.summary?.total_items || 0} items`
         })
       } else {
@@ -931,6 +938,12 @@ export function EstimatingCenterScreen({ onSelectProject, onBack }) {
                     <div className="mt-3 pt-3 border-t border-border text-sm space-y-1">
                       <p>Items: {uploadResult.summary.total_items}</p>
                       <p>Estimated: {formatCurrency(uploadResult.summary.estimated_cost)}</p>
+                      {uploadResult.rateSource === 'historical' && (
+                        <p className="text-blue-400 flex items-center gap-1">
+                          <CheckCircle2 className="w-3 h-3" />
+                          {uploadResult.historicalRatesUsed} items with historical rates
+                        </p>
+                      )}
                       {uploadResult.sheetPopulated && (
                         <p className="text-green-400 flex items-center gap-1">
                           <CheckCircle2 className="w-3 h-3" />
@@ -990,6 +1003,29 @@ export function EstimatingCenterScreen({ onSelectProject, onBack }) {
                 </div>
               ) : (
                 <>
+                  {/* Historical rates toggle */}
+                  <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg mb-4">
+                    <div>
+                      <p className="text-sm font-medium">Use Historical Rates</p>
+                      <p className="text-xs text-muted-foreground">
+                        Apply average rates from past projects
+                        {selectedProject?.gc_name && ` (${selectedProject.gc_name})`}
+                      </p>
+                    </div>
+                    <button
+                      onClick={() => setUseHistoricalRates(!useHistoricalRates)}
+                      className={`relative w-11 h-6 rounded-full transition-colors ${
+                        useHistoricalRates ? 'bg-primary' : 'bg-muted-foreground/30'
+                      }`}
+                    >
+                      <div
+                        className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-transform ${
+                          useHistoricalRates ? 'translate-x-6' : 'translate-x-1'
+                        }`}
+                      />
+                    </button>
+                  </div>
+
                   <div
                     onClick={() => fileInputRef.current?.click()}
                     className="border-2 border-dashed border-border rounded-xl p-8 text-center cursor-pointer hover:border-primary/50 transition-colors"

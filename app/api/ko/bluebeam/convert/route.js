@@ -309,13 +309,78 @@ function categorizeItems(items) {
 }
 
 /**
+ * Fetch historical rates from BigQuery
+ * @param {string} gcName - Optional GC name for GC-specific rates
+ * @returns {Promise<Object>} - Rate lookup map
+ */
+async function fetchHistoricalRates(gcName = null) {
+  try {
+    const url = new URL('/api/ko/rates', 'http://localhost:3000')
+    if (gcName) url.searchParams.set('gcName', gcName)
+
+    // Use internal fetch (same server)
+    const { getAverageRates } = await import('@/lib/bigquery')
+    const rates = await getAverageRates(gcName)
+
+    // Convert to simple rate map
+    const rateMap = {}
+    for (const [key, data] of Object.entries(rates)) {
+      rateMap[key] = data.avgRate
+    }
+    return rateMap
+  } catch (err) {
+    console.log('Historical rates unavailable:', err.message)
+    return {}
+  }
+}
+
+/**
+ * Apply historical rates to items
+ * @param {Array} items - Parsed items
+ * @param {Object} historicalRates - Rate lookup from BigQuery
+ * @returns {Array} - Items with updated rates
+ */
+function applyHistoricalRates(items, historicalRates) {
+  return items.map(item => {
+    const nameLower = item.item_name.toLowerCase()
+
+    // Try to find a matching historical rate
+    let historicalRate = null
+    for (const [keyword, rate] of Object.entries(historicalRates)) {
+      if (nameLower.includes(keyword) || keyword.includes(nameLower)) {
+        historicalRate = rate
+        break
+      }
+    }
+
+    if (historicalRate && historicalRate > 0) {
+      return {
+        ...item,
+        rate: historicalRate,
+        total: Math.round(item.quantity * historicalRate),
+        rate_source: 'historical'
+      }
+    }
+
+    return { ...item, rate_source: 'default' }
+  })
+}
+
+/**
  * POST /api/ko/bluebeam/convert
  * Convert Bluebeam CSV to structured takeoff data
+ *
+ * Body params:
+ * - csv_content: CSV file content (required)
+ * - project_name: Project name
+ * - project_id: Project ID
+ * - gc_name: GC name for GC-specific historical rates
+ * - use_historical_rates: Boolean to enable historical rate lookup
  */
 export async function POST(request) {
   try {
     const body = await request.json()
-    const { csv_content, project_name, project_id } = body
+    const { csv_content, project_name, project_id, gc_name, use_historical_rates } = body
 
     if (!csv_content) {
       return NextResponse.json(
@@ -329,7 +394,7 @@ export async function POST(request) {
       const backendRes = await fetch(`${BACKEND_URL}/v1/bluebeam/convert`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ csv_content, project_name, project_id }),
+        body: JSON.stringify({ csv_content, project_name, project_id, gc_name, use_historical_rates }),
         signal: AbortSignal.timeout(10000) // 10s timeout
       })
 
@@ -346,7 +411,18 @@ export async function POST(request) {
     }
 
     // Local processing
-    const items = parseBluebeamCSV(csv_content)
+    let items = parseBluebeamCSV(csv_content)
+
+    // Fetch and apply historical rates if requested
+    let rateSource = 'default'
+    if (use_historical_rates) {
+      const historicalRates = await fetchHistoricalRates(gc_name)
+      if (Object.keys(historicalRates).length > 0) {
+        items = applyHistoricalRates(items, historicalRates)
+        rateSource = 'historical'
+      }
+    }
+
     const categories = categorizeItems(items)
     const template_data = convertToTemplateData(items, project_name)
 
@@ -354,6 +430,7 @@ export async function POST(request) {
     const totalItems = items.length
     const totalMeasurements = items.reduce((sum, item) => sum + (item.quantity || 0), 0)
     const estimatedCost = items.reduce((sum, item) => sum + (item.total || 0), 0)
+    const historicalCount = items.filter(i => i.rate_source === 'historical').length
 
     return NextResponse.json({
       success: true,
@@ -365,6 +442,7 @@ export async function POST(request) {
         total_measurements: Math.round(totalMeasurements),
         estimated_cost: estimatedCost,
         scope_items: totalItems,
+        historical_rates_used: historicalCount,
         breakdown: {
           roofing_systems: categories.roofing_systems.length,
           metal_work: categories.metal_work.length,
@@ -373,6 +451,8 @@ export async function POST(request) {
         }
       },
       project_name: project_name || 'Untitled',
+      gc_name: gc_name || null,
+      rate_source: rateSource,
       source: 'local'
     })
 
