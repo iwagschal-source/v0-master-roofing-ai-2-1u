@@ -121,7 +121,7 @@ export function AgentDetailScreen({ agent, onBack, onClone, onOpenNetwork }) {
   ]
 
   return (
-    <div className="flex-1 flex flex-col overflow-hidden bg-background">
+    <div className="flex-1 flex flex-col overflow-auto bg-background">
       {/* Header */}
       <header className="bg-card border-b border-border px-6 py-4">
         {/* Back link */}
