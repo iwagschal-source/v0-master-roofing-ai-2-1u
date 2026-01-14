@@ -7,7 +7,15 @@ import { AgentModelIcon, StatusDot, QueueIndicator } from "./agent-model-icon"
 
 export function AgentCard({ agent, onClick }) {
   const [scrollPosition, setScrollPosition] = useState(0)
-  const status = statusConfig[agent.status]
+
+  // Map backend status to display status:
+  // - "busy" from backend = "live" display (actively transmitting)
+  // - "live" from backend = "idle" display (available but not active)
+  // - Other statuses remain the same
+  const displayStatus = agent.status === "busy" ? "live" :
+                        agent.status === "live" ? "idle" :
+                        agent.status
+  const status = statusConfig[displayStatus]
 
   // Scroll the activity text continuously
   useEffect(() => {
@@ -96,10 +104,10 @@ export function AgentCard({ agent, onClick }) {
               transform: `translateX(-${scrollPosition % scrollReset}px)`,
             }}
           >
-            <StatusDot status={agent.status} size="sm" className="mr-2 flex-shrink-0" />
+            <StatusDot status={displayStatus} size="sm" isTransmitting={agent.status === "busy"} className="mr-2 flex-shrink-0" />
             <span>{agent.currentAction}</span>
             <span className="mx-8 text-muted-foreground/50">|</span>
-            <StatusDot status={agent.status} size="sm" className="mr-2 flex-shrink-0" />
+            <StatusDot status={displayStatus} size="sm" isTransmitting={agent.status === "busy"} className="mr-2 flex-shrink-0" />
             <span>{agent.currentAction}</span>
           </div>
         </div>
@@ -110,7 +118,11 @@ export function AgentCard({ agent, onClick }) {
 
 // Compact card variant for network map side panel
 export function AgentCardCompact({ agent, onClick, isSelected }) {
-  const status = statusConfig[agent.status]
+  // Map backend status to display status
+  const displayStatus = agent.status === "busy" ? "live" :
+                        agent.status === "live" ? "idle" :
+                        agent.status
+  const status = statusConfig[displayStatus]
 
   return (
     <div
@@ -125,8 +137,9 @@ export function AgentCardCompact({ agent, onClick, isSelected }) {
         <div className="relative">
           <AgentModelIcon modelKey={agent.modelKey} size="sm" />
           <StatusDot
-            status={agent.status}
+            status={displayStatus}
             size="sm"
+            isTransmitting={agent.status === "busy"}
             className="absolute -bottom-0.5 -right-0.5 border border-card"
           />
         </div>

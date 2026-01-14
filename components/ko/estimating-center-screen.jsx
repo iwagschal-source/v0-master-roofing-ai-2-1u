@@ -23,6 +23,7 @@ import {
   ExternalLink
 } from "lucide-react"
 import { GCBrief } from "./gc-brief"
+import { EstimatingSheet } from "./estimating-sheet"
 import { cn } from "@/lib/utils"
 
 // Mock data for development - will be replaced with API calls
@@ -125,6 +126,7 @@ export function EstimatingCenterScreen({ onSelectProject, onBack }) {
   const [selectedProject, setSelectedProject] = useState(null)
   const [showUploadModal, setShowUploadModal] = useState(false)
   const [showNewProjectModal, setShowNewProjectModal] = useState(false)
+  const [showSheet, setShowSheet] = useState(false)
   const [uploadingFile, setUploadingFile] = useState(false)
   const [uploadResult, setUploadResult] = useState(null)
   const fileInputRef = useRef(null)
@@ -541,19 +543,37 @@ export function EstimatingCenterScreen({ onSelectProject, onBack }) {
               </div>
               <div className="flex items-center gap-2">
                 <button
+                  onClick={() => setShowSheet(true)}
+                  className="flex items-center gap-2 px-3 py-2 bg-secondary hover:bg-secondary/80 rounded-lg text-sm transition-colors"
+                >
+                  <FileSpreadsheet className="w-4 h-4" />
+                  Takeoff Sheet
+                </button>
+                <button
                   onClick={() => {
-                    // Open proposal preview in new tab with project data
                     const proposalUrl = `/proposal-preview?projectId=${selectedProject.project_id}&gcName=${encodeURIComponent(selectedProject.gc_name)}&projectName=${encodeURIComponent(selectedProject.project_name)}`
                     window.open(proposalUrl, '_blank')
                   }}
                   className="flex items-center gap-2 px-3 py-2 bg-primary text-primary-foreground hover:bg-primary/90 rounded-lg text-sm transition-colors"
                 >
                   <FileText className="w-4 h-4" />
-                  Generate Proposal
+                  Proposal
                   <ExternalLink className="w-3 h-3" />
                 </button>
               </div>
             </div>
+
+            {/* Estimating Sheet - Full Screen Overlay */}
+            {showSheet && (
+              <div className="absolute inset-0 z-50 bg-background">
+                <EstimatingSheet
+                  projectId={selectedProject.project_id}
+                  projectName={selectedProject.project_name}
+                  gcName={selectedProject.gc_name}
+                  onClose={() => setShowSheet(false)}
+                />
+              </div>
+            )}
 
             {/* GC Brief - Top Section */}
             <div className="flex-1 min-h-0 overflow-y-auto">

@@ -4,8 +4,23 @@ import { AgentCard } from "./agent-card"
 
 export function AgentGrid({ agents, filter = "all", searchTerm = "", onSelectAgent }) {
   // Filter agents
+  // Map backend status to display status for filtering:
+  // - filter "live" should match agents with backend status "busy"
+  // - filter "idle" should match agents with backend status "live" or "idle"
   const filteredAgents = agents.filter((agent) => {
-    const matchesFilter = filter === "all" || agent.status === filter
+    let matchesFilter = filter === "all"
+    if (!matchesFilter) {
+      if (filter === "live") {
+        // "Live" filter matches agents that are actively transmitting (busy status)
+        matchesFilter = agent.status === "busy"
+      } else if (filter === "idle") {
+        // "Idle" filter matches agents that are available (live or idle status)
+        matchesFilter = agent.status === "live" || agent.status === "idle"
+      } else {
+        // Other filters (error, paused, offline) match directly
+        matchesFilter = agent.status === filter
+      }
+    }
     const matchesSearch =
       searchTerm === "" ||
       agent.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -15,10 +30,18 @@ export function AgentGrid({ agents, filter = "all", searchTerm = "", onSelectAge
     return matchesFilter && matchesSearch
   })
 
-  // Sort: live first, then idle, then error, then paused, then offline
-  const statusOrder = { live: 0, idle: 1, error: 2, paused: 3, offline: 4 }
+  // Sort: live (busy) first, then idle (available), then error, then paused, then offline
+  // Map backend status to display order
+  const getDisplayOrder = (status) => {
+    if (status === "busy") return 0  // Actively transmitting first
+    if (status === "live" || status === "idle") return 1  // Available agents
+    if (status === "error") return 2
+    if (status === "paused") return 3
+    if (status === "offline") return 4
+    return 5
+  }
   const sortedAgents = [...filteredAgents].sort(
-    (a, b) => (statusOrder[a.status] ?? 5) - (statusOrder[b.status] ?? 5)
+    (a, b) => getDisplayOrder(a.status) - getDisplayOrder(b.status)
   )
 
   return (

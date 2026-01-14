@@ -106,10 +106,14 @@ function calculatePositions(agentList) {
 }
 
 // Network Node Component
-function NetworkNode({ agent, position, isSelected, onClick, isAnimating, showQueueBadge, isBusy, isBottleneck, isInLoop, isPaused }) {
+function NetworkNode({ agent, position, isSelected, onClick, isAnimating, showQueueBadge, isBusy, isBottleneck, isInLoop, isPaused, wasRecentlyActive }) {
   const status = agent ? statusConfig[agent.status] : { color: "bg-blue-500", label: "USER" }
   const isUser = !agent
   const hasBacklog = agent?.queueDepth >= 5
+
+  // Determine actual status for indicator: transmitting (green), recently active (fading green), or idle (orange)
+  const isTransmitting = isBusy && !isPaused
+  const showRecentlyActive = wasRecentlyActive && !isBusy && !isPaused
 
   return (
     <g
@@ -189,20 +193,71 @@ function NetworkNode({ agent, position, isSelected, onClick, isAnimating, showQu
         </>
       )}
 
-      {/* Status indicator */}
+      {/* Status indicator - shows transmission state, not just status */}
       {agent && (
-        <circle
-          cx="30"
-          cy="-30"
-          r="10"
-          fill={status.color?.includes("emerald") ? "#10b981" : status.color?.includes("amber") ? "#f59e0b" : status.color?.includes("red") ? "#ef4444" : status.color?.includes("purple") ? "#a855f7" : "#6b7280"}
-          stroke="#0f172a"
-          strokeWidth="2"
-        >
-          {(agent.status === "live" || agent.status === "error") && (
-            <animate attributeName="opacity" values="1;0.4;1" dur="1.5s" repeatCount="indefinite" />
+        <g>
+          {/* Outer glow for transmitting state */}
+          {isTransmitting && (
+            <circle
+              cx="30"
+              cy="-30"
+              r="14"
+              fill="none"
+              stroke="#10b981"
+              strokeWidth="2"
+              opacity="0.5"
+            >
+              <animate attributeName="r" values="12;16;12" dur="0.6s" repeatCount="indefinite" />
+              <animate attributeName="opacity" values="0.5;0.2;0.5" dur="0.6s" repeatCount="indefinite" />
+            </circle>
           )}
-        </circle>
+          {/* Fading glow for recently active */}
+          {showRecentlyActive && (
+            <circle
+              cx="30"
+              cy="-30"
+              r="13"
+              fill="none"
+              stroke="#059669"
+              strokeWidth="1.5"
+              opacity="0.4"
+            >
+              <animate attributeName="r" values="11;14;11" dur="1s" repeatCount="indefinite" />
+              <animate attributeName="opacity" values="0.4;0.1;0.4" dur="1s" repeatCount="indefinite" />
+            </circle>
+          )}
+          {/* Main indicator dot */}
+          <circle
+            cx="30"
+            cy="-30"
+            r={isTransmitting ? "7" : showRecentlyActive ? "8" : "9"}
+            fill={
+              isTransmitting ? "#10b981" : // Bright green when transmitting
+              showRecentlyActive ? "#059669" : // Darker green when recently active
+              agent.status === "error" ? "#ef4444" : // Red for error
+              agent.status === "paused" ? "#a855f7" : // Purple for paused
+              agent.status === "offline" ? "#6b7280" : // Gray for offline
+              "#f59e0b" // Amber/orange for idle (default)
+            }
+            stroke="#0f172a"
+            strokeWidth="2"
+          >
+            {/* Throb animation for transmitting */}
+            {isTransmitting && (
+              <>
+                <animate attributeName="r" values="6;8;6" dur="0.6s" repeatCount="indefinite" />
+              </>
+            )}
+            {/* Slower throb for recently active */}
+            {showRecentlyActive && (
+              <animate attributeName="r" values="7;9;7" dur="1s" repeatCount="indefinite" />
+            )}
+            {/* Pulse for error */}
+            {agent.status === "error" && !isTransmitting && !showRecentlyActive && (
+              <animate attributeName="opacity" values="1;0.4;1" dur="1.5s" repeatCount="indefinite" />
+            )}
+          </circle>
+        </g>
       )}
 
       {/* Queue depth badge */}
@@ -352,8 +407,13 @@ export function AgentNetworkMapScreen({ onBack, onSelectAgent }) {
   const [activeCalls, setActiveCalls] = useState(new Map())
   const [returningCalls, setReturningCalls] = useState(new Map()) // Calls returning data
   const [busyAgents, setBusyAgents] = useState(new Set())
+  const [recentlyActiveAgents, setRecentlyActiveAgents] = useState(new Map()) // Track agents that were recently transmitting
   const [wsConnected, setWsConnected] = useState(false)
   const wsRef = useRef(null)
+
+  // When an agent stops being busy, add it to recently active with a timestamp
+  // It will stay in "recently active" for 7 seconds (post-transmission glow)
+  const RECENTLY_ACTIVE_DURATION = 7000 // 7 seconds
 
   // Phase 4: Loop and bottleneck detection
   const [detectedLoops, setDetectedLoops] = useState([])
@@ -558,6 +618,26 @@ export function AgentNetworkMapScreen({ onBack, onSelectAgent }) {
     return () => clearInterval(interval)
   }, [])
 
+  // Clean up recently active agents after duration expires
+  useEffect(() => {
+    if (recentlyActiveAgents.size === 0) return
+
+    const cleanupInterval = setInterval(() => {
+      const now = Date.now()
+      setRecentlyActiveAgents(prev => {
+        const next = new Map()
+        for (const [agentId, timestamp] of prev) {
+          if (now - timestamp < RECENTLY_ACTIVE_DURATION) {
+            next.set(agentId, timestamp)
+          }
+        }
+        return next
+      })
+    }, 1000) // Check every second
+
+    return () => clearInterval(cleanupInterval)
+  }, [recentlyActiveAgents.size])
+
   // WebSocket connection for real-time updates
   useEffect(() => {
     const connectWebSocket = () => {
@@ -628,6 +708,12 @@ export function AgentNetworkMapScreen({ onBack, onSelectAgent }) {
                   if (call) {
                     const hasOtherCalls = [...next.values()].some(c => c.target === call.target)
                     if (!hasOtherCalls) {
+                      // Mark as recently active before removing from busy
+                      setRecentlyActiveAgents(ra => {
+                        const raNext = new Map(ra)
+                        raNext.set(call.target, Date.now())
+                        return raNext
+                      })
                       setBusyAgents(prev => {
                         const next = new Set(prev)
                         next.delete(call.target)
@@ -1088,6 +1174,7 @@ export function AgentNetworkMapScreen({ onBack, onSelectAgent }) {
                   isSelected={selectedNode === agent.id}
                   onClick={handleNodeClick}
                   isBusy={busyAgents.has(agent.id)}
+                  wasRecentlyActive={recentlyActiveAgents.has(agent.id)}
                   isBottleneck={bottleneckAgents.has(agent.id)}
                   isInLoop={agentsInLoops.has(agent.id)}
                   isPaused={pausedAgents.has(agent.id)}
@@ -1259,7 +1346,10 @@ export function AgentNetworkMapScreen({ onBack, onSelectAgent }) {
           {/* Status indicators */}
           <div className="flex items-center gap-6">
             <span className="text-xs text-muted-foreground font-medium">Status:</span>
-            {Object.entries(statusConfig).map(([key, config]) => (
+            {/* Only show primary statuses, not aliases like "busy" */}
+            {Object.entries(statusConfig)
+              .filter(([key]) => key !== 'busy') // Skip alias
+              .map(([key, config]) => (
               <div key={key} className="flex items-center gap-2">
                 <StatusDot status={key} size="sm" />
                 <span className="text-xs text-muted-foreground">{config.label}</span>

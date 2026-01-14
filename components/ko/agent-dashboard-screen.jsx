@@ -55,10 +55,11 @@ export function AgentDashboardScreen({
   }, [baseAgents, agentStatuses])
 
   // Count agents by status
+  // Note: "live" from backend means available/ready, "busy" means actively processing
   const statusCounts = useMemo(() => ({
     all: agents.length,
-    live: agents.filter((a) => a.status === "live").length,
-    idle: agents.filter((a) => a.status === "idle").length,
+    live: agents.filter((a) => a.status === "busy").length, // Only truly active agents
+    idle: agents.filter((a) => a.status === "live" || a.status === "idle").length, // Available agents are "idle"
     error: agents.filter((a) => a.status === "error").length,
     paused: agents.filter((a) => a.status === "paused").length,
     offline: agents.filter((a) => a.status === "offline").length,

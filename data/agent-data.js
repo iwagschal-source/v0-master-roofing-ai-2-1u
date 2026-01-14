@@ -12,15 +12,26 @@
  */
 
 // Status configuration with colors
+// Note: "live" = actively transmitting (green throb), "idle" = ready/standing by (orange)
 export const statusConfig = {
   live: {
     label: "LIVE",
-    color: "bg-emerald-500",
-    pulseColor: "bg-emerald-400",
+    color: "bg-emerald-600",  // Darker green
+    pulseColor: "bg-emerald-500",
     textColor: "text-emerald-400",
     borderColor: "border-emerald-500",
-    animation: "animate-pulse",
-    description: "Actively processing",
+    animation: "animate-throb",  // Use throb instead of pulse
+    description: "Actively transmitting",
+  },
+  busy: {
+    // Alias for live - when backend sends "busy" status
+    label: "LIVE",
+    color: "bg-emerald-600",
+    pulseColor: "bg-emerald-500",
+    textColor: "text-emerald-400",
+    borderColor: "border-emerald-500",
+    animation: "animate-throb",
+    description: "Actively transmitting",
   },
   idle: {
     label: "IDLE",
@@ -29,7 +40,6 @@ export const statusConfig = {
     textColor: "text-amber-400",
     borderColor: "border-amber-500",
     animation: "",
-    opacity: "opacity-60",
     description: "Ready, awaiting request",
   },
   error: {

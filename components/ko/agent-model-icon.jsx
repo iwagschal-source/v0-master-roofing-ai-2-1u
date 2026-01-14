@@ -26,32 +26,63 @@ export function AgentModelIcon({ modelKey, size = "md", className = "" }) {
 }
 
 // Status indicator dot
-export function StatusDot({ status, size = "md", className = "" }) {
+// Props:
+// - status: 'live' | 'idle' | 'error' | 'paused' | 'offline'
+// - isTransmitting: boolean - true when actively transmitting (shows green throb)
+// - wasRecentlyActive: boolean - true for 5-10s after transmission ends (fading throb)
+export function StatusDot({ status, size = "md", className = "", isTransmitting = false, wasRecentlyActive = false }) {
+  // Determine the actual display color based on transmission state
+  // If transmitting or recently active, show green. Otherwise use status color
+  const showLive = isTransmitting || wasRecentlyActive
+
   const statusColors = {
-    live: "bg-emerald-500",
+    live: "bg-emerald-600", // Darker green, not transparent
     idle: "bg-amber-500",
     error: "bg-red-500",
     paused: "bg-purple-500",
     offline: "bg-gray-500",
   }
 
-  const statusAnimations = {
-    live: "animate-pulse",
-    error: "animate-pulse",
-    idle: "",
-    paused: "",
-    offline: "",
-  }
-
+  // Size classes - live/transmitting is smaller
   const sizeClasses = {
     sm: "w-2 h-2",
     md: "w-3 h-3",
     lg: "w-4 h-4",
   }
 
+  // Smaller sizes for transmitting state
+  const transmittingSizeClasses = {
+    sm: "w-1.5 h-1.5",
+    md: "w-2.5 h-2.5",
+    lg: "w-3 h-3",
+  }
+
+  // Determine color and animation based on actual transmission state
+  let displayColor = statusColors[status] || statusColors.offline
+  let animation = ""
+  let displaySize = sizeClasses[size]
+
+  if (isTransmitting) {
+    // Active transmission: bright green with fast throb
+    displayColor = "bg-emerald-500"
+    animation = "animate-throb"
+    displaySize = transmittingSizeClasses[size]
+  } else if (wasRecentlyActive) {
+    // Recently active: fading green throb
+    displayColor = "bg-emerald-600"
+    animation = "animate-throb-fade"
+    displaySize = transmittingSizeClasses[size]
+  } else if (status === "error") {
+    animation = "animate-pulse"
+  }
+
   return (
     <div
-      className={`${sizeClasses[size]} rounded-full ${statusColors[status] || statusColors.offline} ${statusAnimations[status] || ""} ${className}`}
+      className={`${displaySize} rounded-full ${displayColor} ${animation} ${className}`}
+      style={{
+        // Ensure no transparency for transmitting states
+        opacity: (isTransmitting || wasRecentlyActive) ? 1 : undefined
+      }}
     />
   )
 }
