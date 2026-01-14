@@ -106,7 +106,7 @@ function calculatePositions(agentList) {
 }
 
 // Network Node Component
-function NetworkNode({ agent, position, isSelected, onClick, isAnimating, showQueueBadge, isBusy }) {
+function NetworkNode({ agent, position, isSelected, onClick, isAnimating, showQueueBadge, isBusy, isBottleneck, isInLoop }) {
   const status = agent ? statusConfig[agent.status] : { color: "bg-blue-500", label: "USER" }
   const isUser = !agent
   const hasBacklog = agent?.queueDepth >= 5
@@ -117,8 +117,24 @@ function NetworkNode({ agent, position, isSelected, onClick, isAnimating, showQu
       onClick={() => onClick(agent?.id || "USER")}
       className="cursor-pointer"
     >
+      {/* Loop indicator - flashing red dashed ring */}
+      {isInLoop && (
+        <circle r="60" fill="none" stroke="#ef4444" strokeWidth="4" strokeDasharray="10,5" opacity="0.9">
+          <animate attributeName="opacity" values="0.9;0.3;0.9" dur="0.5s" repeatCount="indefinite" />
+          <animateTransform attributeName="transform" type="rotate" from="0 0 0" to="-360 0 0" dur="2s" repeatCount="indefinite" />
+        </circle>
+      )}
+
+      {/* Bottleneck indicator - pulsing orange ring */}
+      {isBottleneck && !isInLoop && (
+        <circle r="58" fill="none" stroke="#f97316" strokeWidth="4" opacity="0.8">
+          <animate attributeName="r" values="56;62;56" dur="1.5s" repeatCount="indefinite" />
+          <animate attributeName="opacity" values="0.8;0.4;0.8" dur="1.5s" repeatCount="indefinite" />
+        </circle>
+      )}
+
       {/* Busy processing indicator - bright cyan spinning ring */}
-      {isBusy && (
+      {isBusy && !isInLoop && !isBottleneck && (
         <circle r="54" fill="none" stroke="#00f5ff" strokeWidth="3" strokeDasharray="20,10" opacity="0.8">
           <animateTransform attributeName="transform" type="rotate" from="0 0 0" to="360 0 0" dur="1s" repeatCount="indefinite" />
         </circle>
@@ -307,6 +323,116 @@ export function AgentNetworkMapScreen({ onBack, onSelectAgent }) {
   const [wsConnected, setWsConnected] = useState(false)
   const wsRef = useRef(null)
 
+  // Phase 4: Loop and bottleneck detection
+  const [detectedLoops, setDetectedLoops] = useState([])
+  const [bottleneckAgents, setBottleneckAgents] = useState(new Set())
+  const callHistoryRef = useRef([]) // Track recent call patterns
+
+  // Loop detection: Track call chains and detect cycles
+  const detectLoop = (newCall) => {
+    // Add to history
+    const call = { source: newCall.source, target: newCall.target, timestamp: Date.now() }
+    callHistoryRef.current = [...callHistoryRef.current.slice(-50), call] // Keep last 50 calls
+
+    // Build call graph from recent history (last 30 seconds)
+    const recentCalls = callHistoryRef.current.filter(c => Date.now() - c.timestamp < 30000)
+
+    // DFS to detect cycles
+    const findCycles = () => {
+      const graph = new Map()
+      recentCalls.forEach(c => {
+        if (!graph.has(c.source)) graph.set(c.source, new Set())
+        graph.get(c.source).add(c.target)
+      })
+
+      const cycles = []
+      const visited = new Set()
+      const recStack = new Set()
+      const path = []
+
+      const dfs = (node) => {
+        visited.add(node)
+        recStack.add(node)
+        path.push(node)
+
+        const neighbors = graph.get(node) || new Set()
+        for (const neighbor of neighbors) {
+          if (!visited.has(neighbor)) {
+            const result = dfs(neighbor)
+            if (result) return result
+          } else if (recStack.has(neighbor)) {
+            // Found a cycle
+            const cycleStart = path.indexOf(neighbor)
+            return [...path.slice(cycleStart), neighbor]
+          }
+        }
+
+        recStack.delete(node)
+        path.pop()
+        return null
+      }
+
+      for (const node of graph.keys()) {
+        if (!visited.has(node)) {
+          const cycle = dfs(node)
+          if (cycle) cycles.push(cycle)
+        }
+      }
+
+      return cycles
+    }
+
+    const cycles = findCycles()
+    if (cycles.length > 0) {
+      setDetectedLoops(prev => {
+        const newLoops = cycles.filter(cycle =>
+          !prev.some(existing => JSON.stringify(existing) === JSON.stringify(cycle))
+        )
+        return [...prev, ...newLoops].slice(-5) // Keep last 5 detected loops
+      })
+    }
+  }
+
+  // Bottleneck detection: Identify overloaded agents
+  const updateBottlenecks = (agents, activeCalls) => {
+    const bottlenecks = new Set()
+
+    // Count incoming calls per agent
+    const incomingCallCounts = new Map()
+    for (const call of activeCalls.values()) {
+      const count = incomingCallCounts.get(call.target) || 0
+      incomingCallCounts.set(call.target, count + 1)
+    }
+
+    agents.forEach(agent => {
+      // High queue depth (>= 5 is a bottleneck)
+      if (agent.queueDepth >= 5) {
+        bottlenecks.add(agent.id)
+      }
+
+      // Many concurrent incoming calls (>= 3 is concerning)
+      const incomingCalls = incomingCallCounts.get(agent.id) || 0
+      if (incomingCalls >= 3) {
+        bottlenecks.add(agent.id)
+      }
+
+      // High latency agent (> 2000ms average)
+      if (agent.stats?.avgLatency > 2000) {
+        bottlenecks.add(agent.id)
+      }
+    })
+
+    setBottleneckAgents(bottlenecks)
+  }
+
+  // Update bottlenecks when active calls or agents change
+  useEffect(() => {
+    const agentList = liveAgents || agents
+    if (agentList) {
+      updateBottlenecks(agentList, activeCalls)
+    }
+  }, [activeCalls, liveAgents])
+
   // Initial fetch and auto-refresh
   useEffect(() => {
     fetchNetworkData()
@@ -356,6 +482,8 @@ export function AgentNetworkMapScreen({ onBack, onSelectAgent }) {
                   return next
                 })
                 setBusyAgents(prev => new Set([...prev, data.target]))
+                // Phase 4: Detect potential loops
+                detectLoop({ source: data.source, target: data.target })
                 break
 
               case 'call_end':
@@ -439,6 +567,15 @@ export function AgentNetworkMapScreen({ onBack, onSelectAgent }) {
     [currentAgents]
   )
 
+  // Get agents involved in detected loops
+  const agentsInLoops = useMemo(() => {
+    const inLoop = new Set()
+    detectedLoops.forEach(loop => {
+      loop.forEach(agentId => inLoop.add(agentId))
+    })
+    return inLoop
+  }, [detectedLoops])
+
   const handleZoomIn = () => setZoom((z) => Math.min(z + ZOOM_STEP, ZOOM_MAX))
   const handleZoomOut = () => setZoom((z) => Math.max(z - ZOOM_STEP, ZOOM_MIN))
   const handleReset = () => setZoom(ZOOM_BASE)
@@ -509,22 +646,50 @@ export function AgentNetworkMapScreen({ onBack, onSelectAgent }) {
           </div>
 
           {/* Alerts */}
-          {error && (
-            <div className="flex items-center gap-2 px-4 py-2 bg-red-500/10 border border-red-500/30 rounded-lg">
-              <AlertTriangle size={16} className="text-red-400" />
-              <span className="text-sm text-red-400">
-                Using fallback data: {error}
-              </span>
-            </div>
-          )}
-          {bottlenecks.length > 0 && (
-            <div className="flex items-center gap-2 px-4 py-2 bg-amber-500/10 border border-amber-500/30 rounded-lg">
-              <AlertTriangle size={16} className="text-amber-400" />
-              <span className="text-sm text-amber-400">
-                {bottlenecks.length} agent{bottlenecks.length > 1 ? "s" : ""} with queue backlog
-              </span>
-            </div>
-          )}
+          <div className="flex flex-wrap gap-2">
+            {error && (
+              <div className="flex items-center gap-2 px-4 py-2 bg-red-500/10 border border-red-500/30 rounded-lg">
+                <AlertTriangle size={16} className="text-red-400" />
+                <span className="text-sm text-red-400">
+                  Using fallback data: {error}
+                </span>
+              </div>
+            )}
+            {/* Loop detection warning */}
+            {detectedLoops.length > 0 && (
+              <div className="flex items-center gap-2 px-4 py-2 bg-red-500/10 border border-red-500/30 rounded-lg animate-pulse">
+                <AlertTriangle size={16} className="text-red-400" />
+                <span className="text-sm text-red-400">
+                  ⚠️ Loop detected: {detectedLoops[detectedLoops.length - 1].join(' → ')}
+                </span>
+                <button
+                  onClick={() => setDetectedLoops([])}
+                  className="ml-2 text-red-400 hover:text-red-300"
+                  title="Dismiss"
+                >
+                  <X size={14} />
+                </button>
+              </div>
+            )}
+            {/* Bottleneck warning */}
+            {bottleneckAgents.size > 0 && (
+              <div className="flex items-center gap-2 px-4 py-2 bg-orange-500/10 border border-orange-500/30 rounded-lg">
+                <Activity size={16} className="text-orange-400" />
+                <span className="text-sm text-orange-400">
+                  {bottleneckAgents.size} bottleneck{bottleneckAgents.size > 1 ? "s" : ""}: {[...bottleneckAgents].join(', ')}
+                </span>
+              </div>
+            )}
+            {/* Queue backlog warning (original) */}
+            {bottlenecks.length > 0 && (
+              <div className="flex items-center gap-2 px-4 py-2 bg-amber-500/10 border border-amber-500/30 rounded-lg">
+                <AlertTriangle size={16} className="text-amber-400" />
+                <span className="text-sm text-amber-400">
+                  {bottlenecks.length} agent{bottlenecks.length > 1 ? "s" : ""} with queue backlog
+                </span>
+              </div>
+            )}
+          </div>
 
           {/* Controls */}
           <div className="flex items-center gap-3 flex-wrap">
@@ -737,6 +902,8 @@ export function AgentNetworkMapScreen({ onBack, onSelectAgent }) {
                   isSelected={selectedNode === agent.id}
                   onClick={handleNodeClick}
                   isBusy={busyAgents.has(agent.id)}
+                  isBottleneck={bottleneckAgents.has(agent.id)}
+                  isInLoop={agentsInLoops.has(agent.id)}
                   isAnimating={isPlaying}
                   showQueueBadge={true}
                 />
@@ -887,6 +1054,23 @@ export function AgentNetworkMapScreen({ onBack, onSelectAgent }) {
                 <span className="text-xs text-muted-foreground">{config.label}</span>
               </div>
             ))}
+          </div>
+
+          {/* Detection indicators */}
+          <div className="flex items-center gap-6">
+            <span className="text-xs text-muted-foreground font-medium">Alerts:</span>
+            <div className="flex items-center gap-2">
+              <div className="w-4 h-4 rounded-full border-2 border-red-500 border-dashed" />
+              <span className="text-xs text-muted-foreground">Loop Detected</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="w-4 h-4 rounded-full border-2 border-orange-500" />
+              <span className="text-xs text-muted-foreground">Bottleneck</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="w-4 h-4 rounded-full border-2 border-cyan-400" />
+              <span className="text-xs text-muted-foreground">Active Call</span>
+            </div>
           </div>
         </div>
       </div>
