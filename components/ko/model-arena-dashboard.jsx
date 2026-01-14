@@ -162,7 +162,8 @@ function RecommendationCard({ title, icon: Icon, model, score, cost, time, reaso
   )
 }
 
-export function ModelArenaDashboard({ onBack }) {
+export function ModelArenaDashboard({ onBack, agents = [] }) {
+  const [activeTab, setActiveTab] = useState("quick") // quick, agent
   const [status, setStatus] = useState("idle") // idle, running, completed
   const [testPrompt, setTestPrompt] = useState("What is the capital of France? Reply with just the city name.")
   const [progress, setProgress] = useState(null)
@@ -171,6 +172,13 @@ export function ModelArenaDashboard({ onBack }) {
   const [selectedResult, setSelectedResult] = useState(null)
   const [models, setModels] = useState([])
   const [loadingModels, setLoadingModels] = useState(true)
+
+  // Agent Testing State
+  const [selectedAgentId, setSelectedAgentId] = useState("")
+  const [agentTestPrompt, setAgentTestPrompt] = useState("")
+  const [selectedModelIds, setSelectedModelIds] = useState([])
+  const [agentTestStatus, setAgentTestStatus] = useState("idle")
+  const [agentTestResults, setAgentTestResults] = useState(null)
 
   const wsRef = useRef(null)
   const testRunIdRef = useRef(null)
@@ -394,6 +402,50 @@ export function ModelArenaDashboard({ onBack }) {
     }
   }
 
+  // Run Agent Test - tests an agent config against selected models
+  const runAgentTest = async () => {
+    if (!selectedAgentId || !agentTestPrompt.trim() || selectedModelIds.length === 0) {
+      return
+    }
+
+    setAgentTestStatus("running")
+    setAgentTestResults(null)
+
+    try {
+      const response = await fetch("/api/ko/arena/test-agent", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          agent_id: selectedAgentId,
+          prompt: agentTestPrompt,
+          model_ids: selectedModelIds,
+        }),
+      })
+
+      if (response.ok) {
+        const data = await response.json()
+        setAgentTestResults(data)
+        setAgentTestStatus("completed")
+      } else {
+        const error = await response.text()
+        console.error("Agent test failed:", error)
+        setAgentTestStatus("idle")
+      }
+    } catch (err) {
+      console.error("Agent test error:", err)
+      setAgentTestStatus("idle")
+    }
+  }
+
+  // Toggle model selection for agent testing
+  const toggleModelSelection = (modelId) => {
+    setSelectedModelIds(prev =>
+      prev.includes(modelId)
+        ? prev.filter(id => id !== modelId)
+        : [...prev, modelId]
+    )
+  }
+
   // Get provider stats from models
   const providerStats = models.reduce((acc, m) => {
     if (!acc[m.provider]) {
@@ -458,8 +510,35 @@ export function ModelArenaDashboard({ onBack }) {
         </div>
       </div>
 
+      {/* Tabs */}
+      <div className="flex border-b border-gray-700 px-4">
+        <button
+          onClick={() => setActiveTab("quick")}
+          className={`px-4 py-3 text-sm font-medium transition-colors ${
+            activeTab === "quick"
+              ? "text-blue-400 border-b-2 border-blue-400"
+              : "text-gray-400 hover:text-white"
+          }`}
+        >
+          Quick Test
+        </button>
+        <button
+          onClick={() => setActiveTab("agent")}
+          className={`px-4 py-3 text-sm font-medium transition-colors ${
+            activeTab === "agent"
+              ? "text-blue-400 border-b-2 border-blue-400"
+              : "text-gray-400 hover:text-white"
+          }`}
+        >
+          Agent Testing
+        </button>
+      </div>
+
       {/* Main Content */}
       <div className="flex-1 overflow-y-auto p-4 space-y-4">
+        {/* Quick Test Tab */}
+        {activeTab === "quick" && (
+          <>
         {/* Test Input Section */}
         <div className="bg-gray-800 rounded-lg p-4">
           <h2 className="text-sm font-semibold text-gray-300 mb-3">Test Prompt</h2>
@@ -663,6 +742,203 @@ export function ModelArenaDashboard({ onBack }) {
             ))}
           </div>
         </div>
+          </>
+        )}
+
+        {/* Agent Testing Tab */}
+        {activeTab === "agent" && (
+          <>
+            {/* Agent Selection */}
+            <div className="bg-gray-800 rounded-lg p-4">
+              <h2 className="text-sm font-semibold text-gray-300 mb-3">1. Select Agent to Test</h2>
+              <select
+                value={selectedAgentId}
+                onChange={(e) => setSelectedAgentId(e.target.value)}
+                className="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="">Select an agent...</option>
+                {agents.map(agent => (
+                  <option key={agent.id} value={agent.id}>
+                    {agent.name} ({agent.id})
+                  </option>
+                ))}
+              </select>
+              {selectedAgentId && (
+                <div className="mt-3 p-3 bg-gray-700/50 rounded-lg">
+                  <p className="text-sm text-gray-400">
+                    Tools: {agents.find(a => a.id === selectedAgentId)?.tools?.join(", ") || "None configured"}
+                  </p>
+                </div>
+              )}
+            </div>
+
+            {/* Model Selection */}
+            <div className="bg-gray-800 rounded-lg p-4">
+              <h2 className="text-sm font-semibold text-gray-300 mb-3">
+                2. Select Models to Compare ({selectedModelIds.length} selected)
+              </h2>
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2 max-h-60 overflow-y-auto">
+                {models.map(model => (
+                  <button
+                    key={model.id}
+                    onClick={() => toggleModelSelection(model.id)}
+                    className={`p-2 rounded-lg border text-left transition-colors ${
+                      selectedModelIds.includes(model.id)
+                        ? "border-blue-500 bg-blue-500/20"
+                        : "border-gray-600 bg-gray-700/50 hover:border-gray-500"
+                    }`}
+                  >
+                    <div className="flex items-center gap-2">
+                      <div
+                        className="w-2 h-2 rounded-full"
+                        style={{ backgroundColor: PROVIDER_COLORS[model.provider] || "#666" }}
+                      />
+                      <span className="text-sm text-white truncate">{model.name}</span>
+                    </div>
+                    <span className="text-xs text-gray-500">{model.provider}</span>
+                  </button>
+                ))}
+              </div>
+              <div className="flex gap-2 mt-3">
+                <button
+                  onClick={() => setSelectedModelIds(models.filter(m => m.provider === "anthropic" || m.provider === "openai").map(m => m.id))}
+                  className="text-xs px-2 py-1 bg-gray-700 rounded hover:bg-gray-600"
+                >
+                  Select Top Providers
+                </button>
+                <button
+                  onClick={() => setSelectedModelIds([])}
+                  className="text-xs px-2 py-1 bg-gray-700 rounded hover:bg-gray-600"
+                >
+                  Clear All
+                </button>
+              </div>
+            </div>
+
+            {/* Test Prompt */}
+            <div className="bg-gray-800 rounded-lg p-4">
+              <h2 className="text-sm font-semibold text-gray-300 mb-3">3. Enter Test Prompt</h2>
+              <textarea
+                value={agentTestPrompt}
+                onChange={(e) => setAgentTestPrompt(e.target.value)}
+                placeholder="Enter a prompt that will use the agent's tools..."
+                className="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-3 text-white placeholder-gray-500 resize-none focus:outline-none focus:ring-2 focus:ring-blue-500"
+                rows={3}
+              />
+              <button
+                onClick={runAgentTest}
+                disabled={agentTestStatus === "running" || !selectedAgentId || !agentTestPrompt.trim() || selectedModelIds.length === 0}
+                className="mt-3 w-full px-4 py-3 bg-blue-600 hover:bg-blue-500 disabled:bg-gray-700 disabled:text-gray-500 text-white rounded-lg flex items-center justify-center gap-2 transition-colors"
+              >
+                {agentTestStatus === "running" ? (
+                  <>
+                    <Loader2 className="w-5 h-5 animate-spin" />
+                    Testing {selectedModelIds.length} Models...
+                  </>
+                ) : (
+                  <>
+                    <Play className="w-5 h-5" />
+                    Run Agent Test
+                  </>
+                )}
+              </button>
+            </div>
+
+            {/* Agent Test Results */}
+            {agentTestResults && (
+              <div className="bg-gray-800 rounded-lg p-4">
+                <h2 className="text-sm font-semibold text-gray-300 mb-3">
+                  Test Results - {agentTestResults.status}
+                </h2>
+
+                {/* Recommendation */}
+                {agentTestResults.recommendation?.model_id && (
+                  <div className="mb-4 p-4 bg-green-500/10 border border-green-500/30 rounded-lg">
+                    <div className="flex items-center gap-2 mb-2">
+                      <Trophy className="w-5 h-5 text-green-400" />
+                      <span className="font-semibold text-green-400">Recommended Model</span>
+                    </div>
+                    <p className="text-white font-bold">{agentTestResults.recommendation.model_id}</p>
+                    <p className="text-sm text-gray-400 mt-1">{agentTestResults.recommendation.reason}</p>
+                  </div>
+                )}
+
+                {/* Results Table */}
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead>
+                      <tr className="text-left text-gray-400 text-sm border-b border-gray-700">
+                        <th className="pb-2 pr-4">Model</th>
+                        <th className="pb-2 pr-4">Score</th>
+                        <th className="pb-2 pr-4">Tools Used</th>
+                        <th className="pb-2 pr-4">Cost</th>
+                        <th className="pb-2 pr-4">Time</th>
+                        <th className="pb-2">Status</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {agentTestResults.results?.map((result, idx) => (
+                        <tr key={idx} className="border-b border-gray-700/50">
+                          <td className="py-3 pr-4">
+                            <div className="flex items-center gap-2">
+                              <div
+                                className="w-2 h-2 rounded-full"
+                                style={{ backgroundColor: PROVIDER_COLORS[result.provider] || "#666" }}
+                              />
+                              <span className="text-white">{result.model_name}</span>
+                            </div>
+                          </td>
+                          <td className="py-3 pr-4">
+                            <span className={`font-mono ${
+                              result.score >= 70 ? "text-green-400" :
+                              result.score >= 50 ? "text-yellow-400" : "text-red-400"
+                            }`}>
+                              {result.score?.toFixed(0)}%
+                            </span>
+                          </td>
+                          <td className="py-3 pr-4">
+                            <div className="flex flex-wrap gap-1">
+                              {result.tools_used?.map((tool, i) => (
+                                <span key={i} className="text-xs px-2 py-0.5 bg-gray-700 rounded-full text-gray-300">
+                                  {tool}
+                                </span>
+                              )) || <span className="text-gray-500">-</span>}
+                            </div>
+                          </td>
+                          <td className="py-3 pr-4 font-mono text-gray-300">
+                            ${result.cost?.toFixed(5)}
+                          </td>
+                          <td className="py-3 pr-4 font-mono text-gray-300">
+                            {result.duration?.toFixed(1)}s
+                          </td>
+                          <td className="py-3">
+                            <StatusBadge status={result.status} />
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+
+                {/* Response Previews */}
+                <div className="mt-4 space-y-3">
+                  <h3 className="text-sm font-semibold text-gray-300">Response Previews</h3>
+                  {agentTestResults.results?.map((result, idx) => (
+                    <div key={idx} className="p-3 bg-gray-700/50 rounded-lg">
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-sm font-medium text-white">{result.model_name}</span>
+                        <span className="text-xs text-gray-400">{result.tool_calls_made} tool calls</span>
+                      </div>
+                      <p className="text-sm text-gray-300 whitespace-pre-wrap">
+                        {result.response_preview || result.error || "No response"}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </>
+        )}
       </div>
 
       {/* Result Detail Modal */}

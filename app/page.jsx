@@ -440,7 +440,7 @@ export default function HomePage() {
               }}
             />
           ) : showArena ? (
-            <ModelArenaDashboard onBack={() => setShowArena(false)} />
+            <ModelArenaDashboard onBack={() => setShowArena(false)} agents={agentsList} />
           ) : showMessages ? (
             <ChatScreen />
           ) : showAsana ? (
