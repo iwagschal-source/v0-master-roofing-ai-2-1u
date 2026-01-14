@@ -4,7 +4,7 @@ import { useState } from "react"
 import { ArrowLeft, Calendar, DollarSign, Building2, ExternalLink, Link as LinkIcon, Plus, Loader2 } from "lucide-react"
 import { EmbeddedSheet } from "./embedded-sheet"
 import { ActionButtons } from "./action-buttons"
-import { GCBrief } from "./gc-brief"
+import { GCBriefWithChat } from "./gc-brief-with-chat"
 import { ResizablePanel } from "./resizable-panel"
 
 const statusColors = {
@@ -307,12 +307,12 @@ export function ProjectDetailScreen({ project, onBack, onPreviewProposal, onProj
     </div>
   )
 
-  // GC Brief panel (right side) - no card wrapper since GCBrief already has styling
+  // GC Brief panel with integrated chat (right side)
   const gcBriefPanel = project.gc_name ? (
-    <GCBrief
+    <GCBriefWithChat
       gcName={project.gc_name}
       projectName={project.name || project.address}
-      className="border-0 rounded-none"
+      className="h-full"
     />
   ) : (
     <div className="p-6 text-center text-foreground-tertiary">
