@@ -67,31 +67,36 @@ const MR_RATES = {
   'tie in': 48.00,
 }
 
-// Floor name mappings (normalize various naming conventions)
+// Floor name mappings - must match populate-takeoff FLOOR_TO_COLUMN keys
 const FLOOR_MAPPINGS = {
-  'cellar': 'Cellar Floor',
-  'basement': 'Cellar Floor',
-  'ground': 'GROUND Floor',
-  '1st': 'GROUND Floor',
-  'first': 'GROUND Floor',
+  'cellar': '1st Floor',       // Map cellar to 1st floor column
+  'basement': '1st Floor',
+  'ground': '1st Floor',
+  '1st': '1st Floor',
+  'first': '1st Floor',
   '2nd': '2nd Floor',
   'second': '2nd Floor',
   '3rd': '3rd Floor',
   'third': '3rd Floor',
   '4th': '4th Floor',
   'fourth': '4th Floor',
-  '5th': '5th Floor',
-  'fifth': '5th Floor',
-  '6th': '6th Floor',
-  'sixth': '6th Floor',
-  '7th': '7th Floor',
-  'seventh': '7th Floor',
+  '5th': '4th Floor',          // Map 5th+ to 4th (template only has 4 floor columns)
+  'fifth': '4th Floor',
+  '6th': '4th Floor',
+  'sixth': '4th Floor',
+  '7th': '4th Floor',
+  'seventh': '4th Floor',
   'roof': 'Main Roof',
   'main roof': 'Main Roof',
-  'bulkhead': 'Bulkhead',
-  'bh': 'Bulkhead',
-  'elevator': 'Elevator Bulkhead',
-  'elev': 'Elevator Bulkhead',
+  'main': 'Main Roof',
+  'bulkhead': 'Stair Bulkhead',
+  'stair bh': 'Stair Bulkhead',
+  'stair bulkhead': 'Stair Bulkhead',
+  'bh': 'Stair Bulkhead',
+  'elevator': 'Elev Bulkhead',
+  'elev': 'Elev Bulkhead',
+  'elev bh': 'Elev Bulkhead',
+  'elevator bulkhead': 'Elev Bulkhead',
 }
 
 /**
