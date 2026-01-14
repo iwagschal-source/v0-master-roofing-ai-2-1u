@@ -229,7 +229,7 @@ function NetworkNode({ agent, position, isSelected, onClick, isAnimating, showQu
 }
 
 // Connection Line Component
-function ConnectionLine({ from, to, type, isActive, isAnimating, bidirectional }) {
+function ConnectionLine({ from, to, type, isActive, isAnimating, bidirectional, isReturning }) {
   const config = connectionTypes[type] || connectionTypes.query
 
   // Calculate path
@@ -252,7 +252,13 @@ function ConnectionLine({ from, to, type, isActive, isAnimating, bidirectional }
   const controlX = midX + perpX
   const controlY = midY + perpY
 
+  // Forward path (source -> target)
   const pathD = `M ${startX} ${startY} Q ${controlX} ${controlY} ${endX} ${endY}`
+  // Reverse path (target -> source) for return animation
+  const reversePath = `M ${endX} ${endY} Q ${controlX} ${controlY} ${startX} ${startY}`
+
+  // Use green color for returning data
+  const returnColor = '#22c55e'
 
   return (
     <g className="pointer-events-none">
@@ -260,15 +266,15 @@ function ConnectionLine({ from, to, type, isActive, isAnimating, bidirectional }
       <path
         d={pathD}
         fill="none"
-        stroke={config.color}
-        strokeWidth={isActive ? 3 : 2}
+        stroke={isReturning ? returnColor : config.color}
+        strokeWidth={isActive || isReturning ? 3 : 2}
         strokeDasharray={config.dash ? "8,4" : "none"}
-        opacity={isActive ? 0.9 : 0.3}
+        opacity={isActive || isReturning ? 0.9 : 0.3}
         className="transition-all duration-300"
       />
 
-      {/* Animated flow particles */}
-      {isAnimating && isActive && (
+      {/* Animated flow particles - forward direction */}
+      {isAnimating && isActive && !isReturning && (
         <>
           <circle r="5" fill={config.color}>
             <animateMotion dur="1.5s" repeatCount="indefinite" path={pathD} />
@@ -278,6 +284,21 @@ function ConnectionLine({ from, to, type, isActive, isAnimating, bidirectional }
           </circle>
           <circle r="5" fill={config.color}>
             <animateMotion dur="1.5s" repeatCount="indefinite" path={pathD} begin="1s" />
+          </circle>
+        </>
+      )}
+
+      {/* Animated flow particles - return direction (green, faster) */}
+      {isReturning && (
+        <>
+          <circle r="6" fill={returnColor}>
+            <animateMotion dur="0.8s" repeatCount="indefinite" path={reversePath} />
+          </circle>
+          <circle r="6" fill={returnColor}>
+            <animateMotion dur="0.8s" repeatCount="indefinite" path={reversePath} begin="0.25s" />
+          </circle>
+          <circle r="6" fill={returnColor}>
+            <animateMotion dur="0.8s" repeatCount="indefinite" path={reversePath} begin="0.5s" />
           </circle>
         </>
       )}
@@ -329,6 +350,7 @@ export function AgentNetworkMapScreen({ onBack, onSelectAgent }) {
 
   // Real-time WebSocket state for live call tracking
   const [activeCalls, setActiveCalls] = useState(new Map())
+  const [returningCalls, setReturningCalls] = useState(new Map()) // Calls returning data
   const [busyAgents, setBusyAgents] = useState(new Set())
   const [wsConnected, setWsConnected] = useState(false)
   const wsRef = useRef(null)
@@ -581,9 +603,26 @@ export function AgentNetworkMapScreen({ onBack, onSelectAgent }) {
                 break
 
               case 'call_end':
+                // Move call to returning state for animation
                 setActiveCalls(prev => {
                   const next = new Map(prev)
                   const call = next.get(data.call_id)
+                  if (call) {
+                    // Add to returning calls for reverse animation
+                    setReturningCalls(rc => {
+                      const rcNext = new Map(rc)
+                      rcNext.set(data.call_id, { ...call, success: data.success })
+                      return rcNext
+                    })
+                    // Remove from returning after animation completes
+                    setTimeout(() => {
+                      setReturningCalls(rc => {
+                        const rcNext = new Map(rc)
+                        rcNext.delete(data.call_id)
+                        return rcNext
+                      })
+                    }, 1500) // 1.5s for return animation
+                  }
                   next.delete(data.call_id)
                   // Check if target agent has other active calls
                   if (call) {
@@ -957,17 +996,24 @@ export function AgentNetworkMapScreen({ onBack, onSelectAgent }) {
                           (call.source === targetId && call.target === sourceId)
                 )
 
+                // Check if this connection has a returning call
+                const hasReturningCall = [...returningCalls.values()].some(
+                  call => (call.source === sourceId && call.target === targetId) ||
+                          (call.source === targetId && call.target === sourceId)
+                )
+
                 // Only animate if there's a REAL active call - not just because agents are "live"
-                const isActive = hasActiveCall
+                const isActive = hasActiveCall || hasReturningCall
 
                 return (
                   <ConnectionLine
                     key={`${sourceId}-${targetId}-${idx}`}
                     from={fromPos}
                     to={toPos}
-                    type={hasActiveCall ? 'active' : conn.type}
+                    type={hasActiveCall || hasReturningCall ? 'active' : conn.type}
                     isActive={isActive}
-                    isAnimating={hasActiveCall} // Only animate on real calls
+                    isAnimating={hasActiveCall || hasReturningCall} // Only animate on real calls
+                    isReturning={hasReturningCall && !hasActiveCall}
                     bidirectional={conn.bidirectional}
                   />
                 )
@@ -997,6 +1043,26 @@ export function AgentNetworkMapScreen({ onBack, onSelectAgent }) {
                     type="active"
                     isActive={true}
                     isAnimating={true}
+                    bidirectional={false}
+                  />
+                )
+              })}
+
+              {/* Render returning calls (data flowing back) */}
+              {[...returningCalls.values()].map((call, idx) => {
+                const fromPos = positions[call.source]
+                const toPos = positions[call.target]
+                if (!fromPos || !toPos) return null
+
+                return (
+                  <ConnectionLine
+                    key={`returning-${call.source}-${call.target}-${idx}`}
+                    from={fromPos}
+                    to={toPos}
+                    type="active"
+                    isActive={true}
+                    isAnimating={true}
+                    isReturning={true}
                     bidirectional={false}
                   />
                 )
