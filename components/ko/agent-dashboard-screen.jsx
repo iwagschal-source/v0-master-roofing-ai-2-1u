@@ -18,12 +18,16 @@ import { StatusDot } from "./agent-model-icon"
 import { useAgentStatus } from "@/hooks/use-agent-status"
 
 export function AgentDashboardScreen({
+  agents: passedAgents,
   onSelectAgent,
   onViewNetwork,
   onAddAgent,
 }) {
   const [searchTerm, setSearchTerm] = useState("")
   const [statusFilter, setStatusFilter] = useState("all")
+
+  // Use passed agents or fallback to static
+  const baseAgents = passedAgents && passedAgents.length > 0 ? passedAgents : staticAgents
 
   // Live status polling from backend
   const {
@@ -35,9 +39,9 @@ export function AgentDashboardScreen({
     error: statusError,
   } = useAgentStatus(true)
 
-  // Merge static agent data with live status
+  // Merge agent data with live status
   const agents = useMemo(() => {
-    return staticAgents.map((agent) => {
+    return baseAgents.map((agent) => {
       const liveStatus = agentStatuses[agent.id]
       if (liveStatus) {
         return {
@@ -48,7 +52,7 @@ export function AgentDashboardScreen({
       }
       return agent
     })
-  }, [agentStatuses])
+  }, [baseAgents, agentStatuses])
 
   // Count agents by status
   const statusCounts = useMemo(() => ({

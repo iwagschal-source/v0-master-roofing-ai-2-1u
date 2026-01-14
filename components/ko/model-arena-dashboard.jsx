@@ -180,6 +180,21 @@ export function ModelArenaDashboard({ onBack, agents = [] }) {
   const [agentTestStatus, setAgentTestStatus] = useState("idle")
   const [agentTestResults, setAgentTestResults] = useState(null)
 
+  // Tool and Access Selection State
+  const [selectedTools, setSelectedTools] = useState([])
+  const [testMode, setTestMode] = useState("custom") // "custom" or "existing"
+
+  // Available tools for testing
+  const availableTools = [
+    { id: "bigquery_sql", name: "BigQuery SQL", description: "Run SQL queries against data warehouse", category: "data" },
+    { id: "hubspot_query", name: "HubSpot CRM", description: "Query deals, contacts, companies", category: "data" },
+    { id: "search_documents", name: "Document Search", description: "Search proposals, takeoffs, SOPs", category: "data" },
+    { id: "search_emails", name: "Email Search", description: "Search email communications", category: "data" },
+    { id: "resolve_project", name: "Project Resolver", description: "Convert project names to IDs", category: "data" },
+    { id: "read_gcs_file", name: "GCS File Reader", description: "Read files from cloud storage", category: "data" },
+    { id: "web_search", name: "Web Search", description: "Search the internet via Serper", category: "web" },
+  ]
+
   const wsRef = useRef(null)
   const testRunIdRef = useRef(null)
   const pingIntervalRef = useRef(null)
@@ -404,22 +419,38 @@ export function ModelArenaDashboard({ onBack, agents = [] }) {
 
   // Run Agent Test - tests an agent config against selected models
   const runAgentTest = async () => {
-    if (!selectedAgentId || !agentTestPrompt.trim() || selectedModelIds.length === 0) {
-      return
-    }
+    // Validate based on mode
+    if (testMode === "existing" && !selectedAgentId) return
+    if (testMode === "custom" && selectedTools.length === 0) return
+    if (!agentTestPrompt.trim() || selectedModelIds.length === 0) return
 
     setAgentTestStatus("running")
     setAgentTestResults(null)
 
     try {
+      const payload = {
+        prompt: agentTestPrompt,
+        model_ids: selectedModelIds,
+      }
+
+      if (testMode === "existing") {
+        payload.agent_id = selectedAgentId
+      } else {
+        // Custom config mode - send tools directly
+        payload.agent_config = {
+          agent_id: "custom-test",
+          name: "Custom Test Config",
+          tools: selectedTools,
+          prompts: {
+            system: "You are a helpful AI assistant with access to various tools. Use the tools provided to answer the user's question thoroughly."
+          }
+        }
+      }
+
       const response = await fetch("/api/ko/arena/test-agent", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          agent_id: selectedAgentId,
-          prompt: agentTestPrompt,
-          model_ids: selectedModelIds,
-        }),
+        body: JSON.stringify(payload),
       })
 
       if (response.ok) {
@@ -444,6 +475,24 @@ export function ModelArenaDashboard({ onBack, agents = [] }) {
         ? prev.filter(id => id !== modelId)
         : [...prev, modelId]
     )
+  }
+
+  // Toggle tool selection
+  const toggleToolSelection = (toolId) => {
+    setSelectedTools(prev =>
+      prev.includes(toolId)
+        ? prev.filter(id => id !== toolId)
+        : [...prev, toolId]
+    )
+  }
+
+  // Check if test can be run
+  const canRunTest = () => {
+    if (!agentTestPrompt.trim()) return false
+    if (selectedModelIds.length === 0) return false
+    if (testMode === "existing" && !selectedAgentId) return false
+    if (testMode === "custom" && selectedTools.length === 0) return false
+    return true
   }
 
   // Get provider stats from models
@@ -748,34 +797,111 @@ export function ModelArenaDashboard({ onBack, agents = [] }) {
         {/* Agent Testing Tab */}
         {activeTab === "agent" && (
           <>
-            {/* Agent Selection */}
+            {/* Test Mode Selection */}
             <div className="bg-gray-800 rounded-lg p-4">
-              <h2 className="text-sm font-semibold text-gray-300 mb-3">1. Select Agent to Test</h2>
-              <select
-                value={selectedAgentId}
-                onChange={(e) => setSelectedAgentId(e.target.value)}
-                className="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-              >
-                <option value="">Select an agent...</option>
-                {agents.map(agent => (
-                  <option key={agent.id} value={agent.id}>
-                    {agent.name} ({agent.id})
-                  </option>
-                ))}
-              </select>
-              {selectedAgentId && (
-                <div className="mt-3 p-3 bg-gray-700/50 rounded-lg">
-                  <p className="text-sm text-gray-400">
-                    Tools: {agents.find(a => a.id === selectedAgentId)?.tools?.join(", ") || "None configured"}
-                  </p>
-                </div>
-              )}
+              <h2 className="text-sm font-semibold text-gray-300 mb-3">1. Choose Test Mode</h2>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setTestMode("custom")}
+                  className={`flex-1 px-4 py-3 rounded-lg border transition-colors ${
+                    testMode === "custom"
+                      ? "border-blue-500 bg-blue-500/20 text-white"
+                      : "border-gray-600 bg-gray-700/50 text-gray-400 hover:border-gray-500"
+                  }`}
+                >
+                  <div className="font-medium">Custom Tools</div>
+                  <div className="text-xs mt-1 opacity-70">Select tools for a new agent</div>
+                </button>
+                <button
+                  onClick={() => setTestMode("existing")}
+                  className={`flex-1 px-4 py-3 rounded-lg border transition-colors ${
+                    testMode === "existing"
+                      ? "border-blue-500 bg-blue-500/20 text-white"
+                      : "border-gray-600 bg-gray-700/50 text-gray-400 hover:border-gray-500"
+                  }`}
+                >
+                  <div className="font-medium">Existing Agent</div>
+                  <div className="text-xs mt-1 opacity-70">Test an existing agent config</div>
+                </button>
+              </div>
             </div>
+
+            {/* Tool Selection (Custom Mode) */}
+            {testMode === "custom" && (
+              <div className="bg-gray-800 rounded-lg p-4">
+                <h2 className="text-sm font-semibold text-gray-300 mb-3">
+                  2. Select Tools ({selectedTools.length} selected)
+                </h2>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                  {availableTools.map(tool => (
+                    <button
+                      key={tool.id}
+                      onClick={() => toggleToolSelection(tool.id)}
+                      className={`p-3 rounded-lg border text-left transition-colors ${
+                        selectedTools.includes(tool.id)
+                          ? "border-green-500 bg-green-500/20"
+                          : "border-gray-600 bg-gray-700/50 hover:border-gray-500"
+                      }`}
+                    >
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm font-medium text-white">{tool.name}</span>
+                        <span className={`text-xs px-2 py-0.5 rounded-full ${
+                          tool.category === "data" ? "bg-blue-500/20 text-blue-400" : "bg-purple-500/20 text-purple-400"
+                        }`}>
+                          {tool.category}
+                        </span>
+                      </div>
+                      <p className="text-xs text-gray-400 mt-1">{tool.description}</p>
+                    </button>
+                  ))}
+                </div>
+                <div className="flex gap-2 mt-3">
+                  <button
+                    onClick={() => setSelectedTools(availableTools.map(t => t.id))}
+                    className="text-xs px-2 py-1 bg-gray-700 rounded hover:bg-gray-600"
+                  >
+                    Select All
+                  </button>
+                  <button
+                    onClick={() => setSelectedTools([])}
+                    className="text-xs px-2 py-1 bg-gray-700 rounded hover:bg-gray-600"
+                  >
+                    Clear All
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Agent Selection (Existing Mode) */}
+            {testMode === "existing" && (
+              <div className="bg-gray-800 rounded-lg p-4">
+                <h2 className="text-sm font-semibold text-gray-300 mb-3">2. Select Agent to Test</h2>
+                <select
+                  value={selectedAgentId}
+                  onChange={(e) => setSelectedAgentId(e.target.value)}
+                  className="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="">Select an agent...</option>
+                  {agents.map(agent => (
+                    <option key={agent.id} value={agent.id}>
+                      {agent.name} ({agent.id})
+                    </option>
+                  ))}
+                </select>
+                {selectedAgentId && (
+                  <div className="mt-3 p-3 bg-gray-700/50 rounded-lg">
+                    <p className="text-sm text-gray-400">
+                      Tools: {agents.find(a => a.id === selectedAgentId)?.tools?.join(", ") || "None configured"}
+                    </p>
+                  </div>
+                )}
+              </div>
+            )}
 
             {/* Model Selection */}
             <div className="bg-gray-800 rounded-lg p-4">
               <h2 className="text-sm font-semibold text-gray-300 mb-3">
-                2. Select Models to Compare ({selectedModelIds.length} selected)
+                3. Select Models to Compare ({selectedModelIds.length} selected)
               </h2>
               <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2 max-h-60 overflow-y-auto">
                 {models.map(model => (
@@ -817,17 +943,17 @@ export function ModelArenaDashboard({ onBack, agents = [] }) {
 
             {/* Test Prompt */}
             <div className="bg-gray-800 rounded-lg p-4">
-              <h2 className="text-sm font-semibold text-gray-300 mb-3">3. Enter Test Prompt</h2>
+              <h2 className="text-sm font-semibold text-gray-300 mb-3">4. Enter Test Prompt</h2>
               <textarea
                 value={agentTestPrompt}
                 onChange={(e) => setAgentTestPrompt(e.target.value)}
-                placeholder="Enter a prompt that will use the agent's tools..."
+                placeholder="Enter a prompt that will use the selected tools..."
                 className="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-3 text-white placeholder-gray-500 resize-none focus:outline-none focus:ring-2 focus:ring-blue-500"
                 rows={3}
               />
               <button
                 onClick={runAgentTest}
-                disabled={agentTestStatus === "running" || !selectedAgentId || !agentTestPrompt.trim() || selectedModelIds.length === 0}
+                disabled={agentTestStatus === "running" || !canRunTest()}
                 className="mt-3 w-full px-4 py-3 bg-blue-600 hover:bg-blue-500 disabled:bg-gray-700 disabled:text-gray-500 text-white rounded-lg flex items-center justify-center gap-2 transition-colors"
               >
                 {agentTestStatus === "running" ? (
