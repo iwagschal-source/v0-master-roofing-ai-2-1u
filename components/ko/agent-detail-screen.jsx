@@ -542,7 +542,7 @@ function CodeTab({ agent }) {
             {!editMode ? (
               <button
                 onClick={() => setEditMode(true)}
-                className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-sm font-medium flex items-center gap-2 transition-colors"
+                className="px-4 py-2 bg-amber-500 hover:bg-amber-400 text-black font-semibold rounded-lg text-sm flex items-center gap-2 transition-colors border border-amber-400 shadow-md"
               >
                 <Pencil size={16} /> Edit JSON
               </button>
