@@ -2,7 +2,7 @@
 
 import { useState, useEffect, Suspense, useRef } from "react"
 import { useSearchParams } from "next/navigation"
-import { ProposalTemplate } from "@/components/ko/proposal-template"
+import { ProposalTemplateV2 } from "@/components/ko/proposal-template-v2"
 
 // Sample data for demos (used when no sheetId provided)
 const DEMO_PROPOSALS = {
@@ -226,7 +226,9 @@ function ProposalPreviewContent() {
       const element = docRef.current
       if (!element) throw new Error("Document not found")
 
-      const filename = `Proposal_${proposal?.gc_name || "Master_Roofing"}_${new Date().toISOString().split("T")[0]}.pdf`
+      const projectName = proposal?.project_address || proposal?.project || "Master_Roofing"
+      const cleanName = projectName.replace(/[^a-zA-Z0-9 ]/g, "").replace(/\s+/g, "_").substring(0, 50)
+      const filename = `Proposal_${cleanName}.pdf`
 
       const opt = {
         margin: 0,
@@ -234,7 +236,7 @@ function ProposalPreviewContent() {
         image: { type: "jpeg", quality: 0.98 },
         html2canvas: { scale: 2, useCORS: true, logging: false },
         jsPDF: { unit: "px", format: [816, 1056], orientation: "portrait" },
-        pagebreak: { mode: ["css", "legacy"], before: ".pv-page" }
+        pagebreak: { mode: ["css", "legacy"], before: ".ep-page" }
       }
 
       await html2pdf().set(opt).from(element).save()
@@ -346,10 +348,7 @@ function ProposalPreviewContent() {
 
       {/* Proposal Template */}
       <div ref={docRef}>
-        <ProposalTemplate
-          project={{ gc_name: proposal.gc_name, address: proposal.project_address }}
-          proposal={proposal}
-        />
+        <ProposalTemplateV2 proposal={proposal} />
       </div>
     </div>
   )
