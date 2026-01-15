@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { ArrowLeft, Calendar, DollarSign, Building2, ExternalLink, Link as LinkIcon, Plus, Loader2, Mail, Paperclip, RefreshCw, Reply, Forward, ChevronRight, Upload, FolderOpen, File, FileText, Image, Trash2, Download, Eye } from "lucide-react"
+import { ArrowLeft, Calendar, DollarSign, Building2, ExternalLink, Link as LinkIcon, Plus, Loader2, Mail, Paperclip, RefreshCw, Reply, Forward, ChevronRight, Upload, FolderOpen, File, FileText, Image, Trash2, Download, Eye, Send, Sparkles, Check } from "lucide-react"
 import { EmbeddedSheet } from "./embedded-sheet"
 import { ActionButtons } from "./action-buttons"
 import { GCBriefWithChat } from "./gc-brief-with-chat"
@@ -97,6 +97,13 @@ export function ProjectDetailScreen({ project, onBack, onPreviewProposal, onProj
   const [projectEmails, setProjectEmails] = useState([])
   const [emailsLoading, setEmailsLoading] = useState(false)
   const [selectedEmail, setSelectedEmail] = useState(null)
+
+  // Draft reply state
+  const [draftReply, setDraftReply] = useState("")
+  const [draftLoading, setDraftLoading] = useState(false)
+  const [editedDraft, setEditedDraft] = useState("")
+  const [sendingReply, setSendingReply] = useState(false)
+  const [sendSuccess, setSendSuccess] = useState(false)
 
   // Files state (G Folder)
   const [projectFiles, setProjectFiles] = useState([])
@@ -212,6 +219,105 @@ export function ProjectDetailScreen({ project, onBack, onPreviewProposal, onProj
       return date.toLocaleDateString('en-US', { weekday: 'short' })
     }
     return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+  }
+
+  // Generate draft reply using Email Drafter agent
+  const generateDraft = async (email, tone = 'professional') => {
+    if (!email) return
+
+    setDraftLoading(true)
+    setDraftReply("")
+    setEditedDraft("")
+
+    try {
+      const res = await fetch('/api/ko/email/draft', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          emailId: email.id,
+          subject: email.subject,
+          from: email.from,
+          body: email.snippet || email.body,
+          projectName: project?.name || project?.address,
+          gcName: project?.gc_name,
+          tone,
+        })
+      })
+
+      if (res.ok) {
+        const data = await res.json()
+        setDraftReply(data.draft || '')
+      } else {
+        // Mock draft for development
+        const mockDraft = `Hi ${email.from?.name || 'there'},
+
+Thank you for your email regarding ${email.subject || 'this project'}.
+
+I've reviewed the information and will follow up with the details you requested. Please let me know if you need anything else in the meantime.
+
+Best regards,
+Master Roofing & Siding`
+        setDraftReply(mockDraft)
+      }
+    } catch (err) {
+      console.error('Failed to generate draft:', err)
+      // Fallback mock
+      setDraftReply(`Hi ${email.from?.name || 'there'},
+
+Thank you for reaching out. I'll review this and get back to you shortly.
+
+Best regards,
+Master Roofing & Siding`)
+    } finally {
+      setDraftLoading(false)
+    }
+  }
+
+  // Auto-generate draft when email is selected
+  useEffect(() => {
+    if (selectedEmail) {
+      generateDraft(selectedEmail)
+    }
+  }, [selectedEmail?.id])
+
+  // Send reply
+  const handleSendReply = async () => {
+    if (!selectedEmail || (!draftReply && !editedDraft)) return
+
+    setSendingReply(true)
+    try {
+      const body = editedDraft || draftReply
+      const to = selectedEmail.from?.email
+      const subject = selectedEmail.subject?.startsWith('Re:')
+        ? selectedEmail.subject
+        : `Re: ${selectedEmail.subject}`
+
+      const res = await fetch('/api/google/gmail', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          to: [to],
+          subject,
+          message: body,
+          threadId: selectedEmail.threadId,
+          inReplyTo: selectedEmail.id
+        })
+      })
+
+      if (res.ok) {
+        setSendSuccess(true)
+        setTimeout(() => {
+          setSendSuccess(false)
+          setDraftReply("")
+          setEditedDraft("")
+          loadProjectEmails(project)
+        }, 2000)
+      }
+    } catch (err) {
+      console.error('Failed to send reply:', err)
+    } finally {
+      setSendingReply(false)
+    }
   }
 
   const status = project?.status || "pending"
@@ -550,15 +656,84 @@ export function ProjectDetailScreen({ project, onBack, onPreviewProposal, onProj
                         </div>
                       )}
 
-                      <div className="flex items-center gap-2 pt-4 border-t border-border">
-                        <button className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm hover:bg-primary/90 transition-colors">
-                          <Reply className="w-4 h-4" />
-                          Reply
-                        </button>
-                        <button className="flex items-center gap-2 px-4 py-2 bg-secondary text-foreground rounded-lg text-sm hover:bg-secondary/80 transition-colors">
-                          <Forward className="w-4 h-4" />
-                          Forward
-                        </button>
+                      {/* Suggested Draft Section */}
+                      <div className="border-t border-border pt-4 mt-4">
+                        <div className="flex items-center gap-2 mb-3">
+                          <Sparkles className="w-4 h-4 text-primary" />
+                          <h4 className="text-sm font-medium">Suggested Draft</h4>
+                          <span className="text-xs text-foreground-tertiary">by Email Drafter</span>
+                        </div>
+
+                        {draftLoading ? (
+                          <div className="flex items-center gap-2 py-6 justify-center bg-secondary/30 rounded-lg">
+                            <Loader2 className="w-4 h-4 text-primary animate-spin" />
+                            <span className="text-sm text-foreground-secondary">Generating draft...</span>
+                          </div>
+                        ) : draftReply ? (
+                          <div className="space-y-3">
+                            <textarea
+                              value={editedDraft || draftReply}
+                              onChange={(e) => setEditedDraft(e.target.value)}
+                              className="w-full min-h-[120px] px-3 py-2 bg-background border border-input rounded-lg text-sm text-foreground placeholder:text-foreground-secondary outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary resize-none"
+                              placeholder="Edit your reply..."
+                            />
+                            <div className="flex items-center justify-between gap-2">
+                              <div className="flex items-center gap-1">
+                                <button
+                                  onClick={() => generateDraft(selectedEmail, 'brief')}
+                                  disabled={draftLoading}
+                                  className="px-2.5 py-1 text-xs bg-muted text-foreground rounded hover:bg-muted/80 transition-colors disabled:opacity-50"
+                                >
+                                  Shorter
+                                </button>
+                                <button
+                                  onClick={() => generateDraft(selectedEmail, 'professional')}
+                                  disabled={draftLoading}
+                                  className="px-2.5 py-1 text-xs bg-muted text-foreground rounded hover:bg-muted/80 transition-colors disabled:opacity-50"
+                                >
+                                  More Formal
+                                </button>
+                                <button
+                                  onClick={() => generateDraft(selectedEmail, 'friendly')}
+                                  disabled={draftLoading}
+                                  className="px-2.5 py-1 text-xs bg-muted text-foreground rounded hover:bg-muted/80 transition-colors disabled:opacity-50"
+                                >
+                                  Friendly
+                                </button>
+                              </div>
+                              <button
+                                onClick={handleSendReply}
+                                disabled={!draftReply || sendingReply || sendSuccess}
+                                className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors disabled:opacity-50 ${
+                                  sendSuccess
+                                    ? 'bg-green-600 text-white'
+                                    : 'bg-primary text-primary-foreground hover:bg-primary/90'
+                                }`}
+                              >
+                                {sendingReply ? (
+                                  <>
+                                    <Loader2 className="w-4 h-4 animate-spin" />
+                                    Sending...
+                                  </>
+                                ) : sendSuccess ? (
+                                  <>
+                                    <Check className="w-4 h-4" />
+                                    Sent!
+                                  </>
+                                ) : (
+                                  <>
+                                    <Send className="w-4 h-4" />
+                                    Send Reply
+                                  </>
+                                )}
+                              </button>
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="py-4 text-center text-sm text-foreground-tertiary bg-secondary/30 rounded-lg">
+                            Draft will appear here
+                          </div>
+                        )}
                       </div>
                     </div>
                   </div>
