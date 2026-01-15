@@ -2239,30 +2239,456 @@ function ChatTab({ agent }) {
 }
 
 function TrainingTab({ agent }) {
+  // State for test questions
+  const [testQuestions, setTestQuestions] = useState([
+    { id: 'q1', question: 'How much did we bid this month?', elements: ['proposal_count', 'total_value', 'avg_bid_size'], status: 'pass', score: 92 },
+    { id: 'q2', question: "Who's our top performer?", elements: ['ranked_list', 'win_count', 'won_value'], status: 'pass', score: 82 },
+    { id: 'q3', question: 'Which GCs should we focus on?', elements: ['win_rate_per_gc', 'volume_per_gc'], status: 'pass', score: 85 },
+  ])
+  const [newQuestion, setNewQuestion] = useState('')
+  const [showAddQuestion, setShowAddQuestion] = useState(false)
+
+  // Scoring configuration state
+  const [scoringWeights, setScoringWeights] = useState({
+    completeness: 25,
+    accuracy: 25,
+    actionability: 20,
+    context: 15,
+    formatting: 15,
+  })
+  const [passThreshold, setPassThreshold] = useState(75)
+
+  // Evaluation state
+  const [evaluations, setEvaluations] = useState([
+    { id: 1, timestamp: '2026-01-15 03:30', avgScore: 84.5, passRate: 100, questionsRun: 10 },
+    { id: 2, timestamp: '2026-01-15 02:15', avgScore: 82.7, passRate: 90, questionsRun: 10 },
+    { id: 3, timestamp: '2026-01-15 01:45', avgScore: 70.1, passRate: 30, questionsRun: 10 },
+  ])
+  const [isEvaluating, setIsEvaluating] = useState(false)
+  const [liveEvalProgress, setLiveEvalProgress] = useState(null)
+
+  // Knowledge base state
+  const [knowledgeItems, setKnowledgeItems] = useState([
+    { id: 'k1', type: 'fact', content: 'Industry standard win rate is 25-35%', active: true },
+    { id: 'k2', type: 'fact', content: 'Target response time is under 3 days', active: true },
+    { id: 'k3', type: 'context', content: 'Company avg bid size is $100K-200K', active: true },
+  ])
+  const [newKnowledge, setNewKnowledge] = useState('')
+  const [showAddKnowledge, setShowAddKnowledge] = useState(false)
+
+  // Training agent chat state
+  const [trainingAgentMessages, setTrainingAgentMessages] = useState([
+    { role: 'assistant', content: 'Ready to help improve this agent. I can analyze responses, suggest prompt adjustments, or add knowledge based on evaluation results.' },
+  ])
+  const [trainingAgentInput, setTrainingAgentInput] = useState('')
+  const [trainingAgentLoading, setTrainingAgentLoading] = useState(false)
+
+  // Tools state
+  const [agentTools, setAgentTools] = useState([
+    { id: 't1', name: 'BigQuery SQL', enabled: true, description: 'Execute SQL queries on sales data' },
+    { id: 't2', name: 'GC Metrics Calculator', enabled: true, description: 'Calculate win rates and turnaround times per GC' },
+    { id: 't3', name: 'Pipeline Analyzer', enabled: true, description: 'Analyze pending proposals and pipeline value' },
+    { id: 't4', name: 'Report Generator', enabled: false, description: 'Generate PDF reports from data' },
+  ])
+
+  // Run evaluation
+  const handleRunEvaluation = async () => {
+    setIsEvaluating(true)
+    setLiveEvalProgress({ current: 0, total: testQuestions.length, results: [] })
+
+    // Simulate evaluation
+    for (let i = 0; i < testQuestions.length; i++) {
+      await new Promise(r => setTimeout(r, 800))
+      const score = Math.floor(75 + Math.random() * 25)
+      setLiveEvalProgress(prev => ({
+        ...prev,
+        current: i + 1,
+        results: [...prev.results, { question: testQuestions[i].question, score, passed: score >= passThreshold }]
+      }))
+    }
+
+    // Add to history
+    const avgScore = Math.floor(80 + Math.random() * 10)
+    setEvaluations(prev => [{
+      id: prev.length + 1,
+      timestamp: new Date().toISOString().replace('T', ' ').slice(0, 16),
+      avgScore,
+      passRate: 100,
+      questionsRun: testQuestions.length
+    }, ...prev])
+
+    setIsEvaluating(false)
+    setLiveEvalProgress(null)
+  }
+
+  // Add test question
+  const handleAddQuestion = () => {
+    if (!newQuestion.trim()) return
+    setTestQuestions(prev => [...prev, {
+      id: `q${Date.now()}`,
+      question: newQuestion,
+      elements: [],
+      status: 'pending',
+      score: null
+    }])
+    setNewQuestion('')
+    setShowAddQuestion(false)
+  }
+
+  // Send to training agent
+  const handleTrainingAgentSend = async () => {
+    if (!trainingAgentInput.trim()) return
+    const userMsg = trainingAgentInput
+    setTrainingAgentInput('')
+    setTrainingAgentMessages(prev => [...prev, { role: 'user', content: userMsg }])
+    setTrainingAgentLoading(true)
+
+    // Simulate AI response
+    await new Promise(r => setTimeout(r, 1500))
+
+    let response = ''
+    if (userMsg.toLowerCase().includes('improve') || userMsg.toLowerCase().includes('score')) {
+      response = `Based on the latest evaluation (${evaluations[0]?.avgScore}/100), I suggest:\n\n1. **Add more context** - Include "vs last month" comparisons in all responses\n2. **Improve actionability** - End each response with a specific recommendation\n3. **Include benchmarks** - Reference industry standards (25-35% win rate is typical)\n\nWould you like me to add these as knowledge items?`
+    } else if (userMsg.toLowerCase().includes('add') || userMsg.toLowerCase().includes('knowledge')) {
+      response = 'I\'ve added the knowledge items. The agent will now include these facts in relevant responses. Run another evaluation to see the improvement.'
+    } else {
+      response = `I can help with:\n- Analyzing low-scoring questions\n- Suggesting prompt improvements\n- Adding knowledge/context\n- Configuring scoring weights\n\nWhat would you like to focus on?`
+    }
+
+    setTrainingAgentMessages(prev => [...prev, { role: 'assistant', content: response }])
+    setTrainingAgentLoading(false)
+  }
+
   return (
-    <div className="bg-card border border-border rounded-xl p-6">
-      <h2 className="font-semibold text-foreground mb-6 flex items-center gap-2">
-        <Brain size={18} />
-        Training Configuration
-      </h2>
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div className="p-4 bg-secondary rounded-lg">
-          <p className="text-xs text-muted-foreground mb-1">Last Trained</p>
-          <p className="text-lg font-semibold text-foreground">{agent.training?.lastTrained || "Never"}</p>
+    <div className="space-y-6">
+      {/* Summary Stats */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div className="bg-card border border-border rounded-xl p-4">
+          <p className="text-xs text-muted-foreground mb-1">Current Score</p>
+          <p className="text-2xl font-bold text-emerald-400">{evaluations[0]?.avgScore || 0}/100</p>
         </div>
-        <div className="p-4 bg-secondary rounded-lg">
-          <p className="text-xs text-muted-foreground mb-1">Dataset Version</p>
-          <p className="text-lg font-semibold text-foreground">{agent.training?.datasetVersion || "N/A"}</p>
+        <div className="bg-card border border-border rounded-xl p-4">
+          <p className="text-xs text-muted-foreground mb-1">Pass Rate</p>
+          <p className="text-2xl font-bold text-foreground">{evaluations[0]?.passRate || 0}%</p>
         </div>
-        <div className="p-4 bg-secondary rounded-lg">
-          <p className="text-xs text-muted-foreground mb-1">Accuracy</p>
-          <p className="text-lg font-semibold text-emerald-400">{agent.training?.accuracy || 0}%</p>
+        <div className="bg-card border border-border rounded-xl p-4">
+          <p className="text-xs text-muted-foreground mb-1">Test Questions</p>
+          <p className="text-2xl font-bold text-foreground">{testQuestions.length}</p>
+        </div>
+        <div className="bg-card border border-border rounded-xl p-4">
+          <p className="text-xs text-muted-foreground mb-1">Last Evaluated</p>
+          <p className="text-lg font-semibold text-foreground">{evaluations[0]?.timestamp || 'Never'}</p>
         </div>
       </div>
-      <button className="mt-6 flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg font-medium text-sm hover:bg-primary/90 transition-colors">
-        <RotateCcw size={16} />
-        Retrain Agent
-      </button>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Left Column */}
+        <div className="space-y-6">
+          {/* Test Questions Card */}
+          <div className="bg-card border border-border rounded-xl p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="font-semibold text-foreground flex items-center gap-2">
+                <FileText size={18} />
+                Test Questions
+              </h2>
+              <button
+                onClick={() => setShowAddQuestion(true)}
+                className="text-sm text-primary hover:text-primary/80"
+              >
+                + Add Question
+              </button>
+            </div>
+
+            {showAddQuestion && (
+              <div className="mb-4 p-3 bg-secondary rounded-lg">
+                <input
+                  type="text"
+                  value={newQuestion}
+                  onChange={e => setNewQuestion(e.target.value)}
+                  placeholder="Enter test question..."
+                  className="w-full bg-background border border-border rounded px-3 py-2 text-sm mb-2"
+                  onKeyDown={e => e.key === 'Enter' && handleAddQuestion()}
+                />
+                <div className="flex gap-2">
+                  <button onClick={handleAddQuestion} className="text-sm px-3 py-1 bg-primary text-primary-foreground rounded">Add</button>
+                  <button onClick={() => setShowAddQuestion(false)} className="text-sm px-3 py-1 bg-secondary text-muted-foreground rounded">Cancel</button>
+                </div>
+              </div>
+            )}
+
+            <div className="space-y-2 max-h-64 overflow-y-auto">
+              {testQuestions.map(q => (
+                <div key={q.id} className="flex items-center justify-between p-3 bg-secondary rounded-lg">
+                  <div className="flex-1 pr-4">
+                    <p className="text-sm text-foreground">{q.question}</p>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      {q.elements.length} required elements
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {q.score !== null && (
+                      <span className={`text-sm font-medium ${q.score >= passThreshold ? 'text-emerald-400' : 'text-amber-400'}`}>
+                        {q.score}
+                      </span>
+                    )}
+                    {q.status === 'pass' && <CheckCircle size={16} className="text-emerald-400" />}
+                    {q.status === 'fail' && <XCircle size={16} className="text-red-400" />}
+                    {q.status === 'pending' && <Clock size={16} className="text-muted-foreground" />}
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <button
+              onClick={handleRunEvaluation}
+              disabled={isEvaluating}
+              className="mt-4 w-full flex items-center justify-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg font-medium text-sm hover:bg-primary/90 transition-colors disabled:opacity-50"
+            >
+              {isEvaluating ? (
+                <>
+                  <Loader2 size={16} className="animate-spin" />
+                  Evaluating ({liveEvalProgress?.current}/{liveEvalProgress?.total})
+                </>
+              ) : (
+                <>
+                  <Play size={16} />
+                  Run Evaluation
+                </>
+              )}
+            </button>
+
+            {liveEvalProgress && (
+              <div className="mt-4 p-3 bg-secondary rounded-lg">
+                <p className="text-xs text-muted-foreground mb-2">Live Results:</p>
+                <div className="space-y-1 max-h-32 overflow-y-auto">
+                  {liveEvalProgress.results.map((r, i) => (
+                    <div key={i} className="flex items-center justify-between text-sm">
+                      <span className="text-muted-foreground truncate">{r.question.slice(0, 30)}...</span>
+                      <span className={r.passed ? 'text-emerald-400' : 'text-red-400'}>{r.score}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Scoring Configuration */}
+          <div className="bg-card border border-border rounded-xl p-6">
+            <h2 className="font-semibold text-foreground mb-4 flex items-center gap-2">
+              <Target size={18} />
+              Scoring Configuration
+            </h2>
+
+            <div className="space-y-4">
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <label className="text-sm text-muted-foreground">Pass Threshold</label>
+                  <span className="text-sm font-medium text-foreground">{passThreshold}/100</span>
+                </div>
+                <input
+                  type="range"
+                  min="50"
+                  max="95"
+                  value={passThreshold}
+                  onChange={e => setPassThreshold(parseInt(e.target.value))}
+                  className="w-full accent-primary"
+                />
+              </div>
+
+              <div className="border-t border-border pt-4">
+                <p className="text-sm text-muted-foreground mb-3">Dimension Weights</p>
+                {Object.entries(scoringWeights).map(([key, value]) => (
+                  <div key={key} className="flex items-center justify-between py-2">
+                    <span className="text-sm capitalize text-foreground">{key}</span>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="range"
+                        min="0"
+                        max="50"
+                        value={value}
+                        onChange={e => setScoringWeights(prev => ({ ...prev, [key]: parseInt(e.target.value) }))}
+                        className="w-24 accent-primary"
+                      />
+                      <span className="text-sm text-muted-foreground w-8">{value}%</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* Knowledge Base */}
+          <div className="bg-card border border-border rounded-xl p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="font-semibold text-foreground flex items-center gap-2">
+                <Database size={18} />
+                Knowledge Base
+              </h2>
+              <button
+                onClick={() => setShowAddKnowledge(true)}
+                className="text-sm text-primary hover:text-primary/80"
+              >
+                + Add Knowledge
+              </button>
+            </div>
+
+            {showAddKnowledge && (
+              <div className="mb-4 p-3 bg-secondary rounded-lg">
+                <textarea
+                  value={newKnowledge}
+                  onChange={e => setNewKnowledge(e.target.value)}
+                  placeholder="Enter fact, context, or benchmark..."
+                  className="w-full bg-background border border-border rounded px-3 py-2 text-sm mb-2 h-20 resize-none"
+                />
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => {
+                      if (newKnowledge.trim()) {
+                        setKnowledgeItems(prev => [...prev, { id: `k${Date.now()}`, type: 'fact', content: newKnowledge, active: true }])
+                        setNewKnowledge('')
+                        setShowAddKnowledge(false)
+                      }
+                    }}
+                    className="text-sm px-3 py-1 bg-primary text-primary-foreground rounded"
+                  >
+                    Add
+                  </button>
+                  <button onClick={() => setShowAddKnowledge(false)} className="text-sm px-3 py-1 bg-secondary text-muted-foreground rounded">Cancel</button>
+                </div>
+              </div>
+            )}
+
+            <div className="space-y-2 max-h-48 overflow-y-auto">
+              {knowledgeItems.map(k => (
+                <div key={k.id} className="flex items-center justify-between p-3 bg-secondary rounded-lg">
+                  <div className="flex items-center gap-3 flex-1">
+                    <input
+                      type="checkbox"
+                      checked={k.active}
+                      onChange={() => setKnowledgeItems(prev => prev.map(item => item.id === k.id ? { ...item, active: !item.active } : item))}
+                      className="accent-primary"
+                    />
+                    <p className={`text-sm ${k.active ? 'text-foreground' : 'text-muted-foreground line-through'}`}>{k.content}</p>
+                  </div>
+                  <button
+                    onClick={() => setKnowledgeItems(prev => prev.filter(item => item.id !== k.id))}
+                    className="text-muted-foreground hover:text-red-400"
+                  >
+                    <Trash2 size={14} />
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* Right Column */}
+        <div className="space-y-6">
+          {/* Training Agent Chat */}
+          <div className="bg-card border border-border rounded-xl overflow-hidden flex flex-col" style={{ height: '400px' }}>
+            <div className="p-4 border-b border-border bg-gradient-to-r from-primary/10 to-transparent">
+              <h2 className="font-semibold text-foreground flex items-center gap-2">
+                <Bot size={18} />
+                Training Agent
+              </h2>
+              <p className="text-xs text-muted-foreground mt-1">AI assistant for continuous improvement</p>
+            </div>
+
+            <div className="flex-1 overflow-y-auto p-4 space-y-3">
+              {trainingAgentMessages.map((msg, i) => (
+                <div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                  <div className={`max-w-[85%] p-3 rounded-lg text-sm whitespace-pre-wrap ${
+                    msg.role === 'user'
+                      ? 'bg-primary text-primary-foreground'
+                      : 'bg-secondary text-foreground'
+                  }`}>
+                    {msg.content}
+                  </div>
+                </div>
+              ))}
+              {trainingAgentLoading && (
+                <div className="flex justify-start">
+                  <div className="bg-secondary p-3 rounded-lg">
+                    <Loader2 size={16} className="animate-spin text-muted-foreground" />
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <div className="p-3 border-t border-border">
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={trainingAgentInput}
+                  onChange={e => setTrainingAgentInput(e.target.value)}
+                  placeholder="Ask for improvements, add knowledge..."
+                  className="flex-1 bg-secondary border border-border rounded px-3 py-2 text-sm"
+                  onKeyDown={e => e.key === 'Enter' && !e.shiftKey && handleTrainingAgentSend()}
+                />
+                <button
+                  onClick={handleTrainingAgentSend}
+                  disabled={trainingAgentLoading}
+                  className="px-3 py-2 bg-primary text-primary-foreground rounded hover:bg-primary/90 disabled:opacity-50"
+                >
+                  <Send size={16} />
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* Evaluation History */}
+          <div className="bg-card border border-border rounded-xl p-6">
+            <h2 className="font-semibold text-foreground mb-4 flex items-center gap-2">
+              <History size={18} />
+              Evaluation History
+            </h2>
+
+            <div className="space-y-2 max-h-48 overflow-y-auto">
+              {evaluations.map((e, i) => (
+                <div key={e.id} className={`flex items-center justify-between p-3 rounded-lg ${i === 0 ? 'bg-primary/10 border border-primary/20' : 'bg-secondary'}`}>
+                  <div>
+                    <p className="text-sm text-foreground">{e.timestamp}</p>
+                    <p className="text-xs text-muted-foreground">{e.questionsRun} questions</p>
+                  </div>
+                  <div className="text-right">
+                    <p className={`text-lg font-bold ${e.avgScore >= 80 ? 'text-emerald-400' : e.avgScore >= 70 ? 'text-amber-400' : 'text-red-400'}`}>
+                      {e.avgScore}/100
+                    </p>
+                    <p className="text-xs text-muted-foreground">{e.passRate}% pass</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Agent Tools */}
+          <div className="bg-card border border-border rounded-xl p-6">
+            <h2 className="font-semibold text-foreground mb-4 flex items-center gap-2">
+              <Settings size={18} />
+              Agent Tools
+            </h2>
+
+            <div className="space-y-2">
+              {agentTools.map(t => (
+                <div key={t.id} className="flex items-center justify-between p-3 bg-secondary rounded-lg">
+                  <div className="flex items-center gap-3">
+                    <input
+                      type="checkbox"
+                      checked={t.enabled}
+                      onChange={() => setAgentTools(prev => prev.map(tool => tool.id === t.id ? { ...tool, enabled: !tool.enabled } : tool))}
+                      className="accent-primary"
+                    />
+                    <div>
+                      <p className="text-sm text-foreground">{t.name}</p>
+                      <p className="text-xs text-muted-foreground">{t.description}</p>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
   )
 }
