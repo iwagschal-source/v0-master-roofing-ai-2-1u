@@ -7,7 +7,7 @@ import { Check, Loader2, Circle, Search, Brain, Combine, MessageSquare, Database
  *
  * Displays:
  * - Phase progress (project_resolution → routing → merge → response)
- * - Tool execution status (bigquery, vertex_search, hubspot, powerbi)
+ * - Tool execution status (bigquery, vertex_search, hubspot)
  */
 
 const PHASE_CONFIG = {
@@ -41,10 +41,6 @@ const TOOL_CONFIG = {
   hubspot: {
     icon: Users,
     label: "CRM"
-  },
-  powerbi: {
-    icon: BarChart3,
-    label: "Visualization"
   }
 }
 

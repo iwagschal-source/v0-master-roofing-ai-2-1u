@@ -56,11 +56,6 @@ export function HomeScreen({
       action: "messages",
     },
     {
-      icon: "/images/new-power-bi-logo-svg.png",
-      label: "Reports",
-      action: "powerbi",
-    },
-    {
       icon: "/images/hubspot-1.png",
       label: "Pipeline",
       action: "hubspot",

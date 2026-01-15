@@ -31,12 +31,6 @@ export function KOStage({ activeMode, selectedHistoryItem, onCloseViewer }) {
         </div>
       )}
 
-      {activeMode === "powerbi" && (
-        <div className="w-full h-full flex items-center justify-center">
-          <p className="text-muted-foreground">Power BI Dashboard</p>
-        </div>
-      )}
-
       {activeMode === "hubspot" && (
         <div className="w-full h-full flex items-center justify-center">
           <p className="text-muted-foreground">HubSpot CRM</p>

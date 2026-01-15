@@ -9,7 +9,6 @@ const TYPE_ICONS = {
   excel: FileSpreadsheet,
   chart: BarChart2,
   hubspot: Users,
-  powerbi: BarChart2,
   email: Mail,
   document: File,
 }
@@ -19,7 +18,6 @@ const TYPE_LABELS = {
   excel: "Excel Spreadsheet",
   chart: "Chart",
   hubspot: "HubSpot Record",
-  powerbi: "Power BI Report",
   email: "Email",
   document: "Document",
 }
@@ -248,7 +246,7 @@ export function SourceViewer({ item, onClose }) {
         )}
 
         {/* Other document types (excluding PDF and Excel which are handled above) */}
-        {["powerbi", "email", "document", "chart", "hubspot"].includes(actualType) && actualType !== "pdf" && actualType !== "excel" && (
+        {["email", "document", "chart", "hubspot"].includes(actualType) && actualType !== "pdf" && actualType !== "excel" && (
           <div className="h-full overflow-y-auto p-6">
             {/* If we have a URL */}
             {item.url && (

@@ -82,7 +82,7 @@ export const agents = [
       errorsToday: 3,
       requestsPerMinute: 12,
     },
-    connections: ["AGT-BQ-001", "AGT-HS-001", "AGT-EMAIL-001", "AGT-PBI-001", "AGT-RISK-001"],
+    connections: ["AGT-BQ-001", "AGT-HS-001", "AGT-EMAIL-001", "AGT-RISK-001"],
     auditedBy: ["AGT-AUDIT-001"],
     schedule: "Always On",
 
@@ -109,7 +109,6 @@ export const agents = [
         { agentId: "AGT-BQ-001", canCall: true, canReceiveFrom: true, priority: 1 },
         { agentId: "AGT-HS-001", canCall: true, canReceiveFrom: true, priority: 2 },
         { agentId: "AGT-EMAIL-001", canCall: true, canReceiveFrom: true, priority: 3 },
-        { agentId: "AGT-PBI-001", canCall: true, canReceiveFrom: true, priority: 4 },
         { agentId: "AGT-RISK-001", canCall: true, canReceiveFrom: true, priority: 2 },
       ],
     },
@@ -433,83 +432,6 @@ export const agents = [
   },
 
   {
-    id: "AGT-PBI-001",
-    name: "Power BI Dashboard",
-    description: "Generates and updates executive dashboards and reports in Power BI",
-    model: "Claude Sonnet",
-    modelKey: "claude",
-    status: "error",
-    lastActivity: new Date(Date.now() - 780000).toISOString(),
-    currentAction: "ERROR: Failed to refresh dataset - Azure AD token expired",
-    queueDepth: 0,
-    stats: { totalRequests: 1876, successRate: 94.2, avgLatency: 340, errorsToday: 24, requestsPerMinute: 0 },
-    connections: ["AGT-ORCH-001", "AGT-BQ-001"],
-    auditedBy: ["AGT-AUDIT-001"],
-    schedule: "Hourly Refresh",
-
-    permissions: {
-      readAccess: [
-        { resource: "Power BI - Datasets", scope: "All", enabled: true },
-        { resource: "Power BI - Reports", scope: "All", enabled: true },
-      ],
-      writeAccess: [
-        { resource: "Power BI - Datasets", scope: "Refresh only", enabled: true },
-      ],
-      userSynteraction: [
-        { id: "user_isaac", name: "Isaac", role: "CEO", canInitiate: true, canReceive: true },
-      ],
-      agentSynteraction: [
-        { agentId: "AGT-ORCH-001", canCall: false, canReceiveFrom: true, priority: 1 },
-        { agentId: "AGT-BQ-001", canCall: true, canReceiveFrom: false, priority: 2 },
-      ],
-    },
-
-    scoring: {
-      overallScore: 78, accuracyScore: 92, latencyScore: 81, reliabilityScore: 65,
-      evaluationFrequency: "Every 6 hours", lastEvaluation: "2026-01-13 12:00", nextEvaluation: "2026-01-13 18:00",
-      metrics: [
-        { name: "Refresh Success", description: "Dataset refresh completion", weight: 50, threshold: "95%" },
-        { name: "Data Accuracy", description: "Report accuracy", weight: 30, threshold: "99%" },
-        { name: "Availability", description: "Dashboard uptime", weight: 20, threshold: "99%" },
-      ],
-    },
-
-    monitoring: {
-      auditors: [
-        { id: "user_isaac", name: "Isaac", type: "user", role: "Dashboard Owner", since: "2025-12-01", active: true },
-        { id: "AGT-AUDIT-001", name: "Audit Agent", type: "agent", role: "Health Monitoring", since: "2025-12-15", active: true },
-      ],
-      alerts: [
-        { type: "Refresh Failed", description: "Dataset refresh failure", threshold: "1 failure", enabled: true },
-        { type: "Token Expiry", description: "Auth token expiring soon", threshold: "<24 hours", enabled: true },
-      ],
-      channels: [
-        { type: "Email", target: "isaac@masterroofing.com", enabled: true },
-        { type: "Slack", target: "#ko-alerts", enabled: true },
-      ],
-    },
-
-    history: {
-      totalExecutions: 1876, firstActive: "2025-12-15", uptimePercent: 94.1, totalErrors: 109,
-      recentEvents: [
-        { type: "error", message: "Token refresh failed", timestamp: "15:10:00", details: "Azure AD token expired" },
-        { type: "warning", message: "Retry attempt 1/3", timestamp: "15:10:01", details: null },
-        { type: "error", message: "All retries exhausted", timestamp: "15:10:05", details: "Manual intervention required" },
-      ],
-      versions: [
-        { version: "v1.2.0", date: "2026-01-02", changes: "Added auto-refresh" },
-      ],
-    },
-
-    configFiles: [
-      { name: "README.md", content: "# Power BI Dashboard Agent\n\nManages Power BI dataset refreshes and report generation.", type: "markdown" },
-    ],
-
-    training: { lastTrained: "2026-01-02", datasetVersion: "v1.2", accuracy: 91.5 },
-    mapping: { inputSources: ["Gemini Router", "Scheduled Refresh"], outputTargets: ["Power BI Service"], routingRules: 0 },
-  },
-
-  {
     id: "AGT-RISK-001",
     name: "Risk Monitor",
     description: "Monitors project risks, deadlines, budget anomalies, and potential issues",
@@ -600,7 +522,7 @@ export const agents = [
     currentAction: "Auditing AGT-EMAIL-001 queue depth... WARNING: backlog detected",
     queueDepth: 0,
     stats: { totalRequests: 45210, successRate: 99.9, avgLatency: 45, errorsToday: 0, requestsPerMinute: 50 },
-    connections: ["AGT-ORCH-001", "AGT-BQ-001", "AGT-HS-001", "AGT-EMAIL-001", "AGT-PBI-001", "AGT-RISK-001"],
+    connections: ["AGT-ORCH-001", "AGT-BQ-001", "AGT-HS-001", "AGT-EMAIL-001", "AGT-RISK-001"],
     auditedBy: [], // The auditor audits itself
     schedule: "Always On - Real-time",
 
@@ -622,7 +544,6 @@ export const agents = [
         { agentId: "AGT-BQ-001", canCall: true, canReceiveFrom: true, priority: 1 },
         { agentId: "AGT-HS-001", canCall: true, canReceiveFrom: true, priority: 1 },
         { agentId: "AGT-EMAIL-001", canCall: true, canReceiveFrom: true, priority: 1 },
-        { agentId: "AGT-PBI-001", canCall: true, canReceiveFrom: true, priority: 1 },
         { agentId: "AGT-RISK-001", canCall: true, canReceiveFrom: true, priority: 1 },
       ],
     },

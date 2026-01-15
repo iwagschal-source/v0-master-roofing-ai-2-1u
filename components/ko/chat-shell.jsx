@@ -18,7 +18,7 @@ import {
   generateSessionId,
 } from "@/lib/chat-storage"
 
-export function ChatShell({ onOpenPowerBICustomView, initialContext, onClearContext, historyItem, activeMode, onSourceClick, ...props }) {
+export function ChatShell({ initialContext, onClearContext, historyItem, activeMode, onSourceClick, ...props }) {
   const [view, setView] = useState(activeMode) // "home" | "chat"
   const [messages, setMessages] = useState([])
   const [currentSessionId, setCurrentSessionId] = useState(null)

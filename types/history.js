@@ -1,6 +1,6 @@
 /**
- * @typedef {'pdf'|'chart'|'hubspot'|'powerbi'|'email'|'document'} SourceType
- * @typedef {'Vertex AI'|'Power BI'|'HubSpot'|'Google Drive'|'Local File'} SourceBadge
+ * @typedef {'pdf'|'chart'|'hubspot'|'email'|'document'} SourceType
+ * @typedef {'Vertex AI'|'HubSpot'|'Google Drive'|'Local File'} SourceBadge
  *
  * @typedef {Object} HistoryItem
  * @property {string} id

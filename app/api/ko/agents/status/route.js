@@ -51,10 +51,6 @@ function mapServiceToAgentStatus(services, stubMode, factoryAgents = []) {
       status: services.hubspot && !stubMode.hubspot ? 'live' : 'offline',
       lastChecked: now,
     },
-    'CAO-PBI-001': {
-      status: services.powerbi && !stubMode.powerbi ? 'live' : 'offline',
-      lastChecked: now,
-    },
     'CAO-AUD-001': {
       status: 'live', // Auditor is always on if backend is healthy
       lastChecked: now,
