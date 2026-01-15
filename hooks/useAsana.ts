@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect, useCallback } from 'react'
-import { asanaAPI, AsanaTask, AsanaProject } from '@/lib/api/endpoints'
+import { asanaAPI, AsanaTask, AsanaProject, AsanaHistorySummary } from '@/lib/api/endpoints'
 
 interface UseAsanaOptions {
   autoFetch?: boolean
@@ -31,6 +31,11 @@ interface UseAsanaReturn {
   authUrl: string | null
   checkConnection: () => Promise<void>
   disconnect: () => Promise<void>
+  // History
+  historyTasks: AsanaTask[]
+  historySummary: AsanaHistorySummary | null
+  historyLoading: boolean
+  fetchHistory: (months?: number, projectId?: string) => Promise<void>
 }
 
 // Mock data for development/demo - matches Isaac's Asana pipelines
@@ -136,6 +141,11 @@ export function useAsana(options: UseAsanaOptions = {}): UseAsanaReturn {
   const [isConnected, setIsConnected] = useState(false)
   const [user, setUser] = useState<AsanaUser | null>(null)
   const [authUrl, setAuthUrl] = useState<string | null>(null)
+
+  // History state
+  const [historyTasks, setHistoryTasks] = useState<AsanaTask[]>([])
+  const [historySummary, setHistorySummary] = useState<AsanaHistorySummary | null>(null)
+  const [historyLoading, setHistoryLoading] = useState(false)
 
   const checkConnection = useCallback(async () => {
     try {
@@ -256,6 +266,47 @@ export function useAsana(options: UseAsanaOptions = {}): UseAsanaReturn {
     await Promise.all([fetchTasks(), fetchProjects()])
   }, [fetchTasks, fetchProjects])
 
+  const fetchHistory = useCallback(async (months: number = 6, projectId?: string) => {
+    setHistoryLoading(true)
+
+    try {
+      if (useMock) {
+        // Generate mock history data
+        await new Promise(resolve => setTimeout(resolve, 500))
+        const mockHistory = MOCK_TASKS.map(t => ({
+          ...t,
+          completed: Math.random() > 0.3,
+          completed_at: Math.random() > 0.3
+            ? new Date(Date.now() - Math.random() * 180 * 24 * 60 * 60 * 1000).toISOString()
+            : undefined
+        }))
+        setHistoryTasks(mockHistory)
+        setHistorySummary({
+          totalTasks: mockHistory.length,
+          completedTasks: mockHistory.filter(t => t.completed).length,
+          openTasks: mockHistory.filter(t => !t.completed).length,
+          overdueTasks: 1,
+          tasksByMonth: { '2026-01': 3, '2025-12': 2, '2025-11': 1 },
+          tasksByProject: { 'Bids': 2, 'Projects': 2, 'Billing': 2 },
+          dateRange: {
+            start: new Date(Date.now() - 180 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+            end: new Date().toISOString().split('T')[0]
+          }
+        })
+      } else {
+        const response = await asanaAPI.listHistory({ months, project: projectId })
+        setHistoryTasks(response.tasks)
+        setHistorySummary(response.summary)
+      }
+    } catch (err) {
+      console.error('Failed to fetch history:', err)
+      setHistoryTasks([])
+      setHistorySummary(null)
+    } finally {
+      setHistoryLoading(false)
+    }
+  }, [useMock])
+
   // Auto-fetch on mount - check connection first
   useEffect(() => {
     if (autoFetch) {
@@ -282,7 +333,12 @@ export function useAsana(options: UseAsanaOptions = {}): UseAsanaReturn {
     user,
     authUrl,
     checkConnection,
-    disconnect
+    disconnect,
+    // History
+    historyTasks,
+    historySummary,
+    historyLoading,
+    fetchHistory
   }
 }
 

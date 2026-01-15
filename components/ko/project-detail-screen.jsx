@@ -384,9 +384,9 @@ Master Roofing & Siding`)
     }
   }
 
-  const handlePreviewProposal = (projectId) => {
+  const handlePreviewProposal = (projectId, takeoffItems = null) => {
     if (onPreviewProposal) {
-      onPreviewProposal(project)
+      onPreviewProposal(project, takeoffItems)
     }
   }
 
@@ -514,6 +514,7 @@ Master Roofing & Siding`)
                   <ActionButtons
                     projectId={project.id}
                     sheetId={sheetId}
+                    projectName={project.name || project.address}
                     onPreviewProposal={handlePreviewProposal}
                   />
                 </div>

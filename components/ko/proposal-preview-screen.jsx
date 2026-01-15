@@ -1,8 +1,10 @@
 "use client"
 
-import { useState, useRef, useEffect } from "react"
+import { useState, useRef, useEffect, useMemo } from "react"
 import { ArrowLeft, Download, Mail, ExternalLink, Loader2, ZoomIn, ZoomOut } from "lucide-react"
 import { ProposalTemplate } from "./proposal-template"
+import { createProposalFromTakeoff } from "@/lib/proposal-utils"
+import { downloadProposalPDF } from "@/lib/generate-proposal-pdf"
 
 // Brand colors matching HubSpot template
 const BRAND = {
@@ -1020,47 +1022,76 @@ const proposalStyles = `
 `
 
 // ============ MAIN COMPONENT ============
-export function ProposalPreviewScreen({ project, onBack }) {
+export function ProposalPreviewScreen({ project, takeoffData, onBack }) {
   const [zoom, setZoom] = useState(0.65)
   const [isExporting, setIsExporting] = useState(false)
   const containerRef = useRef(null)
 
-  // Use the same data structure as the working template
-  const proposal = {
-    gc_name: project?.gc_name || project?.name || "General Contractor",
-    project_address: project?.address || "Project Address",
+  // Convert takeoff data to proposal format using v0 template utilities
+  const proposalData = useMemo(() => {
+    const projectName = project?.name || project?.address || "Project"
+    const projectAddress = project?.address || ""
+    const clientName = project?.gc_name || "General Contractor"
+    const clientCompany = project?.gc_name
+    const drawingsDate = project?.date_of_drawings || ""
+
+    if (takeoffData && takeoffData.length > 0) {
+      // Use v0 template conversion
+      return createProposalFromTakeoff(
+        projectName,
+        projectAddress,
+        clientName,
+        clientCompany,
+        takeoffData,
+        drawingsDate
+      )
+    }
+
+    // Fallback to mock data format for v0 template
+    return {
+      projectName,
+      projectAddress,
+      clientName,
+      clientCompany,
+      date: new Date().toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" }),
+      drawingsDate: "02/10/2025",
+      summary: "This project involves the installation of new roofing and exterior cladding systems for the building located at the specified address. Our scope includes complete removal of existing roofing materials, installation of new waterproofing membranes, and application of specified insulation systems.",
+      lineItems: MOCK_PROPOSAL.base_bid_items.map(item => ({
+        title: item.name,
+        amount: item.amount,
+        description: item.description
+      })),
+      exclusions: MOCK_PROPOSAL.clarifications,
+    }
+  }, [takeoffData, project])
+
+  // Also create the old format for the visual preview template
+  const proposal = useMemo(() => ({
+    gc_name: proposalData.clientCompany || proposalData.clientName || "General Contractor",
+    project_address: proposalData.projectAddress || "Project Address",
     created_at: new Date().toISOString(),
-    date_of_drawings: "02/10/2025",
+    date_of_drawings: proposalData.drawingsDate || "TBD",
     addendum: "01",
     version: "V1",
     supersedes: "v0",
-    project_summary: "This project involves the installation of new roofing and exterior cladding systems for the building located at the specified address. Our scope includes complete removal of existing roofing materials, installation of new waterproofing membranes, and application of specified insulation systems.",
-    base_bid_items: MOCK_PROPOSAL.base_bid_items,
-    alternates: MOCK_PROPOSAL.alternates,
-    clarifications: MOCK_PROPOSAL.clarifications,
-  }
+    project_summary: proposalData.summary,
+    base_bid_items: proposalData.lineItems.map(item => ({
+      name: item.title,
+      amount: item.amount,
+      description: item.description
+    })),
+    alternates: [],
+    clarifications: proposalData.exclusions,
+  }), [proposalData])
 
   const handleDownloadPDF = async () => {
     setIsExporting(true)
     try {
-      const html2pdf = (await import("html2pdf.js")).default
-      const element = containerRef.current?.querySelector(".pv-doc")
-      if (!element) throw new Error("Document not found")
-
-      const filename = `Proposal_${project?.gc_name || project?.name || "Master_Roofing"}_${new Date().toISOString().split("T")[0]}.pdf`
-
-      const opt = {
-        margin: 0,
-        filename,
-        image: { type: "jpeg", quality: 0.98 },
-        html2canvas: { scale: 2, useCORS: true, logging: false },
-        jsPDF: { unit: "px", format: [816, 1056], orientation: "portrait" },
-        pagebreak: { mode: ["css", "legacy"], before: ".pv-page" }
-      }
-
-      await html2pdf().set(opt).from(element).save()
+      // Use v0 template jsPDF generation
+      await downloadProposalPDF(proposalData)
     } catch (error) {
       console.error("PDF error:", error)
+      // Fallback to print
       window.print()
     } finally {
       setIsExporting(false)

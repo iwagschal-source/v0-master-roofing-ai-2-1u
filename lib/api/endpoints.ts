@@ -464,6 +464,21 @@ export interface AsanaProject {
   workspace: { gid: string; name: string };
 }
 
+export interface AsanaHistorySummary {
+  totalTasks: number;
+  completedTasks: number;
+  openTasks: number;
+  overdueTasks: number;
+  tasksByMonth: Record<string, number>;
+  tasksByProject: Record<string, number>;
+  dateRange: { start: string; end: string };
+}
+
+export interface AsanaHistoryResponse {
+  tasks: AsanaTask[];
+  summary: AsanaHistorySummary;
+}
+
 export const asanaAPI = {
   /**
    * Check Asana connection status
@@ -527,6 +542,22 @@ export const asanaAPI = {
    */
   listProjects: async (): Promise<AsanaProject[]> => {
     const res = await fetch('/api/asana/projects');
+    const data = await res.json();
+    if (data.needsAuth) throw new Error('NEEDS_AUTH');
+    if (data.error) throw new Error(data.error);
+    return data;
+  },
+
+  /**
+   * Fetch historical tasks (last N months)
+   */
+  listHistory: async (params?: { months?: number; project?: string }): Promise<AsanaHistoryResponse> => {
+    const searchParams = new URLSearchParams();
+    if (params?.months) searchParams.set('months', params.months.toString());
+    if (params?.project) searchParams.set('project', params.project);
+
+    const query = searchParams.toString();
+    const res = await fetch(`/api/asana/history${query ? `?${query}` : ''}`);
     const data = await res.json();
     if (data.needsAuth) throw new Error('NEEDS_AUTH');
     if (data.error) throw new Error(data.error);

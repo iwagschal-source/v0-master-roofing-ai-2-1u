@@ -10,8 +10,10 @@ import {
   Plus,
   Trash2,
   Upload,
-  FileSpreadsheet
+  FileSpreadsheet,
+  FileText
 } from "lucide-react"
+import { convertEstimatingSheetToTakeoff } from "@/lib/takeoff-to-proposal"
 import { cn } from "@/lib/utils"
 
 // Location columns for each section
@@ -101,6 +103,7 @@ export function EstimatingSheet({
   initialData = null,
   onSave,
   onClose,
+  onGenerateProposal,
   className
 }) {
   // Initialize data structure: { itemId: { colIndex: value, rate: number } }
@@ -247,6 +250,18 @@ export function EstimatingSheet({
     }).format(value)
   }
 
+  // Generate proposal from takeoff data
+  const handleGenerateProposal = useCallback(() => {
+    const takeoffItems = convertEstimatingSheetToTakeoff(data, MR_TEMPLATE)
+    if (takeoffItems.length === 0) {
+      alert('Please enter quantities before generating a proposal')
+      return
+    }
+    if (onGenerateProposal) {
+      onGenerateProposal(takeoffItems)
+    }
+  }, [data, onGenerateProposal])
+
   return (
     <div className={cn("flex flex-col h-full bg-background", className)}>
       {/* Header */}
@@ -273,6 +288,17 @@ export function EstimatingSheet({
             {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
             Save
           </button>
+          {onGenerateProposal && (
+            <button
+              onClick={handleGenerateProposal}
+              disabled={totals.grandTotal === 0}
+              className="flex items-center gap-1.5 px-4 py-2 text-sm bg-green-600 text-white hover:bg-green-700 rounded-lg transition-colors disabled:opacity-50"
+              title="Generate proposal from this takeoff"
+            >
+              <FileText className="w-4 h-4" />
+              Generate Proposal
+            </button>
+          )}
           {onClose && (
             <button onClick={onClose} className="px-3 py-2 text-sm bg-secondary rounded-lg">
               Close

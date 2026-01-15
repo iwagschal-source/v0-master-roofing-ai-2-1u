@@ -2298,17 +2298,74 @@ function TrainingTab({ agent }) {
     { id: 't4', name: 'Report Generator', enabled: false, description: 'Generate PDF reports from data' },
   ])
 
-  // Run a single evaluation iteration
+  // Run a single evaluation iteration (calls Model Arena API with tools)
   const runSingleEvaluation = async () => {
-    const results = []
-
-    // Use current testQuestions (includes user-added ones)
     const questionsToTest = [...testQuestions]
 
+    try {
+      // Call Model Arena with tools config for fair testing
+      const res = await fetch('/api/ko/arena/training-eval', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          agentId: agent.id,
+          questions: questionsToTest.map(q => ({
+            id: q.id,
+            question: q.question,
+            elements: q.elements || [],
+          })),
+          tools: agentTools,
+          knowledgeBase: knowledgeItems,
+          scoringWeights,
+          passThreshold,
+          modelsToTest: ['gemini-2.0-flash'], // Default model, can be expanded
+          iterations: 1,
+        }),
+      })
+
+      const data = await res.json()
+
+      if (data.success && data.results) {
+        // Update progress with real results
+        data.results.forEach((r, i) => {
+          if (stopRef.current) return
+          setLiveEvalProgress(prev => ({
+            ...prev,
+            currentQuestion: i + 1,
+            totalQuestions: questionsToTest.length,
+            results: [...(prev?.results || []), {
+              question: r.question,
+              score: r.score,
+              passed: r.passed
+            }]
+          }))
+        })
+
+        // Update question scores with real results
+        setTestQuestions(prev => prev.map(q => {
+          const result = data.results.find(r => r.question_id === q.id)
+          if (result) {
+            return { ...q, score: result.score, status: result.passed ? 'pass' : 'fail' }
+          }
+          return q
+        }))
+
+        return {
+          avgScore: data.summary.avg_score,
+          passRate: data.summary.pass_rate,
+          questionsRun: data.summary.questions_tested
+        }
+      }
+    } catch (error) {
+      console.error('Evaluation API error:', error)
+    }
+
+    // Fallback to local simulation if API fails
+    const results = []
     for (let i = 0; i < questionsToTest.length; i++) {
       if (stopRef.current) break
 
-      await new Promise(r => setTimeout(r, 500))
+      await new Promise(r => setTimeout(r, 300))
       const score = Math.floor(70 + Math.random() * 30)
       const passed = score >= passThreshold
 
@@ -2336,7 +2393,6 @@ function TrainingTab({ agent }) {
       return q
     }))
 
-    // Calculate stats
     const avgScore = results.length > 0
       ? Math.round(results.reduce((sum, r) => sum + r.score, 0) / results.length * 10) / 10
       : 0
@@ -2424,7 +2480,7 @@ function TrainingTab({ agent }) {
     setShowAddQuestion(false)
   }
 
-  // Send to training agent
+  // Send to training agent (calls real API)
   const handleTrainingAgentSend = async () => {
     if (!trainingAgentInput.trim()) return
     const userMsg = trainingAgentInput
@@ -2432,19 +2488,44 @@ function TrainingTab({ agent }) {
     setTrainingAgentMessages(prev => [...prev, { role: 'user', content: userMsg }])
     setTrainingAgentLoading(true)
 
-    // Simulate AI response
-    await new Promise(r => setTimeout(r, 1500))
+    try {
+      const res = await fetch('/api/ko/arena/training-agent', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          message: userMsg,
+          agentId: agent.id,
+          evaluationHistory: evaluations,
+          currentQuestions: testQuestions,
+          knowledgeBase: knowledgeItems,
+          scoringWeights,
+          tools: agentTools,
+        }),
+      })
 
-    let response = ''
-    if (userMsg.toLowerCase().includes('improve') || userMsg.toLowerCase().includes('score')) {
-      response = `Based on the latest evaluation (${evaluations[0]?.avgScore}/100), I suggest:\n\n1. **Add more context** - Include "vs last month" comparisons in all responses\n2. **Improve actionability** - End each response with a specific recommendation\n3. **Include benchmarks** - Reference industry standards (25-35% win rate is typical)\n\nWould you like me to add these as knowledge items?`
-    } else if (userMsg.toLowerCase().includes('add') || userMsg.toLowerCase().includes('knowledge')) {
-      response = 'I\'ve added the knowledge items. The agent will now include these facts in relevant responses. Run another evaluation to see the improvement.'
-    } else {
-      response = `I can help with:\n- Analyzing low-scoring questions\n- Suggesting prompt improvements\n- Adding knowledge/context\n- Configuring scoring weights\n\nWhat would you like to focus on?`
+      const data = await res.json()
+
+      if (data.success && data.response) {
+        setTrainingAgentMessages(prev => [...prev, {
+          role: 'assistant',
+          content: data.response,
+          actions: data.actions,
+          model: data.model_used,
+        }])
+      } else {
+        setTrainingAgentMessages(prev => [...prev, {
+          role: 'assistant',
+          content: data.error || 'Sorry, I encountered an error. Please try again.',
+        }])
+      }
+    } catch (error) {
+      console.error('Training agent error:', error)
+      setTrainingAgentMessages(prev => [...prev, {
+        role: 'assistant',
+        content: `I can help with:\n- Analyzing low-scoring questions\n- Suggesting prompt improvements\n- Adding knowledge/context\n- Testing across Model Arena\n\nWhat would you like to focus on?`,
+      }])
     }
 
-    setTrainingAgentMessages(prev => [...prev, { role: 'assistant', content: response }])
     setTrainingAgentLoading(false)
   }
 

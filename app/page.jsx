@@ -48,6 +48,7 @@ export default function HomePage() {
   const [showProjects, setShowProjects] = useState(false)
   const [selectedProject, setSelectedProject] = useState(null)
   const [showProposal, setShowProposal] = useState(false)
+  const [proposalTakeoffData, setProposalTakeoffData] = useState(null)
   const [showMessages, setShowMessages] = useState(false)
   const [showAsana, setShowAsana] = useState(false)
   const [showAgents, setShowAgents] = useState(false)
@@ -473,14 +474,19 @@ export default function HomePage() {
             showProposal && selectedProject ? (
               <ProposalPreviewScreen
                 project={selectedProject}
-                onBack={() => setShowProposal(false)}
+                takeoffData={proposalTakeoffData}
+                onBack={() => {
+                  setShowProposal(false)
+                  setProposalTakeoffData(null)
+                }}
               />
             ) : selectedProject ? (
               <ProjectDetailScreen
                 project={selectedProject}
                 onBack={() => setSelectedProject(null)}
-                onPreviewProposal={(project) => {
+                onPreviewProposal={(project, takeoffData = null) => {
                   setSelectedProject(project)
+                  setProposalTakeoffData(takeoffData)
                   setShowProposal(true)
                 }}
               />

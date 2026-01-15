@@ -8,6 +8,7 @@ const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || "https://34.95.128.20
 export function ActionButtons({ projectId, sheetId, projectName, onPreviewProposal }) {
   const [loadingAction, setLoadingAction] = useState(null)
   const [uploadResult, setUploadResult] = useState(null)
+  const [takeoffItems, setTakeoffItems] = useState(null)
   const fileInputRef = useRef(null)
 
   const handleUploadBluebeam = () => {
@@ -32,27 +33,51 @@ export function ActionButtons({ projectId, sheetId, projectName, onPreviewPropos
       // Read file content
       const csvContent = await file.text()
 
-      // Send to backend for conversion
-      const response = await fetch(`${BACKEND_URL}/v1/bluebeam/convert`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          csv_content: csvContent,
-          project_name: projectName || file.name.replace('.csv', ''),
-        }),
-      })
-
-      if (!response.ok) {
-        throw new Error(`Server error: ${response.status}`)
+      // Try local API first (more reliable), then fallback to backend
+      let result
+      try {
+        const localResponse = await fetch("/api/ko/bluebeam/convert", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            csv_content: csvContent,
+            project_name: projectName || file.name.replace('.csv', ''),
+          }),
+        })
+        if (localResponse.ok) {
+          result = await localResponse.json()
+        }
+      } catch (e) {
+        console.log("Local API unavailable, trying backend...")
       }
 
-      const result = await response.json()
+      // Fallback to backend if local failed
+      if (!result?.success) {
+        const response = await fetch(`${BACKEND_URL}/v1/bluebeam/convert`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            csv_content: csvContent,
+            project_name: projectName || file.name.replace('.csv', ''),
+          }),
+        })
+
+        if (!response.ok) {
+          throw new Error(`Server error: ${response.status}`)
+        }
+
+        result = await response.json()
+      }
 
       if (result.success) {
+        // Store items for proposal generation
+        setTakeoffItems(result.items || [])
+
         setUploadResult({
           success: true,
           summary: result.summary,
           templateData: result.template_data,
+          items: result.items,
         })
 
         // If we have a sheet connected, populate it
@@ -92,7 +117,8 @@ export function ActionButtons({ projectId, sheetId, projectName, onPreviewPropos
 
   const handlePreviewProposal = () => {
     if (onPreviewProposal) {
-      onPreviewProposal(projectId)
+      // Pass takeoff items for proposal generation
+      onPreviewProposal(projectId, takeoffItems)
     }
   }
 
