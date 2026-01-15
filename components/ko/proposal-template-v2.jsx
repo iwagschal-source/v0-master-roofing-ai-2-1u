@@ -87,6 +87,7 @@ export function ProposalTemplateV2({ proposal }) {
 
   return (
     <div className="ep-doc" id="proposal-content">
+      {/* TEMPLATE V2 - 120 Ellery Street Format */}
       <style dangerouslySetInnerHTML={{ __html: styles }} />
 
       {/* PAGE 1 - Header + Summary + Base Bid Items */}
