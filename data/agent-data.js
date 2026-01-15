@@ -598,6 +598,84 @@ export const agents = [
     training: { lastTrained: "2026-01-12", datasetVersion: "v3.0", accuracy: 99.5 },
     mapping: { inputSources: ["All Agent Activity Streams"], outputTargets: ["Audit Logs", "Governance Dashboard", "Alert System"], routingRules: 0 },
   },
+
+  {
+    id: "AGT-SALES-001",
+    name: "Sales Agent",
+    description: "Answers CEO sales questions - bid volume, top performers, GC analysis, pipeline status, win rates",
+    model: "Gemini 2.0 Flash",
+    modelKey: "gemini",
+    status: "live",
+    lastActivity: new Date().toISOString(),
+    currentAction: "Analyzing GC win rates for Q1...",
+    queueDepth: 0,
+    stats: { totalRequests: 426, successRate: 98.5, avgLatency: 280, errorsToday: 0, requestsPerMinute: 2 },
+    connections: ["AGT-ORCH-001", "AGT-BQ-001"],
+    auditedBy: ["AGT-AUDIT-001"],
+    schedule: "Always On",
+
+    permissions: {
+      readAccess: [
+        { resource: "BigQuery - sales_events", scope: "All tables", enabled: true },
+        { resource: "BigQuery - gc_metrics", scope: "All tables", enabled: true },
+        { resource: "BigQuery - proposals", scope: "Read only", enabled: true },
+      ],
+      writeAccess: [
+        { resource: "BigQuery - agent_logs", scope: "sales_agent_logs", enabled: true },
+      ],
+      userSynteraction: [
+        { id: "user_isaac", name: "Isaac", role: "CEO", canInitiate: true, canReceive: true },
+      ],
+      agentSynteraction: [
+        { agentId: "AGT-ORCH-001", canCall: false, canReceiveFrom: true, priority: 1 },
+        { agentId: "AGT-BQ-001", canCall: true, canReceiveFrom: true, priority: 2 },
+      ],
+    },
+
+    scoring: {
+      overallScore: 84.5, accuracyScore: 85, latencyScore: 78, reliabilityScore: 92,
+      evaluationFrequency: "Daily", lastEvaluation: "2026-01-15 03:30", nextEvaluation: "2026-01-16 03:30",
+      metrics: [
+        { name: "Completeness", description: "All required elements present", weight: 25, threshold: "75%" },
+        { name: "Accuracy", description: "Data correctness", weight: 25, threshold: "80%" },
+        { name: "Actionability", description: "Provides actionable insights", weight: 20, threshold: "70%" },
+        { name: "Context", description: "Includes benchmarks/comparisons", weight: 15, threshold: "60%" },
+        { name: "Formatting", description: "Clear, readable output", weight: 15, threshold: "70%" },
+      ],
+    },
+
+    monitoring: {
+      auditors: [
+        { id: "AGT-AUDIT-001", name: "Audit Agent", type: "agent", role: "Quality Monitoring", since: "2026-01-15", active: true },
+      ],
+      alerts: [
+        { type: "Score Drop", description: "Score below threshold", threshold: "<75", enabled: true },
+        { type: "Accuracy Alert", description: "Data accuracy issues", threshold: "<80%", enabled: true },
+      ],
+      channels: [
+        { type: "Dashboard", target: "Sales Intelligence Dashboard", enabled: true },
+      ],
+    },
+
+    history: {
+      totalExecutions: 426, firstActive: "2026-01-15", uptimePercent: 99.5, totalErrors: 6,
+      recentEvents: [
+        { type: "success", message: "Answered: How much did we bid this month?", timestamp: "03:30:55", details: "Score: 92" },
+        { type: "success", message: "Answered: Who's our top performer?", timestamp: "03:30:52", details: "Score: 82" },
+        { type: "success", message: "Answered: Which GCs should we focus on?", timestamp: "03:30:48", details: "Score: 85" },
+      ],
+      versions: [
+        { version: "v1.0.0", date: "2026-01-15", changes: "Initial release with 10 CEO questions" },
+      ],
+    },
+
+    configFiles: [
+      { name: "README.md", content: "# Sales Agent\n\nAnswers CEO-level sales questions using BigQuery data.\n\n## 10 CEO Questions\n1. How much did we bid this month?\n2. Who's our top performer?\n3. Which GCs should we focus on?\n4. Are we responding fast enough?\n5. What's in the pipeline?\n6. Who's been slow on turnaround?\n7. How are we doing vs last month?\n8. Which GCs should we stop bidding?\n9. What's our average job size?\n10. How many RFPs this week?\n\n## Scoring: 84.5/100 (100% pass rate)", type: "markdown" },
+    ],
+
+    training: { lastTrained: "2026-01-15", datasetVersion: "v1.0", accuracy: 84.5 },
+    mapping: { inputSources: ["CEO Chat", "Gemini Router"], outputTargets: ["Sales Dashboard", "CEO Response"], routingRules: 10 },
+  },
 ]
 
 // Helper function to get agent by ID
