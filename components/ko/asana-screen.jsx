@@ -1,9 +1,144 @@
 "use client"
 
 import { useState } from "react"
-import { Circle, CheckCircle2, RefreshCw, Loader2, Calendar, ExternalLink, ChevronRight, Filter, Search, ListTodo } from "lucide-react"
+import { Circle, CheckCircle2, RefreshCw, Loader2, Calendar, ExternalLink, Plus, MoreHorizontal } from "lucide-react"
 import Image from "next/image"
-import { useAsana, formatDueDate, getTagColor } from "@/hooks/useAsana"
+import { useAsana, formatDueDate } from "@/hooks/useAsana"
+
+// Kanban columns configuration
+const COLUMNS = [
+  { id: "today", title: "Today", filter: (task) => {
+    if (task.completed) return false
+    if (!task.due_on) return false
+    const today = new Date().toISOString().split('T')[0]
+    return task.due_on === today
+  }},
+  { id: "upcoming", title: "Upcoming", filter: (task) => {
+    if (task.completed) return false
+    if (!task.due_on) return false
+    const today = new Date().toISOString().split('T')[0]
+    const nextWeek = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
+    return task.due_on > today && task.due_on <= nextWeek
+  }},
+  { id: "later", title: "Later", filter: (task) => {
+    if (task.completed) return false
+    if (!task.due_on) {
+      return true // No due date goes to Later
+    }
+    const nextWeek = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
+    return task.due_on > nextWeek
+  }},
+  { id: "completed", title: "Completed", filter: (task) => task.completed },
+]
+
+function TaskCard({ task, onComplete, isCompleting }) {
+  const dueInfo = task.due_on ? formatDueDate(task.due_on) : null
+
+  return (
+    <div className={`
+      group bg-white dark:bg-zinc-800 rounded-lg border border-zinc-200 dark:border-zinc-700
+      p-3 cursor-pointer hover:shadow-md transition-shadow
+      ${task.completed ? 'opacity-60' : ''}
+    `}>
+      <div className="flex items-start gap-2">
+        {/* Checkbox */}
+        <button
+          onClick={(e) => {
+            e.stopPropagation()
+            if (!task.completed) onComplete(task.id)
+          }}
+          disabled={task.completed || isCompleting}
+          className="mt-0.5 flex-shrink-0"
+        >
+          {isCompleting ? (
+            <Loader2 className="w-4 h-4 text-pink-500 animate-spin" />
+          ) : task.completed ? (
+            <CheckCircle2 className="w-4 h-4 text-emerald-500" />
+          ) : (
+            <Circle className="w-4 h-4 text-zinc-300 hover:text-pink-500 transition-colors" />
+          )}
+        </button>
+
+        {/* Content */}
+        <div className="flex-1 min-w-0">
+          <p className={`text-sm ${task.completed ? 'line-through text-zinc-400' : 'text-zinc-900 dark:text-zinc-100'}`}>
+            {task.name}
+          </p>
+
+          {/* Meta row */}
+          <div className="mt-2 flex items-center gap-2 flex-wrap">
+            {dueInfo && !task.completed && (
+              <span className={`text-xs flex items-center gap-1 ${
+                dueInfo.isOverdue ? 'text-red-500' :
+                dueInfo.isDueToday ? 'text-orange-500' :
+                'text-zinc-400'
+              }`}>
+                <Calendar className="w-3 h-3" />
+                {dueInfo.text}
+              </span>
+            )}
+
+            {task.assignee && (
+              <span className="text-xs text-zinc-400">
+                {task.assignee.name}
+              </span>
+            )}
+          </div>
+        </div>
+
+        {/* External link */}
+        {task.permalink_url && (
+          <a
+            href={task.permalink_url}
+            target="_blank"
+            rel="noopener noreferrer"
+            onClick={(e) => e.stopPropagation()}
+            className="opacity-0 group-hover:opacity-100 p-1 hover:bg-zinc-100 dark:hover:bg-zinc-700 rounded transition-all"
+          >
+            <ExternalLink className="w-3 h-3 text-zinc-400" />
+          </a>
+        )}
+      </div>
+    </div>
+  )
+}
+
+function KanbanColumn({ title, tasks, taskCount, onComplete, completingTaskId }) {
+  return (
+    <div className="flex-1 min-w-[280px] max-w-[320px] flex flex-col">
+      {/* Column Header */}
+      <div className="flex items-center justify-between px-2 py-3">
+        <div className="flex items-center gap-2">
+          <h3 className="font-medium text-sm text-zinc-700 dark:text-zinc-300">{title}</h3>
+          <span className="text-xs text-zinc-400 bg-zinc-100 dark:bg-zinc-700 px-1.5 py-0.5 rounded">
+            {taskCount}
+          </span>
+        </div>
+        <button className="p-1 hover:bg-zinc-100 dark:hover:bg-zinc-700 rounded opacity-0 group-hover:opacity-100 transition-opacity">
+          <MoreHorizontal className="w-4 h-4 text-zinc-400" />
+        </button>
+      </div>
+
+      {/* Column Content */}
+      <div className="flex-1 overflow-y-auto space-y-2 px-1 pb-4">
+        {tasks.map((task) => (
+          <TaskCard
+            key={task.id}
+            task={task}
+            onComplete={onComplete}
+            isCompleting={completingTaskId === task.id}
+          />
+        ))}
+
+        {tasks.length === 0 && (
+          <div className="py-8 text-center text-zinc-400 text-sm">
+            No tasks
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
 
 export function AsanaScreen() {
   const {
@@ -20,8 +155,6 @@ export function AsanaScreen() {
     disconnect
   } = useAsana({ autoFetch: true })
 
-  const [searchQuery, setSearchQuery] = useState("")
-  const [showCompleted, setShowCompleted] = useState(false)
   const [completingTaskId, setCompletingTaskId] = useState(null)
 
   const handleCompleteTask = async (taskId) => {
@@ -30,283 +163,144 @@ export function AsanaScreen() {
     setCompletingTaskId(null)
   }
 
-  // Filter tasks
-  const filteredTasks = tasks.filter(task => {
-    if (!showCompleted && task.completed) return false
-    if (!searchQuery) return true
-    const q = searchQuery.toLowerCase()
-    return (
-      task.name.toLowerCase().includes(q) ||
-      task.notes?.toLowerCase().includes(q)
-    )
-  })
+  // Group tasks into columns
+  const columnTasks = COLUMNS.map(col => ({
+    ...col,
+    tasks: tasks.filter(col.filter),
+  }))
 
-  // Sort: incomplete first, then by due date
-  const sortedTasks = [...filteredTasks].sort((a, b) => {
-    if (a.completed !== b.completed) return a.completed ? 1 : -1
-    if (!a.due_on && !b.due_on) return 0
-    if (!a.due_on) return 1
-    if (!b.due_on) return -1
-    return new Date(a.due_on).getTime() - new Date(b.due_on).getTime()
-  })
+  // Not connected state
+  if (!isConnected) {
+    return (
+      <div className="flex-1 flex items-center justify-center bg-zinc-50 dark:bg-zinc-900">
+        <div className="text-center">
+          <Image
+            src="/images/asana.svg"
+            alt="Asana"
+            width={48}
+            height={48}
+            className="mx-auto mb-4 opacity-60"
+          />
+          <h2 className="text-xl font-semibold text-zinc-900 dark:text-zinc-100 mb-2">
+            Connect to Asana
+          </h2>
+          <p className="text-sm text-zinc-500 mb-6 max-w-sm">
+            View and manage your Asana tasks directly from KO
+          </p>
+          <a
+            href={authUrl || '/api/auth/asana'}
+            className="inline-flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-pink-500 to-orange-400 text-white rounded-lg font-medium hover:opacity-90 transition-opacity"
+          >
+            <Image src="/images/asana.svg" alt="" width={16} height={16} />
+            Connect Asana
+          </a>
+        </div>
+      </div>
+    )
+  }
 
   return (
-    <div className="flex h-full bg-background overflow-hidden">
-      {/* LEFT SIDEBAR - Asana Pipelines */}
-      <div className="w-64 border-r border-border flex flex-col bg-sidebar">
-        <div className="p-4 border-b border-border">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <Image
-                src="/images/asana.svg"
-                alt="Asana"
-                width={20}
-                height={20}
-                className="opacity-80"
-              />
-              <h2 className="text-lg font-semibold text-foreground">Asana</h2>
-            </div>
+    <div className="flex-1 flex flex-col bg-zinc-50 dark:bg-zinc-900 overflow-hidden">
+      {/* Top Bar */}
+      <div className="flex items-center justify-between px-6 py-4 bg-white dark:bg-zinc-800 border-b border-zinc-200 dark:border-zinc-700">
+        <div className="flex items-center gap-4">
+          <Image
+            src="/images/asana.svg"
+            alt="Asana"
+            width={24}
+            height={24}
+            className="opacity-80"
+          />
+
+          {/* Project Selector */}
+          <div className="flex items-center gap-1">
             <button
-              onClick={refresh}
-              disabled={loading}
-              className="p-2 hover:bg-muted rounded-lg transition-colors disabled:opacity-50"
-              title="Refresh"
+              onClick={() => selectProject(null)}
+              className={`px-3 py-1.5 text-sm rounded-full transition-colors ${
+                !selectedProject
+                  ? 'bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-900'
+                  : 'text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-700'
+              }`}
             >
-              <RefreshCw className={`w-4 h-4 text-foreground-secondary ${loading ? 'animate-spin' : ''}`} />
+              My Tasks
             </button>
-          </div>
-
-          {/* Connection Status */}
-          <div className="mt-3 flex items-center justify-between">
-            {isConnected && user ? (
-              <div className="flex items-center gap-2">
-                <div className="w-6 h-6 rounded-full bg-green-500/20 flex items-center justify-center">
-                  <span className="w-2 h-2 rounded-full bg-green-500" />
-                </div>
-                <span className="text-xs text-foreground-secondary">
-                  Connected as {user.name}
-                </span>
-                <button
-                  onClick={disconnect}
-                  className="text-xs text-red-500 hover:underline ml-2"
-                >
-                  Disconnect
-                </button>
-              </div>
-            ) : (
-              <a
-                href={authUrl || '/api/auth/asana'}
-                className="flex items-center gap-2 px-3 py-1.5 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors"
-              >
-                <Image
-                  src="/images/asana.svg"
-                  alt=""
-                  width={14}
-                  height={14}
-                />
-                Connect to Asana
-              </a>
-            )}
-          </div>
-        </div>
-
-        <div className="flex-1 overflow-y-auto p-2">
-          {/* My Tasks */}
-          <button
-            onClick={() => selectProject(null)}
-            className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors ${
-              !selectedProject
-                ? 'bg-primary/10 text-foreground'
-                : 'text-foreground-secondary hover:bg-muted hover:text-foreground'
-            }`}
-          >
-            <ListTodo className="w-5 h-5" />
-            <span className="font-medium">My Tasks</span>
-          </button>
-
-          {/* Pipelines */}
-          <div className="mt-4">
-            <div className="px-3 py-2 text-xs font-medium text-foreground-secondary uppercase tracking-wide">
-              Pipelines
-            </div>
-            {projects.map((project) => (
+            {projects.slice(0, 5).map((project) => (
               <button
                 key={project.id}
                 onClick={() => selectProject(project)}
-                className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors ${
+                className={`px-3 py-1.5 text-sm rounded-full transition-colors flex items-center gap-1.5 ${
                   selectedProject?.id === project.id
-                    ? 'bg-primary/10 text-foreground'
-                    : 'text-foreground-secondary hover:bg-muted hover:text-foreground'
+                    ? 'bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-900'
+                    : 'text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-700'
                 }`}
               >
-                {/* Asana-style colored dot */}
-                <span className={`w-3 h-3 rounded-full flex-shrink-0 ${
+                <span className={`w-2 h-2 rounded-full ${
                   project.color === 'red' ? 'bg-red-500' :
                   project.color === 'blue' ? 'bg-blue-500' :
                   project.color === 'green' ? 'bg-green-500' :
-                  project.color === 'yellow' ? 'bg-yellow-500' :
                   project.color === 'purple' ? 'bg-purple-500' :
-                  project.color === 'orange' ? 'bg-orange-500' :
-                  'bg-gray-400'
+                  'bg-zinc-400'
                 }`} />
-                <span className="text-sm truncate">{project.name}</span>
+                {project.name}
               </button>
             ))}
           </div>
         </div>
-      </div>
 
-      {/* RIGHT PANE - Tasks List */}
-      <div className="flex-1 flex flex-col bg-background">
-        {/* Header */}
-        <div className="px-6 py-4 border-b border-border bg-card">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <h1 className="text-xl font-medium text-foreground">
-                {selectedProject ? selectedProject.name : 'My Tasks'}
-              </h1>
-              <span className="text-sm text-foreground-secondary">
-                ({filteredTasks.filter(t => !t.completed).length} incomplete)
-              </span>
-            </div>
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => setShowCompleted(!showCompleted)}
-                className={`px-3 py-1.5 text-sm rounded-lg transition-colors ${
-                  showCompleted
-                    ? 'bg-primary/10 text-primary'
-                    : 'text-foreground-secondary hover:bg-muted'
-                }`}
-              >
-                {showCompleted ? 'Hide completed' : 'Show completed'}
-              </button>
-            </div>
-          </div>
+        <div className="flex items-center gap-3">
+          {/* User */}
+          <span className="text-xs text-zinc-500">
+            {user?.name}
+          </span>
 
-          {/* Search */}
-          <div className="relative mt-3">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-foreground-secondary" />
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search tasks..."
-              className="w-full max-w-md pl-10 pr-4 py-2 bg-background border border-input rounded-lg text-sm text-foreground placeholder:text-foreground-secondary outline-none focus:ring-1 focus:ring-primary"
-            />
-          </div>
-        </div>
+          <button
+            onClick={refresh}
+            disabled={loading}
+            className="p-2 hover:bg-zinc-100 dark:hover:bg-zinc-700 rounded-lg transition-colors"
+          >
+            <RefreshCw className={`w-4 h-4 text-zinc-500 ${loading ? 'animate-spin' : ''}`} />
+          </button>
 
-        {/* Tasks List */}
-        <div className="flex-1 overflow-y-auto p-6">
-          {loading && tasks.length === 0 ? (
-            <div className="flex items-center justify-center h-32">
-              <Loader2 className="w-8 h-8 text-primary animate-spin" />
-            </div>
-          ) : sortedTasks.length === 0 ? (
-            <div className="text-center py-16 text-foreground-secondary">
-              <ListTodo className="w-12 h-12 mx-auto mb-4 opacity-50" />
-              <h3 className="text-lg font-medium text-foreground mb-2">No tasks</h3>
-              <p className="text-sm">
-                {searchQuery ? 'No tasks match your search' : 'All caught up!'}
-              </p>
-            </div>
-          ) : (
-            <div className="max-w-4xl space-y-2">
-              {sortedTasks.map((task) => {
-                const dueInfo = formatDueDate(task.due_on)
-
-                return (
-                  <div
-                    key={task.id}
-                    className={`group flex items-start gap-3 p-4 bg-card rounded-lg border transition-colors ${
-                      task.completed
-                        ? 'border-border/50 opacity-60'
-                        : 'border-border hover:border-border-strong'
-                    }`}
-                  >
-                    {/* Checkbox */}
-                    <button
-                      onClick={() => !task.completed && handleCompleteTask(task.id)}
-                      disabled={task.completed || completingTaskId === task.id}
-                      className="mt-0.5 flex-shrink-0"
-                    >
-                      {completingTaskId === task.id ? (
-                        <Loader2 className="w-5 h-5 text-primary animate-spin" />
-                      ) : task.completed ? (
-                        <CheckCircle2 className="w-5 h-5 text-green-500" />
-                      ) : (
-                        <Circle className="w-5 h-5 text-foreground-secondary hover:text-primary transition-colors" />
-                      )}
-                    </button>
-
-                    {/* Task Content */}
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-start justify-between gap-2">
-                        <h3 className={`text-sm font-medium ${
-                          task.completed ? 'text-foreground-secondary line-through' : 'text-foreground'
-                        }`}>
-                          {task.name}
-                        </h3>
-                        {task.permalink_url && (
-                          <a
-                            href={task.permalink_url}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="opacity-0 group-hover:opacity-100 p-1 hover:bg-muted rounded transition-all"
-                          >
-                            <ExternalLink className="w-4 h-4 text-foreground-secondary" />
-                          </a>
-                        )}
-                      </div>
-
-                      {task.notes && (
-                        <p className="mt-1 text-sm text-foreground-secondary line-clamp-2">
-                          {task.notes}
-                        </p>
-                      )}
-
-                      <div className="mt-2 flex items-center flex-wrap gap-2">
-                        {/* Due Date */}
-                        {task.due_on && (
-                          <div className={`flex items-center gap-1 text-xs px-2 py-1 rounded-full ${
-                            dueInfo.isOverdue
-                              ? 'bg-red-500/20 text-red-500'
-                              : dueInfo.isDueToday
-                                ? 'bg-orange-500/20 text-orange-500'
-                                : dueInfo.isDueSoon
-                                  ? 'bg-yellow-500/20 text-yellow-500'
-                                  : 'bg-muted text-foreground-secondary'
-                          }`}>
-                            <Calendar className="w-3 h-3" />
-                            {dueInfo.text}
-                          </div>
-                        )}
-
-                        {/* Tags */}
-                        {task.tags?.map((tag) => (
-                          <span
-                            key={tag.gid}
-                            className={`text-xs px-2 py-1 rounded-full ${getTagColor(tag.color)}`}
-                          >
-                            {tag.name}
-                          </span>
-                        ))}
-
-                        {/* Project */}
-                        {!selectedProject && task.projects?.[0] && (
-                          <span className="text-xs text-foreground-secondary">
-                            {task.projects[0].name}
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                )
-              })}
-            </div>
-          )}
+          <button
+            onClick={disconnect}
+            className="text-xs text-zinc-400 hover:text-red-500 transition-colors"
+          >
+            Disconnect
+          </button>
         </div>
       </div>
+
+      {/* Board Title */}
+      <div className="px-6 py-4">
+        <h1 className="text-2xl font-semibold text-zinc-900 dark:text-zinc-100">
+          {selectedProject ? selectedProject.name : 'My Tasks'}
+        </h1>
+        <p className="text-sm text-zinc-500 mt-1">
+          {tasks.filter(t => !t.completed).length} tasks remaining
+        </p>
+      </div>
+
+      {/* Kanban Board */}
+      {loading && tasks.length === 0 ? (
+        <div className="flex-1 flex items-center justify-center">
+          <Loader2 className="w-8 h-8 text-pink-500 animate-spin" />
+        </div>
+      ) : (
+        <div className="flex-1 overflow-x-auto px-4 pb-4">
+          <div className="flex gap-4 h-full min-w-max">
+            {columnTasks.map((column) => (
+              <KanbanColumn
+                key={column.id}
+                title={column.title}
+                tasks={column.tasks}
+                taskCount={column.tasks.length}
+                onComplete={handleCompleteTask}
+                completingTaskId={completingTaskId}
+              />
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   )
 }
