@@ -1,12 +1,14 @@
 /**
- * Training Agent API - AI assistant for agent improvement
+ * Training Agent API - Claude Opus 4 powered agent trainer
  *
- * This is the brain behind the Training Agent chat. It:
- * 1. Analyzes evaluation results
- * 2. Suggests prompt improvements
- * 3. Recommends knowledge items to add
- * 4. Identifies weak areas and patterns
- * 5. Can trigger new evaluations across Model Arena
+ * This is trained to think and work like Claude Code:
+ * 1. Analyze thoroughly before acting
+ * 2. Check work against criteria
+ * 3. Iterate until quality is acceptable
+ * 4. Actually modify prompts (not just suggest)
+ * 5. Apply self-refinement loops to all agents
+ *
+ * Has FULL WRITE ACCESS to agent prompts and configurations.
  */
 
 process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0'
@@ -15,31 +17,70 @@ import { NextResponse } from 'next/server'
 
 const BACKEND_URL = 'https://34.95.128.208'
 
-// System prompt for the Training Agent
-const TRAINING_AGENT_SYSTEM_PROMPT = `You are a Training Agent for Master Roofing's AI system. Your job is to help improve other agents by analyzing their performance and suggesting improvements.
+// System prompt - trained to think like Claude
+const TRAINING_AGENT_SYSTEM_PROMPT = `You are the Training Agent for Master Roofing's AI system, powered by Claude Opus 4. You think and work like Claude Code - thorough, iterative, and precise.
 
-You have access to:
-1. Model Arena - 38 LLMs across 11 providers that can be tested
-2. Evaluation results - scores across 5 dimensions (completeness, accuracy, actionability, context, formatting)
-3. Knowledge base - facts and context the agent uses
-4. Tools - BigQuery SQL, GC Metrics Calculator, Pipeline Analyzer, Report Generator
+## Your Methodology (How You Think)
+1. **Analyze first** - Read all context before responding. Understand the full picture.
+2. **Check your work** - Before finalizing any response, verify it against the criteria.
+3. **Iterate** - If something isn't right, fix it. Don't return subpar work.
+4. **Be specific** - Vague suggestions are useless. Give exact prompts, exact knowledge items, exact fixes.
+5. **Take action** - You have WRITE ACCESS. Don't just suggest - actually modify prompts when asked.
 
-When analyzing results:
-- Identify patterns in low scores (which dimensions are consistently weak?)
-- Suggest specific knowledge items that would help (e.g., "Add industry benchmark: 25-35% win rate is typical")
-- Recommend prompt adjustments (e.g., "Always include 'vs last month' comparisons")
-- Consider if different models might perform better for specific question types
+## Your Capabilities (Full Access)
+You can READ and WRITE:
+- Agent system prompts (modify how any agent behaves)
+- Universal prompt additions (applied to ALL agents)
+- Knowledge base items (facts injected into all responses)
+- Self-refinement protocols (make agents check their own work)
+- Scoring configurations (weights and thresholds)
 
-Be concise, actionable, and specific. Focus on improvements that will raise scores.
+## Tools Available
+- Model Arena: 38 LLMs across 11 providers for comparative testing
+- Prompt API: /api/ko/agents/prompts - full CRUD access
+- Evaluation API: /api/ko/arena/training-eval - run tests with tool injection
 
-Current scoring weights:
-- Completeness: 25% (all required elements present)
-- Accuracy: 25% (data correctness)
-- Actionability: 20% (provides actionable insights)
-- Context: 15% (includes benchmarks/comparisons)
-- Formatting: 15% (clear, readable output)
+## Your Core Task
+Train other agents to produce CEO-quality responses. A good response:
+- Has ALL required elements (completeness: 25%)
+- Is accurate with real data (accuracy: 25%)
+- Ends with actionable recommendation (actionability: 20%)
+- Includes benchmark/comparison (context: 15%)
+- Is well-formatted and readable (formatting: 15%)
+- Passes threshold: 75/100
 
-Pass threshold: 75/100`
+## Self-Refinement Protocol (Apply to All Agents)
+When asked to improve an agent, add this to their prompt:
+
+\`\`\`
+## Self-Check Before Responding (MANDATORY)
+Before returning your response, verify:
+□ All required elements present for this question type
+□ Included comparison to previous period (vs last month/week)
+□ Included industry benchmark or target
+□ Ended with actionable 💡 recommendation
+□ Used proper formatting (bold headers, bullets, indicators)
+
+If ANY box unchecked, REVISE before returning. Do not return incomplete responses.
+\`\`\`
+
+## Response Style
+- Be direct. No fluff.
+- When you make a change, confirm what you changed.
+- When analyzing, show your reasoning.
+- When something is wrong, say so clearly.
+
+You are training agents to be almost as good as you. Be rigorous.
+
+## Your Manager
+Isaac Wagschal is your manager and the CEO of Master Roofing & Siding. When Isaac asks you something:
+- Always respond immediately and thoroughly
+- He has final authority on all agent configurations
+- If he says "do it" or "apply it" - execute the action, don't just suggest
+- Keep him informed of what you changed and why
+- His time is valuable - be concise but complete
+
+Isaac built this entire system. Respect that context.`
 
 export async function POST(request) {
   try {
@@ -52,10 +93,12 @@ export async function POST(request) {
       knowledgeBase,        // Current knowledge items
       scoringWeights,       // Current weights
       tools,                // Enabled tools
+      executeActions,       // If true, actually execute suggested actions
     } = body
 
     // Build context for the Training Agent
     const context = buildContext({
+      agentId,
       evaluationHistory,
       currentQuestions,
       knowledgeBase,
@@ -63,53 +106,87 @@ export async function POST(request) {
       tools,
     })
 
-    // Try to call backend Gemini first
+    let response = null
+    let modelUsed = 'fallback'
+
+    // Try Claude Opus 4 first (primary model)
     try {
-      const res = await fetch(`${BACKEND_URL}/v1/chat`, {
+      const claudeRes = await fetch(`${BACKEND_URL}/v1/chat`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          model: 'gemini-2.0-flash',
+          model: 'claude-opus-4',
           messages: [
             { role: 'system', content: TRAINING_AGENT_SYSTEM_PROMPT + '\n\n' + context },
             { role: 'user', content: message },
           ],
-          max_tokens: 1000,
-          temperature: 0.7,
+          max_tokens: 2000,
+          temperature: 0.4, // Lower temp for more precise/consistent training advice
         }),
       })
 
-      if (res.ok) {
-        const data = await res.json()
-        const response = data.choices?.[0]?.message?.content || data.response || data.text
-
-        // Parse response for actions
-        const actions = parseActionsFromResponse(response)
-
-        return NextResponse.json({
-          success: true,
-          response,
-          actions,
-          model_used: 'gemini-2.0-flash',
-        })
+      if (claudeRes.ok) {
+        const data = await claudeRes.json()
+        response = data.choices?.[0]?.message?.content || data.response || data.text
+        modelUsed = 'claude-opus-4'
       }
-    } catch (backendError) {
-      console.log('Backend unavailable, using fallback:', backendError.message)
+    } catch (claudeError) {
+      console.log('Claude Opus unavailable:', claudeError.message)
     }
 
-    // Fallback: generate intelligent response based on context
-    const response = generateFallbackResponse(message, {
-      evaluationHistory,
-      currentQuestions,
-      knowledgeBase,
-      scoringWeights,
-    })
+    // Fallback to Gemini if Claude unavailable
+    if (!response) {
+      try {
+        const geminiRes = await fetch(`${BACKEND_URL}/v1/chat`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            model: 'gemini-2.0-flash',
+            messages: [
+              { role: 'system', content: TRAINING_AGENT_SYSTEM_PROMPT + '\n\n' + context },
+              { role: 'user', content: message },
+            ],
+            max_tokens: 1500,
+            temperature: 0.5,
+          }),
+        })
+
+        if (geminiRes.ok) {
+          const data = await geminiRes.json()
+          response = data.choices?.[0]?.message?.content || data.response || data.text
+          modelUsed = 'gemini-2.0-flash'
+        }
+      } catch (geminiError) {
+        console.log('Gemini unavailable:', geminiError.message)
+      }
+    }
+
+    // Final fallback to local generation
+    if (!response) {
+      response = generateFallbackResponse(message, {
+        agentId,
+        evaluationHistory,
+        currentQuestions,
+        knowledgeBase,
+        scoringWeights,
+      })
+    }
+
+    // Parse response for actions
+    const actions = parseActionsFromResponse(response)
+
+    // Execute actions if requested (Training Agent has write access)
+    let executedActions = []
+    if (executeActions && actions.length > 0) {
+      executedActions = await executeTrainingActions(actions, agentId)
+    }
 
     return NextResponse.json({
       success: true,
       response,
-      actions: parseActionsFromResponse(response),
-      model_used: 'fallback',
+      actions,
+      executedActions,
+      model_used: modelUsed,
     })
 
   } catch (error) {
@@ -121,8 +198,72 @@ export async function POST(request) {
   }
 }
 
-function buildContext({ evaluationHistory, currentQuestions, knowledgeBase, scoringWeights, tools }) {
-  let context = '## Current Agent State\n\n'
+// Execute actions the Training Agent suggests (full write access)
+async function executeTrainingActions(actions, agentId) {
+  const results = []
+  const baseUrl = process.env.VERCEL_URL
+    ? `https://${process.env.VERCEL_URL}`
+    : 'http://localhost:3000'
+
+  for (const action of actions) {
+    try {
+      switch (action.type) {
+        case 'add_knowledge':
+          const knowledgeRes = await fetch(`${baseUrl}/api/ko/agents/prompts`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              action: 'add_knowledge',
+              data: { knowledge: action.content }
+            }),
+          })
+          results.push({ action: 'add_knowledge', success: knowledgeRes.ok, content: action.content })
+          break
+
+        case 'update_prompt':
+          const promptRes = await fetch(`${baseUrl}/api/ko/agents/prompts`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              action: 'update_agent_prompt',
+              agentId,
+              data: { systemPrompt: action.content }
+            }),
+          })
+          results.push({ action: 'update_prompt', success: promptRes.ok, agentId })
+          break
+
+        case 'enable_self_refinement':
+          const refinementRes = await fetch(`${baseUrl}/api/ko/agents/prompts`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: 'enable_self_refinement' }),
+          })
+          results.push({ action: 'enable_self_refinement', success: refinementRes.ok })
+          break
+
+        case 'apply_to_all':
+          const applyRes = await fetch(`${baseUrl}/api/ko/agents/prompts`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              action: 'apply_to_all',
+              data: { addition: action.content }
+            }),
+          })
+          results.push({ action: 'apply_to_all', success: applyRes.ok })
+          break
+      }
+    } catch (err) {
+      results.push({ action: action.type, success: false, error: err.message })
+    }
+  }
+
+  return results
+}
+
+function buildContext({ agentId, evaluationHistory, currentQuestions, knowledgeBase, scoringWeights, tools }) {
+  let context = `## Current Agent: ${agentId || 'Unknown'}\n\n`
 
   // Latest evaluation
   if (evaluationHistory?.length > 0) {
@@ -174,29 +315,75 @@ function buildContext({ evaluationHistory, currentQuestions, knowledgeBase, scor
 
 function parseActionsFromResponse(response) {
   const actions = []
+  const responseLower = response.toLowerCase()
 
-  // Check for knowledge suggestions
-  const knowledgeMatch = response.match(/add.*knowledge.*[:\"]([^"]+)[\"]/i)
-  if (knowledgeMatch) {
-    actions.push({ type: 'add_knowledge', content: knowledgeMatch[1] })
+  // Check for knowledge items to add (various formats)
+  const knowledgePatterns = [
+    /add.*knowledge[:\s]*["\u201c]([^"\u201d]+)["\u201d]/gi,
+    /knowledge item[:\s]*["\u201c]([^"\u201d]+)["\u201d]/gi,
+    /→.*["\u201c]([^"\u201d]+)["\u201d]/g,
+    /suggested.*[:\s]*["\u201c]([^"\u201d]+)["\u201d]/gi,
+  ]
+  for (const pattern of knowledgePatterns) {
+    let match
+    while ((match = pattern.exec(response)) !== null) {
+      if (match[1] && match[1].length > 10) {
+        actions.push({ type: 'add_knowledge', content: match[1].trim() })
+      }
+    }
+  }
+
+  // Check for self-refinement enablement
+  if (responseLower.includes('self-refinement') || responseLower.includes('self-check') || responseLower.includes('self check')) {
+    if (responseLower.includes('enable') || responseLower.includes('add') || responseLower.includes('apply')) {
+      actions.push({ type: 'enable_self_refinement' })
+    }
+  }
+
+  // Check for apply to all agents
+  if (responseLower.includes('all agents') || responseLower.includes('apply to all') || responseLower.includes('every agent')) {
+    // Extract what should be applied
+    const applyMatch = response.match(/apply[^:]*:[^\n]*\n```([^`]+)```/i)
+    if (applyMatch) {
+      actions.push({ type: 'apply_to_all', content: applyMatch[1].trim() })
+    } else {
+      actions.push({ type: 'apply_to_all', suggestion: true })
+    }
+  }
+
+  // Check for prompt update
+  if (responseLower.includes('update prompt') || responseLower.includes('modify prompt') || responseLower.includes('change prompt')) {
+    const promptMatch = response.match(/```([^`]+)```/)
+    if (promptMatch) {
+      actions.push({ type: 'update_prompt', content: promptMatch[1].trim() })
+    } else {
+      actions.push({ type: 'update_prompt', suggestion: true })
+    }
   }
 
   // Check for tool recommendations
-  if (response.toLowerCase().includes('enable') && response.toLowerCase().includes('tool')) {
+  if (responseLower.includes('enable') && responseLower.includes('tool')) {
     actions.push({ type: 'enable_tool', suggestion: true })
   }
 
   // Check for re-evaluation suggestion
-  if (response.toLowerCase().includes('run') && response.toLowerCase().includes('evaluation')) {
+  if ((responseLower.includes('run') || responseLower.includes('trigger')) && responseLower.includes('evaluation')) {
     actions.push({ type: 'run_evaluation', suggestion: true })
   }
 
   // Check for weight adjustment
-  if (response.toLowerCase().includes('adjust') && response.toLowerCase().includes('weight')) {
+  if (responseLower.includes('adjust') && responseLower.includes('weight')) {
     actions.push({ type: 'adjust_weights', suggestion: true })
   }
 
-  return actions
+  // Deduplicate
+  const seen = new Set()
+  return actions.filter(a => {
+    const key = `${a.type}:${a.content || ''}`
+    if (seen.has(key)) return false
+    seen.add(key)
+    return true
+  })
 }
 
 function generateFallbackResponse(message, context) {
