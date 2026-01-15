@@ -2,7 +2,7 @@
 
 import { useState, useEffect, Suspense, useRef } from "react"
 import { useSearchParams } from "next/navigation"
-import { ProposalTemplateV2 } from "@/components/ko/proposal-template-v2"
+import { ProposalTemplate } from "@/components/ko/proposal-template"
 
 // Sample data for demos (used when no sheetId provided)
 const DEMO_PROPOSALS = {
@@ -348,7 +348,7 @@ function ProposalPreviewContent() {
 
       {/* Proposal Template */}
       <div ref={docRef}>
-        <ProposalTemplateV2 proposal={proposal} />
+        <ProposalTemplate proposal={proposal} />
       </div>
     </div>
   )
