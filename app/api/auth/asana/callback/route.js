@@ -52,8 +52,8 @@ export async function GET(request) {
       },
       body: new URLSearchParams({
         grant_type: 'authorization_code',
-        client_id: process.env.ASANA_CLIENT_ID,
-        client_secret: process.env.ASANA_CLIENT_SECRET,
+        client_id: process.env.ASANA_CLIENT_ID?.trim(),
+        client_secret: process.env.ASANA_CLIENT_SECRET?.trim(),
         redirect_uri: getRedirectUri(request),
         code: code,
       }),

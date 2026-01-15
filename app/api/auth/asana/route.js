@@ -18,7 +18,7 @@ function getRedirectUri(request) {
 }
 
 export async function GET(request) {
-  const clientId = process.env.ASANA_CLIENT_ID
+  const clientId = process.env.ASANA_CLIENT_ID?.trim()
 
   if (!clientId) {
     return NextResponse.json(
