@@ -30,11 +30,23 @@ async function fetchFromGoogleChatAPI(): Promise<{ spaces: ChatSpace[], needsWor
     const spaceId = space.id || space.name || ''
     // Ensure space ID is in correct format (spaces/XXXXX)
     const normalizedId = spaceId.startsWith('spaces/') ? spaceId : `spaces/${spaceId}`
+
+    // For display name: prefer displayName from API, fall back to formatted ID
+    // Note: DMs may not have displayName, so we show "Direct Message" for those
+    let displayName = space.displayName
+    if (!displayName || displayName.startsWith('spaces/')) {
+      if (space.type === 'DM' || space.type === 'GROUP_DM') {
+        displayName = 'Direct Message'
+      } else {
+        displayName = spaceId.replace('spaces/', '')
+      }
+    }
+
     return {
       id: normalizedId,
       name: normalizedId,
       type: space.type || 'ROOM',
-      displayName: space.name || space.displayName || spaceId.replace('spaces/', ''),
+      displayName,
       memberCount: 0
     }
   })
