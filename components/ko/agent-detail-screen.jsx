@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useCallback, useRef } from "react"
+import { useState, useEffect, useCallback, useRef, useMemo } from "react"
 import {
   ArrowLeft,
   Activity,
@@ -2267,6 +2267,13 @@ function TrainingTab({ agent }) {
   const [isEvaluating, setIsEvaluating] = useState(false)
   const [liveEvalProgress, setLiveEvalProgress] = useState(null)
 
+  // Iteration controls
+  const [iterationCount, setIterationCount] = useState(1)
+  const [runMode, setRunMode] = useState('iterations') // 'iterations' | 'continuous' | 'duration'
+  const [durationMinutes, setDurationMinutes] = useState(5)
+  const [shouldStop, setShouldStop] = useState(false)
+  const stopRef = useRef(false)
+
   // Knowledge base state
   const [knowledgeItems, setKnowledgeItems] = useState([
     { id: 'k1', type: 'fact', content: 'Industry standard win rate is 25-35%', active: true },
@@ -2291,34 +2298,116 @@ function TrainingTab({ agent }) {
     { id: 't4', name: 'Report Generator', enabled: false, description: 'Generate PDF reports from data' },
   ])
 
-  // Run evaluation
-  const handleRunEvaluation = async () => {
-    setIsEvaluating(true)
-    setLiveEvalProgress({ current: 0, total: testQuestions.length, results: [] })
+  // Run a single evaluation iteration
+  const runSingleEvaluation = async () => {
+    const results = []
 
-    // Simulate evaluation
-    for (let i = 0; i < testQuestions.length; i++) {
-      await new Promise(r => setTimeout(r, 800))
-      const score = Math.floor(75 + Math.random() * 25)
+    // Use current testQuestions (includes user-added ones)
+    const questionsToTest = [...testQuestions]
+
+    for (let i = 0; i < questionsToTest.length; i++) {
+      if (stopRef.current) break
+
+      await new Promise(r => setTimeout(r, 500))
+      const score = Math.floor(70 + Math.random() * 30)
+      const passed = score >= passThreshold
+
+      results.push({
+        questionId: questionsToTest[i].id,
+        question: questionsToTest[i].question,
+        score,
+        passed
+      })
+
       setLiveEvalProgress(prev => ({
         ...prev,
-        current: i + 1,
-        results: [...prev.results, { question: testQuestions[i].question, score, passed: score >= passThreshold }]
+        currentQuestion: i + 1,
+        totalQuestions: questionsToTest.length,
+        results: [...(prev?.results || []), { question: questionsToTest[i].question, score, passed }]
       }))
     }
 
-    // Add to history
-    const avgScore = Math.floor(80 + Math.random() * 10)
-    setEvaluations(prev => [{
-      id: prev.length + 1,
-      timestamp: new Date().toISOString().replace('T', ' ').slice(0, 16),
-      avgScore,
-      passRate: 100,
-      questionsRun: testQuestions.length
-    }, ...prev])
+    // Update question scores
+    setTestQuestions(prev => prev.map(q => {
+      const result = results.find(r => r.questionId === q.id)
+      if (result) {
+        return { ...q, score: result.score, status: result.passed ? 'pass' : 'fail' }
+      }
+      return q
+    }))
+
+    // Calculate stats
+    const avgScore = results.length > 0
+      ? Math.round(results.reduce((sum, r) => sum + r.score, 0) / results.length * 10) / 10
+      : 0
+    const passCount = results.filter(r => r.passed).length
+    const passRate = results.length > 0 ? Math.round(passCount / results.length * 100) : 0
+
+    return { avgScore, passRate, questionsRun: results.length }
+  }
+
+  // Run evaluation (supports iterations, continuous, or duration mode)
+  const handleRunEvaluation = async () => {
+    setIsEvaluating(true)
+    stopRef.current = false
+    setShouldStop(false)
+
+    const startTime = Date.now()
+    let iterationsRun = 0
+
+    setLiveEvalProgress({
+      iteration: 0,
+      totalIterations: runMode === 'iterations' ? iterationCount : '∞',
+      currentQuestion: 0,
+      totalQuestions: testQuestions.length,
+      results: []
+    })
+
+    const shouldContinue = () => {
+      if (stopRef.current) return false
+      if (runMode === 'iterations') return iterationsRun < iterationCount
+      if (runMode === 'duration') {
+        const elapsed = (Date.now() - startTime) / 1000 / 60
+        return elapsed < durationMinutes
+      }
+      return true // continuous mode
+    }
+
+    while (shouldContinue()) {
+      iterationsRun++
+      setLiveEvalProgress(prev => ({
+        ...prev,
+        iteration: iterationsRun,
+        results: [] // Reset results for new iteration
+      }))
+
+      const evalResult = await runSingleEvaluation()
+
+      if (stopRef.current) break
+
+      // Add to history
+      setEvaluations(prev => [{
+        id: Date.now(),
+        timestamp: new Date().toISOString().replace('T', ' ').slice(0, 16),
+        avgScore: evalResult.avgScore,
+        passRate: evalResult.passRate,
+        questionsRun: evalResult.questionsRun
+      }, ...prev.slice(0, 49)]) // Keep last 50
+
+      // Small delay between iterations
+      if (shouldContinue()) {
+        await new Promise(r => setTimeout(r, 1000))
+      }
+    }
 
     setIsEvaluating(false)
     setLiveEvalProgress(null)
+  }
+
+  // Stop evaluation
+  const handleStopEvaluation = () => {
+    stopRef.current = true
+    setShouldStop(true)
   }
 
   // Add test question
@@ -2439,32 +2528,91 @@ function TrainingTab({ agent }) {
               ))}
             </div>
 
-            <button
-              onClick={handleRunEvaluation}
-              disabled={isEvaluating}
-              className="mt-4 w-full flex items-center justify-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg font-medium text-sm hover:bg-primary/90 transition-colors disabled:opacity-50"
-            >
-              {isEvaluating ? (
-                <>
-                  <Loader2 size={16} className="animate-spin" />
-                  Evaluating ({liveEvalProgress?.current}/{liveEvalProgress?.total})
-                </>
-              ) : (
-                <>
-                  <Play size={16} />
-                  Run Evaluation
-                </>
-              )}
-            </button>
+            {/* Run Mode Controls */}
+            <div className="mt-4 p-3 bg-secondary rounded-lg space-y-3">
+              <div className="flex items-center gap-2">
+                <select
+                  value={runMode}
+                  onChange={e => setRunMode(e.target.value)}
+                  disabled={isEvaluating}
+                  className="bg-background border border-border rounded px-2 py-1 text-sm"
+                >
+                  <option value="iterations">Run X times</option>
+                  <option value="duration">Run for X minutes</option>
+                  <option value="continuous">Run continuously</option>
+                </select>
 
+                {runMode === 'iterations' && (
+                  <input
+                    type="number"
+                    min="1"
+                    max="100"
+                    value={iterationCount}
+                    onChange={e => setIterationCount(Math.max(1, parseInt(e.target.value) || 1))}
+                    disabled={isEvaluating}
+                    className="w-20 bg-background border border-border rounded px-2 py-1 text-sm"
+                  />
+                )}
+
+                {runMode === 'duration' && (
+                  <div className="flex items-center gap-1">
+                    <input
+                      type="number"
+                      min="1"
+                      max="60"
+                      value={durationMinutes}
+                      onChange={e => setDurationMinutes(Math.max(1, parseInt(e.target.value) || 1))}
+                      disabled={isEvaluating}
+                      className="w-16 bg-background border border-border rounded px-2 py-1 text-sm"
+                    />
+                    <span className="text-xs text-muted-foreground">min</span>
+                  </div>
+                )}
+              </div>
+
+              <div className="flex gap-2">
+                {!isEvaluating ? (
+                  <button
+                    onClick={handleRunEvaluation}
+                    className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg font-medium text-sm hover:bg-primary/90 transition-colors"
+                  >
+                    <Play size={16} />
+                    Start Evaluation
+                  </button>
+                ) : (
+                  <button
+                    onClick={handleStopEvaluation}
+                    className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-red-500 text-white rounded-lg font-medium text-sm hover:bg-red-600 transition-colors"
+                  >
+                    <Pause size={16} />
+                    Stop
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {/* Live Progress */}
             {liveEvalProgress && (
-              <div className="mt-4 p-3 bg-secondary rounded-lg">
-                <p className="text-xs text-muted-foreground mb-2">Live Results:</p>
+              <div className="mt-4 p-3 bg-primary/10 border border-primary/20 rounded-lg">
+                <div className="flex items-center justify-between mb-2">
+                  <p className="text-xs text-primary font-medium">
+                    Iteration {liveEvalProgress.iteration}/{liveEvalProgress.totalIterations}
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    Q {liveEvalProgress.currentQuestion}/{liveEvalProgress.totalQuestions}
+                  </p>
+                </div>
+                <div className="w-full bg-secondary rounded-full h-2 mb-3">
+                  <div
+                    className="bg-primary h-2 rounded-full transition-all"
+                    style={{ width: `${(liveEvalProgress.currentQuestion / liveEvalProgress.totalQuestions) * 100}%` }}
+                  />
+                </div>
                 <div className="space-y-1 max-h-32 overflow-y-auto">
                   {liveEvalProgress.results.map((r, i) => (
                     <div key={i} className="flex items-center justify-between text-sm">
-                      <span className="text-muted-foreground truncate">{r.question.slice(0, 30)}...</span>
-                      <span className={r.passed ? 'text-emerald-400' : 'text-red-400'}>{r.score}</span>
+                      <span className="text-muted-foreground truncate flex-1 mr-2">{r.question.slice(0, 35)}...</span>
+                      <span className={`font-medium ${r.passed ? 'text-emerald-400' : 'text-red-400'}`}>{r.score}</span>
                     </div>
                   ))}
                 </div>
