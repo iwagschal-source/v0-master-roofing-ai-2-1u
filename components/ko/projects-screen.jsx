@@ -1,16 +1,29 @@
 "use client"
 
 import { useState, useEffect, useRef } from "react"
-import { Plus, Search, Filter, RefreshCw, Loader2, Grid3X3, List, X, Upload, Download, CheckCircle, AlertCircle } from "lucide-react"
+import { Plus, Search, Filter, RefreshCw, Loader2, Grid3X3, List, X, Upload, Download, CheckCircle, AlertCircle, CloudDownload, Users } from "lucide-react"
+import Image from "next/image"
 import { ProjectCard } from "./project-card"
 
+// HubSpot/Asana aligned status options
 const STATUS_OPTIONS = [
-  { value: "all", label: "All Statuses" },
-  { value: "estimating", label: "Estimating" },
-  { value: "proposal_sent", label: "Proposal Sent" },
-  { value: "won", label: "Won" },
-  { value: "lost", label: "Lost" },
+  { value: "all", label: "All Statuses", color: null },
+  { value: "new_lead", label: "New Lead", color: "bg-blue-500" },
+  { value: "rfp_received", label: "RFP Received", color: "bg-indigo-500" },
+  { value: "estimating", label: "Estimating", color: "bg-yellow-500" },
+  { value: "proposal_pending", label: "Proposal Pending", color: "bg-orange-500" },
+  { value: "proposal_sent", label: "Proposal Sent", color: "bg-purple-500" },
+  { value: "negotiation", label: "Negotiation", color: "bg-pink-500" },
+  { value: "won", label: "Won", color: "bg-green-500" },
+  { value: "lost", label: "Lost", color: "bg-red-500" },
+  { value: "on_hold", label: "On Hold", color: "bg-gray-500" },
 ]
+
+// Get status display info
+const getStatusInfo = (status) => {
+  const found = STATUS_OPTIONS.find(s => s.value === status)
+  return found || { value: status, label: status, color: "bg-gray-400" }
+}
 
 export function ProjectsScreen({ onSelectProject, onBack }) {
   const [projects, setProjects] = useState([])
@@ -39,6 +52,14 @@ export function ProjectsScreen({ onSelectProject, onBack }) {
   })
   const [creatingProject, setCreatingProject] = useState(false)
 
+  // Asana sync state
+  const [showAsanaSyncModal, setShowAsanaSyncModal] = useState(false)
+  const [asanaSyncing, setAsanaSyncing] = useState(false)
+  const [asanaSyncResult, setAsanaSyncResult] = useState(null)
+  const [asanaTasks, setAsanaTasks] = useState([])
+  const [asanaSections, setAsanaSections] = useState([])
+  const [asanaLoading, setAsanaLoading] = useState(false)
+
   useEffect(() => {
     loadProjects()
   }, [])
@@ -48,30 +69,110 @@ export function ProjectsScreen({ onSelectProject, onBack }) {
       setLoading(true)
       setError(null)
 
-      // Try to fetch from API first
-      try {
-        const response = await fetch("/api/ko/projects")
-        if (response.ok) {
-          const data = await response.json()
-          if (data.projects && data.projects.length > 0) {
-            setProjects(data.projects)
-            return
-          }
-        }
-      } catch (apiError) {
-        console.log("API not available, using mock data")
+      const response = await fetch("/api/ko/projects")
+      if (response.ok) {
+        const data = await response.json()
+        setProjects(data.projects || [])
+      } else {
+        throw new Error('Failed to load projects')
       }
-
-      // Fall back to mock data for MVP
-      await new Promise(resolve => setTimeout(resolve, 500)) // Simulate loading
-      setProjects(MOCK_PROJECTS)
     } catch (err) {
       console.error("Failed to load projects:", err)
       setError(err.message)
-      // Still show mock data on error
-      setProjects(MOCK_PROJECTS)
+      setProjects([])
     } finally {
       setLoading(false)
+    }
+  }
+
+  // Fetch BIDS tasks from Asana
+  const fetchAsanaBids = async () => {
+    setAsanaLoading(true)
+    try {
+      const response = await fetch('/api/asana/bids')
+      if (response.ok) {
+        const data = await response.json()
+        setAsanaTasks(data.tasks || [])
+        setAsanaSections(data.sections || [])
+        return data
+      } else {
+        const error = await response.json()
+        if (error.needsAuth) {
+          throw new Error('NEEDS_AUTH')
+        }
+        throw new Error(error.error || 'Failed to fetch BIDS')
+      }
+    } catch (err) {
+      console.error('Failed to fetch Asana BIDS:', err)
+      throw err
+    } finally {
+      setAsanaLoading(false)
+    }
+  }
+
+  // Import all BIDS from Asana
+  const syncFromAsana = async () => {
+    setAsanaSyncing(true)
+    setAsanaSyncResult(null)
+    try {
+      const response = await fetch('/api/asana/bids', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          tasks: 'all',
+          updateExisting: true,
+          clearExisting: false
+        })
+      })
+
+      const result = await response.json()
+
+      if (response.ok && result.success) {
+        setAsanaSyncResult({
+          success: true,
+          imported: result.imported,
+          updated: result.updated,
+          skipped: result.skipped,
+          errors: result.errors || []
+        })
+        // Reload projects
+        loadProjects()
+      } else {
+        setAsanaSyncResult({
+          success: false,
+          error: result.error || 'Sync failed'
+        })
+      }
+    } catch (err) {
+      console.error('Asana sync error:', err)
+      setAsanaSyncResult({
+        success: false,
+        error: err.message || 'Failed to sync from Asana'
+      })
+    } finally {
+      setAsanaSyncing(false)
+    }
+  }
+
+  // Open Asana sync modal and fetch preview
+  const handleAsanaSyncClick = async () => {
+    setShowAsanaSyncModal(true)
+    setAsanaSyncResult(null)
+    try {
+      await fetchAsanaBids()
+    } catch (err) {
+      if (err.message === 'NEEDS_AUTH') {
+        setAsanaSyncResult({
+          success: false,
+          error: 'Not connected to Asana. Please connect first.',
+          needsAuth: true
+        })
+      } else {
+        setAsanaSyncResult({
+          success: false,
+          error: err.message
+        })
+      }
     }
   }
 
@@ -260,6 +361,20 @@ export function ProjectsScreen({ onSelectProject, onBack }) {
               accept=".csv"
               className="hidden"
             />
+
+            {/* Sync from Asana */}
+            <button
+              onClick={handleAsanaSyncClick}
+              disabled={asanaSyncing}
+              className="flex items-center gap-2 px-3 py-2 rounded-lg bg-gradient-to-r from-pink-500/10 to-orange-400/10 border border-pink-500/20 text-pink-600 dark:text-pink-400 hover:from-pink-500/20 hover:to-orange-400/20 transition-colors"
+            >
+              {asanaSyncing ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <Image src="/images/asana.svg" alt="" width={16} height={16} className="opacity-80" />
+              )}
+              <span className="text-sm font-medium hidden sm:inline">Sync Asana</span>
+            </button>
 
             {/* Import CSV */}
             <button
@@ -641,6 +756,173 @@ export function ProjectsScreen({ onSelectProject, onBack }) {
                 </button>
               </div>
             </form>
+          </div>
+        </>
+      )}
+
+      {/* Asana Sync Modal */}
+      {showAsanaSyncModal && (
+        <>
+          <div
+            className="fixed inset-0 bg-background/60 backdrop-blur-sm z-40"
+            onClick={() => !asanaSyncing && setShowAsanaSyncModal(false)}
+          />
+          <div className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-2xl bg-card border border-border rounded-xl z-50 shadow-2xl max-h-[80vh] overflow-hidden flex flex-col">
+            <div className="flex items-center justify-between p-4 border-b border-border">
+              <div className="flex items-center gap-3">
+                <Image src="/images/asana.svg" alt="Asana" width={24} height={24} className="opacity-80" />
+                <h2 className="text-lg font-semibold text-foreground">Sync from Asana BIDS</h2>
+              </div>
+              {!asanaSyncing && (
+                <button
+                  onClick={() => setShowAsanaSyncModal(false)}
+                  className="p-2 rounded-lg hover:bg-secondary transition-colors"
+                >
+                  <X className="w-4 h-4 text-foreground-secondary" />
+                </button>
+              )}
+            </div>
+
+            <div className="flex-1 overflow-y-auto p-4">
+              {asanaLoading ? (
+                <div className="flex flex-col items-center py-12">
+                  <Loader2 className="w-10 h-10 animate-spin text-pink-500 mb-4" />
+                  <p className="text-foreground-secondary">Fetching BIDS from Asana...</p>
+                </div>
+              ) : asanaSyncResult?.needsAuth ? (
+                <div className="text-center py-8">
+                  <Image src="/images/asana.svg" alt="Asana" width={48} height={48} className="mx-auto mb-4 opacity-60" />
+                  <h3 className="text-lg font-medium text-foreground mb-2">Connect to Asana</h3>
+                  <p className="text-sm text-foreground-secondary mb-6">
+                    Connect your Asana account to import BIDS
+                  </p>
+                  <a
+                    href="/api/auth/asana"
+                    className="inline-flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-pink-500 to-orange-400 text-white rounded-lg font-medium hover:opacity-90 transition-opacity"
+                  >
+                    <Image src="/images/asana.svg" alt="" width={16} height={16} />
+                    Connect Asana
+                  </a>
+                </div>
+              ) : asanaSyncResult?.success ? (
+                <div className="space-y-4">
+                  <div className="flex items-center gap-3 p-4 rounded-lg bg-green-500/10 border border-green-500/20">
+                    <CheckCircle className="w-6 h-6 text-green-500" />
+                    <div>
+                      <p className="font-medium text-green-600">Sync Successful</p>
+                      <p className="text-sm text-foreground-secondary">
+                        {asanaSyncResult.imported} imported, {asanaSyncResult.updated} updated, {asanaSyncResult.skipped} skipped
+                      </p>
+                    </div>
+                  </div>
+                  {asanaSyncResult.errors?.length > 0 && (
+                    <div className="p-3 rounded-lg bg-yellow-500/10 border border-yellow-500/20">
+                      <p className="text-sm font-medium text-yellow-600 mb-2">
+                        {asanaSyncResult.errors.length} items had errors:
+                      </p>
+                      <ul className="text-xs text-foreground-secondary space-y-1 max-h-24 overflow-y-auto">
+                        {asanaSyncResult.errors.slice(0, 5).map((err, i) => (
+                          <li key={i}>{err.taskName}: {err.error}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                </div>
+              ) : asanaSyncResult?.error ? (
+                <div className="flex items-center gap-3 p-4 rounded-lg bg-red-500/10 border border-red-500/20">
+                  <AlertCircle className="w-6 h-6 text-red-500" />
+                  <div>
+                    <p className="font-medium text-red-600">Sync Failed</p>
+                    <p className="text-sm text-foreground-secondary">{asanaSyncResult.error}</p>
+                  </div>
+                </div>
+              ) : asanaTasks.length > 0 ? (
+                <div className="space-y-4">
+                  {/* Sections summary */}
+                  <div>
+                    <h3 className="text-sm font-medium text-foreground mb-2">Pipeline Stages (Sections)</h3>
+                    <div className="flex flex-wrap gap-2">
+                      {asanaSections.map(section => {
+                        const statusInfo = getStatusInfo(section.koStatus)
+                        return (
+                          <span
+                            key={section.id}
+                            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-secondary text-foreground-secondary"
+                          >
+                            <span className={`w-2 h-2 rounded-full ${statusInfo.color}`} />
+                            {section.name}
+                            <span className="text-foreground-tertiary">→ {statusInfo.label}</span>
+                          </span>
+                        )
+                      })}
+                    </div>
+                  </div>
+
+                  {/* Tasks preview */}
+                  <div>
+                    <h3 className="text-sm font-medium text-foreground mb-2">
+                      {asanaTasks.length} Active Bids to Import
+                    </h3>
+                    <div className="border border-border rounded-lg overflow-hidden">
+                      <div className="max-h-64 overflow-y-auto">
+                        {asanaTasks.map(task => {
+                          const statusInfo = getStatusInfo(task.status)
+                          return (
+                            <div
+                              key={task.asana_id}
+                              className="flex items-center gap-3 px-3 py-2 border-b border-border last:border-b-0 hover:bg-secondary/50"
+                            >
+                              <span className={`w-2 h-2 rounded-full flex-shrink-0 ${statusInfo.color}`} />
+                              <div className="flex-1 min-w-0">
+                                <p className="text-sm font-medium text-foreground truncate">{task.name}</p>
+                                <p className="text-xs text-foreground-tertiary truncate">
+                                  {task.section.name} • {task.assignee?.name || 'Unassigned'}
+                                </p>
+                              </div>
+                              {task.due_date && (
+                                <span className="text-xs text-foreground-secondary flex-shrink-0">
+                                  {new Date(task.due_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                                </span>
+                              )}
+                            </div>
+                          )
+                        })}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="text-center py-8">
+                  <p className="text-foreground-secondary">No active bids found in BIDS project</p>
+                </div>
+              )}
+            </div>
+
+            <div className="p-4 border-t border-border flex gap-3">
+              <button
+                onClick={() => setShowAsanaSyncModal(false)}
+                className="flex-1 px-4 py-2.5 rounded-lg border border-border text-foreground-secondary hover:bg-secondary transition-colors text-sm font-medium"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={syncFromAsana}
+                disabled={asanaSyncing || asanaLoading || asanaTasks.length === 0 || asanaSyncResult?.needsAuth}
+                className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg bg-gradient-to-r from-pink-500 to-orange-400 text-white hover:opacity-90 transition-opacity text-sm font-medium disabled:opacity-50"
+              >
+                {asanaSyncing ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    Syncing...
+                  </>
+                ) : (
+                  <>
+                    <CloudDownload className="w-4 h-4" />
+                    Import {asanaTasks.length} Bids
+                  </>
+                )}
+              </button>
+            </div>
           </div>
         </>
       )}

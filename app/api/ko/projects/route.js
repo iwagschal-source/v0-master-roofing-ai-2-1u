@@ -2,68 +2,21 @@ import { NextResponse } from "next/server"
 import { createProjectSheet, shareSheet, batchUpdateSheet } from "@/lib/google-sheets"
 import { loadProjects, addProject, saveProjects } from "@/lib/project-storage"
 
-// Fallback mock data when GCS is not available
-const MOCK_PROJECTS = [
-  {
-    id: "proj-001",
-    name: "307 Beach 67th Street",
-    address: "307 Beach 67th Street, Brooklyn, NY",
-    gc_id: "gc-mjh",
-    gc_name: "MJH Construction Corp",
-    amount: 300309,
-    due_date: "2025-10-27",
-    status: "estimating",
-    sheet_id: null,
-  },
-  {
-    id: "proj-002",
-    name: "1086 Dumont Ave",
-    address: "1086 Dumont Ave, Brooklyn, NY",
-    gc_id: "gc-bluesky",
-    gc_name: "Blue Sky Builders",
-    amount: 156000,
-    due_date: "2025-11-15",
-    status: "proposal_sent",
-    sheet_id: null,
-  },
-  {
-    id: "proj-003",
-    name: "960 Franklin Ave",
-    address: "960 Franklin Ave, Brooklyn, NY",
-    gc_id: "gc-apex",
-    gc_name: "Apex Construction",
-    amount: 425000,
-    due_date: "2025-09-30",
-    status: "won",
-    sheet_id: null,
-  },
-]
-
 export async function GET(request) {
   try {
     const { searchParams } = new URL(request.url)
     const status = searchParams.get("status")
     const search = searchParams.get("search")
-    const useMock = searchParams.get("mock") === "true"
 
     let projects = []
 
-    // Try to load from GCS first
-    if (!useMock) {
-      try {
-        projects = await loadProjects()
-        console.log(`Loaded ${projects.length} projects from GCS`)
-      } catch (gcsError) {
-        console.warn("GCS load failed, using mock data:", gcsError.message)
-        projects = [...MOCK_PROJECTS]
-      }
-    } else {
-      projects = [...MOCK_PROJECTS]
-    }
-
-    // If no projects in GCS, use mock data
-    if (projects.length === 0) {
-      projects = [...MOCK_PROJECTS]
+    // Load from GCS
+    try {
+      projects = await loadProjects()
+      console.log(`Loaded ${projects.length} projects from GCS`)
+    } catch (gcsError) {
+      console.warn("GCS load failed:", gcsError.message)
+      projects = []
     }
 
     // Filter by status if provided
@@ -92,7 +45,7 @@ export async function GET(request) {
     return NextResponse.json({
       projects,
       total: projects.length,
-      source: projects === MOCK_PROJECTS ? 'mock' : 'gcs',
+      source: 'gcs',
     })
   } catch (error) {
     console.error("Error fetching projects:", error)

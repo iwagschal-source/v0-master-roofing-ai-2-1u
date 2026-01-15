@@ -4,63 +4,140 @@ import { useState, useEffect, Suspense, useRef } from "react"
 import { useSearchParams } from "next/navigation"
 import { ProposalTemplate } from "@/components/ko/proposal-template"
 
-// Sample data for demo (used when no sheetId provided)
-const SAMPLE_PROPOSAL = {
-  gc_name: "YBBY Construction",
-  project_address: "912-916 Home St Brooklyn, NY 11238",
-  created_at: "2025-10-27",
-  date_of_drawings: "02/10/2025",
-  addendum: "03",
-  version: "V2",
-  supersedes: "v2 Dated Oct 27 2025",
-  project_summary: "This project involves the installation of new roofing, waterproofing, and EIFS systems at the existing two-story building with cellar and balconies. The scope includes a Firestone APP 160/180 built-up roofing system at main and bulkhead roofs, aluminum coping and counter-flashing at parapets, EIFS with air-vapor barrier across the rear and side elevations, and balcony waterproofing using the Alsan RS 289 textured finish.",
-  base_bid_items: [
-    {
-      name: "Built-Up Roofing – Firestone APP 160/180 System",
-      specs: "R-33    6.5\"",
-      amount: 42203,
-      description: "Built-up roof system includes installation of Firestone ISO 95 GL flat and tapered insulation mechanically fastened with Firestone plates, primed DensDeck coverboard, and fiber cant at parapets and bulkheads."
-    },
-    {
-      name: "ArchitecturalCopingSystem – AluminumCoping",
-      specs: "R-20    4\"",
-      amount: 7934,
-      description: "Work includes installation of waterproofing membrane on parapet walls prior to setting steel brackets and under plates. Aluminum coping installed over anchored plates."
-    },
-    {
-      name: "Aluminum Flashing",
-      specs: "",
-      amount: 5794,
-      description: "Install two-piece aluminum counter flashing overlapping roofing membrane minimum 4\"."
-    },
-    {
-      name: "Tie-In",
-      specs: "",
-      amount: 3817,
-      description: "Apply PMMA waterproofing membrane where the 1st floor meets the foundation."
-    },
-    {
-      name: "Recessed Floor Waterproofing",
-      specs: "",
-      amount: 15115,
-      description: "Prepare the recessed concrete slab by scarifying to achieve a clean, smooth surface, then apply a uniform coat of Soprema RS 276 primer."
-    },
-  ],
-  alternates: [
-    {
-      name: "Balcony Waterproofing",
-      specs: "",
-      amount: 1965,
-      description: "Balcony waterproofing includes application of Alsan RS 276 Primer, Alsan RS 230 flashing 12\" up walls."
-    },
-    {
-      name: "Tie-In",
-      specs: "",
-      amount: 3817,
-      description: "Apply PMMA waterproofing membrane where the 1st floor meets the foundation."
-    },
-  ],
+// Sample data for demos (used when no sheetId provided)
+const DEMO_PROPOSALS = {
+  // Default sample
+  default: {
+    gc_name: "YBBY Construction",
+    project_address: "912-916 Home St Brooklyn, NY 11238",
+    created_at: "2025-10-27",
+    date_of_drawings: "02/10/2025",
+    addendum: "03",
+    version: "V2",
+    supersedes: "v2 Dated Oct 27 2025",
+    project_summary: "This project involves the installation of new roofing, waterproofing, and EIFS systems at the existing two-story building with cellar and balconies. The scope includes a Firestone APP 160/180 built-up roofing system at main and bulkhead roofs, aluminum coping and counter-flashing at parapets, EIFS with air-vapor barrier across the rear and side elevations, and balcony waterproofing using the Alsan RS 289 textured finish.",
+    base_bid_items: [
+      {
+        name: "Built-Up Roofing – Firestone APP 160/180 System",
+        specs: "R-33    6.5\"",
+        amount: 42203,
+        description: "Built-up roof system includes installation of Firestone ISO 95 GL flat and tapered insulation mechanically fastened with Firestone plates, primed DensDeck coverboard, and fiber cant at parapets and bulkheads."
+      },
+      {
+        name: "ArchitecturalCopingSystem – AluminumCoping",
+        specs: "R-20    4\"",
+        amount: 7934,
+        description: "Work includes installation of waterproofing membrane on parapet walls prior to setting steel brackets and under plates. Aluminum coping installed over anchored plates."
+      },
+      {
+        name: "Aluminum Flashing",
+        specs: "",
+        amount: 5794,
+        description: "Install two-piece aluminum counter flashing overlapping roofing membrane minimum 4\"."
+      },
+      {
+        name: "Tie-In",
+        specs: "",
+        amount: 3817,
+        description: "Apply PMMA waterproofing membrane where the 1st floor meets the foundation."
+      },
+      {
+        name: "Recessed Floor Waterproofing",
+        specs: "",
+        amount: 15115,
+        description: "Prepare the recessed concrete slab by scarifying to achieve a clean, smooth surface, then apply a uniform coat of Soprema RS 276 primer."
+      },
+    ],
+    alternates: [
+      {
+        name: "Balcony Waterproofing",
+        specs: "",
+        amount: 1965,
+        description: "Balcony waterproofing includes application of Alsan RS 276 Primer, Alsan RS 230 flashing 12\" up walls."
+      },
+      {
+        name: "Tie-In",
+        specs: "",
+        amount: 3817,
+        description: "Apply PMMA waterproofing membrane where the 1st floor meets the foundation."
+      },
+    ],
+  },
+
+  // 1086 Dumont Ave - Converted from old format
+  dumont: {
+    gc_name: "MJH Construction & Development",
+    project_address: "1086 Dumont Ave, Brooklyn, NY 11208",
+    created_at: "2025-06-25",
+    date_of_drawings: "06/25/2025",
+    addendum: "01",
+    version: "V1",
+    supersedes: "v0",
+    project_summary: "This project involves the installation of new roofing and EIFS systems at 1086 Dumont Ave. The scope includes a Firestone APP 160/180 built-up roofing system at main roof and stair bulkhead with aluminum gutters and leaders for drainage. Aluminum coping is installed at all parapets with insulation underneath, and two-piece aluminum counter flashing/stucco receiver at wall terminations. EIFS with air-vapor barrier is applied across the north, south, east, and west elevations including the bulkhead, with both 3\" and 4\" EPS insulation at various locations. Foundation tie-in waterproofing is provided where the 1st floor meets the foundation at all elevations. All work is performed in accordance with manufacturer requirements and standard installation practices.",
+    base_bid_items: [
+      {
+        name: "Built-Up Roofing",
+        specs: "Firestone APP 160/180 System",
+        amount: 95298,
+        description: "Built-up roof system includes installation of Firestone ISO 95 GL flat and tapered insulation mechanically fastened with Firestone plates, primed DensDeck coverboard, and fiber cant at parapets and bulkheads. Lead sheets installed and sealed at all drains. Assembly includes torch-applied Firestone APP160 smooth base ply and APP180 white granulated cap sheet with 3\" laps, with walls and curbs primed and flashed 12\" up using APP160/180 binder flashing. Door pans furnished and installed at openings."
+      },
+      {
+        name: "Doorpans",
+        specs: "Standard",
+        amount: 2200,
+        description: "Furnish and install standard door pans at door openings, fully waterproofed and sealed."
+      },
+      {
+        name: "Aluminum Coping System",
+        specs: "",
+        amount: 14760,
+        description: "Work includes installation of waterproofing membrane on parapet walls prior to setting steel brackets and under plates. Aluminum coping installed over anchored plates and all seams and joints flashed and sealed per manufacturer specifications."
+      },
+      {
+        name: "Aluminum Counter Flashing",
+        specs: "Stucco Receiver",
+        amount: 10800,
+        description: "Install two-piece aluminum counter flashing overlapping roofing membrane minimum 4\"."
+      },
+      {
+        name: "Exterior Insulation and Finish System (EIFS)",
+        specs: "",
+        amount: 250788,
+        description: "Scope includes priming and waterproofing window heads, jambs, and sills with air and vapor barrier, sealing all joints with mesh tape. Apply continuous air and moisture barrier, followed by 3\" EIFS EPS insulation (R-11.4), base coat with mesh, and finish coat. Caulk and seal all window and door perimeters."
+      },
+      {
+        name: "Tie-In",
+        specs: "PMMA",
+        amount: 9225,
+        description: "Apply PMMA waterproofing membrane where the 1st floor meets the foundation."
+      }
+    ],
+    alternates: [
+      {
+        name: "Temporary Waterproofing System",
+        specs: "Firestone",
+        amount: 36223,
+        description: "Install vapor barrier or temporary waterproofing membrane as specified. Apply TRI-BUILT Quick Dry Asphalt Primer and Firestone APP160 smooth surfaced modified bitumen membrane, torch applied on top of primer."
+      }
+    ],
+    clarifications: [
+      "Containers for garbage must be provided by GC.",
+      "All work permits necessary to complete this job must be provided by GC.",
+      "All AC curbs must be framed out by framer prior to Roofing installation.",
+      "Fence leggings must be installed prior to installing the roofing system.",
+      "All wood blocking around parapet walls must be done by framer.",
+      "All penetrations must be installed prior to installation of roofing system. Any penetrations installed afterwards will be an additional charge per pitch pocket.",
+      "R value and thickness of insulation must be reviewed and approved by GC. Master Roofing doesn't take any responsibility for the R value requirements.",
+      "This APP 160/180 roofing system is designed and manufactured for waterproofing purposes only – not for any sort of human traffic. If roof will be used for traffic without the installation of protection boards or pavers, the warranty will not be effective.",
+      "This roofing system proposed is standard white only, ultra-white will be an upcharge.",
+      "Any scaffolding, bridging, forklift, hoisting, boom or cranes needed to complete the job must be provided by GC.",
+      "Master Roofing is not and cannot be held responsible for any incidents/accidents/injuries or any damages caused by a third party or anything or anyone that's not employed by Master Roofing.",
+      "Sale tax will be added to the invoices pertaining to this proposal unless a signed capital improvement document is submitted."
+    ]
+  }
 }
+
+const SAMPLE_PROPOSAL = DEMO_PROPOSALS.default
 
 function ProposalPreviewContent() {
   const searchParams = useSearchParams()
@@ -68,6 +145,7 @@ function ProposalPreviewContent() {
   const projectId = searchParams.get("projectId")
   const gcName = searchParams.get("gcName")
   const projectName = searchParams.get("projectName")
+  const demo = searchParams.get("demo") // e.g., ?demo=dumont
 
   const [proposal, setProposal] = useState(null)
   const [loading, setLoading] = useState(false)
@@ -80,10 +158,13 @@ function ProposalPreviewContent() {
       fetchProposalFromSheet(sheetId)
     } else if (projectId || (gcName && projectName)) {
       fetchProposalFromProject(projectId, gcName, projectName)
+    } else if (demo && DEMO_PROPOSALS[demo]) {
+      // Load specific demo by name
+      setProposal(DEMO_PROPOSALS[demo])
     } else {
       setProposal(SAMPLE_PROPOSAL)
     }
-  }, [sheetId, projectId, gcName, projectName])
+  }, [sheetId, projectId, gcName, projectName, demo])
 
   async function fetchProposalFromProject(id, gc, project) {
     setLoading(true)
@@ -199,7 +280,7 @@ function ProposalPreviewContent() {
         <div>
           <h1 style={{ margin: 0, fontSize: "20px" }}>Proposal Preview</h1>
           <p style={{ margin: "4px 0 0", color: "#666", fontSize: "14px" }}>
-            {sheetId ? `Sheet: ${sheetId.substring(0, 20)}...` : "Sample Data (Demo)"}
+            {sheetId ? `Sheet: ${sheetId.substring(0, 20)}...` : demo ? `Demo: ${demo}` : "Sample Data (Demo)"}
           </p>
           {error && (
             <p style={{ margin: "4px 0 0", color: "#e53935", fontSize: "12px" }}>
