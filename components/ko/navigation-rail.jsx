@@ -41,6 +41,12 @@ export function NavigationRail({ activeMode, onModeChange, visible }) {
       type: "image",
     },
     {
+      id: "whatsapp",
+      icon: "/images/whatsapp.svg",
+      label: "WhatsApp",
+      type: "image",
+    },
+    {
       id: "documents",
       icon: "/images/folder-1.png",
       label: "Documents",
