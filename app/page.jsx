@@ -29,6 +29,7 @@ import { AgentNetworkMapScreen } from "@/components/ko/agent-network-map-screen"
 import { AddAgentScreen } from "@/components/ko/add-agent-screen"
 import { CloneAgentModal } from "@/components/ko/clone-agent-modal"
 import { UserAdminScreen } from "@/components/ko/user-admin-screen"
+import { SalesDashboard } from "@/components/ko/sales-dashboard"
 import { agents as fallbackAgents } from "@/data/agent-data"
 
 export default function HomePage() {
@@ -51,6 +52,7 @@ export default function HomePage() {
   const [showAsana, setShowAsana] = useState(false)
   const [showAgents, setShowAgents] = useState(false)
   const [showUserAdmin, setShowUserAdmin] = useState(false)
+  const [showSales, setShowSales] = useState(false)
   const [selectedAgent, setSelectedAgent] = useState(null)
   const [showAgentNetwork, setShowAgentNetwork] = useState(false)
   const [showAddAgent, setShowAddAgent] = useState(false)
@@ -175,6 +177,7 @@ export default function HomePage() {
       setShowAsana(false)
       setShowAgents(false)
       setShowUserAdmin(false)
+      setShowSales(false)
       setSelectedAgent(null)
       setShowAgentNetwork(false)
       setShowAddAgent(false)
@@ -308,6 +311,21 @@ export default function HomePage() {
       setShowSettings(false)
       setShowZoom(false)
       setShowArena(false)
+      setShowSales(false)
+      setHasStartedChat(true)
+    } else if (mode === "sales") {
+      setShowSales(true)
+      setShowUserAdmin(false)
+      setShowAgents(false)
+      setShowAsana(false)
+      setShowMessages(false)
+      setShowProjects(false)
+      setShowHistory(false)
+      setShowFiles(false)
+      setShowEmail(false)
+      setShowSettings(false)
+      setShowZoom(false)
+      setShowArena(false)
       setHasStartedChat(true)
     } else {
       setActiveMode(mode)
@@ -365,7 +383,7 @@ export default function HomePage() {
       <div className={`${isMobileMenuOpen ? "fixed left-0 top-0 bottom-0 z-50" : "hidden"} md:block`}>
         <NavigationRail
           activeMode={
-            showEmail ? "email" : showFiles ? "documents" : showSettings ? "settings" : showZoom ? "zoom" : showArena ? "arena" : showHistory ? "history" : showProjects ? "projects" : showMessages ? "messages" : showAsana ? "asana" : showAgents ? "agents" : showUserAdmin ? "admin" : activeMode
+            showEmail ? "email" : showFiles ? "documents" : showSettings ? "settings" : showZoom ? "zoom" : showArena ? "arena" : showHistory ? "history" : showProjects ? "projects" : showMessages ? "messages" : showAsana ? "asana" : showAgents ? "agents" : showUserAdmin ? "admin" : showSales ? "sales" : activeMode
           }
           onModeChange={handleModeChange}
           visible={true}
@@ -449,6 +467,8 @@ export default function HomePage() {
             )
           ) : showUserAdmin ? (
             <UserAdminScreen onBack={() => setShowUserAdmin(false)} />
+          ) : showSales ? (
+            <SalesDashboard />
           ) : showProjects ? (
             showProposal && selectedProject ? (
               <ProposalPreviewScreen
