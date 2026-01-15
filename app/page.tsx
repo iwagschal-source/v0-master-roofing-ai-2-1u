@@ -2,6 +2,7 @@
 
 import { useState } from "react"
 import { ProposalPDFDownload } from "@/components/ko/proposal-pdf-download"
+import { ProposalDocxDownload } from "@/components/ko/proposal-docx-download"
 import { DEFAULT_EXCLUSIONS, type ProposalData } from "@/lib/generate-proposal-pdf"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -106,10 +107,13 @@ export default function Home() {
       <div className="mx-auto max-w-4xl space-y-6">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-bold">Proposal PDF Template</h1>
-            <p className="text-muted-foreground">Edit the fields below and export to PDF</p>
+            <h1 className="text-2xl font-bold">Proposal Generator</h1>
+            <p className="text-muted-foreground">Edit the fields below and export</p>
           </div>
-          <ProposalPDFDownload data={proposalData} className="bg-[#c41e2a] hover:bg-[#a01824]" />
+          <div className="flex gap-3">
+            <ProposalDocxDownload data={proposalData} />
+            <ProposalPDFDownload data={proposalData} className="bg-[#c41e2a] hover:bg-[#a01824]" />
+          </div>
         </div>
 
         {/* Project Info */}
