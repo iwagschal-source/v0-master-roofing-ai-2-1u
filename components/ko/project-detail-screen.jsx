@@ -42,7 +42,6 @@ function formatDate(dateString) {
 const SHEET_TABS = [
   { id: "estimate", label: "ESTIMATE" },
   { id: "emails", label: "Emails" },
-  { id: "proposal", label: "Proposal" },
   { id: "files", label: "Files" },
 ]
 
@@ -748,27 +747,6 @@ Master Roofing & Siding`)
           </div>
         )}
 
-        {activeTab === "proposal" && (
-          <div className="space-y-4">
-            {sheetId ? (
-              <>
-                <EmbeddedSheet sheetId={sheetId} tab="Proposal" height={600} />
-                <div className="flex gap-3">
-                  <button
-                    onClick={() => handlePreviewProposal(project.id)}
-                    className="px-4 py-2 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 transition-colors text-sm font-medium"
-                  >
-                    Preview Full Proposal
-                  </button>
-                </div>
-              </>
-            ) : (
-              <div className="bg-card rounded-xl border border-border p-8 text-center">
-                <p className="text-foreground-secondary">Connect a Google Sheet to view proposal</p>
-              </div>
-            )}
-          </div>
-        )}
 
         {activeTab === "files" && (
           <div className="h-full flex flex-col -m-6">
