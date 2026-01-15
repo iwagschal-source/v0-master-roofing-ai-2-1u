@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { ProposalPDFDownload } from "@/components/proposal-pdf-download"
+import { ProposalPDFDownload } from "@/components/ko/proposal-pdf-download"
 import { DEFAULT_EXCLUSIONS, type ProposalData } from "@/lib/generate-proposal-pdf"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
