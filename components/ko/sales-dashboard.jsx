@@ -247,10 +247,10 @@ function SalesAgentChat({ selectedEvent, events, gcMetrics, onShowChart }) {
   }, [messages])
 
   const suggestions = [
-    "What's our win rate by GC?",
-    "Show me pipeline by month",
-    "Which GCs are we winning with?",
-    "Avg turnaround time analysis",
+    "How much did we bid this month?",
+    "Who's our top performer?",
+    "Which GCs should we focus on?",
+    "Who's been slow on turnaround?",
   ]
 
   const handleSend = async () => {
@@ -384,10 +384,304 @@ function SalesAgentChat({ selectedEvent, events, gcMetrics, onShowChart }) {
 }
 
 // Generate sales intelligence response locally
+// TOP 10 CEO QUESTIONS for a roofing subcontractor:
+// 1. "How much did we bid this month?" - Total proposal value
+// 2. "Who's our top performer?" - Best salesperson by wins
+// 3. "Which GCs should we focus on?" - Best ROI (win rate + volume)
+// 4. "Are we responding fast enough?" - Turnaround benchmarks
+// 5. "What's in the pipeline?" - Pending proposals
+// 6. "Who's been slow?" - Slow turnaround identification
+// 7. "How are we doing vs last month?" - Month comparison
+// 8. "Which GCs should we stop bidding?" - Low win rate GCs
+// 9. "What's our average job size?" - Deal size trends
+// 10. "How many RFPs this week?" - Recent activity
+
 function generateSalesResponse(query, events, gcMetrics, selectedEvent) {
   const q = query.toLowerCase()
+  const now = new Date()
+  const thisMonth = now.getMonth()
+  const thisYear = now.getFullYear()
+  const lastMonth = thisMonth === 0 ? 11 : thisMonth - 1
+  const lastMonthYear = thisMonth === 0 ? thisYear - 1 : thisYear
 
-  // Win rate analysis
+  // Helper: get events for a specific month
+  const getMonthEvents = (month, year) => events.filter(e => {
+    const d = new Date(e.scanned_at)
+    return d.getMonth() === month && d.getFullYear() === year
+  })
+
+  const thisMonthEvents = getMonthEvents(thisMonth, thisYear)
+  const lastMonthEvents = getMonthEvents(lastMonth, lastMonthYear)
+
+  // 1. "How much did we bid this month?" / "bid volume" / "this month"
+  if (q.includes("bid this month") || q.includes("bid volume") || (q.includes("how much") && q.includes("month"))) {
+    const proposals = thisMonthEvents.filter(e => e.event_type === "PROPOSAL_SENT")
+    const totalValue = proposals.reduce((sum, e) => sum + (e.dollar_amount || 0), 0)
+    const count = proposals.length
+
+    let response = `**This Month's Bidding Activity:**\n\n`
+    response += `Proposals Sent: ${count}\n`
+    response += `Total Bid Value: $${totalValue.toLocaleString()}\n`
+    response += `Avg Bid Size: ${count > 0 ? '$' + Math.round(totalValue / count).toLocaleString() : 'N/A'}\n\n`
+
+    // Compare to last month
+    const lastProposals = lastMonthEvents.filter(e => e.event_type === "PROPOSAL_SENT")
+    const lastValue = lastProposals.reduce((sum, e) => sum + (e.dollar_amount || 0), 0)
+    if (lastProposals.length > 0) {
+      const change = count - lastProposals.length
+      response += `vs Last Month: ${change >= 0 ? '+' : ''}${change} proposals`
+    }
+
+    return { text: response }
+  }
+
+  // 2. "Who's our top performer?" / "best salesperson" / "top performer"
+  if (q.includes("top performer") || q.includes("best sales") || q.includes("who's winning")) {
+    const byPerson = {}
+    events.forEach(e => {
+      const person = e.assignee || 'Unassigned'
+      if (!byPerson[person]) byPerson[person] = { wins: 0, proposals: 0, rfps: 0, value: 0 }
+      if (e.event_type === "WON") {
+        byPerson[person].wins++
+        byPerson[person].value += e.dollar_amount || 0
+      }
+      if (e.event_type === "PROPOSAL_SENT") byPerson[person].proposals++
+      if (e.event_type === "RFP_RECEIVED") byPerson[person].rfps++
+    })
+
+    const ranked = Object.entries(byPerson)
+      .filter(([_, m]) => m.wins > 0 || m.proposals > 0)
+      .sort((a, b) => b[1].wins - a[1].wins || b[1].proposals - a[1].proposals)
+      .slice(0, 5)
+
+    let response = `**Sales Team Performance:**\n\n`
+    if (ranked.length > 0) {
+      ranked.forEach(([person, m], i) => {
+        const medal = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : '  '
+        response += `${medal} ${person}: ${m.wins} wins, ${m.proposals} proposals`
+        if (m.value > 0) response += `, $${(m.value/1000).toFixed(0)}K won`
+        response += `\n`
+      })
+    } else {
+      response += `No performance data yet.`
+    }
+
+    return { text: response }
+  }
+
+  // 3. "Which GCs should we focus on?" / "best GCs" / "focus"
+  if (q.includes("focus") || q.includes("best gc") || q.includes("which gc")) {
+    // Score GCs by: win rate * sqrt(volume) to balance both
+    const scored = Object.entries(gcMetrics)
+      .filter(([_, m]) => m.totalBids >= 2 && m.winRate)
+      .map(([gc, m]) => ({
+        gc,
+        ...m,
+        score: m.winRate * Math.sqrt(m.totalBids)
+      }))
+      .sort((a, b) => b.score - a.score)
+      .slice(0, 5)
+
+    let response = `**GCs to Focus On (best ROI):**\n\n`
+    if (scored.length > 0) {
+      scored.forEach((m, i) => {
+        response += `${i + 1}. ${m.gc}\n`
+        response += `   Win Rate: ${m.winRate}% | Bids: ${m.totalBids} | Wins: ${m.wins}\n`
+      })
+      response += `\n💡 These GCs have good win rates AND enough volume to matter.`
+    } else {
+      response += `Need more bid history to recommend.`
+    }
+
+    return { text: response }
+  }
+
+  // 4. "Are we responding fast enough?" / "fast enough" / "response time"
+  if (q.includes("fast enough") || q.includes("response time") || q.includes("responding")) {
+    const allTurnarounds = Object.entries(gcMetrics)
+      .filter(([_, m]) => m.avgTurnaround)
+      .map(([gc, m]) => ({ gc, days: m.avgTurnaround }))
+
+    if (allTurnarounds.length > 0) {
+      const avgAll = Math.round(allTurnarounds.reduce((s, t) => s + t.days, 0) / allTurnarounds.length)
+      const fastest = allTurnarounds.sort((a, b) => a.days - b.days)[0]
+      const slowest = allTurnarounds.sort((a, b) => b.days - a.days)[0]
+
+      let response = `**Response Time Analysis:**\n\n`
+      response += `Company Average: ${avgAll} days (RFP to Proposal)\n\n`
+      response += `Fastest: ${fastest.gc} at ${fastest.days} days\n`
+      response += `Slowest: ${slowest.gc} at ${slowest.days} days\n\n`
+
+      if (avgAll <= 3) {
+        response += `✅ Great! Under 3 days is competitive.`
+      } else if (avgAll <= 5) {
+        response += `⚠️ Acceptable, but sub-3 days wins more.`
+      } else {
+        response += `🔴 Too slow. GCs often decide within a week.`
+      }
+
+      return { text: response }
+    }
+    return { text: "Not enough RFP/Proposal pairs to analyze response times." }
+  }
+
+  // 5. "What's in the pipeline?" / "pending" / "waiting"
+  if (q.includes("pipeline") || q.includes("pending") || q.includes("waiting")) {
+    // Proposals sent but no win/loss yet
+    const proposalProjects = new Set()
+    const decidedProjects = new Set()
+
+    events.forEach(e => {
+      const proj = e.project_name?.toLowerCase()
+      if (!proj) return
+      if (e.event_type === "PROPOSAL_SENT") proposalProjects.add(proj)
+      if (e.event_type === "WON" || e.event_type === "LOST") decidedProjects.add(proj)
+    })
+
+    const pending = [...proposalProjects].filter(p => !decidedProjects.has(p))
+    const pendingEvents = events.filter(e =>
+      e.event_type === "PROPOSAL_SENT" &&
+      e.project_name &&
+      pending.includes(e.project_name.toLowerCase())
+    )
+
+    const totalPendingValue = pendingEvents.reduce((s, e) => s + (e.dollar_amount || 0), 0)
+
+    let response = `**Pipeline (Awaiting Decision):**\n\n`
+    response += `Pending Proposals: ${pending.length}\n`
+    response += `Total Value: $${totalPendingValue.toLocaleString()}\n\n`
+
+    if (pending.length > 0 && pending.length <= 10) {
+      response += `Projects:\n`
+      pendingEvents.slice(0, 5).forEach(e => {
+        response += `• ${e.project_name || e.summary}`
+        if (e.dollar_amount) response += ` ($${e.dollar_amount.toLocaleString()})`
+        response += `\n`
+      })
+      if (pending.length > 5) response += `...and ${pending.length - 5} more`
+    }
+
+    return { text: response }
+  }
+
+  // 6. "Who's been slow?" / "slow turnaround" / "bottleneck"
+  if (q.includes("slow") || q.includes("bottleneck") || q.includes("behind")) {
+    const withTurnaround = Object.entries(gcMetrics)
+      .filter(([_, m]) => m.avgTurnaround)
+      .sort((a, b) => b[1].avgTurnaround - a[1].avgTurnaround)
+      .slice(0, 5)
+
+    let response = `**Slowest Turnaround Times:**\n\n`
+    if (withTurnaround.length > 0) {
+      withTurnaround.forEach(([person, m]) => {
+        const status = m.avgTurnaround > 5 ? '🔴' : m.avgTurnaround > 3 ? '⚠️' : '✅'
+        response += `${status} ${person}: ${m.avgTurnaround} days avg\n`
+      })
+      response += `\n💡 Target: Under 3 days to stay competitive.`
+    } else {
+      response += `Not enough data to identify slow responders.`
+    }
+
+    return { text: response }
+  }
+
+  // 7. "How are we doing vs last month?" / "compared to last" / "trend"
+  if (q.includes("vs last") || q.includes("compared") || q.includes("trend") || q.includes("last month")) {
+    const thisRFPs = thisMonthEvents.filter(e => e.event_type === "RFP_RECEIVED").length
+    const lastRFPs = lastMonthEvents.filter(e => e.event_type === "RFP_RECEIVED").length
+    const thisProposals = thisMonthEvents.filter(e => e.event_type === "PROPOSAL_SENT").length
+    const lastProposals = lastMonthEvents.filter(e => e.event_type === "PROPOSAL_SENT").length
+    const thisWins = thisMonthEvents.filter(e => e.event_type === "WON").length
+    const lastWins = lastMonthEvents.filter(e => e.event_type === "WON").length
+
+    const arrow = (current, prev) => current > prev ? '↑' : current < prev ? '↓' : '→'
+
+    let response = `**This Month vs Last Month:**\n\n`
+    response += `RFPs Received: ${thisRFPs} ${arrow(thisRFPs, lastRFPs)} (was ${lastRFPs})\n`
+    response += `Proposals Sent: ${thisProposals} ${arrow(thisProposals, lastProposals)} (was ${lastProposals})\n`
+    response += `Wins: ${thisWins} ${arrow(thisWins, lastWins)} (was ${lastWins})\n`
+
+    return { text: response }
+  }
+
+  // 8. "Which GCs should we stop bidding?" / "stop bidding" / "wasting time" / "losing"
+  if (q.includes("stop bidding") || q.includes("wasting") || q.includes("losing with") || q.includes("drop")) {
+    const losers = Object.entries(gcMetrics)
+      .filter(([_, m]) => m.totalBids >= 3 && m.winRate !== null && m.winRate < 15)
+      .sort((a, b) => a[1].winRate - b[1].winRate)
+      .slice(0, 5)
+
+    let response = `**GCs with Low Win Rates (consider dropping):**\n\n`
+    if (losers.length > 0) {
+      losers.forEach(([gc, m]) => {
+        response += `🔴 ${gc}: ${m.winRate}% win rate (${m.wins}/${m.totalBids})\n`
+      })
+      response += `\n💡 If win rate < 15% after 3+ bids, consider refocusing effort.`
+    } else {
+      response += `No GCs with consistently low win rates found.`
+    }
+
+    return { text: response }
+  }
+
+  // 9. "What's our average job size?" / "deal size" / "average job"
+  if (q.includes("job size") || q.includes("deal size") || q.includes("average job") || q.includes("avg job")) {
+    const winsWithAmount = events.filter(e => e.event_type === "WON" && e.dollar_amount)
+    const proposalsWithAmount = events.filter(e => e.event_type === "PROPOSAL_SENT" && e.dollar_amount)
+
+    let response = `**Job Size Analysis:**\n\n`
+
+    if (winsWithAmount.length > 0) {
+      const avgWon = Math.round(winsWithAmount.reduce((s, e) => s + e.dollar_amount, 0) / winsWithAmount.length)
+      response += `Avg Won Job: $${avgWon.toLocaleString()}\n`
+    }
+
+    if (proposalsWithAmount.length > 0) {
+      const avgBid = Math.round(proposalsWithAmount.reduce((s, e) => s + e.dollar_amount, 0) / proposalsWithAmount.length)
+      response += `Avg Bid Size: $${avgBid.toLocaleString()}\n`
+    }
+
+    // Find largest
+    const largest = events
+      .filter(e => e.dollar_amount)
+      .sort((a, b) => b.dollar_amount - a.dollar_amount)[0]
+
+    if (largest) {
+      response += `\nLargest: ${largest.project_name || 'Unknown'} at $${largest.dollar_amount.toLocaleString()}`
+    }
+
+    if (!winsWithAmount.length && !proposalsWithAmount.length) {
+      response = `No dollar amounts captured in events yet. Scanner needs to extract $ values from emails.`
+    }
+
+    return { text: response }
+  }
+
+  // 10. "How many RFPs this week?" / "this week" / "recent activity"
+  if (q.includes("this week") || q.includes("recent") || q.includes("rfps came")) {
+    const oneWeekAgo = new Date(now - 7 * 24 * 60 * 60 * 1000)
+    const weekEvents = events.filter(e => new Date(e.scanned_at) > oneWeekAgo)
+
+    const weekRFPs = weekEvents.filter(e => e.event_type === "RFP_RECEIVED")
+    const weekProposals = weekEvents.filter(e => e.event_type === "PROPOSAL_SENT")
+    const weekWins = weekEvents.filter(e => e.event_type === "WON")
+
+    let response = `**Last 7 Days Activity:**\n\n`
+    response += `New RFPs: ${weekRFPs.length}\n`
+    response += `Proposals Sent: ${weekProposals.length}\n`
+    response += `Wins: ${weekWins.length}\n`
+
+    if (weekRFPs.length > 0) {
+      response += `\nRecent RFPs:\n`
+      weekRFPs.slice(0, 3).forEach(e => {
+        response += `• ${e.summary || e.project_name || 'Unknown'}\n`
+      })
+    }
+
+    return { text: response }
+  }
+
+  // Win rate (legacy support)
   if (q.includes("win rate")) {
     const topGCs = Object.entries(gcMetrics)
       .filter(([_, m]) => m.winRate && m.totalBids >= 2)
@@ -395,71 +689,30 @@ function generateSalesResponse(query, events, gcMetrics, selectedEvent) {
       .slice(0, 5)
 
     if (topGCs.length > 0) {
-      let response = "**Win Rate by GC:**\n\n"
+      let response = "**Win Rate by Salesperson:**\n\n"
       topGCs.forEach(([gc, m]) => {
         response += `${gc}: ${m.winRate}% (${m.wins}/${m.totalBids} bids)\n`
       })
       return { text: response }
     }
-    return { text: "Not enough data to calculate win rates yet. Need more won/lost events." }
+    return { text: "Not enough data to calculate win rates yet." }
   }
 
-  // Turnaround analysis
-  if (q.includes("turnaround") || q.includes("response time")) {
-    const withTurnaround = Object.entries(gcMetrics)
-      .filter(([_, m]) => m.avgTurnaround)
-      .sort((a, b) => a[1].avgTurnaround - b[1].avgTurnaround)
-      .slice(0, 5)
-
-    if (withTurnaround.length > 0) {
-      let response = "**Avg RFP-to-Proposal Turnaround:**\n\n"
-      withTurnaround.forEach(([gc, m]) => {
-        response += `${gc}: ${m.avgTurnaround} days\n`
-      })
-      return { text: response }
-    }
-    return { text: "Not enough RFP/Proposal pairs to calculate turnaround times." }
-  }
-
-  // Pipeline
-  if (q.includes("pipeline") || q.includes("by month")) {
-    const byMonth = {}
-    events.forEach(e => {
-      if (e.event_type === "RFP_RECEIVED") {
-        const month = new Date(e.scanned_at).toLocaleString('default', { month: 'short', year: '2-digit' })
-        byMonth[month] = (byMonth[month] || 0) + 1
-      }
-    })
-
-    let response = "**RFPs Received by Month:**\n\n"
-    Object.entries(byMonth)
-      .sort((a, b) => new Date('01 ' + a[0]) - new Date('01 ' + b[0]))
-      .forEach(([month, count]) => {
-        response += `${month}: ${count} RFPs\n`
-      })
-    return { text: response, chart: { type: 'bar', data: byMonth } }
-  }
-
-  // Winning GCs
-  if (q.includes("winning") || q.includes("best gc")) {
-    const winners = Object.entries(gcMetrics)
-      .filter(([_, m]) => m.wins > 0)
-      .sort((a, b) => b[1].wins - a[1].wins)
-      .slice(0, 5)
-
-    if (winners.length > 0) {
-      let response = "**Top Winning GCs:**\n\n"
-      winners.forEach(([gc, m]) => {
-        response += `${gc}: ${m.wins} wins (${m.winRate}% rate)\n`
-      })
-      return { text: response }
-    }
-    return { text: "No wins recorded yet in the data." }
-  }
-
-  // Default response
+  // Default response - show what questions they can ask
   return {
-    text: `I can analyze:\n\n- Win rates by GC\n- Turnaround times (RFP to proposal)\n- Pipeline by month\n- Top performing GCs\n- Deal sizes and trends\n\nWhat would you like to know?`
+    text: `**I can answer:**\n
+• "How much did we bid this month?"
+• "Who's our top performer?"
+• "Which GCs should we focus on?"
+• "Are we responding fast enough?"
+• "What's in the pipeline?"
+• "Who's been slow on turnaround?"
+• "How are we doing vs last month?"
+• "Which GCs should we stop bidding?"
+• "What's our average job size?"
+• "How many RFPs this week?"
+
+What would you like to know?`
   }
 }
 
