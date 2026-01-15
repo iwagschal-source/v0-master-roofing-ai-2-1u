@@ -2,6 +2,7 @@
 
 /**
  * Proposal Template V2 - Matches 120 Ellery Street PDF format EXACTLY
+ * Updated: 2026-01-15
  */
 
 // ============ UTILITIES ============
