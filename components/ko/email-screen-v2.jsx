@@ -10,7 +10,7 @@ import {
 import { ResizablePanel } from "./resizable-panel"
 import { cn } from "@/lib/utils"
 
-const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || "https://34.95.128.208"
+const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || "https://136.116.243.70"
 
 // Tabs for the email list
 const EMAIL_TABS = [

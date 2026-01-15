@@ -22,7 +22,7 @@ const getWsUrl = () => {
     return process.env.NEXT_PUBLIC_WS_URL;
   }
   // Fallback to hardcoded backend URL (not localhost)
-  return 'wss://34.95.128.208/ws/chat';
+  return 'wss://136.116.243.70/ws/chat';
 };
 const WS_URL = getWsUrl();
 
@@ -280,7 +280,7 @@ export function useWebSocketChat(): UseWebSocketChatReturn {
 
       ws.onerror = (error) => {
         console.error('[WS] Connection error - this often means SSL certificate was rejected');
-        console.error('[WS] Try visiting https://34.95.128.208/health in a new tab and accepting the certificate');
+        console.error('[WS] Try visiting https://136.116.243.70/health in a new tab and accepting the certificate');
         // Don't set error here - onclose will be called next
       };
 

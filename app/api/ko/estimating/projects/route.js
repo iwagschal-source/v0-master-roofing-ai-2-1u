@@ -8,7 +8,7 @@
 import { NextResponse } from 'next/server'
 import crypto from 'crypto'
 
-const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'https://34.95.128.208'
+const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'https://136.116.243.70'
 
 // In-memory storage for mock mode (will be replaced with BigQuery)
 let mockProjects = []

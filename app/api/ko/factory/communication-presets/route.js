@@ -7,7 +7,7 @@ process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0'
 
 import { NextResponse } from 'next/server'
 
-const BACKEND_URL = 'https://34.95.128.208'
+const BACKEND_URL = 'https://136.116.243.70'
 
 const FALLBACK_PRESETS = [
   { id: "worker", name: "Worker", description: "Can be called by KO Prime and orchestrators", can_call: [], can_be_called_by: ["CAO-GEM-001", "CAO-PRIME-001"] },

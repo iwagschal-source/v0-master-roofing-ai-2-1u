@@ -431,7 +431,7 @@ export function AgentNetworkMapScreen({ onBack, onSelectAgent }) {
     const agentList = liveAgents || agents
     try {
       const action = networkPaused ? 'resume' : 'pause'
-      const res = await fetch(`https://34.95.128.208/v1/network/${action}`, {
+      const res = await fetch(`https://136.116.243.70/v1/network/${action}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' }
       })
@@ -464,7 +464,7 @@ export function AgentNetworkMapScreen({ onBack, onSelectAgent }) {
     const action = isPaused ? 'resume' : 'pause'
 
     try {
-      const res = await fetch(`https://34.95.128.208/v1/agents/${agentId}/${action}`, {
+      const res = await fetch(`https://136.116.243.70/v1/agents/${agentId}/${action}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' }
       })
@@ -642,7 +642,7 @@ export function AgentNetworkMapScreen({ onBack, onSelectAgent }) {
   useEffect(() => {
     const connectWebSocket = () => {
       try {
-        const ws = new WebSocket('wss://34.95.128.208/ws/network')
+        const ws = new WebSocket('wss://136.116.243.70/ws/network')
         wsRef.current = ws
 
         ws.onopen = () => {

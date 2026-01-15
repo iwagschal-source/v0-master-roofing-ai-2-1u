@@ -15,7 +15,7 @@ process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0'
 
 import { NextResponse } from 'next/server'
 
-const BACKEND_URL = 'https://34.95.128.208'
+const BACKEND_URL = 'https://136.116.243.70'
 
 // System prompt - trained to think like Claude
 const TRAINING_AGENT_SYSTEM_PROMPT = `You are the Training Agent for Master Roofing's AI system, powered by Claude Opus 4. You think and work like Claude Code - thorough, iterative, and precise.

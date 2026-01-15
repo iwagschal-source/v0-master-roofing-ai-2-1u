@@ -1,6 +1,6 @@
 /**
  * Agent Live Status API
- * Fetches real-time status from backend at 34.95.128.208
+ * Fetches real-time status from backend at 136.116.243.70
  * Supports both hardcoded agents and factory-created agents
  */
 
@@ -9,7 +9,7 @@ process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0'
 
 import { NextResponse } from 'next/server'
 
-const BACKEND_URL = 'https://34.95.128.208'
+const BACKEND_URL = 'https://136.116.243.70'
 
 // Map provider to service key for status checking
 function providerToServiceKey(provider) {

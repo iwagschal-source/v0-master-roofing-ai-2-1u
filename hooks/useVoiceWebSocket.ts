@@ -29,9 +29,9 @@ const getWsVoiceUrl = () => {
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
     return `${protocol}//${window.location.host}/ws/voice`;
   }
-  return 'wss://34.95.128.208/ws/voice';
+  return 'wss://136.116.243.70/ws/voice';
 };
-const WS_VOICE_URL = typeof window !== 'undefined' ? getWsVoiceUrl() : 'wss://34.95.128.208/ws/voice';
+const WS_VOICE_URL = typeof window !== 'undefined' ? getWsVoiceUrl() : 'wss://136.116.243.70/ws/voice';
 
 interface Phase {
   name: string;

@@ -16,9 +16,9 @@ const getApiUrl = () => {
   if (typeof window !== 'undefined') {
     return `${window.location.protocol}//${window.location.host}`;
   }
-  return 'https://34.95.128.208';
+  return 'https://136.116.243.70';
 };
-const API_URL = typeof window !== 'undefined' ? getApiUrl() : 'https://34.95.128.208';
+const API_URL = typeof window !== 'undefined' ? getApiUrl() : 'https://136.116.243.70';
 
 interface UseTTSPlaybackReturn {
   isPlaying: boolean;
