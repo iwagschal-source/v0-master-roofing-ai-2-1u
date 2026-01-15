@@ -1,6 +1,6 @@
 "use client"
 
-// Agent Control Dashboard v1.0
+// KO App Homepage v1.1 - Main Application Entry Point
 import { useState, useEffect } from "react"
 import { NavigationRail } from "@/components/ko/navigation-rail"
 import { TopHeader } from "@/components/ko/top-header"
