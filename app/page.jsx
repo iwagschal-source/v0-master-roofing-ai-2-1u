@@ -12,7 +12,6 @@ import { DocumentsScreen } from "@/components/ko/documents-screen"
 import { EmailScreen } from "@/components/ko/email-screen"
 import { SettingsScreen } from "@/components/ko/settings-screen"
 import { ZoomScreen } from "@/components/ko/zoom-screen"
-import { ReportsScreen } from "@/components/ko/reports-screen"
 import { ModelArenaDashboard } from "@/components/ko/model-arena-dashboard"
 import { MobileMenuToggle } from "@/components/ko/mobile-menu-toggle"
 import { HistoryItem } from "@/types/history"
@@ -29,6 +28,7 @@ import { AgentDetailScreen } from "@/components/ko/agent-detail-screen"
 import { AgentNetworkMapScreen } from "@/components/ko/agent-network-map-screen"
 import { AddAgentScreen } from "@/components/ko/add-agent-screen"
 import { CloneAgentModal } from "@/components/ko/clone-agent-modal"
+import { UserAdminScreen } from "@/components/ko/user-admin-screen"
 import { agents as fallbackAgents } from "@/data/agent-data"
 
 export default function HomePage() {
@@ -43,7 +43,6 @@ export default function HomePage() {
   const [showEmail, setShowEmail] = useState(false)
   const [showSettings, setShowSettings] = useState(false)
   const [showZoom, setShowZoom] = useState(false)
-  const [showReports, setShowReports] = useState(false)
   const [showArena, setShowArena] = useState(false)
   const [showProjects, setShowProjects] = useState(false)
   const [selectedProject, setSelectedProject] = useState(null)
@@ -51,6 +50,7 @@ export default function HomePage() {
   const [showMessages, setShowMessages] = useState(false)
   const [showAsana, setShowAsana] = useState(false)
   const [showAgents, setShowAgents] = useState(false)
+  const [showUserAdmin, setShowUserAdmin] = useState(false)
   const [selectedAgent, setSelectedAgent] = useState(null)
   const [showAgentNetwork, setShowAgentNetwork] = useState(false)
   const [showAddAgent, setShowAddAgent] = useState(false)
@@ -98,28 +98,14 @@ export default function HomePage() {
       id: "pipeline-chart-nov",
       type: "chart",
       label: "Pipeline-Chart-November",
-      source: "Power BI",
+      source: "Vertex AI",
       content: "Sales Pipeline Data - November 2025\n\nStage breakdown:\nProspecting: $2.1M\nQualification: $1.5M\nProposal: $980K\nNegotiation: $620K",
       preview: "November pipeline analysis with stage-by-stage breakdown.",
       timestamp: new Date(Date.now() - 172800000),
     },
   ])
 
-  const [powerbiCustomView, setPowerbiCustomView] = useState(null)
-  const [powerbiOriginalQuestion, setPowerbiOriginalQuestion] = useState("")
   const [chatContext, setChatContext] = useState(null)
-
-  const openPowerBICustomView = (customViewPayload, originalQuestion) => {
-    setPowerbiCustomView(customViewPayload)
-    setPowerbiOriginalQuestion(originalQuestion || "")
-    setShowReports(true)
-    setShowFiles(false)
-    setShowEmail(false)
-    setShowSettings(false)
-    setShowZoom(false)
-    setShowArena(false)
-    setHasStartedChat(true)
-  }
 
   const isWorkspaceVisible = selectedHistoryItem !== undefined || selectedSource !== null
 
@@ -168,7 +154,6 @@ export default function HomePage() {
     setShowEmail(false)
     setShowSettings(false)
     setShowZoom(false)
-    setShowReports(false)
     setShowArena(false)
   }
 
@@ -183,13 +168,13 @@ export default function HomePage() {
       setShowEmail(false)
       setShowSettings(false)
       setShowZoom(false)
-      setShowReports(false)
       setShowArena(false)
       setShowHistory(false)
       setShowProjects(false)
       setShowMessages(false)
       setShowAsana(false)
       setShowAgents(false)
+      setShowUserAdmin(false)
       setSelectedAgent(null)
       setShowAgentNetwork(false)
       setShowAddAgent(false)
@@ -203,7 +188,6 @@ export default function HomePage() {
       setShowEmail(false)
       setShowSettings(false)
       setShowZoom(false)
-      setShowReports(false)
       setShowHistory(false)
       setShowProjects(false)
       setShowAgents(false)
@@ -213,7 +197,6 @@ export default function HomePage() {
       setShowFiles(false)
       setShowSettings(false)
       setShowZoom(false)
-      setShowReports(false)
       setShowArena(false)
       setShowProjects(false)
       setShowAgents(false)
@@ -224,7 +207,6 @@ export default function HomePage() {
       setShowEmail(false)
       setShowSettings(false)
       setShowZoom(false)
-      setShowReports(false)
       setShowArena(false)
       setShowProjects(false)
       setShowAgents(false)
@@ -235,7 +217,6 @@ export default function HomePage() {
       setShowFiles(false)
       setShowEmail(false)
       setShowZoom(false)
-      setShowReports(false)
       setShowArena(false)
       setShowProjects(false)
       setShowAgents(false)
@@ -243,18 +224,6 @@ export default function HomePage() {
       setShowHistory(false)
     } else if (mode === "zoom") {
       setShowZoom(true)
-      setShowFiles(false)
-      setShowEmail(false)
-      setShowSettings(false)
-      setShowReports(false)
-      setShowArena(false)
-      setShowProjects(false)
-      setShowAgents(false)
-      setHasStartedChat(true)
-      setShowHistory(false)
-    } else if (mode === "powerbi") {
-      setShowReports(true)
-      setShowZoom(false)
       setShowFiles(false)
       setShowEmail(false)
       setShowSettings(false)
@@ -269,7 +238,6 @@ export default function HomePage() {
       setShowEmail(false)
       setShowSettings(false)
       setShowZoom(false)
-      setShowReports(false)
       setShowArena(false)
       setShowProjects(false)
       setShowAgents(false)
@@ -283,7 +251,6 @@ export default function HomePage() {
       setShowEmail(false)
       setShowSettings(false)
       setShowZoom(false)
-      setShowReports(false)
       setShowArena(false)
       setShowMessages(false)
       setShowAgents(false)
@@ -296,7 +263,6 @@ export default function HomePage() {
       setShowEmail(false)
       setShowSettings(false)
       setShowZoom(false)
-      setShowReports(false)
       setShowArena(false)
       setShowAsana(false)
       setShowAgents(false)
@@ -310,7 +276,6 @@ export default function HomePage() {
       setShowEmail(false)
       setShowSettings(false)
       setShowZoom(false)
-      setShowReports(false)
       setShowArena(false)
       setShowAgents(false)
       setHasStartedChat(true)
@@ -328,7 +293,20 @@ export default function HomePage() {
       setShowEmail(false)
       setShowSettings(false)
       setShowZoom(false)
-      setShowReports(false)
+      setShowArena(false)
+      setShowUserAdmin(false)
+      setHasStartedChat(true)
+    } else if (mode === "admin") {
+      setShowUserAdmin(true)
+      setShowAgents(false)
+      setShowAsana(false)
+      setShowMessages(false)
+      setShowProjects(false)
+      setShowHistory(false)
+      setShowFiles(false)
+      setShowEmail(false)
+      setShowSettings(false)
+      setShowZoom(false)
       setShowArena(false)
       setHasStartedChat(true)
     } else {
@@ -337,7 +315,6 @@ export default function HomePage() {
       setShowEmail(false)
       setShowSettings(false)
       setShowZoom(false)
-      setShowReports(false)
       setShowArena(false)
       setShowProjects(false)
       setShowAgents(false)
@@ -351,12 +328,11 @@ export default function HomePage() {
     setShowFiles(true)
     setShowEmail(false)
     setShowSettings(false)
-    setShowReports(false)
     setHasStartedChat(true)
   }
 
   const showHomeScreen =
-    !hasStartedChat && activeMode === "home" && !showFiles && !showEmail && !showSettings && !showZoom && !showReports
+    !hasStartedChat && activeMode === "home" && !showFiles && !showEmail && !showSettings && !showZoom
 
   const handleGoToKO = () => {
     setHasStartedChat(true)
@@ -365,7 +341,6 @@ export default function HomePage() {
     setShowEmail(false)
     setShowSettings(false)
     setShowZoom(false)
-    setShowReports(false)
     setShowArena(false)
     setShowHistory(false)
     setShowProjects(false)
@@ -390,7 +365,7 @@ export default function HomePage() {
       <div className={`${isMobileMenuOpen ? "fixed left-0 top-0 bottom-0 z-50" : "hidden"} md:block`}>
         <NavigationRail
           activeMode={
-            showEmail ? "email" : showFiles ? "documents" : showSettings ? "settings" : showZoom ? "zoom" : showReports ? "powerbi" : showArena ? "arena" : showHistory ? "history" : showProjects ? "projects" : showMessages ? "messages" : showAsana ? "asana" : showAgents ? "agents" : activeMode
+            showEmail ? "email" : showFiles ? "documents" : showSettings ? "settings" : showZoom ? "zoom" : showArena ? "arena" : showHistory ? "history" : showProjects ? "projects" : showMessages ? "messages" : showAsana ? "asana" : showAgents ? "agents" : showUserAdmin ? "admin" : activeMode
           }
           onModeChange={handleModeChange}
           visible={true}
@@ -420,17 +395,6 @@ export default function HomePage() {
             <SettingsScreen />
           ) : showZoom ? (
             <ZoomScreen />
-          ) : showReports ? (
-            <ReportsScreen
-              initialViewMode="custom"
-              initialCustomView={powerbiCustomView}
-              initialOriginalQuestion={powerbiOriginalQuestion}
-              onExitReports={() => setShowReports(false)}
-              onAskFollowUp={(context) => {
-                setChatContext(context)
-                setShowReports(false) // go back to chat
-              }}
-            />
           ) : showArena ? (
             <ModelArenaDashboard onBack={() => setShowArena(false)} agents={agentsList} />
           ) : showMessages ? (
@@ -483,6 +447,8 @@ export default function HomePage() {
                 onCloneAgent={(agent) => setAgentToClone(agent)}
               />
             )
+          ) : showUserAdmin ? (
+            <UserAdminScreen onBack={() => setShowUserAdmin(false)} />
           ) : showProjects ? (
             showProposal && selectedProject ? (
               <ProposalPreviewScreen
@@ -512,7 +478,6 @@ export default function HomePage() {
                   onExpandStage={() => { }}
                   onKoStateChange={setKoState}
                   onNavigateToFiles={handleNavigateToFiles}
-                  onOpenPowerBICustomView={openPowerBICustomView}
                   initialContext={chatContext}
                   onClearContext={() => setChatContext(null)}
                   historyItem={selectedHistoryItem}

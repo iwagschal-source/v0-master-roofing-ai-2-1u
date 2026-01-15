@@ -4,64 +4,8 @@
  */
 
 import { api } from './client';
-import { DashboardsListResponse, OpenDashboardResponse, Session, SessionCreateResponse, SessionListResponse, SessionMessagesResponse, TopCustomersResponse } from './types';
+import { Session, SessionCreateResponse, SessionListResponse, SessionMessagesResponse, TopCustomersResponse, User, UserListResponse, UserCreateRequest, UserUpdateRequest } from './types';
 
-
-// ============================================================================
-// Power BI Endpoints
-// ============================================================================
-
-export const powerbiAPI = {
-  /**
-   * Get list of pre-built dashboards for gallery view
-   */
-  listDashboards: async (): Promise<DashboardsListResponse> => {
-    return api.get<DashboardsListResponse>('/powerbi/dashboards');
-  },
-
-  /**
-   * Open a specific pre-built dashboard
-   */
-  openDashboard: async (
-    dashboardId: string,
-    filters?: Record<string, any>
-  ): Promise<OpenDashboardResponse> => {
-    return api.post<OpenDashboardResponse>(
-      `/powerbi/dashboard/${dashboardId}`,
-      { filters }
-    );
-  },
-
-  /**
-   * Get CEO KPIs: velocity, stuck jobs, at-risk
-   */
-  getCeoKpis: async (): Promise<{
-    velocity: {
-      avg_days_rfp_to_proposal: number;
-      avg_days_to_award: number;
-      win_rate: number;
-      total_awarded: number;
-      total_decided: number;
-    };
-    stuck_jobs: {
-      count_180_plus: number;
-      count_90_180: number;
-      count_30_90: number;
-      active: number;
-      total_stuck_value: number;
-      scope_creep_risk: number;
-    };
-    at_risk: {
-      critical: number;
-      high: number;
-      medium: number;
-      total_alerts: number;
-      high_value_at_risk: number;
-    };
-  }> => {
-    return api.get('/powerbi/ceo-kpis');
-  },
-};
 
 // ============================================================================
 // Chat Endpoints
@@ -659,13 +603,81 @@ export const analyticsAPI = {
 };
 
 // ============================================================================
+// User Admin Endpoints
+// ============================================================================
+
+export const userAdminAPI = {
+  /**
+   * List all users from BigQuery ko_audit.user_agents
+   */
+  listUsers: async (params?: {
+    role?: string;
+    status?: string;
+  }): Promise<UserListResponse> => {
+    const searchParams = new URLSearchParams();
+    if (params?.role) searchParams.set('role', params.role);
+    if (params?.status) searchParams.set('status', params.status);
+
+    const query = searchParams.toString();
+    const res = await fetch(`/api/admin/users${query ? `?${query}` : ''}`);
+    if (!res.ok) throw new Error('Failed to fetch users');
+    return res.json();
+  },
+
+  /**
+   * Get a specific user by ID
+   */
+  getUser: async (userId: string): Promise<User> => {
+    const res = await fetch(`/api/admin/users/${userId}`);
+    if (!res.ok) throw new Error('Failed to fetch user');
+    return res.json();
+  },
+
+  /**
+   * Create a new user
+   */
+  createUser: async (data: UserCreateRequest): Promise<User> => {
+    const res = await fetch('/api/admin/users', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    });
+    if (!res.ok) throw new Error('Failed to create user');
+    return res.json();
+  },
+
+  /**
+   * Update an existing user
+   */
+  updateUser: async (userId: string, data: UserUpdateRequest): Promise<User> => {
+    const res = await fetch(`/api/admin/users/${userId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    });
+    if (!res.ok) throw new Error('Failed to update user');
+    return res.json();
+  },
+
+  /**
+   * Deactivate a user (soft delete)
+   */
+  deactivateUser: async (userId: string): Promise<{ success: boolean }> => {
+    const res = await fetch(`/api/admin/users/${userId}`, {
+      method: 'DELETE',
+    });
+    if (!res.ok) throw new Error('Failed to deactivate user');
+    return res.json();
+  },
+};
+
+// ============================================================================
 // Main API Export (Aggregated)
 // ============================================================================
 
 export const apiClient = {
   chat: chatAPI,
   system: systemAPI,
-  powerbi: powerbiAPI,
   history: historyAPI,
   auth: authAPI,
   sessions: sessionAPI,
@@ -674,6 +686,7 @@ export const apiClient = {
   calendar: calendarAPI,
   chatSpaces: chatSpacesAPI,
   asana: asanaAPI,
+  userAdmin: userAdminAPI,
 };
 
 // Re-export for convenience

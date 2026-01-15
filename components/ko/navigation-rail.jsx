@@ -2,7 +2,7 @@
 
 import * as React from "react"
 
-import { Home, Clock, Settings, Mail, Sparkles, FolderKanban, MessageSquare, Bot } from "lucide-react"
+import { Home, Clock, Settings, Mail, Sparkles, FolderKanban, MessageSquare, Bot, Shield } from "lucide-react"
 import Image from "next/image"
 
 /** @typedef {Object} NavigationRailProps */
@@ -14,14 +14,9 @@ export function NavigationRail({ activeMode, onModeChange, visible }) {
     { id: "home", icon: Home, label: "KO Home", type: "lucide" },
     { id: "projects", icon: FolderKanban, label: "Projects", type: "lucide" },
     { id: "history", icon: Clock, label: "History", type: "lucide" },
-    {
-      id: "powerbi",
-      icon: "/images/cfe66c72-cb69-46b5-8988-3b574f5aeca8.png",
-      label: "Power BI",
-      type: "image",
-    },
     { id: "arena", icon: Sparkles, label: "Model Arena", type: "lucide" },
     { id: "agents", icon: Bot, label: "Agent Control", type: "lucide" },
+    { id: "admin", icon: Shield, label: "User Admin", type: "lucide" },
 
     { id: "messages", icon: MessageSquare, label: "Messages", type: "lucide" },
     {

@@ -30,7 +30,6 @@ export interface StubMode {
   anthropic: boolean;
   gcp: boolean;
   hubspot: boolean;
-  powerbi: boolean;
 }
 
 export interface ChatResponse {
@@ -137,66 +136,6 @@ export interface HubSpotResponse {
 }
 
 // ============================================================================
-// Power BI Types
-// ============================================================================
-
-export interface PowerBIFilter {
-  table: string;
-  column: string;
-  value: string;
-}
-
-export interface PowerBIKPI {
-  label: string;
-  value: string;
-}
-
-export interface PowerBIDashboard {
-  id: string;
-  name: string;
-  icon: string;
-  kpi1: PowerBIKPI;
-  kpi2: PowerBIKPI;
-  lastUpdated: string;
-  embedUrl: string;
-  datasetId?: string;
-  description?: string;
-}
-
-export interface DashboardsListResponse {
-  dashboards: PowerBIDashboard[];
-  total: number;
-  stub_mode: boolean;
-}
-
-export interface OpenDashboardResponse {
-  action: 'open_dashboard';
-  dashboard_id: string;
-  embedUrl: string;
-  embedToken: string;
-  tokenExpiry: string;
-  filters: Record<string, any>;
-  narrative: string;
-  source: string;
-}
-
-export interface CustomViewData {
-  category: string;
-  value: number;
-  label: string;
-}
-
-export interface CustomViewResponse {
-  action: 'open_custom_view';
-  chart_type: 'bar' | 'line' | 'pie' | 'scatter' | 'table';
-  data: CustomViewData[];
-  title: string;
-  narrative: string;
-  source: string;
-}
-
-export type PowerBIResponse = OpenDashboardResponse | CustomViewResponse;
-// ============================================================================
 // Health Check Types
 // ============================================================================
 
@@ -218,7 +157,6 @@ export interface ConfigResponse {
     anthropic: boolean;
     gcp: boolean;
     hubspot: boolean;
-    powerbi: boolean;
   };
 }
 
@@ -304,4 +242,53 @@ export interface TopCustomersResponse {
   customers: Customer[];
   totals: CustomerAnalyticsTotals;
   systemsSummary: SystemSummary[];
+}
+
+// ============================================================================
+// User Admin Types
+// ============================================================================
+
+export interface User {
+  user_agent_id: string;
+  user_email: string;
+  user_name: string;
+  display_name: string;
+  role: string;
+  department: string;
+  agent_status: 'active' | 'inactive';
+  priority_level: number | null;
+  can_receive_nudges: boolean;
+  can_receive_drafts: boolean;
+  asana_user_id: string | null;
+  hubspot_contact_id: string | null;
+  created_at: string | null;
+  updated_at: string | null;
+}
+
+export interface UserListResponse {
+  users: User[];
+  total: number;
+}
+
+export interface UserCreateRequest {
+  user_email: string;
+  user_name: string;
+  display_name: string;
+  role: string;
+  department: string;
+  priority_level?: number;
+  can_receive_nudges?: boolean;
+  can_receive_drafts?: boolean;
+}
+
+export interface UserUpdateRequest {
+  display_name?: string;
+  role?: string;
+  department?: string;
+  agent_status?: 'active' | 'inactive';
+  priority_level?: number | null;
+  can_receive_nudges?: boolean;
+  can_receive_drafts?: boolean;
+  asana_user_id?: string | null;
+  hubspot_contact_id?: string | null;
 }
