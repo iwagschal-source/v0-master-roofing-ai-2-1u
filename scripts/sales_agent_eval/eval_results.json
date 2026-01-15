@@ -1,0 +1,231 @@
+{
+  "evaluations": [
+    {
+      "iteration": 1,
+      "timestamp": "2026-01-15T03:30:55.399412",
+      "avg_score": 84.5,
+      "pass_rate": 100.0,
+      "results": [
+        {
+          "question_id": "bid_volume",
+          "question": "How much did we bid this month?",
+          "response": "**This Month's Bidding Activity:**\n\nProposals Sent: 3\nTotal Bid Value: $455,000\nAvg Bid Size: $151,666\n\nvs Last Month: +3 proposals (was 0)\n\n\ud83d\udca1 Ramp up bidding activity - target is 10+ proposals/month.",
+          "score": 92.2,
+          "passed": true,
+          "dimension_scores": {
+            "completeness": 100.0,
+            "accuracy": 85.0,
+            "actionability": 80.0,
+            "context": 100.0,
+            "formatting": 100
+          },
+          "elements_found": [
+            "proposal_count",
+            "total_value",
+            "avg_bid_size",
+            "month_comparison"
+          ],
+          "elements_missing": [],
+          "feedback": "Good response - all criteria met"
+        },
+        {
+          "question_id": "top_performer",
+          "question": "Who's our top performer?",
+          "response": "**Sales Team Performance:**\n\n\ud83e\udd47 fkohn: 1 wins, 1 proposals, $150K won\n\ud83e\udd48 bshinde: 0 wins, 1 proposals\n\ud83e\udd49 csufrin: 0 wins, 1 proposals\n\nvs Last Month: fkohn maintained lead\n\n\ud83d\udca1 Recommend: Have fkohn mentor others on closing technique.",
+          "score": 82.5,
+          "passed": true,
+          "dimension_scores": {
+            "completeness": 100.0,
+            "accuracy": 85.0,
+            "actionability": 80.0,
+            "context": 50.0,
+            "formatting": 85.0
+          },
+          "elements_found": [
+            "ranked_list",
+            "win_count",
+            "proposal_count",
+            "won_value"
+          ],
+          "elements_missing": [],
+          "feedback": "Add comparisons/benchmarks"
+        },
+        {
+          "question_id": "gc_focus",
+          "question": "Which GCs should we focus on?",
+          "response": "**GCs to Focus On (best ROI):**\n\n1. fkohn\n   Win Rate: 71% | Bids: 7 | Wins: 5\n2. bshinde\n   Win Rate: 43% | Bids: 7 | Wins: 3\n3. csufrin\n   Win Rate: 29% | Bids: 7 | Wins: 2\n\n\ud83d\udca1 These GCs have good win rates AND enough volume to matter.",
+          "score": 82.5,
+          "passed": true,
+          "dimension_scores": {
+            "completeness": 100.0,
+            "accuracy": 75.0,
+            "actionability": 100.0,
+            "context": 25.0,
+            "formatting": 100
+          },
+          "elements_found": [
+            "ranked_gc_list",
+            "win_rate_per_gc",
+            "volume_per_gc",
+            "roi_score"
+          ],
+          "elements_missing": [],
+          "feedback": "Add comparisons/benchmarks"
+        },
+        {
+          "question_id": "response_speed",
+          "question": "Are we responding fast enough?",
+          "response": "**Response Time Analysis:**\n\nCompany Average: 4 days (RFP to Proposal)\n\nFastest: fkohn at 2 days\nSlowest: bshinde at 6 days\n\n\u26a0\ufe0f Acceptable Target is under 3 days.",
+          "score": 77.2,
+          "passed": true,
+          "dimension_scores": {
+            "completeness": 100.0,
+            "accuracy": 70.0,
+            "actionability": 80.0,
+            "context": 50.0,
+            "formatting": 75.0
+          },
+          "elements_found": [
+            "company_avg_turnaround",
+            "fastest_person",
+            "slowest_person",
+            "benchmark_comparison"
+          ],
+          "elements_missing": [],
+          "feedback": "Add comparisons/benchmarks"
+        },
+        {
+          "question_id": "pipeline",
+          "question": "What's in the pipeline?",
+          "response": "**Pipeline (Awaiting Decision):**\n\nPending: 1 proposals\nTotal Value: $220,000\n\nvs Last Month: Similar pipeline size\n\nProjects:\n\u2022 789 Pine Rd ($220,000)\n\n\ud83d\udca1 Recommend: Follow up on pending bids over 7 days old.",
+          "score": 84.8,
+          "passed": true,
+          "dimension_scores": {
+            "completeness": 100.0,
+            "accuracy": 85.0,
+            "actionability": 80.0,
+            "context": 50.0,
+            "formatting": 100
+          },
+          "elements_found": [
+            "pending_count",
+            "pending_value",
+            "project_list"
+          ],
+          "elements_missing": [],
+          "feedback": "Add comparisons/benchmarks"
+        },
+        {
+          "question_id": "slow_turnaround",
+          "question": "Who's been slow on turnaround?",
+          "response": "**Slowest Turnaround Times:**\n\n\ud83d\udd34 bshinde: 6 days avg\n\u26a0\ufe0f csufrin: 4 days avg\n\u2705 fkohn: 2 days avg\n\n\ud83d\udca1 Target: Under 3 days to stay competitive.",
+          "score": 85.0,
+          "passed": true,
+          "dimension_scores": {
+            "completeness": 100.0,
+            "accuracy": 70.0,
+            "actionability": 100.0,
+            "context": 75.0,
+            "formatting": 75.0
+          },
+          "elements_found": [
+            "ranked_by_slowness",
+            "days_per_person",
+            "status_indicators"
+          ],
+          "elements_missing": [],
+          "feedback": "Good response - all criteria met"
+        },
+        {
+          "question_id": "month_comparison",
+          "question": "How are we doing vs last month?",
+          "response": "**This Month vs Last Month:**\n\nRFPs Received: 3 \u2191 (was 0)\nProposals: 3 \u2191 (was 0)\nWins: 1 \u2191 (was 0)\n\nOverall Trend: IMPROVING\n\n\ud83d\udca1 Keep momentum going!",
+          "score": 80.8,
+          "passed": true,
+          "dimension_scores": {
+            "completeness": 100.0,
+            "accuracy": 70.0,
+            "actionability": 60.0,
+            "context": 100.0,
+            "formatting": 75.0
+          },
+          "elements_found": [
+            "rfp_comparison",
+            "proposal_comparison",
+            "win_comparison",
+            "trend_arrows"
+          ],
+          "elements_missing": [],
+          "feedback": "Add recommendations/suggestions"
+        },
+        {
+          "question_id": "stop_bidding",
+          "question": "Which GCs should we stop bidding?",
+          "response": "**GCs with Low Win Rates (consider dropping):**\n\nFiltering: 3+ bids required for analysis\n\n\ud83d\udd34 csufrin: 29% win rate (2/7 bids)\n\u26a0\ufe0f bshinde: 43% win rate (3/7 bids)\n\nvs Industry: Average win rate is 25-35%\n\n\ud83d\udca1 If win rate < 15% after 3+ bids, consider refocusing effort.",
+          "score": 84.0,
+          "passed": true,
+          "dimension_scores": {
+            "completeness": 100.0,
+            "accuracy": 75.0,
+            "actionability": 100.0,
+            "context": 50.0,
+            "formatting": 85.0
+          },
+          "elements_found": [
+            "low_winrate_gcs",
+            "bid_count_filter",
+            "specific_rates"
+          ],
+          "elements_missing": [],
+          "feedback": "Add comparisons/benchmarks"
+        },
+        {
+          "question_id": "job_size",
+          "question": "What's our average job size?",
+          "response": "**Job Size Analysis:**\n\nAvg Won Job: $150,000\nAvg Bid: $151,666\n\nLargest: 789 Pine Rd at $220,000\n\nvs Industry: Typical roofing sub avg is $100K-200K\n\n\ud83d\udca1 Your average bid is on target. Focus on jobs $100K-250K for best margins.",
+          "score": 87.8,
+          "passed": true,
+          "dimension_scores": {
+            "completeness": 100.0,
+            "accuracy": 75.0,
+            "actionability": 100.0,
+            "context": 75.0,
+            "formatting": 85.0
+          },
+          "elements_found": [
+            "avg_won_size",
+            "avg_bid_size",
+            "largest_job"
+          ],
+          "elements_missing": [],
+          "feedback": "Good response - all criteria met"
+        },
+        {
+          "question_id": "weekly_activity",
+          "question": "How many RFPs this week?",
+          "response": "**Last 7 Days Activity:**\n\nNew RFPs: 0\nProposals Sent: 0\nWins: 0\n\nvs Last Week: +0 RFPs (was 0)\nActivity Level: SLOW week\n\nRecent RFPs:\n\u2022 123 Main St\n\u2022 456 Oak Ave\n\u2022 789 Pine Rd\n\n\ud83d\udca1 Reach out to GCs for more RFPs - target 5+/week",
+          "score": 88.5,
+          "passed": true,
+          "dimension_scores": {
+            "completeness": 100.0,
+            "accuracy": 70.0,
+            "actionability": 80.0,
+            "context": 100.0,
+            "formatting": 100
+          },
+          "elements_found": [
+            "rfp_count_7days",
+            "proposal_count_7days",
+            "win_count_7days",
+            "recent_rfp_list"
+          ],
+          "elements_missing": [],
+          "feedback": "Good response - all criteria met"
+        }
+      ],
+      "improvements_made": []
+    }
+  ],
+  "latest_avg_score": 84.5,
+  "latest_pass_rate": 100.0
+}
