@@ -280,7 +280,7 @@ function ProposalPreviewContent() {
         gap: "12px"
       }}>
         <div>
-          <h1 style={{ margin: 0, fontSize: "20px" }}>Proposal Preview</h1>
+          <h1 style={{ margin: 0, fontSize: "20px" }}>Proposal Preview (V2 Template)</h1>
           <p style={{ margin: "4px 0 0", color: "#666", fontSize: "14px" }}>
             {sheetId ? `Sheet: ${sheetId.substring(0, 20)}...` : demo ? `Demo: ${demo}` : "Sample Data (Demo)"}
           </p>
