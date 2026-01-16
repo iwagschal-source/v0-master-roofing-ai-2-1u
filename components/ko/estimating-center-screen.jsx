@@ -385,6 +385,10 @@ export function EstimatingCenterScreen({ onSelectProject, onBack }) {
           sheetPopulated,
           rateSource: data.rate_source,
           historicalRatesUsed: data.summary?.historical_rates_used || 0,
+          formatDetected: data.format_detected,  // 'protocol' or 'legacy'
+          unmatched: data.unmatched || [],       // items that didn't match known codes
+          bySection: data.by_section,            // roofing/balconies/exterior breakdown
+          source: data.source,                   // 'backend' or 'local'
           message: `Processed ${data.summary?.total_items || 0} items`
         })
       } else {
@@ -975,10 +979,22 @@ export function EstimatingCenterScreen({ onSelectProject, onBack }) {
                     <div className="mt-3 pt-3 border-t border-border text-sm space-y-1">
                       <p>Items: {uploadResult.summary.total_items}</p>
                       <p>Estimated: {formatCurrency(uploadResult.summary.estimated_cost)}</p>
+                      {uploadResult.formatDetected && (
+                        <p className="text-muted-foreground flex items-center gap-1">
+                          Format: {uploadResult.formatDetected === 'protocol' ? 'Protocol (CODE | LOC)' : 'Legacy'}
+                          {uploadResult.source === 'backend' && <span className="text-xs opacity-60">via backend</span>}
+                        </p>
+                      )}
                       {uploadResult.rateSource === 'historical' && (
                         <p className="text-blue-400 flex items-center gap-1">
                           <CheckCircle2 className="w-3 h-3" />
                           {uploadResult.historicalRatesUsed} items with historical rates
+                        </p>
+                      )}
+                      {uploadResult.unmatched?.length > 0 && (
+                        <p className="text-yellow-400 flex items-center gap-1">
+                          <AlertCircle className="w-3 h-3" />
+                          {uploadResult.unmatched.length} unrecognized items
                         </p>
                       )}
                       {uploadResult.sheetPopulated && (

@@ -9,7 +9,7 @@
 
 import { NextResponse } from 'next/server'
 
-const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'https://136.116.243.70'
+const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'https://34.95.128.208'
 
 // MR Template rates by scope item
 const MR_RATES = {
@@ -142,8 +142,74 @@ function getRate(itemName, unit) {
 }
 
 /**
+ * Check if a subject is a summary row (e.g., "1,593 sf (1)" or "2 (2)")
+ */
+function isSummaryRow(subject) {
+  // Match patterns like "1,593 sf (1)", "2 (2)", "34 sf (73)", "3'-2"" (2)"
+  return /^[\d,'"-]+\s*(?:sf|lf|ea)?\s*\(\d+\)$/i.test(subject)
+}
+
+/**
+ * Check if a subject is a non-item row (annotations, markers, etc.)
+ */
+function isNonItemRow(subject) {
+  const nonItemPatterns = [
+    /^arrow$/i,
+    /^length measurement$/i,
+    /^text box$/i,
+    /^callout$/i,
+    /^cloud$/i,
+    /^legend$/i,
+    /^north$/i,
+    /^south$/i,
+    /^east$/i,
+    /^west$/i,
+    /^-?\d+$/, // Just numbers like "-15"
+    /^\d+'-\d+"?\s*\(\d+\)$/i, // Dimension summaries like "3'-2" (2)"
+  ]
+  return nonItemPatterns.some(p => p.test(subject.trim()))
+}
+
+/**
+ * Extract floor/location from subject name
+ * e.g., "Green roof Main roof" -> { itemName: "Green roof", floor: "Main Roof" }
+ * e.g., "Door Pans FL-1" -> { itemName: "Door Pans", floor: "1st Floor" }
+ */
+function extractFloorFromSubject(subject) {
+  const subjectLower = subject.toLowerCase()
+
+  // Check for floor patterns in subject
+  const floorPatterns = [
+    { pattern: /\s+main\s*roof$/i, floor: 'Main Roof' },
+    { pattern: /\s+stair\s*(?:bh|bulkhead)$/i, floor: 'Stair Bulkhead' },
+    { pattern: /\s+elev(?:ator)?\s*(?:bh|bulkhead)$/i, floor: 'Elev Bulkhead' },
+    { pattern: /\s+(?:fl|floor|lvl|level)[\s-]*1$/i, floor: '1st Floor' },
+    { pattern: /\s+(?:fl|floor|lvl|level)[\s-]*2$/i, floor: '2nd Floor' },
+    { pattern: /\s+(?:fl|floor|lvl|level)[\s-]*3$/i, floor: '3rd Floor' },
+    { pattern: /\s+(?:fl|floor|lvl|level)[\s-]*4$/i, floor: '4th Floor' },
+    { pattern: /\s+(?:1st|first)\s*(?:fl|floor)?$/i, floor: '1st Floor' },
+    { pattern: /\s+(?:2nd|second)\s*(?:fl|floor)?$/i, floor: '2nd Floor' },
+    { pattern: /\s+(?:3rd|third)\s*(?:fl|floor)?$/i, floor: '3rd Floor' },
+    { pattern: /\s+(?:4th|fourth)\s*(?:fl|floor)?$/i, floor: '4th Floor' },
+    { pattern: /\s+(?:ground|cellar|basement)$/i, floor: '1st Floor' },
+    { pattern: /\s+roof$/i, floor: 'Main Roof' },
+    // Elevation patterns (exterior work)
+    { pattern: /\s+(?:north|south|east|west)\s*elev?(?:ation)?$/i, floor: 'Main Roof' },
+  ]
+
+  for (const { pattern, floor } of floorPatterns) {
+    if (pattern.test(subject)) {
+      const itemName = subject.replace(pattern, '').trim()
+      return { itemName, floor }
+    }
+  }
+
+  return { itemName: subject, floor: 'Main Roof' }
+}
+
+/**
  * Parse Bluebeam CSV export into structured takeoff items
- * CSV format: Subject,Label,Space,Measurement,Author,Date,Markup Type,Color,Page Label
+ * CSV format varies - handles both old and new Bluebeam export formats
  */
 function parseBluebeamCSV(csvContent) {
   const lines = csvContent.trim().split('\n')
@@ -151,11 +217,14 @@ function parseBluebeamCSV(csvContent) {
     throw new Error('CSV file is empty or has no data rows')
   }
 
-  // Parse header
-  const header = lines[0].split(',').map(h => h.trim().toLowerCase().replace(/"/g, ''))
+  // Parse header with proper CSV handling
+  const header = parseCSVLine(lines[0]).map(h => h.toLowerCase().trim())
   const subjectIdx = header.indexOf('subject')
   const labelIdx = header.indexOf('label')
   const measurementIdx = header.indexOf('measurement')
+  const measurementUnitIdx = header.indexOf('measurement unit')
+  const areaIdx = header.indexOf('area')
+  const areaUnitIdx = header.indexOf('area unit')
   const spaceIdx = header.indexOf('space')
   const pageIdx = header.indexOf('page label')
 
@@ -163,8 +232,8 @@ function parseBluebeamCSV(csvContent) {
     throw new Error('CSV must have a "Subject" column')
   }
 
-  // Group by subject AND space for floor breakdown
-  const itemMap = {} // { subject: { floors: { floorName: qty }, total: qty, unit, labels, pages } }
+  // Group by normalized item name AND floor for breakdown
+  const itemMap = {} // { normalizedKey: { itemName, floors: { floorName: qty }, total: qty, unit, labels, pages } }
 
   for (let i = 1; i < lines.length; i++) {
     const line = lines[i]
@@ -175,23 +244,65 @@ function parseBluebeamCSV(csvContent) {
     const subject = values[subjectIdx]?.trim() || ''
     const label = labelIdx >= 0 ? values[labelIdx]?.trim() : ''
     const measurement = measurementIdx >= 0 ? values[measurementIdx]?.trim() : ''
+    const measurementUnit = measurementUnitIdx >= 0 ? values[measurementUnitIdx]?.trim() : ''
+    const area = areaIdx >= 0 ? values[areaIdx]?.trim() : ''
+    const areaUnit = areaUnitIdx >= 0 ? values[areaUnitIdx]?.trim() : ''
     const space = spaceIdx >= 0 ? values[spaceIdx]?.trim() : ''
     const page = pageIdx >= 0 ? values[pageIdx]?.trim() : ''
 
-    if (!subject) continue
+    // Skip empty subjects, summary rows, and non-item rows
+    if (!subject || subject === '-1' || isSummaryRow(subject) || isNonItemRow(subject)) continue
 
-    // Parse measurement (e.g., "1234.56 SF" or "567.89 LF")
-    const measurementMatch = measurement.match(/([\d,]+\.?\d*)\s*(\w+)?/)
-    const quantity = measurementMatch ? parseFloat(measurementMatch[1].replace(/,/g, '')) : 0
-    const unit = measurementMatch ? (measurementMatch[2] || 'EA').toUpperCase() : 'EA'
+    // Parse quantity - try measurement column first, then area column
+    let quantity = 0
+    let unit = 'EA'
 
-    // Normalize floor name
-    const floorName = normalizeFloor(space)
+    // First try measurement column
+    if (measurement) {
+      const measurementMatch = measurement.match(/([\d,]+\.?\d*)/)
+      if (measurementMatch) {
+        quantity = parseFloat(measurementMatch[1].replace(/,/g, '')) || 0
+      }
+      if (measurementUnit) {
+        unit = measurementUnit.toUpperCase()
+      }
+    }
 
-    // Initialize subject if not exists
-    if (!itemMap[subject]) {
-      itemMap[subject] = {
-        subject,
+    // If measurement is count-like and area has actual measurement, use area
+    if (area && areaUnit && (unit === 'COUNT' || unit === 'EA' || quantity < 10)) {
+      const areaMatch = area.match(/([\d,]+\.?\d*)/)
+      if (areaMatch) {
+        const areaQty = parseFloat(areaMatch[1].replace(/,/g, '')) || 0
+        if (areaQty > quantity) {
+          quantity = areaQty
+          unit = areaUnit.toUpperCase()
+        }
+      }
+    }
+
+    // Normalize unit
+    if (unit === 'COUNT') unit = 'EA'
+
+    // Extract floor from Space column or Subject name
+    let floorName = 'Main Roof'
+    let itemName = subject
+
+    if (space) {
+      floorName = normalizeFloor(space)
+    } else {
+      // Try to extract floor from subject name
+      const extracted = extractFloorFromSubject(subject)
+      itemName = extracted.itemName
+      floorName = extracted.floor
+    }
+
+    // Create a normalized key for grouping (item name without floor suffix)
+    const normalizedKey = itemName.toLowerCase().trim()
+
+    // Initialize item if not exists
+    if (!itemMap[normalizedKey]) {
+      itemMap[normalizedKey] = {
+        itemName,
         labels: [],
         floors: {},
         total_quantity: 0,
@@ -201,14 +312,19 @@ function parseBluebeamCSV(csvContent) {
     }
 
     // Add to floor
-    itemMap[subject].floors[floorName] = (itemMap[subject].floors[floorName] || 0) + quantity
-    itemMap[subject].total_quantity += quantity
+    itemMap[normalizedKey].floors[floorName] = (itemMap[normalizedKey].floors[floorName] || 0) + quantity
+    itemMap[normalizedKey].total_quantity += quantity
 
-    if (label && !itemMap[subject].labels.includes(label)) {
-      itemMap[subject].labels.push(label)
+    // Prefer SF/LF over EA when we have real measurements
+    if ((unit === 'SF' || unit === 'LF') && itemMap[normalizedKey].unit === 'EA') {
+      itemMap[normalizedKey].unit = unit
     }
-    if (page && !itemMap[subject].pages.includes(page)) {
-      itemMap[subject].pages.push(page)
+
+    if (label && !itemMap[normalizedKey].labels.includes(label)) {
+      itemMap[normalizedKey].labels.push(label)
+    }
+    if (page && !itemMap[normalizedKey].pages.includes(page)) {
+      itemMap[normalizedKey].pages.push(page)
     }
   }
 
@@ -216,12 +332,16 @@ function parseBluebeamCSV(csvContent) {
   const items = []
   for (const key of Object.keys(itemMap)) {
     const item = itemMap[key]
-    const rate = getRate(item.subject, item.unit)
+
+    // Skip items with no meaningful quantity
+    if (item.total_quantity === 0) continue
+
+    const rate = getRate(item.itemName, item.unit)
     const total = Math.round(item.total_quantity * rate)
 
     items.push({
-      item_name: item.subject,
-      description: item.labels.join(', ') || item.subject,
+      item_name: item.itemName,
+      description: item.labels.join(', ') || item.itemName,
       quantity: Math.round(item.total_quantity * 100) / 100,
       unit: item.unit,
       floors: item.floors,
@@ -400,6 +520,12 @@ export async function POST(request) {
 
       if (backendRes.ok) {
         const data = await backendRes.json()
+        // Backend returns comprehensive data including:
+        // - format_detected: 'protocol' or 'legacy'
+        // - template_data: ready for Google Sheets
+        // - items: parsed line items
+        // - by_section: roofing/balconies/exterior breakdown
+        // - unmatched: items that didn't match known codes
         return NextResponse.json({
           success: true,
           ...data,
@@ -407,7 +533,7 @@ export async function POST(request) {
         })
       }
     } catch (err) {
-      console.log('Backend not available, processing locally')
+      console.log('Backend not available, falling back to local parser (less accurate)')
     }
 
     // Local processing
