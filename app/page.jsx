@@ -2,6 +2,8 @@
 
 // KO App Homepage v1.1 - Main Application Entry Point
 import { useState, useEffect } from "react"
+import { useSession } from "next-auth/react"
+import { useRouter } from "next/navigation"
 import { NavigationRail } from "@/components/ko/navigation-rail"
 import { TopHeader } from "@/components/ko/top-header"
 import { KOStage } from "@/components/ko/ko-stage"
@@ -34,6 +36,16 @@ import { SalesDashboard } from "@/components/ko/sales-dashboard"
 import { agents as fallbackAgents } from "@/data/agent-data"
 
 export default function HomePage() {
+  const { data: session, status } = useSession()
+  const router = useRouter()
+
+  // Redirect to login if not authenticated
+  useEffect(() => {
+    if (status === "unauthenticated") {
+      router.push("/login")
+    }
+  }, [status, router])
+
   const [isStartupComplete, setIsStartupComplete] = useState(false)
   const [isShuttingDown, setIsShuttingDown] = useState(false)
   const [isPoweredOn, setIsPoweredOn] = useState(true)
@@ -386,6 +398,15 @@ export default function HomePage() {
     setShowAsana(false)
     setShowWhatsApp(false)
     setShowAgents(false)
+  }
+
+  // Show loading while checking auth
+  if (status === "loading" || status === "unauthenticated") {
+    return (
+      <div className="flex h-dvh items-center justify-center bg-background">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div>
+      </div>
+    )
   }
 
   return (
