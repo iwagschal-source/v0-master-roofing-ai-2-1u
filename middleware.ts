@@ -11,10 +11,10 @@ export const config = {
     /*
      * Protect all routes except:
      * - /login (auth page)
-     * - /api/auth (NextAuth endpoints)
+     * - /api/* (all API routes - they handle their own auth)
      * - /_next (Next.js internals)
      * - Static files
      */
-    "/((?!login|api/auth|_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
+    "/((?!login|api/|_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
   ],
 }
