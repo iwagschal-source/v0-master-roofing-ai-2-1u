@@ -2,11 +2,13 @@
 
 import { signIn, useSession } from "next-auth/react"
 import { useRouter, useSearchParams } from "next/navigation"
-import { useEffect, useState } from "react"
-import Image from "next/image"
+import { useEffect, useState, Suspense } from "react"
 
-export default function LoginPage() {
-  const { data: session, status } = useSession()
+// Inner component that uses searchParams
+function LoginContent() {
+  const sessionResult = useSession()
+  const session = sessionResult?.data
+  const status = sessionResult?.status || "loading"
   const router = useRouter()
   const searchParams = useSearchParams()
   const [isLoading, setIsLoading] = useState(false)
@@ -14,7 +16,7 @@ export default function LoginPage() {
 
   // Check for error in URL
   useEffect(() => {
-    const errorParam = searchParams.get("error")
+    const errorParam = searchParams?.get("error")
     if (errorParam === "AccessDenied") {
       setError("Access denied. Only @masterroofingus.com accounts are allowed.")
     } else if (errorParam) {
@@ -122,5 +124,23 @@ export default function LoginPage() {
         </p>
       </div>
     </div>
+  )
+}
+
+// Loading fallback
+function LoadingFallback() {
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
+      <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
+    </div>
+  )
+}
+
+// Main export with Suspense boundary
+export default function LoginPage() {
+  return (
+    <Suspense fallback={<LoadingFallback />}>
+      <LoginContent />
+    </Suspense>
   )
 }

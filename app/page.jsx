@@ -36,7 +36,9 @@ import { SalesDashboard } from "@/components/ko/sales-dashboard"
 import { agents as fallbackAgents } from "@/data/agent-data"
 
 export default function HomePage() {
-  const { data: session, status } = useSession()
+  const sessionResult = useSession()
+  const session = sessionResult?.data
+  const status = sessionResult?.status || "loading"
   const router = useRouter()
 
   // Redirect to login if not authenticated
