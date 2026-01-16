@@ -9,7 +9,7 @@
 
 import { NextResponse } from 'next/server'
 
-const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'https://34.58.228.226'
+const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'https://136.111.252.120'
 
 // MR Template rates by scope item
 const MR_RATES = {
