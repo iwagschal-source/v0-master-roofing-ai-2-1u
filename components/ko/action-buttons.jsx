@@ -3,7 +3,7 @@
 import { useState, useRef } from "react"
 import { Upload, FileText, Download, Loader2, CheckCircle, AlertCircle } from "lucide-react"
 
-const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || "https://136.116.243.70"
+const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || "https://136.111.252.120"
 
 export function ActionButtons({ projectId, sheetId, projectName, onPreviewProposal }) {
   const [loadingAction, setLoadingAction] = useState(null)

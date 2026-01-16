@@ -7,7 +7,7 @@
 
 import { NextResponse } from 'next/server'
 
-const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'https://136.116.243.70'
+const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'https://136.111.252.120'
 
 // Mock data for when backend is unavailable
 const MOCK_PROJECTS = [

@@ -6,7 +6,7 @@ process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0'
 
 import { NextResponse } from 'next/server'
 
-const BACKEND_URL = 'https://136.116.243.70'
+const BACKEND_URL = 'https://136.111.252.120'
 
 // GET - List all agents from factory
 export async function GET() {

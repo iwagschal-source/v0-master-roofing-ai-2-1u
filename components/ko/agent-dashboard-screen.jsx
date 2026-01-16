@@ -49,7 +49,7 @@ export function AgentDashboardScreen({
   useEffect(() => {
     const connectWebSocket = () => {
       try {
-        const ws = new WebSocket('wss://136.116.243.70/ws/network')
+        const ws = new WebSocket('wss://136.111.252.120/ws/network')
         wsRef.current = ws
 
         ws.onopen = () => {
