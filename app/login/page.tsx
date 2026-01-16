@@ -51,18 +51,25 @@ function LoginContent() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
+    <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
       <div className="w-full max-w-md mx-4">
-        {/* Logo and Title */}
+        {/* Master Roofing Logo */}
         <div className="text-center mb-8">
-          <div className="w-24 h-24 mx-auto mb-4 bg-gradient-to-br from-blue-500 to-blue-600 rounded-2xl flex items-center justify-center shadow-lg shadow-blue-500/20">
-            <span className="text-4xl font-bold text-white">KO</span>
+          <div className="bg-white rounded-2xl p-6 mx-auto mb-6 inline-block shadow-lg">
+            <img
+              src="/logo-masterroofing.png"
+              alt="Master Roofing"
+              className="h-12 w-auto"
+            />
           </div>
           <h1 className="text-3xl font-bold text-white mb-2">
-            Chief Agent Officer
+            Agent Relationship Platform
           </h1>
+          <p className="text-2xl font-semibold text-blue-400 mb-2">
+            (ARP)
+          </p>
           <p className="text-slate-400">
-            Master Roofing & Siding Intelligence Platform
+            AI-Powered Business Intelligence
           </p>
         </div>
 
@@ -119,9 +126,28 @@ function LoginContent() {
         </div>
 
         {/* Footer */}
-        <p className="mt-8 text-center text-xs text-slate-600">
-          &copy; {new Date().getFullYear()} A Eye Corp. All rights reserved.
-        </p>
+        <div className="mt-8 text-center">
+          <div className="flex items-center justify-center gap-2 mb-2">
+            <span className="text-xs text-slate-500">Powered by</span>
+            <div className="flex items-center gap-1.5">
+              {/* A-EYE Logo placeholder - replace src with actual logo */}
+              <img
+                src="/logo-aeye.png"
+                alt="A-EYE"
+                className="h-5 w-auto"
+                onError={(e) => {
+                  // Fallback to text if logo not found
+                  e.currentTarget.style.display = 'none'
+                  e.currentTarget.nextElementSibling?.classList.remove('hidden')
+                }}
+              />
+              <span className="hidden text-sm font-semibold text-blue-400">A-EYE</span>
+            </div>
+          </div>
+          <p className="text-xs text-slate-600">
+            &copy; {new Date().getFullYear()} A Eye Corp. All rights reserved.
+          </p>
+        </div>
       </div>
     </div>
   )
