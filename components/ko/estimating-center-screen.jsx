@@ -23,7 +23,8 @@ import {
   ExternalLink,
   RefreshCw,
   DollarSign,
-  Calendar
+  Calendar,
+  Download
 } from "lucide-react"
 import { GCBrief } from "./gc-brief"
 import { EstimatingSheet } from "./estimating-sheet"
@@ -135,11 +136,8 @@ export function EstimatingCenterScreen({ onSelectProject, onBack }) {
   const fileInputRef = useRef(null)
   const projectListRef = useRef(null)
 
-  // Google Sheets state
-  const [sheetId, setSheetId] = useState(null)
-  const [sheetUrl, setSheetUrl] = useState(null)
-  const [creatingSheet, setCreatingSheet] = useState(false)
-  const [populatingSheet, setPopulatingSheet] = useState(false)
+  // Excel export state
+  const [exportingExcel, setExportingExcel] = useState(false)
 
   // Historical rates toggle
   const [useHistoricalRates, setUseHistoricalRates] = useState(true)
@@ -173,13 +171,10 @@ export function EstimatingCenterScreen({ onSelectProject, onBack }) {
     loadProjects()
   }, [])
 
-  // Reset chat and load data when project changes
+  // Reset chat when project changes
   useEffect(() => {
     setMessages([])
     setChatInput("")
-    // Load sheet info from selected project
-    setSheetId(selectedProject?.sheet_id || null)
-    setSheetUrl(selectedProject?.sheet_url || null)
   }, [selectedProject?.project_id])
 
   // Scroll chat to bottom
@@ -205,66 +200,46 @@ export function EstimatingCenterScreen({ onSelectProject, onBack }) {
     }
   }
 
-  // Create a new Google Sheet from template
-  const handleCreateSheet = async () => {
-    if (!selectedProject) return
-    setCreatingSheet(true)
+  // Export Bluebeam data to Excel (MR Template)
+  const handleExportExcel = async (templateData, csvContent = null) => {
+    if (!templateData && !csvContent) return
+    setExportingExcel(true)
 
     try {
-      const res = await fetch(`/api/ko/projects/${selectedProject.project_id}/create-sheet`, {
+      const projectName = selectedProject?.project_name || 'Takeoff'
+      const res = await fetch('https://136.111.252.120/v1/bluebeam/export-excel', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          projectName: selectedProject.project_name,
-          gcName: selectedProject.gc_name,
-          address: selectedProject.address || selectedProject.project_name,
-          amount: selectedProject.proposal_total,
-          dueDate: selectedProject.due_date
+          csv_content: csvContent,
+          template_data: templateData,
+          project_name: projectName,
+          gc_name: selectedProject?.gc_name || null
         })
       })
 
-      const data = await res.json()
-
-      if (res.ok && data.sheetId) {
-        setSheetId(data.sheetId)
-        setSheetUrl(data.sheetUrl)
-        // Update project in list
-        setProjects(prev => prev.map(p =>
-          p.project_id === selectedProject.project_id
-            ? { ...p, sheet_id: data.sheetId, sheet_url: data.sheetUrl }
-            : p
-        ))
-        setSelectedProject(prev => ({ ...prev, sheet_id: data.sheetId, sheet_url: data.sheetUrl }))
-      } else {
-        alert(data.error || 'Failed to create sheet')
+      if (!res.ok) {
+        const err = await res.json()
+        throw new Error(err.detail || 'Failed to generate Excel')
       }
+
+      // Download the file
+      const blob = await res.blob()
+      const url = window.URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `${projectName.replace(/[^a-zA-Z0-9]/g, '_')}_Takeoff.xlsx`
+      document.body.appendChild(a)
+      a.click()
+      window.URL.revokeObjectURL(url)
+      a.remove()
+      return true
     } catch (err) {
-      console.error('Create sheet error:', err)
-      alert('Error creating sheet: ' + err.message)
-    } finally {
-      setCreatingSheet(false)
-    }
-  }
-
-  // Populate Google Sheet with Bluebeam data
-  const populateGoogleSheet = async (templateData) => {
-    if (!sheetId || !templateData) return false
-    setPopulatingSheet(true)
-
-    try {
-      const res = await fetch('/api/ko/populate-takeoff', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ sheetId, templateData })
-      })
-
-      const data = await res.json()
-      return res.ok && data.success
-    } catch (err) {
-      console.error('Populate sheet error:', err)
+      console.error('Export Excel error:', err)
+      alert('Error exporting Excel: ' + err.message)
       return false
     } finally {
-      setPopulatingSheet(false)
+      setExportingExcel(false)
     }
   }
 
@@ -371,18 +346,12 @@ export function EstimatingCenterScreen({ onSelectProject, onBack }) {
         const sheetData = convertBluebeamToSheetData(data.items || [])
         setBluebeamData(sheetData)
 
-        // If we have a Google Sheet connected, populate it
-        let sheetPopulated = false
-        if (sheetId && data.template_data) {
-          sheetPopulated = await populateGoogleSheet(data.template_data)
-        }
-
         setUploadResult({
           success: true,
           summary: data.summary,
           items: data.items,
           template_data: data.template_data,
-          sheetPopulated,
+          csvContent: content,  // Keep CSV for Excel export
           rateSource: data.rate_source,
           historicalRatesUsed: data.summary?.historical_rates_used || 0,
           formatDetected: data.format_detected,  // 'protocol' or 'legacy'
@@ -754,30 +723,14 @@ export function EstimatingCenterScreen({ onSelectProject, onBack }) {
                 <p className="text-sm text-muted-foreground">{selectedProject.gc_name} • {formatCurrency(selectedProject.proposal_total)}</p>
               </div>
               <div className="flex items-center gap-2">
-                {/* Google Sheet buttons */}
-                {sheetId ? (
-                  <button
-                    onClick={() => window.open(sheetUrl || `https://docs.google.com/spreadsheets/d/${sheetId}`, '_blank')}
-                    className="flex items-center gap-2 px-3 py-2 bg-green-600 text-white hover:bg-green-700 rounded-lg text-sm transition-colors"
-                  >
-                    <FileSpreadsheet className="w-4 h-4" />
-                    View Sheet
-                    <ExternalLink className="w-3 h-3" />
-                  </button>
-                ) : (
-                  <button
-                    onClick={handleCreateSheet}
-                    disabled={creatingSheet}
-                    className="flex items-center gap-2 px-3 py-2 bg-green-600 text-white hover:bg-green-700 rounded-lg text-sm transition-colors disabled:opacity-50"
-                  >
-                    {creatingSheet ? (
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                    ) : (
-                      <Plus className="w-4 h-4" />
-                    )}
-                    {creatingSheet ? 'Creating...' : 'Create Sheet'}
-                  </button>
-                )}
+                {/* Upload Bluebeam button */}
+                <button
+                  onClick={() => setShowUploadModal(true)}
+                  className="flex items-center gap-2 px-3 py-2 bg-green-600 text-white hover:bg-green-700 rounded-lg text-sm transition-colors"
+                >
+                  <Upload className="w-4 h-4" />
+                  Upload Bluebeam
+                </button>
                 <button
                   onClick={() => setShowSheet(true)}
                   className="flex items-center gap-2 px-3 py-2 bg-secondary hover:bg-secondary/80 rounded-lg text-sm transition-colors"
@@ -994,47 +947,30 @@ export function EstimatingCenterScreen({ onSelectProject, onBack }) {
                       {uploadResult.unmatched?.length > 0 && (
                         <p className="text-yellow-400 flex items-center gap-1">
                           <AlertCircle className="w-3 h-3" />
-                          {uploadResult.unmatched.length} unrecognized items
+                          {uploadResult.unmatched.length} unrecognized items (will appear in red)
                         </p>
-                      )}
-                      {uploadResult.sheetPopulated && (
-                        <p className="text-green-400 flex items-center gap-1">
-                          <CheckCircle2 className="w-3 h-3" />
-                          Google Sheet populated
-                        </p>
-                      )}
-                      {sheetId && !uploadResult.sheetPopulated && uploadResult.template_data && (
-                        <button
-                          onClick={async () => {
-                            const success = await populateGoogleSheet(uploadResult.template_data)
-                            if (success) {
-                              setUploadResult(prev => ({ ...prev, sheetPopulated: true }))
-                            }
-                          }}
-                          disabled={populatingSheet}
-                          className="text-primary hover:underline text-xs flex items-center gap-1"
-                        >
-                          {populatingSheet ? <Loader2 className="w-3 h-3 animate-spin" /> : null}
-                          {populatingSheet ? 'Populating...' : 'Populate Google Sheet'}
-                        </button>
                       )}
                     </div>
                   )}
                   {uploadResult.success && (
                     <div className="mt-4 space-y-2">
-                      {sheetId && (
-                        <button
-                          onClick={() => {
-                            setShowUploadModal(false)
-                            window.open(sheetUrl || `https://docs.google.com/spreadsheets/d/${sheetId}`, '_blank')
-                          }}
-                          className="w-full py-2.5 bg-green-600 text-white hover:bg-green-700 rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-2"
-                        >
+                      <button
+                        onClick={async () => {
+                          const success = await handleExportExcel(uploadResult.template_data, uploadResult.csvContent)
+                          if (success) {
+                            setUploadResult(prev => ({ ...prev, excelExported: true }))
+                          }
+                        }}
+                        disabled={exportingExcel}
+                        className="w-full py-2.5 bg-green-600 text-white hover:bg-green-700 rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
+                      >
+                        {exportingExcel ? (
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                        ) : (
                           <FileSpreadsheet className="w-4 h-4" />
-                          Open Google Sheet
-                          <ExternalLink className="w-3 h-3" />
-                        </button>
-                      )}
+                        )}
+                        {exportingExcel ? 'Generating Excel...' : 'Download Excel Takeoff'}
+                      </button>
                       <button
                         onClick={() => {
                           setShowUploadModal(false)
@@ -1043,7 +979,7 @@ export function EstimatingCenterScreen({ onSelectProject, onBack }) {
                         className="w-full py-2.5 bg-primary text-primary-foreground hover:bg-primary/90 rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-2"
                       >
                         <FileSpreadsheet className="w-4 h-4" />
-                        Open Takeoff Sheet
+                        View in App
                       </button>
                     </div>
                   )}
