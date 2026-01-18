@@ -207,7 +207,7 @@ export function EstimatingCenterScreen({ onSelectProject, onBack }) {
 
     try {
       const projectName = selectedProject?.project_name || 'Takeoff'
-      const res = await fetch('https://136.111.252.120/v1/bluebeam/export-excel', {
+      const res = await fetch('/api/ko/bluebeam/export-excel', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
