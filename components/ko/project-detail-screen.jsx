@@ -1,9 +1,7 @@
 "use client"
 
-import { useState, useEffect } from "react"
-import { ArrowLeft, Calendar, DollarSign, Building2, ExternalLink, Link as LinkIcon, Plus, Loader2, Mail, Paperclip, RefreshCw, Reply, Forward, ChevronRight, Upload, FolderOpen, File, FileText, Image, Trash2, Download, Eye, Send, Sparkles, Check } from "lucide-react"
-import { EmbeddedSheet } from "./embedded-sheet"
-import { ActionButtons } from "./action-buttons"
+import { useState, useEffect, useRef } from "react"
+import { ArrowLeft, Calendar, DollarSign, Building2, ExternalLink, Loader2, Mail, Paperclip, RefreshCw, Upload, FolderOpen, File, FileText, Image, Trash2, Download, Eye, Send, Sparkles, Check, FileSpreadsheet, CheckCircle2, AlertCircle, X } from "lucide-react"
 import { GCBriefWithChat } from "./gc-brief-with-chat"
 import { ResizablePanel } from "./resizable-panel"
 import { cn } from "@/lib/utils"
@@ -87,10 +85,13 @@ const MOCK_PROJECT_EMAILS = [
 
 export function ProjectDetailScreen({ project, onBack, onPreviewProposal, onProjectUpdate }) {
   const [activeTab, setActiveTab] = useState("estimate")
-  const [sheetId, setSheetId] = useState(project?.sheet_id || null)
-  const [sheetUrl, setSheetUrl] = useState(project?.sheet_url || null)
-  const [isCreatingSheet, setIsCreatingSheet] = useState(false)
-  const [sheetError, setSheetError] = useState(null)
+
+  // Bluebeam/Excel state
+  const [uploadingBluebeam, setUploadingBluebeam] = useState(false)
+  const [bluebeamResult, setBluebeamResult] = useState(null)
+  const [exportingExcel, setExportingExcel] = useState(false)
+  const [useHistoricalRates, setUseHistoricalRates] = useState(true)
+  const bluebeamInputRef = useRef(null)
 
   // Email state
   const [projectEmails, setProjectEmails] = useState([])
@@ -321,67 +322,110 @@ Master Roofing & Siding`)
 
   const status = project?.status || "pending"
 
-  // Create a new sheet from template
-  const handleCreateSheet = async () => {
-    setIsCreatingSheet(true)
-    setSheetError(null)
+  // Handle Bluebeam CSV upload
+  const handleBluebeamUpload = async (event) => {
+    const file = event.target.files?.[0]
+    if (!file) return
+
+    setUploadingBluebeam(true)
+    setBluebeamResult(null)
 
     try {
-      const response = await fetch(`/api/ko/projects/${project.id}/create-sheet`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
+      const content = await file.text()
+      const res = await fetch('/api/ko/bluebeam/convert', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          projectName: project.name || project.address,
-          gcName: project.gc_name,
-          address: project.address,
-          amount: project.amount,
-          dueDate: project.due_date,
-        }),
+          csv_content: content,
+          project_name: project?.name || project?.address || file.name.replace('.csv', ''),
+          gc_name: project?.gc_name || null,
+          use_historical_rates: useHistoricalRates
+        })
       })
 
-      const result = await response.json()
+      const data = await res.json()
 
-      if (!response.ok) {
-        throw new Error(result.error || "Failed to create sheet")
-      }
-
-      setSheetId(result.sheetId)
-      setSheetUrl(result.sheetUrl)
-
-      // Notify parent component of the update
-      if (onProjectUpdate) {
-        onProjectUpdate({
-          ...project,
-          sheet_id: result.sheetId,
-          sheet_url: result.sheetUrl,
+      if (res.ok && data.success) {
+        setBluebeamResult({
+          success: true,
+          summary: data.summary,
+          items: data.items,
+          template_data: data.template_data,
+          csvContent: content,
+          rateSource: data.rate_source,
+          historicalRatesUsed: data.summary?.historical_rates_used || 0,
+          formatDetected: data.format_detected,
+          unmatched: data.unmatched || [],
+          bySection: data.by_section,
+          source: data.source,
+          message: `Processed ${data.summary?.total_items || 0} items`
+        })
+      } else {
+        setBluebeamResult({
+          success: false,
+          message: data.error || 'Failed to process file'
         })
       }
-
-      if (result.mock) {
-        setSheetError("Note: Using mock sheet (Google Sheets not configured)")
-      }
-    } catch (error) {
-      console.error("Error creating sheet:", error)
-      setSheetError(error.message)
+    } catch (err) {
+      setBluebeamResult({
+        success: false,
+        message: 'Error uploading file: ' + err.message
+      })
     } finally {
-      setIsCreatingSheet(false)
+      setUploadingBluebeam(false)
     }
   }
 
-  // Connect an existing sheet by ID
-  const handleConnectExisting = () => {
-    const id = prompt("Enter Google Sheet ID:")
-    if (id) {
-      setSheetId(id)
-      setSheetUrl(`https://docs.google.com/spreadsheets/d/${id}/edit`)
-      if (onProjectUpdate) {
-        onProjectUpdate({
-          ...project,
-          sheet_id: id,
-          sheet_url: `https://docs.google.com/spreadsheets/d/${id}/edit`,
+  // Export to Excel using MR Template
+  const handleExportExcel = async () => {
+    if (!bluebeamResult?.success) return
+    setExportingExcel(true)
+
+    try {
+      const projectName = project?.name || project?.address || 'Takeoff'
+      const res = await fetch('/api/ko/bluebeam/export-excel', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          csv_content: bluebeamResult.csvContent,
+          template_data: bluebeamResult.template_data,
+          project_name: projectName,
+          gc_name: project?.gc_name || null
         })
+      })
+
+      if (!res.ok) {
+        const err = await res.json()
+        throw new Error(err.detail || 'Failed to generate Excel')
       }
+
+      // Download the file
+      const blob = await res.blob()
+      const url = window.URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `${projectName.replace(/[^a-zA-Z0-9]/g, '_')}_Takeoff.xlsx`
+      document.body.appendChild(a)
+      a.click()
+      window.URL.revokeObjectURL(url)
+      a.remove()
+    } catch (err) {
+      console.error('Export Excel error:', err)
+      alert('Error exporting Excel: ' + err.message)
+    } finally {
+      setExportingExcel(false)
     }
+  }
+
+  // Format currency for display
+  const formatTakeoffCurrency = (value) => {
+    if (!value) return "$0"
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: 'USD',
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0
+    }).format(value)
   }
 
   const handlePreviewProposal = (projectId, takeoffItems = null) => {
@@ -459,66 +503,195 @@ Master Roofing & Siding`)
       {/* Content */}
       <div className="flex-1 overflow-y-auto p-6">
         {activeTab === "estimate" && (
-          <div className="space-y-4">
-            {!sheetId ? (
-              <div className="bg-card rounded-xl border border-border p-8 text-center">
-                <div className="w-16 h-16 rounded-2xl bg-secondary flex items-center justify-center mx-auto mb-4">
-                  <LinkIcon className="w-8 h-8 text-foreground-tertiary" />
-                </div>
-                <h3 className="font-semibold text-foreground mb-2">Project Estimate Sheet</h3>
-                <p className="text-foreground-secondary text-sm mb-6">
-                  Create a new estimate sheet from the KO template or connect an existing one
-                </p>
-
-                {sheetError && (
-                  <div className="mb-4 px-4 py-2 bg-yellow-500/10 border border-yellow-500/20 rounded-lg text-yellow-600 dark:text-yellow-400 text-sm">
-                    {sheetError}
+          <div className="space-y-6">
+            {/* Upload Section */}
+            <div className="bg-card rounded-xl border border-border p-6">
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-green-500/10 flex items-center justify-center">
+                    <Upload className="w-5 h-5 text-green-500" />
                   </div>
-                )}
+                  <div>
+                    <h3 className="font-semibold text-foreground">Bluebeam Takeoff</h3>
+                    <p className="text-sm text-foreground-secondary">Upload CSV export from Bluebeam</p>
+                  </div>
+                </div>
 
-                <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
+                {/* Historical rates toggle */}
+                <div className="flex items-center gap-3">
+                  <span className="text-sm text-foreground-secondary">Historical Rates</span>
                   <button
-                    onClick={handleCreateSheet}
-                    disabled={isCreatingSheet}
-                    className="flex items-center gap-2 px-5 py-2.5 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 transition-colors text-sm font-medium disabled:opacity-50"
+                    onClick={() => setUseHistoricalRates(!useHistoricalRates)}
+                    className={`relative w-11 h-6 rounded-full transition-colors ${
+                      useHistoricalRates ? 'bg-primary' : 'bg-muted-foreground/30'
+                    }`}
                   >
-                    {isCreatingSheet ? (
-                      <>
-                        <Loader2 className="w-4 h-4 animate-spin" />
-                        Creating Sheet...
-                      </>
-                    ) : (
-                      <>
-                        <Plus className="w-4 h-4" />
-                        Create New Sheet
-                      </>
-                    )}
-                  </button>
-
-                  <span className="text-foreground-tertiary text-sm">or</span>
-
-                  <button
-                    onClick={handleConnectExisting}
-                    disabled={isCreatingSheet}
-                    className="flex items-center gap-2 px-5 py-2.5 rounded-lg border border-border text-foreground hover:bg-secondary transition-colors text-sm font-medium disabled:opacity-50"
-                  >
-                    <LinkIcon className="w-4 h-4" />
-                    Connect Existing
+                    <div
+                      className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-transform ${
+                        useHistoricalRates ? 'translate-x-6' : 'translate-x-1'
+                      }`}
+                    />
                   </button>
                 </div>
               </div>
-            ) : (
-              <>
-                <EmbeddedSheet sheetId={sheetId} tab="Systems" height={500} />
-                <div className="mt-4">
-                  <ActionButtons
-                    projectId={project.id}
-                    sheetId={sheetId}
-                    projectName={project.name || project.address}
-                    onPreviewProposal={handlePreviewProposal}
-                  />
+
+              {/* Upload Area */}
+              <div
+                onClick={() => bluebeamInputRef.current?.click()}
+                className="border-2 border-dashed border-border rounded-xl p-8 text-center cursor-pointer hover:border-primary/50 hover:bg-primary/5 transition-colors"
+              >
+                {uploadingBluebeam ? (
+                  <Loader2 className="w-10 h-10 mx-auto mb-3 animate-spin text-primary" />
+                ) : (
+                  <FileSpreadsheet className="w-10 h-10 mx-auto mb-3 text-foreground-tertiary" />
+                )}
+                <p className="text-sm font-medium text-foreground">
+                  {uploadingBluebeam ? 'Processing CSV...' : 'Click to upload Bluebeam CSV'}
+                </p>
+                <p className="text-xs text-foreground-tertiary mt-1">
+                  Export from Bluebeam: Markups → Export → CSV
+                </p>
+              </div>
+              <input
+                ref={bluebeamInputRef}
+                type="file"
+                accept=".csv"
+                onChange={handleBluebeamUpload}
+                className="hidden"
+              />
+            </div>
+
+            {/* Results Section */}
+            {bluebeamResult && (
+              <div className={`bg-card rounded-xl border p-6 ${
+                bluebeamResult.success
+                  ? 'border-green-500/30 bg-green-500/5'
+                  : 'border-red-500/30 bg-red-500/5'
+              }`}>
+                <div className="flex items-start gap-3 mb-4">
+                  {bluebeamResult.success ? (
+                    <CheckCircle2 className="w-6 h-6 text-green-500 flex-shrink-0" />
+                  ) : (
+                    <AlertCircle className="w-6 h-6 text-red-500 flex-shrink-0" />
+                  )}
+                  <div className="flex-1">
+                    <h4 className={`font-semibold ${bluebeamResult.success ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
+                      {bluebeamResult.success ? 'Takeoff Processed Successfully' : 'Processing Failed'}
+                    </h4>
+                    <p className="text-sm text-foreground-secondary mt-1">{bluebeamResult.message}</p>
+                  </div>
+                  <button
+                    onClick={() => setBluebeamResult(null)}
+                    className="p-1 hover:bg-secondary rounded transition-colors"
+                  >
+                    <X className="w-4 h-4 text-foreground-tertiary" />
+                  </button>
                 </div>
-              </>
+
+                {bluebeamResult.success && bluebeamResult.summary && (
+                  <>
+                    {/* Summary Stats */}
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
+                      <div className="bg-background rounded-lg p-3 text-center">
+                        <p className="text-2xl font-bold text-foreground">{bluebeamResult.summary.total_items}</p>
+                        <p className="text-xs text-foreground-tertiary">Total Items</p>
+                      </div>
+                      <div className="bg-background rounded-lg p-3 text-center">
+                        <p className="text-2xl font-bold text-foreground">{formatTakeoffCurrency(bluebeamResult.summary.estimated_cost || bluebeamResult.summary.total_cost)}</p>
+                        <p className="text-xs text-foreground-tertiary">Estimated Total</p>
+                      </div>
+                      <div className="bg-background rounded-lg p-3 text-center">
+                        <p className="text-2xl font-bold text-foreground">{bluebeamResult.summary.total_sf?.toLocaleString() || 0}</p>
+                        <p className="text-xs text-foreground-tertiary">Total SF</p>
+                      </div>
+                      <div className="bg-background rounded-lg p-3 text-center">
+                        <p className="text-2xl font-bold text-foreground">{bluebeamResult.summary.total_lf?.toLocaleString() || 0}</p>
+                        <p className="text-xs text-foreground-tertiary">Total LF</p>
+                      </div>
+                    </div>
+
+                    {/* Format & Rate Info */}
+                    <div className="flex flex-wrap items-center gap-3 mb-6 text-sm">
+                      {bluebeamResult.formatDetected && (
+                        <span className="px-2 py-1 bg-blue-500/10 text-blue-600 dark:text-blue-400 rounded">
+                          {bluebeamResult.formatDetected === 'protocol' ? 'Protocol Format' : 'Legacy Format'}
+                        </span>
+                      )}
+                      {bluebeamResult.rateSource === 'historical' && (
+                        <span className="px-2 py-1 bg-purple-500/10 text-purple-600 dark:text-purple-400 rounded flex items-center gap-1">
+                          <CheckCircle2 className="w-3 h-3" />
+                          {bluebeamResult.historicalRatesUsed} historical rates applied
+                        </span>
+                      )}
+                      {bluebeamResult.unmatched?.length > 0 && (
+                        <span className="px-2 py-1 bg-yellow-500/10 text-yellow-600 dark:text-yellow-400 rounded flex items-center gap-1">
+                          <AlertCircle className="w-3 h-3" />
+                          {bluebeamResult.unmatched.length} unmatched items
+                        </span>
+                      )}
+                    </div>
+
+                    {/* Action Buttons */}
+                    <div className="flex flex-col sm:flex-row gap-3">
+                      <button
+                        onClick={handleExportExcel}
+                        disabled={exportingExcel}
+                        className="flex-1 flex items-center justify-center gap-2 px-5 py-3 bg-green-600 text-white hover:bg-green-700 rounded-lg text-sm font-medium transition-colors disabled:opacity-50"
+                      >
+                        {exportingExcel ? (
+                          <>
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                            Generating Excel...
+                          </>
+                        ) : (
+                          <>
+                            <Download className="w-4 h-4" />
+                            Download Excel Takeoff
+                          </>
+                        )}
+                      </button>
+                      <button
+                        onClick={() => bluebeamInputRef.current?.click()}
+                        className="flex items-center justify-center gap-2 px-5 py-3 bg-secondary text-foreground hover:bg-secondary/80 rounded-lg text-sm font-medium transition-colors"
+                      >
+                        <Upload className="w-4 h-4" />
+                        Upload Another
+                      </button>
+                    </div>
+                  </>
+                )}
+
+                {!bluebeamResult.success && (
+                  <button
+                    onClick={() => bluebeamInputRef.current?.click()}
+                    className="w-full flex items-center justify-center gap-2 px-5 py-3 bg-primary text-primary-foreground hover:bg-primary/90 rounded-lg text-sm font-medium transition-colors"
+                  >
+                    <Upload className="w-4 h-4" />
+                    Try Again
+                  </button>
+                )}
+              </div>
+            )}
+
+            {/* Instructions when no result */}
+            {!bluebeamResult && (
+              <div className="bg-card rounded-xl border border-border p-6">
+                <h4 className="font-semibold text-foreground mb-3">How it works</h4>
+                <ol className="space-y-2 text-sm text-foreground-secondary">
+                  <li className="flex items-start gap-2">
+                    <span className="w-5 h-5 rounded-full bg-primary/10 text-primary text-xs flex items-center justify-center flex-shrink-0 mt-0.5">1</span>
+                    <span>Export your markups from Bluebeam as CSV (Markups → Export → CSV)</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <span className="w-5 h-5 rounded-full bg-primary/10 text-primary text-xs flex items-center justify-center flex-shrink-0 mt-0.5">2</span>
+                    <span>Upload the CSV file above - items are automatically matched to the MR template</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <span className="w-5 h-5 rounded-full bg-primary/10 text-primary text-xs flex items-center justify-center flex-shrink-0 mt-0.5">3</span>
+                    <span>Download the Excel takeoff with all items mapped to the correct rows</span>
+                  </li>
+                </ol>
+              </div>
             )}
           </div>
         )}
