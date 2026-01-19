@@ -5,8 +5,15 @@
  */
 
 import { NextResponse } from 'next/server'
+import https from 'https'
 
 const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'https://136.111.252.120'
+
+// Custom fetch that ignores SSL cert errors (for self-signed backend cert)
+const fetchWithSSL = async (url, options = {}) => {
+  const agent = new https.Agent({ rejectUnauthorized: false })
+  return fetch(url, { ...options, agent })
+}
 
 /**
  * POST /api/ko/takeoff/[projectId]/bluebeam
@@ -20,7 +27,7 @@ export async function POST(request, { params }) {
   try {
     const { projectId } = await params
     const body = await request.json()
-    const { csv_content, use_historical_rates = true } = body
+    const { csv_content, filename, use_historical_rates = true } = body
 
     if (!csv_content) {
       return NextResponse.json(
@@ -29,11 +36,12 @@ export async function POST(request, { params }) {
       )
     }
 
-    const backendRes = await fetch(`${BACKEND_URL}/v1/takeoff/${projectId}/bluebeam`, {
+    const backendRes = await fetchWithSSL(`${BACKEND_URL}/v1/takeoff/${projectId}/bluebeam`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         csv_content,
+        filename: filename || 'bluebeam_import.csv',
         use_historical_rates
       }),
       signal: AbortSignal.timeout(30000)
