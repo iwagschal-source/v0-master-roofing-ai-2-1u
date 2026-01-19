@@ -33,6 +33,7 @@ import { AddAgentScreen } from "@/components/ko/add-agent-screen"
 import { CloneAgentModal } from "@/components/ko/clone-agent-modal"
 import { UserAdminScreen } from "@/components/ko/user-admin-screen"
 import { SalesDashboard } from "@/components/ko/sales-dashboard"
+import { EstimatingCenterScreen } from "@/components/ko/estimating-center-screen"
 import { agents as fallbackAgents } from "@/data/agent-data"
 
 export default function HomePage() {
@@ -70,6 +71,7 @@ export default function HomePage() {
   const [showAgents, setShowAgents] = useState(false)
   const [showUserAdmin, setShowUserAdmin] = useState(false)
   const [showSales, setShowSales] = useState(false)
+  const [showEstimating, setShowEstimating] = useState(false)
   const [selectedAgent, setSelectedAgent] = useState(null)
   const [showAgentNetwork, setShowAgentNetwork] = useState(false)
   const [showAddAgent, setShowAddAgent] = useState(false)
@@ -196,6 +198,7 @@ export default function HomePage() {
       setShowAgents(false)
       setShowUserAdmin(false)
       setShowSales(false)
+      setShowEstimating(false)
       setSelectedAgent(null)
       setShowAgentNetwork(false)
       setShowAddAgent(false)
@@ -203,6 +206,22 @@ export default function HomePage() {
       setSelectedProject(null)
       setShowProposal(false)
       setSelectedHistoryItem(undefined)
+    } else if (mode === "estimating") {
+      setShowEstimating(true)
+      setShowFiles(false)
+      setShowEmail(false)
+      setShowSettings(false)
+      setShowZoom(false)
+      setShowArena(false)
+      setShowHistory(false)
+      setShowProjects(false)
+      setShowMessages(false)
+      setShowAsana(false)
+      setShowWhatsApp(false)
+      setShowAgents(false)
+      setShowUserAdmin(false)
+      setShowSales(false)
+      setSelectedProject(null)
     } else if (mode === "arena") {
       setShowArena(true)
       setShowFiles(false)
@@ -427,7 +446,7 @@ export default function HomePage() {
       <div className={`${isMobileMenuOpen ? "fixed left-0 top-0 bottom-0 z-50" : "hidden"} md:block`}>
         <NavigationRail
           activeMode={
-            showEmail ? "email" : showFiles ? "documents" : showSettings ? "settings" : showZoom ? "zoom" : showArena ? "arena" : showHistory ? "history" : showProjects ? "projects" : showMessages ? "messages" : showAsana ? "asana" : showWhatsApp ? "whatsapp" : showAgents ? "agents" : showUserAdmin ? "admin" : showSales ? "sales" : activeMode
+            showEmail ? "email" : showFiles ? "documents" : showSettings ? "settings" : showZoom ? "zoom" : showArena ? "arena" : showHistory ? "history" : showProjects ? "projects" : showMessages ? "messages" : showAsana ? "asana" : showWhatsApp ? "whatsapp" : showAgents ? "agents" : showUserAdmin ? "admin" : showSales ? "sales" : showEstimating ? "estimating" : activeMode
           }
           onModeChange={handleModeChange}
           visible={true}
@@ -515,6 +534,10 @@ export default function HomePage() {
             <UserAdminScreen onBack={() => setShowUserAdmin(false)} />
           ) : showSales ? (
             <SalesDashboard />
+          ) : showEstimating ? (
+            <EstimatingCenterScreen
+              onBack={() => setShowEstimating(false)}
+            />
           ) : showProjects ? (
             showProposal && selectedProject ? (
               <ProposalPreviewScreen
