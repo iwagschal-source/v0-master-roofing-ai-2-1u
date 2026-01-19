@@ -366,7 +366,15 @@ export function TakeoffSpreadsheet({
   // Approve all changes
   const approveAll = () => {
     if (comparison?.changes) {
-      setApprovedChanges(new Set(Object.keys(comparison.changes)))
+      // Handle both array format (backend) and object format
+      if (Array.isArray(comparison.changes)) {
+        const keys = comparison.changes.map((change, idx) =>
+          `${change.col}${change.row}` || idx.toString()
+        )
+        setApprovedChanges(new Set(keys))
+      } else {
+        setApprovedChanges(new Set(Object.keys(comparison.changes)))
+      }
     }
   }
 
@@ -716,44 +724,57 @@ export function TakeoffSpreadsheet({
 
             {/* Changes list */}
             <div className="space-y-2">
-              {comparison.changes && Object.entries(comparison.changes).map(([key, change]) => (
-                <div
-                  key={key}
-                  onClick={() => toggleApproval(key)}
-                  className={cn(
-                    "flex items-center gap-4 p-3 border rounded-lg cursor-pointer transition-colors",
-                    approvedChanges.has(key)
-                      ? "border-green-500 bg-green-500/5"
-                      : "border-border hover:border-primary/50"
-                  )}
-                >
-                  <div className={cn(
-                    "w-6 h-6 rounded-full flex items-center justify-center",
-                    approvedChanges.has(key) ? "bg-green-500 text-white" : "bg-muted"
-                  )}>
-                    {approvedChanges.has(key) ? (
-                      <CheckCircle2 className="w-4 h-4" />
-                    ) : (
-                      <div className="w-2 h-2 rounded-full bg-muted-foreground" />
-                    )}
-                  </div>
+              {comparison.changes && (Array.isArray(comparison.changes) ? comparison.changes : Object.entries(comparison.changes).map(([k, v]) => ({ ...v, _key: k }))).map((change, idx) => {
+                // Handle both array format (backend) and object format
+                // Backend returns: { row, col, scope, master_value, import_value, type }
+                // Generate cell key like "H6" from row/col
+                const cellKey = change._key || `${change.col}${change.row}` || idx.toString()
+                const masterVal = change.master_value ?? change.master
+                const importVal = change.import_value ?? change.import
 
-                  <div className="flex-1 grid grid-cols-3 gap-4">
-                    <div>
-                      <p className="text-xs text-muted-foreground">Cell</p>
-                      <p className="font-mono font-medium">{key}</p>
+                return (
+                  <div
+                    key={cellKey}
+                    onClick={() => toggleApproval(cellKey)}
+                    className={cn(
+                      "flex items-center gap-4 p-3 border rounded-lg cursor-pointer transition-colors",
+                      approvedChanges.has(cellKey)
+                        ? "border-green-500 bg-green-500/5"
+                        : "border-border hover:border-primary/50"
+                    )}
+                  >
+                    <div className={cn(
+                      "w-6 h-6 rounded-full flex items-center justify-center",
+                      approvedChanges.has(cellKey) ? "bg-green-500 text-white" : "bg-muted"
+                    )}>
+                      {approvedChanges.has(cellKey) ? (
+                        <CheckCircle2 className="w-4 h-4" />
+                      ) : (
+                        <div className="w-2 h-2 rounded-full bg-muted-foreground" />
+                      )}
                     </div>
-                    <div>
-                      <p className="text-xs text-muted-foreground">Master Value</p>
-                      <p className="text-red-500 line-through">{change.master || '(empty)'}</p>
-                    </div>
-                    <div>
-                      <p className="text-xs text-muted-foreground">Import Value</p>
-                      <p className="text-green-500">{change.import || '(empty)'}</p>
+
+                    <div className="flex-1 grid grid-cols-4 gap-4">
+                      <div>
+                        <p className="text-xs text-muted-foreground">Cell</p>
+                        <p className="font-mono font-medium">{cellKey}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-muted-foreground">Scope</p>
+                        <p className="text-sm truncate">{change.scope || '-'}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-muted-foreground">Master Value</p>
+                        <p className="text-red-500 line-through">{masterVal ?? '(empty)'}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-muted-foreground">Import Value</p>
+                        <p className="text-green-500">{importVal ?? '(empty)'}</p>
+                      </div>
                     </div>
                   </div>
-                </div>
-              ))}
+                )
+              })}
 
               {comparison.keeps && Object.keys(comparison.keeps).length > 0 && (
                 <div className="mt-6">
