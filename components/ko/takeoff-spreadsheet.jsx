@@ -618,45 +618,52 @@ export function TakeoffSpreadsheet({
         {activeTab === 'imports' && (
           <div className="p-4">
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {imports.map(imp => (
-                <div
-                  key={imp.import_id}
-                  className={cn(
-                    "p-4 border rounded-lg cursor-pointer transition-colors",
-                    selectedImport === imp.import_id
-                      ? "border-primary bg-primary/5"
-                      : "border-border hover:border-primary/50"
-                  )}
-                  onClick={() => setSelectedImport(imp.import_id)}
-                >
-                  <div className="flex items-start justify-between mb-2">
-                    <div>
-                      <p className="font-medium">Import #{imp.import_id?.slice(-6)}</p>
-                      <p className="text-xs text-muted-foreground">
-                        {new Date(imp.created_at).toLocaleString()}
-                      </p>
-                    </div>
-                    <span className="px-2 py-0.5 text-xs bg-green-500/10 text-green-600 rounded">
-                      {imp.item_count} items
-                    </span>
-                  </div>
+              {imports.map(imp => {
+                // Handle field name differences between backend and frontend
+                const importId = imp.id || imp.import_id
+                const createdAt = imp.uploaded_at || imp.created_at
+                const itemCount = imp.stats?.total_items || imp.item_count || 0
 
-                  {selectedImport === imp.import_id && (
-                    <div className="flex items-center gap-2 mt-3 pt-3 border-t border-border">
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          compareImport(imp.import_id)
-                        }}
-                        className="flex items-center gap-1 px-3 py-1.5 bg-primary text-primary-foreground rounded text-xs"
-                      >
-                        <GitCompare className="w-3 h-3" />
-                        Compare & Sync
-                      </button>
+                return (
+                  <div
+                    key={importId}
+                    className={cn(
+                      "p-4 border rounded-lg cursor-pointer transition-colors",
+                      selectedImport === importId
+                        ? "border-primary bg-primary/5"
+                        : "border-border hover:border-primary/50"
+                    )}
+                    onClick={() => setSelectedImport(importId)}
+                  >
+                    <div className="flex items-start justify-between mb-2">
+                      <div>
+                        <p className="font-medium">Import #{importId?.slice(-6)}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {createdAt ? new Date(createdAt).toLocaleString() : 'Unknown date'}
+                        </p>
+                      </div>
+                      <span className="px-2 py-0.5 text-xs bg-green-500/10 text-green-600 rounded">
+                        {itemCount} items
+                      </span>
                     </div>
-                  )}
-                </div>
-              ))}
+
+                    {selectedImport === importId && (
+                      <div className="flex items-center gap-2 mt-3 pt-3 border-t border-border">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            compareImport(importId)
+                          }}
+                          className="flex items-center gap-1 px-3 py-1.5 bg-primary text-primary-foreground rounded text-xs"
+                        >
+                          <GitCompare className="w-3 h-3" />
+                          Compare & Sync
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                )
+              })}
 
               {imports.length === 0 && (
                 <div className="col-span-full text-center py-12 text-muted-foreground">
