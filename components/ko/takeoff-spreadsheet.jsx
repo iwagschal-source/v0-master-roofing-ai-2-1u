@@ -384,12 +384,12 @@ export function TakeoffSpreadsheet({
 
     setSyncing(true)
     try {
-      // Convert cell keys like "H6" to {row: 6, col: "H"} for backend
+      // Convert cell keys like "H6" to {row: 6, col: "H", action: "accept"} for backend
       const approvedList = Array.from(approvedChanges).map(key => {
         // Parse key: letters are col, numbers are row
         const match = key.match(/^([A-Z]+)(\d+)$/)
         if (match) {
-          return { col: match[1], row: parseInt(match[2], 10) }
+          return { col: match[1], row: parseInt(match[2], 10), action: "accept" }
         }
         return null
       }).filter(Boolean)
