@@ -358,7 +358,7 @@ Master Roofing & Siding`)
           unmatched: data.unmatched || [],
           bySection: data.by_section,
           source: data.source,
-          message: `Processed ${data.summary?.total_items || 0} items`
+          message: `Processed ${data.summary?.matched_rows || data.summary?.total_items || data.items?.length || 0} items`
         })
       } else {
         setBluebeamResult({
@@ -593,7 +593,7 @@ Master Roofing & Siding`)
                     {/* Summary Stats */}
                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
                       <div className="bg-background rounded-lg p-3 text-center">
-                        <p className="text-2xl font-bold text-foreground">{bluebeamResult.summary.total_items}</p>
+                        <p className="text-2xl font-bold text-foreground">{bluebeamResult.summary.matched_rows || bluebeamResult.summary.total_items || bluebeamResult.items?.length || 0}</p>
                         <p className="text-xs text-foreground-tertiary">Total Items</p>
                       </div>
                       <div className="bg-background rounded-lg p-3 text-center">
