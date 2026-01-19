@@ -40,40 +40,24 @@ export async function GET(request, context) {
     console.error('Backend not available, returning cached/mock data:', error.message)
   }
 
-  // Fallback - return mock/cached data for development
+  // Fallback - backend unavailable, return zeros
   return NextResponse.json({
-    success: true,
+    success: false,
+    error: 'Backend unavailable',
     results: {
       summary: {
-        totalTests: 35,
-        passed: 32,
-        failed: 2,
-        skipped: 1,
-        passRate: 94.1,
-        lastRun: new Date().toISOString(),
+        totalTests: 0,
+        passed: 0,
+        failed: 0,
+        skipped: 0,
+        passRate: 0,
+        lastRun: null,
       },
-      categoryStats: {
-        'TECHNICAL_SCOPE': { passed: 12, failed: 0, testable: 12, pass_rate: 100 },
-        'UNCATEGORIZED': { passed: 11, failed: 0, testable: 11, pass_rate: 100 },
-        'PRICING_RATE': { passed: 3, failed: 0, testable: 3, pass_rate: 100 },
-        'APPROVAL_SEND': { passed: 1, failed: 1, testable: 2, pass_rate: 50 },
-        'DEADLINE_TIMING': { passed: 0, failed: 1, testable: 1, pass_rate: 0 },
-        'CONFIRMATION': { passed: 1, failed: 0, testable: 1, pass_rate: 100 },
-        'HAS_PROJECT_REFERENCE': { passed: 2, failed: 0, testable: 2, pass_rate: 100 },
-        'INFORMATION_QUERY': { passed: 2, failed: 0, testable: 2, pass_rate: 100 },
-      },
+      categoryStats: {},
     },
     insights: {
-      data_quality: {
-        vagueAnswers: 1,
-        tooShortAnswers: 10,
-        potentialMislabels: 0,
-      },
-      priority_actions: [
-        { priority: 'HIGH', action: 'Review DEADLINE_TIMING category - only 0% pass rate' },
-        { priority: 'MEDIUM', action: 'Review APPROVAL_SEND category - only 50% pass rate' },
-      ],
-      threshold_recommendations: {},
+      data_quality: {},
+      priority_actions: [],
     },
   })
 }
@@ -115,38 +99,9 @@ export async function POST(request, context) {
     console.error('Backend not available:', error.message)
   }
 
-  // Fallback - simulate training for development
-  const passRate = 90 + Math.random() * 8
-  const passed = Math.floor(50 * passRate / 100)
-  const failed = 50 - passed - 1
-
+  // Fallback - backend unavailable, cannot run training
   return NextResponse.json({
-    success: true,
-    results: {
-      summary: {
-        totalTests: 50,
-        passed,
-        failed,
-        skipped: 1,
-        passRate: Math.round(passRate * 10) / 10,
-        lastRun: new Date().toISOString(),
-      },
-      categoryStats: {
-        'TECHNICAL_SCOPE': { passed: 12, failed: 0, testable: 12, pass_rate: 100 },
-        'UNCATEGORIZED': { passed: 10, failed: 1, testable: 11, pass_rate: 91 },
-        'PRICING_RATE': { passed: 3, failed: 0, testable: 3, pass_rate: 100 },
-        'APPROVAL_SEND': { passed: 2, failed: 0, testable: 2, pass_rate: 100 },
-        'CONFIRMATION': { passed: 3, failed: 0, testable: 3, pass_rate: 100 },
-      },
-    },
-    insights: {
-      data_quality: {
-        vagueAnswers: 1,
-        tooShortAnswers: 10,
-        potentialMislabels: 0,
-      },
-      adjustments_suggested: 2,
-      adjustments_applied: autoTuneApply ? 2 : 0,
-    },
+    success: false,
+    error: 'Backend unavailable - cannot run training',
   })
 }
