@@ -28,6 +28,7 @@ import {
 } from "lucide-react"
 import { GCBrief } from "./gc-brief"
 import { EstimatingSheet } from "./estimating-sheet"
+import { TakeoffSpreadsheet } from "./takeoff-spreadsheet"
 import { cn } from "@/lib/utils"
 
 // Mock data for development - will be replaced with API calls
@@ -130,6 +131,7 @@ export function EstimatingCenterScreen({ onSelectProject, onBack }) {
   const [showUploadModal, setShowUploadModal] = useState(false)
   const [showNewProjectModal, setShowNewProjectModal] = useState(false)
   const [showSheet, setShowSheet] = useState(false)
+  const [showTakeoffSheet, setShowTakeoffSheet] = useState(false) // New GCS-based takeoff
   const [uploadingFile, setUploadingFile] = useState(false)
   const [uploadResult, setUploadResult] = useState(null)
   const [bluebeamData, setBluebeamData] = useState(null) // Converted Bluebeam data for sheet
@@ -732,7 +734,7 @@ export function EstimatingCenterScreen({ onSelectProject, onBack }) {
                   Upload Bluebeam
                 </button>
                 <button
-                  onClick={() => setShowSheet(true)}
+                  onClick={() => setShowTakeoffSheet(true)}
                   className="flex items-center gap-2 px-3 py-2 bg-secondary hover:bg-secondary/80 rounded-lg text-sm transition-colors"
                 >
                   <FileSpreadsheet className="w-4 h-4" />
@@ -752,7 +754,7 @@ export function EstimatingCenterScreen({ onSelectProject, onBack }) {
               </div>
             </div>
 
-            {/* Estimating Sheet - Full Screen Overlay */}
+            {/* Estimating Sheet - Full Screen Overlay (Legacy) */}
             {showSheet && (
               <div className="absolute inset-0 z-50 bg-background">
                 <EstimatingSheet
@@ -763,6 +765,15 @@ export function EstimatingCenterScreen({ onSelectProject, onBack }) {
                   onClose={() => setShowSheet(false)}
                 />
               </div>
+            )}
+
+            {/* New GCS-based Takeoff Spreadsheet */}
+            {showTakeoffSheet && (
+              <TakeoffSpreadsheet
+                projectId={selectedProject.project_id}
+                projectName={selectedProject.project_name}
+                onClose={() => setShowTakeoffSheet(false)}
+              />
             )}
 
             {/* GC Brief - Top Section */}
@@ -974,7 +985,7 @@ export function EstimatingCenterScreen({ onSelectProject, onBack }) {
                       <button
                         onClick={() => {
                           setShowUploadModal(false)
-                          setShowSheet(true)
+                          setShowTakeoffSheet(true)
                         }}
                         className="w-full py-2.5 bg-primary text-primary-foreground hover:bg-primary/90 rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-2"
                       >
