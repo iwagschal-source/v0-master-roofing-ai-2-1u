@@ -36,13 +36,11 @@ export async function POST(request, context) {
     console.error('Backend not available:', error.message)
   }
 
-  // Fallback for development
+  // Fallback - backend unavailable
   return NextResponse.json({
-    success: true,
-    rolledBackExperiment: `exp-${(Date.now() - 100000).toString(36)}`,
-    changes: [
-      { category: 'UNCATEGORIZED', parameter: 'similarity_pass', restored: 0.5 },
-      { category: 'TECHNICAL_SCOPE', parameter: 'similarity_pass', restored: 0.55 },
-    ],
+    success: false,
+    error: 'Backend unavailable - cannot rollback',
+    rolledBackExperiment: null,
+    changes: [],
   })
 }

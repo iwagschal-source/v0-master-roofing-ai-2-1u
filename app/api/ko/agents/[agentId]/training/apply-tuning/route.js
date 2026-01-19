@@ -36,14 +36,12 @@ export async function POST(request, context) {
     console.error('Backend not available:', error.message)
   }
 
-  // Fallback for development
+  // Fallback - backend unavailable
   return NextResponse.json({
-    success: true,
-    experimentId: `exp-${Date.now().toString(36)}`,
-    changesApplied: 2,
-    changes: [
-      { category: 'UNCATEGORIZED', parameter: 'similarity_pass', old: 0.5, new: 0.53 },
-      { category: 'TECHNICAL_SCOPE', parameter: 'similarity_pass', old: 0.55, new: 0.58 },
-    ],
+    success: false,
+    error: 'Backend unavailable - cannot apply tuning',
+    experimentId: null,
+    changesApplied: 0,
+    changes: [],
   })
 }

@@ -2238,8 +2238,8 @@ function ChatTab({ agent }) {
   )
 }
 
-// Specialized training tab for Faigy Knowledge Trainer (AGT-TRAIN-001)
-function FaigyTrainerTab({ agent }) {
+// Specialized training tab for Chief Estimator (AGT-TRAIN-001)
+function ChiefEstimatorTab({ agent }) {
   const [isRunning, setIsRunning] = useState(false)
   const [trainingResults, setTrainingResults] = useState(null)
   const [tunerInsights, setTunerInsights] = useState(null)
@@ -2252,10 +2252,40 @@ function FaigyTrainerTab({ agent }) {
   const [autoTuneEnabled, setAutoTuneEnabled] = useState(false)
   const [autoTuneApply, setAutoTuneApply] = useState(false)
 
+  // Continuous mode state
+  const [continuousStatus, setContinuousStatus] = useState(null)
+  const [continuousActive, setContinuousActive] = useState(false)
+
   // Load training data on mount
   useEffect(() => {
     fetchTrainingData()
+    fetchContinuousStatus()
   }, [])
+
+  // Poll continuous status when active
+  useEffect(() => {
+    if (continuousActive) {
+      const interval = setInterval(() => {
+        fetchContinuousStatus()
+        fetchTrainingData()
+      }, 5000)
+      return () => clearInterval(interval)
+    }
+  }, [continuousActive])
+
+  const fetchContinuousStatus = async () => {
+    try {
+      const res = await fetch(`/api/ko/agents/${agent.id}/training/continuous`)
+      if (res.ok) {
+        const data = await res.json()
+        setContinuousStatus(data.status)
+        setContinuousActive(data.active)
+        if (data.active) setIsRunning(true)
+      }
+    } catch (err) {
+      console.error('Failed to fetch continuous status:', err)
+    }
+  }
 
   const fetchTrainingData = async () => {
     setLoading(true)
@@ -2276,27 +2306,70 @@ function FaigyTrainerTab({ agent }) {
     setIsRunning(true)
     setError(null)
     try {
-      const res = await fetch(`/api/ko/agents/${agent.id}/training`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          batchSize,
-          autoTune: autoTuneEnabled,
-          autoTuneApply,
-        }),
-      })
-      const data = await res.json()
-      if (data.success) {
-        setTrainingResults(data.results)
-        setTunerInsights(data.insights)
+      // Handle different run modes
+      if (runMode === 'continuous') {
+        // Start continuous training
+        const res = await fetch(`/api/ko/agents/${agent.id}/training/continuous?action=start`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            batchSize,
+            maxBatches: 0, // unlimited
+            delayBetweenBatches: 5,
+            autoTune: autoTuneEnabled,
+            autoTuneApply,
+          }),
+        })
+        const data = await res.json()
+        if (data.success) {
+          setContinuousActive(true)
+        } else {
+          setError(data.error || 'Failed to start continuous training')
+          setIsRunning(false)
+        }
       } else {
-        setError(data.error || 'Training failed')
+        // Single batch training
+        const res = await fetch(`/api/ko/agents/${agent.id}/training`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            batchSize,
+            autoTune: autoTuneEnabled,
+            autoTuneApply,
+          }),
+        })
+        const data = await res.json()
+        if (data.success) {
+          setTrainingResults(data.results)
+          setTunerInsights(data.insights)
+        } else {
+          setError(data.error || 'Training failed')
+        }
+        setIsRunning(false)
       }
     } catch (err) {
       setError('Failed to run training batch')
       console.error(err)
+      setIsRunning(false)
     }
-    setIsRunning(false)
+  }
+
+  const handleStopContinuous = async () => {
+    try {
+      const res = await fetch(`/api/ko/agents/${agent.id}/training/continuous?action=stop`, {
+        method: 'POST',
+      })
+      const data = await res.json()
+      if (data.success) {
+        setContinuousActive(false)
+        setIsRunning(false)
+      } else {
+        setError(data.error || 'Failed to stop continuous training')
+      }
+    } catch (err) {
+      setError('Failed to stop continuous training')
+      console.error(err)
+    }
   }
 
   const handleApplyTuning = async () => {
@@ -2470,24 +2543,49 @@ function FaigyTrainerTab({ agent }) {
                 </label>
               </div>
 
-              {/* Run Button */}
-              <button
-                onClick={handleRunBatch}
-                disabled={isRunning}
-                className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-primary text-primary-foreground rounded-lg font-medium hover:bg-primary/90 transition-colors disabled:opacity-50"
-              >
-                {isRunning ? (
-                  <>
-                    <Loader2 size={18} className="animate-spin" />
-                    Running...
-                  </>
-                ) : (
-                  <>
-                    <Play size={18} />
-                    Start Training Batch
-                  </>
-                )}
-              </button>
+              {/* Run/Stop Button */}
+              {continuousActive ? (
+                <button
+                  onClick={handleStopContinuous}
+                  className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-red-500 text-white rounded-lg font-medium hover:bg-red-600 transition-colors"
+                >
+                  <Pause size={18} />
+                  Stop Continuous Training
+                </button>
+              ) : (
+                <button
+                  onClick={handleRunBatch}
+                  disabled={isRunning}
+                  className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-primary text-primary-foreground rounded-lg font-medium hover:bg-primary/90 transition-colors disabled:opacity-50"
+                >
+                  {isRunning ? (
+                    <>
+                      <Loader2 size={18} className="animate-spin" />
+                      Running...
+                    </>
+                  ) : (
+                    <>
+                      <Play size={18} />
+                      {runMode === 'continuous' ? 'Start Continuous Training' : 'Start Training Batch'}
+                    </>
+                  )}
+                </button>
+              )}
+
+              {/* Continuous Status */}
+              {continuousActive && continuousStatus && (
+                <div className="p-3 bg-blue-500/20 border border-blue-500/30 rounded-lg text-sm">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-blue-400 font-medium">Continuous Training Active</span>
+                    <span className="text-blue-300">Batch #{continuousStatus.current_batch}</span>
+                  </div>
+                  {continuousStatus.last_batch_at && (
+                    <p className="text-xs text-muted-foreground">
+                      Last batch: {new Date(continuousStatus.last_batch_at).toLocaleTimeString()}
+                    </p>
+                  )}
+                </div>
+              )}
 
               {error && (
                 <div className="p-3 bg-red-500/20 border border-red-500/30 rounded-lg text-sm text-red-400">
@@ -2639,9 +2737,9 @@ function FaigyTrainerTab({ agent }) {
 }
 
 function TrainingTab({ agent }) {
-  // Check if this is the Faigy Knowledge Trainer agent - render specialized UI
+  // Check if this is the Chief Estimator agent - render specialized UI
   if (agent.id === 'AGT-TRAIN-001') {
-    return <FaigyTrainerTab agent={agent} />
+    return <ChiefEstimatorTab agent={agent} />
   }
 
   // State for test questions

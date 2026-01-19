@@ -679,8 +679,8 @@ export const agents = [
 
   {
     id: "AGT-TRAIN-001",
-    name: "Faigy Knowledge Trainer",
-    description: "Continuous training system for Faigy Assistant - tests Q&A accuracy, auto-tunes thresholds, tracks experiments",
+    name: "Chief Estimator",
+    description: "AI agent trained on 20 years of estimating knowledge - tests Q&A accuracy, auto-tunes thresholds, tracks experiments",
     model: "Embedding + Rules",
     modelKey: "custom",
     status: "idle",
@@ -771,14 +771,14 @@ export const agents = [
     configFiles: [
       {
         name: "README.md",
-        content: `# Faigy Knowledge Trainer
+        content: `# Chief Estimator
 
-Continuous test/train system for Faigy Assistant Q&A.
+AI agent trained on 20 years of Faigy Kohn's estimating knowledge.
 
 ## Components
-- **Trainer** (faigy_trainer.py): Runs test batches against 6,383 Q&A pairs
-- **Tuner** (faigy_tuner.py): Analyzes failures, suggests/applies threshold adjustments
-- **Evaluator** (faigy_eval.py): Dashboard view of results and metrics
+- **Trainer** (chief_estimator_trainer.py): Runs test batches against 6,383 Q&A pairs
+- **Tuner** (chief_estimator_tuner.py): Analyzes failures, suggests/applies threshold adjustments
+- **Evaluator** (chief_estimator_eval.py): Dashboard view of results and metrics
 
 ## Features
 - Category-specific threshold tuning
@@ -790,16 +790,16 @@ Continuous test/train system for Faigy Assistant Q&A.
 ## Usage
 \`\`\`bash
 # Run test batch
-python3 faigy_trainer.py --batch-size 50
+python3 chief_estimator_trainer.py --batch-size 50
 
 # Run with auto-analysis
-python3 faigy_trainer.py --auto-tune
+python3 chief_estimator_trainer.py --auto-tune
 
 # See suggestions
-python3 faigy_tuner.py suggest
+python3 chief_estimator_tuner.py suggest
 
 # Apply high-confidence adjustments
-python3 faigy_tuner.py apply
+python3 chief_estimator_tuner.py apply
 \`\`\`
 
 ## Current Stats
