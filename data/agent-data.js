@@ -676,6 +676,187 @@ export const agents = [
     training: { lastTrained: "2026-01-15", datasetVersion: "v1.0", accuracy: 84.5 },
     mapping: { inputSources: ["CEO Chat", "Gemini Router"], outputTargets: ["Sales Dashboard", "CEO Response"], routingRules: 10 },
   },
+
+  {
+    id: "AGT-TRAIN-001",
+    name: "Faigy Knowledge Trainer",
+    description: "Continuous training system for Faigy Assistant - tests Q&A accuracy, auto-tunes thresholds, tracks experiments",
+    model: "Embedding + Rules",
+    modelKey: "custom",
+    status: "idle",
+    lastActivity: new Date().toISOString(),
+    currentAction: "Ready for training batch...",
+    queueDepth: 0,
+    stats: {
+      totalRequests: 0,
+      successRate: 95.0,
+      avgLatency: 250,
+      errorsToday: 0,
+      requestsPerMinute: 0,
+      // Custom training stats
+      totalQAPairs: 6383,
+      testableQAPairs: 5935,
+      lastBatchPassRate: 95.0,
+      experimentsRun: 0,
+    },
+    connections: ["AGT-ORCH-001"],
+    auditedBy: ["AGT-AUDIT-001"],
+    schedule: "Manual / Scheduled",
+
+    permissions: {
+      readAccess: [
+        { resource: "Q&A Embeddings", scope: "qa_embeddings.json (6,383 pairs)", enabled: true },
+        { resource: "Training Config", scope: "faigy_config.json", enabled: true },
+        { resource: "Training Logs", scope: "faigy_training_logs/", enabled: true },
+      ],
+      writeAccess: [
+        { resource: "Training Config", scope: "Threshold adjustments", enabled: true },
+        { resource: "Training Logs", scope: "Results, experiments", enabled: true },
+        { resource: "Tuning Insights", scope: "tuning_insights.json", enabled: true },
+      ],
+      userSynteraction: [
+        { id: "user_isaac", name: "Isaac", role: "CEO", canInitiate: true, canReceive: true },
+      ],
+      agentSynteraction: [
+        { agentId: "AGT-ORCH-001", canCall: false, canReceiveFrom: true, priority: 1 },
+        { agentId: "AGT-AUDIT-001", canCall: false, canReceiveFrom: true, priority: 1 },
+      ],
+    },
+
+    scoring: {
+      overallScore: 95,
+      accuracyScore: 95,
+      latencyScore: 92,
+      reliabilityScore: 98,
+      evaluationFrequency: "Per Batch",
+      lastEvaluation: "2026-01-19 09:00",
+      nextEvaluation: "On demand",
+      metrics: [
+        { name: "Pass Rate", description: "Questions answered correctly", weight: 40, threshold: "90%" },
+        { name: "Category Coverage", description: "Categories with >70% pass rate", weight: 25, threshold: "85%" },
+        { name: "Answer Similarity", description: "Semantic match to expected", weight: 20, threshold: "60%" },
+        { name: "Auto-Tune Effectiveness", description: "Improvement after tuning", weight: 15, threshold: "+2%" },
+      ],
+    },
+
+    monitoring: {
+      auditors: [
+        { id: "user_isaac", name: "Isaac", type: "user", role: "Training Owner", since: "2026-01-19", active: true },
+        { id: "AGT-AUDIT-001", name: "Audit Agent", type: "agent", role: "Quality Monitoring", since: "2026-01-19", active: true },
+      ],
+      alerts: [
+        { type: "Pass Rate Drop", description: "Pass rate below threshold", threshold: "<85%", enabled: true },
+        { type: "Category Failure", description: "Category pass rate critical", threshold: "<50%", enabled: true },
+        { type: "Data Quality Issue", description: "Flagged Q&A pairs detected", threshold: ">10", enabled: true },
+      ],
+      channels: [
+        { type: "Dashboard", target: "KO Command Center", enabled: true },
+        { type: "Slack", target: "#ko-training", enabled: false },
+      ],
+    },
+
+    history: {
+      totalExecutions: 0,
+      firstActive: "2026-01-19",
+      uptimePercent: 100,
+      totalErrors: 0,
+      recentEvents: [
+        { type: "info", message: "Agent initialized", timestamp: "09:00:00", details: "6,383 Q&A pairs loaded" },
+      ],
+      versions: [
+        { version: "v1.0.0", date: "2026-01-19", changes: "Initial release with trainer + tuner" },
+      ],
+    },
+
+    configFiles: [
+      {
+        name: "README.md",
+        content: `# Faigy Knowledge Trainer
+
+Continuous test/train system for Faigy Assistant Q&A.
+
+## Components
+- **Trainer** (faigy_trainer.py): Runs test batches against 6,383 Q&A pairs
+- **Tuner** (faigy_tuner.py): Analyzes failures, suggests/applies threshold adjustments
+- **Evaluator** (faigy_eval.py): Dashboard view of results and metrics
+
+## Features
+- Category-specific threshold tuning
+- Failure pattern analysis (WHY things fail, not just WHAT)
+- Data quality detection (vague answers, mislabels)
+- Experiment tracking with rollback
+- Auto-tuning with confidence scores
+
+## Usage
+\`\`\`bash
+# Run test batch
+python3 faigy_trainer.py --batch-size 50
+
+# Run with auto-analysis
+python3 faigy_trainer.py --auto-tune
+
+# See suggestions
+python3 faigy_tuner.py suggest
+
+# Apply high-confidence adjustments
+python3 faigy_tuner.py apply
+\`\`\`
+
+## Current Stats
+- Q&A Pairs: 6,383
+- Testable: 5,935
+- Pass Rate: ~95%
+- Categories: 18`,
+        type: "markdown"
+      },
+    ],
+
+    // Custom training-specific data
+    trainingConfig: {
+      batchSize: 50,
+      continuousMode: false,
+      autoTuneEnabled: false,
+      autoTuneApply: false,
+      schedule: null, // cron expression
+      lastRun: null,
+      nextRun: null,
+    },
+
+    trainingMetrics: {
+      totalTests: 0,
+      totalPassed: 0,
+      totalFailed: 0,
+      totalSkipped: 0,
+      passRate: 0,
+      categoryStats: {},
+      weakCategories: [],
+      failurePatterns: {},
+      dataQualityIssues: {
+        vagueAnswers: 0,
+        tooShortAnswers: 0,
+        potentialMislabels: 0,
+      },
+    },
+
+    experiments: {
+      total: 0,
+      applied: 0,
+      rolledBack: 0,
+      pending: [],
+      history: [],
+    },
+
+    dataSources: [
+      { id: "qa_embeddings", name: "Q&A Embeddings", path: "/home/iwagschal/qa_embeddings.json", pairs: 6383, active: true },
+    ],
+
+    training: { lastTrained: "2026-01-19", datasetVersion: "v1.0", accuracy: 95.0 },
+    mapping: {
+      inputSources: ["Q&A Dataset", "Manual Trigger", "Scheduled"],
+      outputTargets: ["Training Logs", "Config Updates", "Insights"],
+      routingRules: 0
+    },
+  },
 ]
 
 // Helper function to get agent by ID

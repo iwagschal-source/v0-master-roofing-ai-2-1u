@@ -5,8 +5,12 @@
 process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0'
 
 import { NextResponse } from 'next/server'
+import { agents as staticAgents } from '@/data/agent-data'
 
 const BACKEND_URL = 'https://136.111.252.120'
+
+// Static agents that should always be included (not in backend)
+const STATIC_AGENT_IDS = ['AGT-TRAIN-001']
 
 // GET - List all agents from factory
 export async function GET() {
@@ -23,7 +27,7 @@ export async function GET() {
     const data = await res.json()
 
     // Transform backend agents to frontend format
-    const agents = (data.agents || []).map(agent => ({
+    const backendAgents = (data.agents || []).map(agent => ({
       id: agent.id,
       name: agent.name,
       description: agent.description,
@@ -59,6 +63,16 @@ export async function GET() {
         { name: 'system.md', content: agent.prompts.system || '', type: 'markdown' }
       ] : [],
     }))
+
+    // Get static agents that should always be included
+    const staticAgentsToInclude = staticAgents.filter(a => STATIC_AGENT_IDS.includes(a.id))
+
+    // Merge: backend agents + static agents (avoiding duplicates)
+    const backendIds = new Set(backendAgents.map(a => a.id))
+    const agents = [
+      ...backendAgents,
+      ...staticAgentsToInclude.filter(a => !backendIds.has(a.id))
+    ]
 
     return NextResponse.json({ agents, total: agents.length })
   } catch (error) {

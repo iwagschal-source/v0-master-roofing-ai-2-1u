@@ -2238,7 +2238,412 @@ function ChatTab({ agent }) {
   )
 }
 
+// Specialized training tab for Faigy Knowledge Trainer (AGT-TRAIN-001)
+function FaigyTrainerTab({ agent }) {
+  const [isRunning, setIsRunning] = useState(false)
+  const [trainingResults, setTrainingResults] = useState(null)
+  const [tunerInsights, setTunerInsights] = useState(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(null)
+
+  // Training config
+  const [batchSize, setBatchSize] = useState(50)
+  const [runMode, setRunMode] = useState('batch') // 'batch', 'continuous', 'scheduled'
+  const [autoTuneEnabled, setAutoTuneEnabled] = useState(false)
+  const [autoTuneApply, setAutoTuneApply] = useState(false)
+
+  // Load training data on mount
+  useEffect(() => {
+    fetchTrainingData()
+  }, [])
+
+  const fetchTrainingData = async () => {
+    setLoading(true)
+    try {
+      const res = await fetch(`/api/ko/agents/${agent.id}/training`)
+      if (res.ok) {
+        const data = await res.json()
+        setTrainingResults(data.results || null)
+        setTunerInsights(data.insights || null)
+      }
+    } catch (err) {
+      console.error('Failed to fetch training data:', err)
+    }
+    setLoading(false)
+  }
+
+  const handleRunBatch = async () => {
+    setIsRunning(true)
+    setError(null)
+    try {
+      const res = await fetch(`/api/ko/agents/${agent.id}/training`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          batchSize,
+          autoTune: autoTuneEnabled,
+          autoTuneApply,
+        }),
+      })
+      const data = await res.json()
+      if (data.success) {
+        setTrainingResults(data.results)
+        setTunerInsights(data.insights)
+      } else {
+        setError(data.error || 'Training failed')
+      }
+    } catch (err) {
+      setError('Failed to run training batch')
+      console.error(err)
+    }
+    setIsRunning(false)
+  }
+
+  const handleApplyTuning = async () => {
+    try {
+      const res = await fetch(`/api/ko/agents/${agent.id}/training/apply-tuning`, {
+        method: 'POST',
+      })
+      const data = await res.json()
+      if (data.success) {
+        alert(`Applied ${data.changesApplied} adjustments`)
+        fetchTrainingData()
+      }
+    } catch (err) {
+      console.error('Failed to apply tuning:', err)
+    }
+  }
+
+  const handleRollback = async () => {
+    if (!confirm('Are you sure you want to rollback the last experiment?')) return
+    try {
+      const res = await fetch(`/api/ko/agents/${agent.id}/training/rollback`, {
+        method: 'POST',
+      })
+      const data = await res.json()
+      if (data.success) {
+        alert('Rollback successful')
+        fetchTrainingData()
+      }
+    } catch (err) {
+      console.error('Failed to rollback:', err)
+    }
+  }
+
+  // Stats from training results or defaults
+  const stats = trainingResults?.summary || {
+    totalTests: agent.trainingMetrics?.totalTests || 0,
+    passRate: agent.trainingMetrics?.passRate || agent.stats?.successRate || 95,
+    passed: agent.trainingMetrics?.totalPassed || 0,
+    failed: agent.trainingMetrics?.totalFailed || 0,
+  }
+
+  const categoryStats = trainingResults?.categoryStats || agent.trainingMetrics?.categoryStats || {}
+  const weakCategories = Object.entries(categoryStats)
+    .filter(([_, s]) => s.testable > 0 && s.pass_rate < 70)
+    .sort((a, b) => a[1].pass_rate - b[1].pass_rate)
+
+  const dataQuality = tunerInsights?.data_quality || agent.trainingMetrics?.dataQualityIssues || {}
+
+  return (
+    <div className="space-y-6">
+      {/* Summary Stats */}
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+        <div className="bg-card border border-border rounded-xl p-4">
+          <p className="text-xs text-muted-foreground mb-1">Q&A Pairs</p>
+          <p className="text-2xl font-bold text-foreground">{agent.stats?.totalQAPairs?.toLocaleString() || '6,383'}</p>
+        </div>
+        <div className="bg-card border border-border rounded-xl p-4">
+          <p className="text-xs text-muted-foreground mb-1">Testable</p>
+          <p className="text-2xl font-bold text-foreground">{agent.stats?.testableQAPairs?.toLocaleString() || '5,935'}</p>
+        </div>
+        <div className="bg-card border border-border rounded-xl p-4">
+          <p className="text-xs text-muted-foreground mb-1">Pass Rate</p>
+          <p className={`text-2xl font-bold ${stats.passRate >= 90 ? 'text-emerald-400' : stats.passRate >= 70 ? 'text-amber-400' : 'text-red-400'}`}>
+            {stats.passRate?.toFixed(1) || 0}%
+          </p>
+        </div>
+        <div className="bg-card border border-border rounded-xl p-4">
+          <p className="text-xs text-muted-foreground mb-1">Tests Run</p>
+          <p className="text-2xl font-bold text-foreground">{stats.totalTests || 0}</p>
+        </div>
+        <div className="bg-card border border-border rounded-xl p-4">
+          <p className="text-xs text-muted-foreground mb-1">Experiments</p>
+          <p className="text-2xl font-bold text-purple-400">{agent.experiments?.total || 0}</p>
+        </div>
+      </div>
+
+      {/* Pass Rate Gauge */}
+      <div className="bg-card border border-border rounded-xl p-6">
+        <div className="flex items-center justify-between mb-3">
+          <h2 className="font-semibold text-foreground flex items-center gap-2">
+            <Target size={18} className="text-primary" />
+            Overall Performance
+          </h2>
+          <span className={`text-sm font-medium px-2 py-1 rounded ${
+            stats.passRate >= 90 ? 'bg-emerald-500/20 text-emerald-400' :
+            stats.passRate >= 70 ? 'bg-amber-500/20 text-amber-400' : 'bg-red-500/20 text-red-400'
+          }`}>
+            {stats.passRate >= 90 ? 'EXCELLENT' : stats.passRate >= 70 ? 'GOOD' : 'NEEDS WORK'}
+          </span>
+        </div>
+        <div className="w-full bg-secondary rounded-full h-4">
+          <div
+            className={`h-4 rounded-full transition-all ${
+              stats.passRate >= 90 ? 'bg-emerald-500' :
+              stats.passRate >= 70 ? 'bg-amber-500' : 'bg-red-500'
+            }`}
+            style={{ width: `${Math.min(stats.passRate || 0, 100)}%` }}
+          />
+        </div>
+        <div className="flex justify-between mt-2 text-xs text-muted-foreground">
+          <span>0%</span>
+          <span>{stats.passed || 0} passed / {stats.failed || 0} failed</span>
+          <span>100%</span>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Left Column - Training Controls */}
+        <div className="space-y-6">
+          {/* Run Training */}
+          <div className="bg-card border border-border rounded-xl p-6">
+            <h2 className="font-semibold text-foreground mb-4 flex items-center gap-2">
+              <Play size={18} className="text-emerald-400" />
+              Run Training Batch
+            </h2>
+
+            <div className="space-y-4">
+              {/* Batch Size */}
+              <div>
+                <label className="text-sm text-muted-foreground block mb-2">Batch Size</label>
+                <input
+                  type="number"
+                  min="10"
+                  max="200"
+                  value={batchSize}
+                  onChange={e => setBatchSize(Math.max(10, parseInt(e.target.value) || 50))}
+                  disabled={isRunning}
+                  className="w-full bg-background border border-border rounded px-3 py-2 text-sm"
+                />
+              </div>
+
+              {/* Run Mode */}
+              <div>
+                <label className="text-sm text-muted-foreground block mb-2">Run Mode</label>
+                <select
+                  value={runMode}
+                  onChange={e => setRunMode(e.target.value)}
+                  disabled={isRunning}
+                  className="w-full bg-background border border-border rounded px-3 py-2 text-sm"
+                >
+                  <option value="batch">Single Batch</option>
+                  <option value="continuous">Continuous (until stopped)</option>
+                  <option value="scheduled">Scheduled</option>
+                </select>
+              </div>
+
+              {/* Auto-Tune Options */}
+              <div className="border-t border-border pt-4 space-y-3">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={autoTuneEnabled}
+                    onChange={e => setAutoTuneEnabled(e.target.checked)}
+                    disabled={isRunning}
+                    className="accent-primary"
+                  />
+                  <span className="text-sm text-foreground">Run auto-tune analysis after batch</span>
+                </label>
+
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={autoTuneApply}
+                    onChange={e => setAutoTuneApply(e.target.checked)}
+                    disabled={isRunning || !autoTuneEnabled}
+                    className="accent-primary"
+                  />
+                  <span className={`text-sm ${autoTuneEnabled ? 'text-foreground' : 'text-muted-foreground'}`}>
+                    Auto-apply high-confidence adjustments
+                  </span>
+                </label>
+              </div>
+
+              {/* Run Button */}
+              <button
+                onClick={handleRunBatch}
+                disabled={isRunning}
+                className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-primary text-primary-foreground rounded-lg font-medium hover:bg-primary/90 transition-colors disabled:opacity-50"
+              >
+                {isRunning ? (
+                  <>
+                    <Loader2 size={18} className="animate-spin" />
+                    Running...
+                  </>
+                ) : (
+                  <>
+                    <Play size={18} />
+                    Start Training Batch
+                  </>
+                )}
+              </button>
+
+              {error && (
+                <div className="p-3 bg-red-500/20 border border-red-500/30 rounded-lg text-sm text-red-400">
+                  {error}
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Experiment Controls */}
+          <div className="bg-card border border-border rounded-xl p-6">
+            <h2 className="font-semibold text-foreground mb-4 flex items-center gap-2">
+              <Settings size={18} className="text-purple-400" />
+              Tuning Controls
+            </h2>
+
+            <div className="space-y-3">
+              <button
+                onClick={handleApplyTuning}
+                className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-purple-500/20 text-purple-400 border border-purple-500/30 rounded-lg font-medium hover:bg-purple-500/30 transition-colors"
+              >
+                <CheckCircle size={16} />
+                Apply Suggested Adjustments
+              </button>
+
+              <button
+                onClick={handleRollback}
+                className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-secondary text-muted-foreground rounded-lg font-medium hover:bg-secondary/80 transition-colors"
+              >
+                <RotateCcw size={16} />
+                Rollback Last Experiment
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* Right Column - Results & Insights */}
+        <div className="space-y-6">
+          {/* Category Performance */}
+          <div className="bg-card border border-border rounded-xl p-6">
+            <h2 className="font-semibold text-foreground mb-4 flex items-center gap-2">
+              <Activity size={18} className="text-blue-400" />
+              Category Performance
+            </h2>
+
+            {loading ? (
+              <div className="flex items-center justify-center py-8">
+                <Loader2 size={24} className="animate-spin text-muted-foreground" />
+              </div>
+            ) : Object.keys(categoryStats).length > 0 ? (
+              <div className="space-y-2 max-h-64 overflow-y-auto">
+                {Object.entries(categoryStats)
+                  .sort((a, b) => (a[1].pass_rate || 0) - (b[1].pass_rate || 0))
+                  .map(([category, stats]) => (
+                    stats.testable > 0 && (
+                      <div key={category} className="flex items-center justify-between p-2 bg-secondary rounded">
+                        <span className="text-sm text-foreground truncate flex-1">{category}</span>
+                        <div className="flex items-center gap-2 ml-2">
+                          <span className="text-xs text-muted-foreground">
+                            {stats.passed}/{stats.testable}
+                          </span>
+                          <span className={`text-sm font-medium min-w-[45px] text-right ${
+                            (stats.pass_rate || 0) >= 90 ? 'text-emerald-400' :
+                            (stats.pass_rate || 0) >= 70 ? 'text-amber-400' : 'text-red-400'
+                          }`}>
+                            {(stats.pass_rate || 0).toFixed(0)}%
+                          </span>
+                        </div>
+                      </div>
+                    )
+                  ))}
+              </div>
+            ) : (
+              <p className="text-sm text-muted-foreground text-center py-4">
+                Run a training batch to see category performance
+              </p>
+            )}
+          </div>
+
+          {/* Weak Categories Alert */}
+          {weakCategories.length > 0 && (
+            <div className="bg-amber-500/10 border border-amber-500/30 rounded-xl p-6">
+              <h2 className="font-semibold text-amber-400 mb-3 flex items-center gap-2">
+                <AlertTriangle size={18} />
+                Weak Categories ({weakCategories.length})
+              </h2>
+              <div className="space-y-2">
+                {weakCategories.slice(0, 5).map(([category, stats]) => (
+                  <div key={category} className="flex items-center justify-between text-sm">
+                    <span className="text-foreground">{category}</span>
+                    <span className="text-red-400 font-medium">{stats.pass_rate?.toFixed(0)}%</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Data Quality Issues */}
+          <div className="bg-card border border-border rounded-xl p-6">
+            <h2 className="font-semibold text-foreground mb-4 flex items-center gap-2">
+              <Database size={18} className="text-orange-400" />
+              Data Quality
+            </h2>
+
+            <div className="grid grid-cols-3 gap-3">
+              <div className="p-3 bg-secondary rounded-lg text-center">
+                <p className="text-lg font-bold text-foreground">{dataQuality.vagueAnswers || 0}</p>
+                <p className="text-xs text-muted-foreground">Vague Answers</p>
+              </div>
+              <div className="p-3 bg-secondary rounded-lg text-center">
+                <p className="text-lg font-bold text-foreground">{dataQuality.tooShortAnswers || 0}</p>
+                <p className="text-xs text-muted-foreground">Short Answers</p>
+              </div>
+              <div className="p-3 bg-secondary rounded-lg text-center">
+                <p className="text-lg font-bold text-foreground">{dataQuality.potentialMislabels || 0}</p>
+                <p className="text-xs text-muted-foreground">Mislabels</p>
+              </div>
+            </div>
+          </div>
+
+          {/* Data Sources */}
+          <div className="bg-card border border-border rounded-xl p-6">
+            <h2 className="font-semibold text-foreground mb-4 flex items-center gap-2">
+              <FileText size={18} className="text-cyan-400" />
+              Connected Data Sources
+            </h2>
+
+            <div className="space-y-2">
+              {agent.dataSources?.map(source => (
+                <div key={source.id} className="flex items-center justify-between p-3 bg-secondary rounded-lg">
+                  <div className="flex items-center gap-3">
+                    <div className={`w-2 h-2 rounded-full ${source.active ? 'bg-emerald-400' : 'bg-gray-400'}`} />
+                    <div>
+                      <p className="text-sm text-foreground">{source.name}</p>
+                      <p className="text-xs text-muted-foreground">{source.pairs?.toLocaleString()} pairs</p>
+                    </div>
+                  </div>
+                  <button className="text-xs text-primary hover:text-primary/80">Configure</button>
+                </div>
+              )) || (
+                <p className="text-sm text-muted-foreground text-center py-2">No data sources configured</p>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 function TrainingTab({ agent }) {
+  // Check if this is the Faigy Knowledge Trainer agent - render specialized UI
+  if (agent.id === 'AGT-TRAIN-001') {
+    return <FaigyTrainerTab agent={agent} />
+  }
+
   // State for test questions
   const [testQuestions, setTestQuestions] = useState([
     { id: 'q1', question: 'How much did we bid this month?', elements: ['proposal_count', 'total_value', 'avg_bid_size'], status: 'pass', score: 92 },
