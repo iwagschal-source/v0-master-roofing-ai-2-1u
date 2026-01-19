@@ -7,10 +7,6 @@ const nextConfig = {
   images: {
     unoptimized: true,
   },
-  env: {
-    // Allow self-signed SSL certs for backend API calls
-    NODE_TLS_REJECT_UNAUTHORIZED: '0',
-  },
 }
 
 export default nextConfig

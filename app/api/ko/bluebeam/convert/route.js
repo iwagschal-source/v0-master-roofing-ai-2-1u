@@ -8,8 +8,15 @@
  */
 
 import { NextResponse } from 'next/server'
+import https from 'https'
 
 const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'https://136.111.252.120'
+
+// Custom fetch that ignores SSL cert errors (for self-signed backend cert)
+const fetchWithSSL = async (url, options = {}) => {
+  const agent = new https.Agent({ rejectUnauthorized: false })
+  return fetch(url, { ...options, agent })
+}
 
 // MR Template rates by scope item
 const MR_RATES = {
@@ -511,7 +518,7 @@ export async function POST(request) {
 
     // Try backend first (may have better parsing/ML matching)
     try {
-      const backendRes = await fetch(`${BACKEND_URL}/v1/bluebeam/convert`, {
+      const backendRes = await fetchWithSSL(`${BACKEND_URL}/v1/bluebeam/convert`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ csv_content, project_name, project_id, gc_name, use_historical_rates }),
