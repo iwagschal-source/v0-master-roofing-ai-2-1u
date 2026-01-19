@@ -5,8 +5,15 @@
  */
 
 import { NextResponse } from 'next/server'
+import https from 'https'
 
 const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'https://136.111.252.120'
+
+// Custom fetch that ignores SSL cert errors (for self-signed backend cert)
+const fetchWithSSL = async (url, options = {}) => {
+  const agent = new https.Agent({ rejectUnauthorized: false })
+  return fetch(url, { ...options, agent })
+}
 
 /**
  * POST /api/ko/takeoff/create
@@ -28,7 +35,7 @@ export async function POST(request) {
       )
     }
 
-    const backendRes = await fetch(`${BACKEND_URL}/v1/takeoff/create`, {
+    const backendRes = await fetchWithSSL(`${BACKEND_URL}/v1/takeoff/create`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({

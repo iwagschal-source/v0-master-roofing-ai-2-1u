@@ -5,8 +5,14 @@
  */
 
 import { NextResponse } from 'next/server'
+import https from 'https'
 
 const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'https://136.111.252.120'
+
+const fetchWithSSL = async (url, options = {}) => {
+  const agent = new https.Agent({ rejectUnauthorized: false })
+  return fetch(url, { ...options, agent })
+}
 
 /**
  * GET /api/ko/takeoff/[projectId]/imports
@@ -16,7 +22,7 @@ export async function GET(request, { params }) {
   try {
     const { projectId } = await params
 
-    const backendRes = await fetch(`${BACKEND_URL}/v1/takeoff/${projectId}/imports`, {
+    const backendRes = await fetchWithSSL(`${BACKEND_URL}/v1/takeoff/${projectId}/imports`, {
       method: 'GET',
       signal: AbortSignal.timeout(15000)
     })

@@ -5,8 +5,15 @@
  */
 
 import { NextResponse } from 'next/server'
+import https from 'https'
 
 const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'https://136.111.252.120'
+
+// Custom fetch that ignores SSL cert errors (for self-signed backend cert)
+const fetchWithSSL = async (url, options = {}) => {
+  const agent = new https.Agent({ rejectUnauthorized: false })
+  return fetch(url, { ...options, agent })
+}
 
 /**
  * GET /api/ko/takeoff/[projectId]
@@ -21,7 +28,7 @@ export async function GET(request, { params }) {
     const { searchParams } = new URL(request.url)
     const format = searchParams.get('format') || 'json'
 
-    const backendRes = await fetch(
+    const backendRes = await fetchWithSSL(
       `${BACKEND_URL}/v1/takeoff/${projectId}?format=${format}`,
       {
         method: 'GET',
@@ -79,7 +86,7 @@ export async function PUT(request, { params }) {
     const { projectId } = await params
     const body = await request.json()
 
-    const backendRes = await fetch(`${BACKEND_URL}/v1/takeoff/${projectId}`, {
+    const backendRes = await fetchWithSSL(`${BACKEND_URL}/v1/takeoff/${projectId}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
@@ -114,7 +121,7 @@ export async function DELETE(request, { params }) {
   try {
     const { projectId } = await params
 
-    const backendRes = await fetch(`${BACKEND_URL}/v1/takeoff/${projectId}`, {
+    const backendRes = await fetchWithSSL(`${BACKEND_URL}/v1/takeoff/${projectId}`, {
       method: 'DELETE',
       signal: AbortSignal.timeout(10000)
     })
