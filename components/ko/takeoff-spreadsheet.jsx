@@ -384,15 +384,27 @@ export function TakeoffSpreadsheet({
 
     setSyncing(true)
     try {
+      // Convert cell keys like "H6" to {row: 6, col: "H"} for backend
+      const approvedList = Array.from(approvedChanges).map(key => {
+        // Parse key: letters are col, numbers are row
+        const match = key.match(/^([A-Z]+)(\d+)$/)
+        if (match) {
+          return { col: match[1], row: parseInt(match[2], 10) }
+        }
+        return null
+      }).filter(Boolean)
+
       const res = await fetch(`/api/ko/takeoff/${projectId}/sync/${selectedImport}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          approved_changes: Array.from(approvedChanges)
+          approved_changes: approvedList
         })
       })
 
       if (!res.ok) throw new Error('Failed to sync')
+
+      const result = await res.json()
 
       // Reload master
       await loadTakeoff()
@@ -400,6 +412,11 @@ export function TakeoffSpreadsheet({
       setShowComparison(false)
       setSelectedImport(null)
       setActiveTab('master')
+
+      // Show success message briefly
+      if (result.applied_changes > 0) {
+        setError(null)
+      }
 
     } catch (err) {
       console.error('Sync error:', err)
