@@ -27,7 +27,6 @@ import {
   Download
 } from "lucide-react"
 import { GCBrief } from "./gc-brief"
-import { EstimatingSheet } from "./estimating-sheet"
 import { TakeoffSpreadsheet } from "./takeoff-spreadsheet"
 import { cn } from "@/lib/utils"
 
@@ -130,11 +129,9 @@ export function EstimatingCenterScreen({ onSelectProject, onBack }) {
   const [selectedProject, setSelectedProject] = useState(null)
   const [showUploadModal, setShowUploadModal] = useState(false)
   const [showNewProjectModal, setShowNewProjectModal] = useState(false)
-  const [showSheet, setShowSheet] = useState(false)
-  const [showTakeoffSheet, setShowTakeoffSheet] = useState(false) // New GCS-based takeoff
+  const [showTakeoffSheet, setShowTakeoffSheet] = useState(false)
   const [uploadingFile, setUploadingFile] = useState(false)
   const [uploadResult, setUploadResult] = useState(null)
-  const [bluebeamData, setBluebeamData] = useState(null) // Converted Bluebeam data for sheet
   const fileInputRef = useRef(null)
   const projectListRef = useRef(null)
 
@@ -344,10 +341,6 @@ export function EstimatingCenterScreen({ onSelectProject, onBack }) {
       const data = await res.json()
 
       if (res.ok && data.success) {
-        // Convert Bluebeam items to EstimatingSheet format
-        const sheetData = convertBluebeamToSheetData(data.items || [])
-        setBluebeamData(sheetData)
-
         setUploadResult({
           success: true,
           summary: data.summary,
@@ -376,84 +369,6 @@ export function EstimatingCenterScreen({ onSelectProject, onBack }) {
     } finally {
       setUploadingFile(false)
     }
-  }
-
-  // Convert Bluebeam items to EstimatingSheet data format
-  const convertBluebeamToSheetData = (items) => {
-    // MR Template item mappings (fuzzy match Bluebeam subjects to template IDs)
-    const mappings = {
-      // Roofing
-      'vapor barrier': 'MR-001VB',
-      'temp waterproofing': 'MR-001VB',
-      'pitch': 'MR-002PITCH',
-      'built-up': 'MR-003BU2PLY',
-      '2 ply': 'MR-003BU2PLY',
-      'irma': 'MR-006IRMA',
-      'up and over': 'MR-004UO',
-      'scupper': 'MR-005SCUPPER',
-      'gutter': 'MR-005SCUPPER',
-      'pmma': 'MR-007PMMA',
-      'drain': 'MR-010DRAIN',
-      'doorpan': 'MR-011DOORSTD',
-      'door pan': 'MR-011DOORSTD',
-      'hatch': 'MR-013HATCHSF',
-      'skylight': 'MR-013HATCHSF',
-      'fence post': 'MR-016FENCE',
-      'railing': 'MR-017RAIL',
-      'plumbing': 'MR-018PLUMB',
-      'mechanical': 'MR-019MECH',
-      'davit': 'MR-020DAVIT',
-      'ac unit': 'MR-021AC',
-      'dunnage': 'MR-021AC',
-      'coping': 'MR-022COPELO',
-      'gravel stop': 'MR-022COPELO',
-      'edge metal': 'MR-022COPELO',
-      'flashing': 'MR-025FLASHBLDG',
-      'counter': 'MR-025FLASHBLDG',
-      'overburden': 'MR-027OBIRMA',
-      'paver': 'MR-028PAVER',
-      'green roof': 'MR-030GREEN',
-      // Balconies
-      'traffic coating': 'MR-033TRAFFIC',
-      'drip edge': 'MR-034DRIP',
-      'l flashing': 'MR-035LFLASH',
-      'liquid l': 'MR-035LFLASH',
-      // Exterior
-      'brick': 'MR-037BRICKWP',
-      'panel': 'MR-040PANELWP',
-      'eifs': 'MR-043EIFS',
-      'stucco': 'MR-046STUCCO',
-      'drip cap': 'MR-047DRIPCAP',
-      'sill': 'MR-048SILL',
-      'tie-in': 'MR-049TIEIN',
-      'tie in': 'MR-049TIEIN',
-    }
-
-    const data = {}
-
-    for (const item of items) {
-      const nameLower = item.item_name?.toLowerCase() || ''
-
-      // Find matching template item
-      let matchedId = null
-      for (const [keyword, templateId] of Object.entries(mappings)) {
-        if (nameLower.includes(keyword)) {
-          matchedId = templateId
-          break
-        }
-      }
-
-      if (matchedId) {
-        // For now, put all quantity in column 0 (first location)
-        // Could be smarter based on item.spaces array
-        data[matchedId] = {
-          rate: item.rate || 0,
-          values: { 0: item.quantity || 0 }
-        }
-      }
-    }
-
-    return { data }
   }
 
   const handleChatSend = async () => {
@@ -754,20 +669,7 @@ export function EstimatingCenterScreen({ onSelectProject, onBack }) {
               </div>
             </div>
 
-            {/* Estimating Sheet - Full Screen Overlay (Legacy) */}
-            {showSheet && (
-              <div className="absolute inset-0 z-50 bg-background">
-                <EstimatingSheet
-                  projectId={selectedProject.project_id}
-                  projectName={selectedProject.project_name}
-                  gcName={selectedProject.gc_name}
-                  initialData={bluebeamData}
-                  onClose={() => setShowSheet(false)}
-                />
-              </div>
-            )}
-
-            {/* New GCS-based Takeoff Spreadsheet */}
+            {/* GCS-based Takeoff Spreadsheet */}
             {showTakeoffSheet && (
               <TakeoffSpreadsheet
                 projectId={selectedProject.project_id}
