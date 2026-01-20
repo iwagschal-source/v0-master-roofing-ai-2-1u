@@ -102,8 +102,11 @@ export function TakeoffSpreadsheet({
   const [columns, setColumns] = useState(DEFAULT_COLUMNS)
   const [columnHeaders, setColumnHeaders] = useState({})
   const [pendingChanges, setPendingChanges] = useState({})
-  const [rows, setRows] = useState([]) // Dynamic row list
-  const [maxRow, setMaxRow] = useState(100)
+  // Initialize with 75 rows by default
+  const [rows, setRows] = useState(Array.from({ length: 75 }, (_, i) => i + 1))
+  const [maxRow, setMaxRow] = useState(75)
+  const [columnWidths, setColumnWidths] = useState({}) // Track column widths
+  const [resizing, setResizing] = useState(null) // Track which column is being resized
 
   // Tabs state
   const [activeTab, setActiveTab] = useState('master')
@@ -334,6 +337,35 @@ export function TakeoffSpreadsheet({
     setSheetData(newData)
     setPendingChanges(newChanges)
   }
+
+  // Column resize handlers
+  const handleResizeStart = (col, e) => {
+    e.preventDefault()
+    setResizing({ col, startX: e.clientX, startWidth: columnWidths[col] || 120 })
+  }
+
+  const handleResizeMove = useCallback((e) => {
+    if (!resizing) return
+    const delta = e.clientX - resizing.startX
+    const newWidth = Math.max(60, resizing.startWidth + delta)
+    setColumnWidths(prev => ({ ...prev, [resizing.col]: newWidth }))
+  }, [resizing])
+
+  const handleResizeEnd = useCallback(() => {
+    setResizing(null)
+  }, [])
+
+  // Add resize event listeners
+  useEffect(() => {
+    if (resizing) {
+      document.addEventListener('mousemove', handleResizeMove)
+      document.addEventListener('mouseup', handleResizeEnd)
+      return () => {
+        document.removeEventListener('mousemove', handleResizeMove)
+        document.removeEventListener('mouseup', handleResizeEnd)
+      }
+    }
+  }, [resizing, handleResizeMove, handleResizeEnd])
 
   // Save changes
   const saveChanges = async () => {
@@ -678,41 +710,51 @@ export function TakeoffSpreadsheet({
               </button>
             </div>
 
-            {/* Spreadsheet table */}
-            <div className="border border-border rounded-lg overflow-hidden">
-              <table className="w-full text-sm">
-                <thead className="bg-muted sticky top-0">
+            {/* Spreadsheet table with horizontal scroll */}
+            <div className="border border-border rounded-lg overflow-x-auto overflow-y-auto max-h-[calc(100vh-300px)]">
+              <table className="text-sm" style={{ tableLayout: 'fixed', minWidth: '100%' }}>
+                <thead className="bg-muted sticky top-0 z-10">
                   <tr>
-                    <th className="border-r border-border px-2 py-2 text-left w-12">#</th>
+                    <th className="border-r border-border px-2 py-2 text-left" style={{ width: 50 }}>#</th>
                     {columns.map(col => (
-                      <th key={col} className="border-r border-border px-1 py-1 text-left min-w-[100px] group">
+                      <th
+                        key={col}
+                        className="border-r border-border px-1 py-1 text-left group relative"
+                        style={{ width: columnWidths[col] || 120 }}
+                      >
                         <div className="flex items-center gap-1">
                           <input
                             type="text"
                             value={columnHeaders[col] || col}
                             onChange={(e) => handleHeaderChange(col, e.target.value)}
-                            className="flex-1 px-2 py-1 bg-transparent border-0 focus:outline-none focus:ring-1 focus:ring-primary rounded text-sm font-semibold"
+                            className="flex-1 px-2 py-1 bg-transparent border-0 focus:outline-none focus:ring-1 focus:ring-primary rounded text-sm font-semibold min-w-0"
                             placeholder={col}
                           />
                           {col !== 'A' && col !== 'B' && (
                             <button
                               onClick={() => deleteColumn(col)}
-                              className="p-1 opacity-0 group-hover:opacity-100 hover:bg-red-500/20 rounded transition-opacity"
+                              className="p-1 opacity-0 group-hover:opacity-100 hover:bg-red-500/20 rounded transition-opacity flex-shrink-0"
                               title={`Delete column ${col}`}
                             >
                               <Trash2 className="w-3 h-3 text-red-500" />
                             </button>
                           )}
                         </div>
+                        {/* Resize handle */}
+                        <div
+                          onMouseDown={(e) => handleResizeStart(col, e)}
+                          className="absolute right-0 top-0 bottom-0 w-2 cursor-col-resize hover:bg-primary/30"
+                          style={{ cursor: 'col-resize' }}
+                        />
                       </th>
                     ))}
-                    <th className="px-2 py-2 w-10"></th>
+                    <th className="px-2 py-2" style={{ width: 40 }}></th>
                   </tr>
                 </thead>
                 <tbody>
                   {rows.map(rowNum => (
                     <tr key={rowNum} className="border-t border-border hover:bg-muted/30 group">
-                      <td className="border-r border-border px-2 py-1 text-muted-foreground text-xs">
+                      <td className="border-r border-border px-2 py-1 text-muted-foreground text-xs" style={{ width: 50 }}>
                         {rowNum}
                       </td>
                       {columns.map(col => {
@@ -726,6 +768,7 @@ export function TakeoffSpreadsheet({
                               "border-r border-border px-1 py-0.5",
                               isPending && "bg-yellow-500/10"
                             )}
+                            style={{ width: columnWidths[col] || 120 }}
                           >
                             <input
                               type="text"
@@ -736,7 +779,7 @@ export function TakeoffSpreadsheet({
                           </td>
                         )
                       })}
-                      <td className="px-1 py-0.5">
+                      <td className="px-1 py-0.5" style={{ width: 40 }}>
                         <button
                           onClick={() => deleteRow(rowNum)}
                           className="p-1 opacity-0 group-hover:opacity-100 hover:bg-red-500/20 rounded transition-opacity"
