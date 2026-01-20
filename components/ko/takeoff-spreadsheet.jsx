@@ -16,7 +16,9 @@ import {
   History,
   Plus,
   CheckCircle2,
-  XCircle
+  XCircle,
+  Trash2,
+  PlusCircle
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 
@@ -100,6 +102,8 @@ export function TakeoffSpreadsheet({
   const [columns, setColumns] = useState(DEFAULT_COLUMNS)
   const [columnHeaders, setColumnHeaders] = useState({})
   const [pendingChanges, setPendingChanges] = useState({})
+  const [rows, setRows] = useState([]) // Dynamic row list
+  const [maxRow, setMaxRow] = useState(100)
 
   // Tabs state
   const [activeTab, setActiveTab] = useState('master')
@@ -160,6 +164,7 @@ export function TakeoffSpreadsheet({
       if (celldata.length > 0) {
         const parsed = {}
         const detectedCols = new Set()
+        const detectedRows = new Set()
 
         for (const cell of celldata) {
           const rowNum = (cell.r || 0) + 1 // Convert 0-indexed to 1-indexed
@@ -178,6 +183,7 @@ export function TakeoffSpreadsheet({
 
           parsed[key] = value
           detectedCols.add(colLetter)
+          detectedRows.add(rowNum)
         }
 
         setSheetData(parsed)
@@ -189,6 +195,12 @@ export function TakeoffSpreadsheet({
           return a.localeCompare(b)
         })
         setColumns(sortedCols.length > 0 ? sortedCols : DEFAULT_COLUMNS)
+
+        // Set rows in order (1 to max detected row)
+        const maxDetectedRow = Math.max(...detectedRows, 75)
+        setMaxRow(maxDetectedRow)
+        const rowList = Array.from({ length: maxDetectedRow }, (_, i) => i + 1)
+        setRows(rowList)
 
         // Extract column headers from row 3
         const headers = {}
@@ -266,6 +278,61 @@ export function TakeoffSpreadsheet({
       ...prev,
       [key]: { row, col, value }
     }))
+  }
+
+  // Handle header edit (row 3)
+  const handleHeaderChange = (col, value) => {
+    setColumnHeaders(prev => ({ ...prev, [col]: value }))
+    handleCellChange(3, col, value)
+  }
+
+  // Add a new row at the end
+  const addRow = () => {
+    const newRowNum = maxRow + 1
+    setMaxRow(newRowNum)
+    setRows(prev => [...prev, newRowNum])
+  }
+
+  // Delete a row
+  const deleteRow = (rowNum) => {
+    if (rows.length <= 1) return // Don't delete last row
+    setRows(prev => prev.filter(r => r !== rowNum))
+    // Clear data for deleted row
+    const newData = { ...sheetData }
+    const newChanges = { ...pendingChanges }
+    columns.forEach(col => {
+      const key = `${col}${rowNum}`
+      delete newData[key]
+      newChanges[key] = { row: rowNum, col, value: null } // Mark as deleted
+    })
+    setSheetData(newData)
+    setPendingChanges(newChanges)
+  }
+
+  // Add a new column at the end
+  const addColumn = () => {
+    const lastCol = columns[columns.length - 1]
+    // Calculate next column letter
+    const nextCol = lastCol === 'Z' ? 'AA' :
+      lastCol.length === 1 ? String.fromCharCode(lastCol.charCodeAt(0) + 1) :
+      lastCol.slice(0, -1) + String.fromCharCode(lastCol.charCodeAt(lastCol.length - 1) + 1)
+    setColumns(prev => [...prev, nextCol])
+  }
+
+  // Delete a column
+  const deleteColumn = (col) => {
+    if (columns.length <= 2) return // Keep at least A and B
+    setColumns(prev => prev.filter(c => c !== col))
+    // Clear data for deleted column
+    const newData = { ...sheetData }
+    const newChanges = { ...pendingChanges }
+    rows.forEach(rowNum => {
+      const key = `${col}${rowNum}`
+      delete newData[key]
+      newChanges[key] = { row: rowNum, col, value: null } // Mark as deleted
+    })
+    setSheetData(newData)
+    setPendingChanges(newChanges)
   }
 
   // Save changes
@@ -593,6 +660,24 @@ export function TakeoffSpreadsheet({
       <div className="flex-1 overflow-auto">
         {activeTab === 'master' && !showComparison && (
           <div className="p-4">
+            {/* Add row/column buttons */}
+            <div className="flex items-center gap-2 mb-3">
+              <button
+                onClick={addRow}
+                className="flex items-center gap-1 px-3 py-1.5 bg-secondary hover:bg-secondary/80 rounded-lg text-sm"
+              >
+                <PlusCircle className="w-4 h-4" />
+                Add Row
+              </button>
+              <button
+                onClick={addColumn}
+                className="flex items-center gap-1 px-3 py-1.5 bg-secondary hover:bg-secondary/80 rounded-lg text-sm"
+              >
+                <PlusCircle className="w-4 h-4" />
+                Add Column
+              </button>
+            </div>
+
             {/* Spreadsheet table */}
             <div className="border border-border rounded-lg overflow-hidden">
               <table className="w-full text-sm">
@@ -600,22 +685,39 @@ export function TakeoffSpreadsheet({
                   <tr>
                     <th className="border-r border-border px-2 py-2 text-left w-12">#</th>
                     {columns.map(col => (
-                      <th key={col} className="border-r border-border px-3 py-2 text-left min-w-[100px]">
-                        {columnHeaders[col] || col}
+                      <th key={col} className="border-r border-border px-1 py-1 text-left min-w-[100px] group">
+                        <div className="flex items-center gap-1">
+                          <input
+                            type="text"
+                            value={columnHeaders[col] || col}
+                            onChange={(e) => handleHeaderChange(col, e.target.value)}
+                            className="flex-1 px-2 py-1 bg-transparent border-0 focus:outline-none focus:ring-1 focus:ring-primary rounded text-sm font-semibold"
+                            placeholder={col}
+                          />
+                          {col !== 'A' && col !== 'B' && (
+                            <button
+                              onClick={() => deleteColumn(col)}
+                              className="p-1 opacity-0 group-hover:opacity-100 hover:bg-red-500/20 rounded transition-opacity"
+                              title={`Delete column ${col}`}
+                            >
+                              <Trash2 className="w-3 h-3 text-red-500" />
+                            </button>
+                          )}
+                        </div>
                       </th>
                     ))}
+                    <th className="px-2 py-2 w-10"></th>
                   </tr>
                 </thead>
                 <tbody>
-                  {TEMPLATE_ROWS.filter(r => !r.isHeader).map(rowDef => (
-                    <tr key={rowDef.row} className="border-t border-border hover:bg-muted/30">
+                  {rows.map(rowNum => (
+                    <tr key={rowNum} className="border-t border-border hover:bg-muted/30 group">
                       <td className="border-r border-border px-2 py-1 text-muted-foreground text-xs">
-                        {rowDef.row}
+                        {rowNum}
                       </td>
                       {columns.map(col => {
-                        const value = getCellValue(rowDef.row, col)
-                        const isPending = hasPendingChange(rowDef.row, col)
-                        const isEditable = col !== 'A' && col !== 'B' // A=rate, B=item name
+                        const value = getCellValue(rowNum, col)
+                        const isPending = hasPendingChange(rowNum, col)
 
                         return (
                           <td
@@ -625,21 +727,24 @@ export function TakeoffSpreadsheet({
                               isPending && "bg-yellow-500/10"
                             )}
                           >
-                            {isEditable ? (
-                              <input
-                                type="text"
-                                value={value}
-                                onChange={(e) => handleCellChange(rowDef.row, col, e.target.value)}
-                                className="w-full px-2 py-1 bg-transparent border-0 focus:outline-none focus:ring-1 focus:ring-primary rounded text-sm"
-                              />
-                            ) : (
-                              <span className="px-2 py-1 block text-muted-foreground">
-                                {col === 'B' ? rowDef.label : value}
-                              </span>
-                            )}
+                            <input
+                              type="text"
+                              value={value}
+                              onChange={(e) => handleCellChange(rowNum, col, e.target.value)}
+                              className="w-full px-2 py-1 bg-transparent border-0 focus:outline-none focus:ring-1 focus:ring-primary rounded text-sm"
+                            />
                           </td>
                         )
                       })}
+                      <td className="px-1 py-0.5">
+                        <button
+                          onClick={() => deleteRow(rowNum)}
+                          className="p-1 opacity-0 group-hover:opacity-100 hover:bg-red-500/20 rounded transition-opacity"
+                          title={`Delete row ${rowNum}`}
+                        >
+                          <Trash2 className="w-3 h-3 text-red-500" />
+                        </button>
+                      </td>
                     </tr>
                   ))}
                 </tbody>
