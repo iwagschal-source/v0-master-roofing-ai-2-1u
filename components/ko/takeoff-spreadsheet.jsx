@@ -18,7 +18,8 @@ import {
   CheckCircle2,
   XCircle,
   Trash2,
-  PlusCircle
+  PlusCircle,
+  Settings
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 
@@ -88,7 +89,8 @@ export function TakeoffSpreadsheet({
   projectId,
   projectName,
   onClose,
-  onSave
+  onSave,
+  onEditSetup
 }) {
   // State
   const [loading, setLoading] = useState(true)
@@ -619,6 +621,16 @@ export function TakeoffSpreadsheet({
               <AlertCircle className="w-3 h-3" />
               {Object.keys(pendingChanges).length} unsaved
             </span>
+          )}
+
+          {onEditSetup && (
+            <button
+              onClick={onEditSetup}
+              className="flex items-center gap-2 px-3 py-2 bg-blue-600 text-white rounded-lg text-sm hover:bg-blue-700"
+            >
+              <Settings className="w-4 h-4" />
+              Edit Setup
+            </button>
           )}
 
           <button

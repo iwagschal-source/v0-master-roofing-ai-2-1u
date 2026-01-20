@@ -28,6 +28,7 @@ import {
 } from "lucide-react"
 import { GCBrief } from "./gc-brief"
 import { TakeoffSpreadsheet } from "./takeoff-spreadsheet"
+import { TakeoffSetupScreen } from "./takeoff-setup-screen"
 import { cn } from "@/lib/utils"
 
 // Mock data for development - will be replaced with API calls
@@ -130,6 +131,7 @@ export function EstimatingCenterScreen({ onSelectProject, onBack }) {
   const [showUploadModal, setShowUploadModal] = useState(false)
   const [showNewProjectModal, setShowNewProjectModal] = useState(false)
   const [showTakeoffSheet, setShowTakeoffSheet] = useState(false)
+  const [showTakeoffSetup, setShowTakeoffSetup] = useState(false)
   const [uploadingFile, setUploadingFile] = useState(false)
   const [uploadResult, setUploadResult] = useState(null)
   const fileInputRef = useRef(null)
@@ -649,11 +651,18 @@ export function EstimatingCenterScreen({ onSelectProject, onBack }) {
                   Upload Bluebeam
                 </button>
                 <button
+                  onClick={() => setShowTakeoffSetup(true)}
+                  className="flex items-center gap-2 px-3 py-2 bg-blue-600 text-white hover:bg-blue-700 rounded-lg text-sm transition-colors"
+                >
+                  <Calculator className="w-4 h-4" />
+                  Setup Takeoff
+                </button>
+                <button
                   onClick={() => setShowTakeoffSheet(true)}
                   className="flex items-center gap-2 px-3 py-2 bg-secondary hover:bg-secondary/80 rounded-lg text-sm transition-colors"
                 >
                   <FileSpreadsheet className="w-4 h-4" />
-                  Takeoff
+                  View Takeoff
                 </button>
                 <button
                   onClick={() => {
@@ -669,12 +678,30 @@ export function EstimatingCenterScreen({ onSelectProject, onBack }) {
               </div>
             </div>
 
+            {/* Takeoff Setup Wizard */}
+            {showTakeoffSetup && (
+              <TakeoffSetupScreen
+                projectId={selectedProject.project_id}
+                projectName={selectedProject.project_name}
+                gcName={selectedProject.gc_name}
+                onClose={() => setShowTakeoffSetup(false)}
+                onComplete={(config) => {
+                  setShowTakeoffSetup(false)
+                  setShowTakeoffSheet(true) // Open spreadsheet after setup
+                }}
+              />
+            )}
+
             {/* GCS-based Takeoff Spreadsheet */}
-            {showTakeoffSheet && (
+            {showTakeoffSheet && !showTakeoffSetup && (
               <TakeoffSpreadsheet
                 projectId={selectedProject.project_id}
                 projectName={selectedProject.project_name}
                 onClose={() => setShowTakeoffSheet(false)}
+                onEditSetup={() => {
+                  setShowTakeoffSheet(false)
+                  setShowTakeoffSetup(true)
+                }}
               />
             )}
 
