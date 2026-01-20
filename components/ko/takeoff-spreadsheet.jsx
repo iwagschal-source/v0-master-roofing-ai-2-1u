@@ -740,12 +740,13 @@ export function TakeoffSpreadsheet({
                             </button>
                           )}
                         </div>
-                        {/* Resize handle */}
+                        {/* Resize handle - wider hit area */}
                         <div
                           onMouseDown={(e) => handleResizeStart(col, e)}
-                          className="absolute right-0 top-0 bottom-0 w-2 cursor-col-resize hover:bg-primary/30"
-                          style={{ cursor: 'col-resize' }}
-                        />
+                          className="absolute right-0 top-0 bottom-0 w-4 cursor-col-resize hover:bg-primary/50 flex items-center justify-center group/resize"
+                        >
+                          <div className="w-0.5 h-4 bg-border group-hover/resize:bg-primary rounded" />
+                        </div>
                       </th>
                     ))}
                     <th className="px-2 py-2" style={{ width: 40 }}></th>
