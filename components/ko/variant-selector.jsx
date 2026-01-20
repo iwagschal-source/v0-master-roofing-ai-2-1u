@@ -176,8 +176,8 @@ export function VariantSelector({
 /**
  * Generate a unique key for a variant combination
  */
-export function getVariantKey(itemId, variant) {
-  const parts = [itemId]
+export function getVariantKey(scopeCode, variant) {
+  const parts = [scopeCode]
   if (variant?.r_value) parts.push(variant.r_value)
   if (variant?.size) parts.push(variant.size)
   if (variant?.type) parts.push(variant.type)

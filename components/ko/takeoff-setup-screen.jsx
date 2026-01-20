@@ -134,7 +134,6 @@ export function TakeoffSetupScreen({
         columns,
         selectedItems,
         rateOverrides,
-        gcId: gcName?.toLowerCase().replace(/\s+/g, '-'),
         gcName
       }
 
@@ -237,7 +236,7 @@ export function TakeoffSetupScreen({
     const rows = []
 
     for (const selected of selectedItems) {
-      const libraryItem = libraryItems.find(i => i.item_id === selected.item_id)
+      const libraryItem = libraryItems.find(i => i.scope_code === selected.scope_code)
       if (!libraryItem) continue
 
       const hasVariants = libraryItem.has_r_value || libraryItem.has_thickness || libraryItem.has_material_type
@@ -245,11 +244,11 @@ export function TakeoffSetupScreen({
       if (hasVariants && selected.variants?.length > 0) {
         // Add a row for each variant
         for (const variant of selected.variants) {
-          const key = getVariantKey(selected.item_id, variant)
+          const key = getVariantKey(selected.scope_code, variant)
           const displayName = getVariantDisplayName(libraryItem.scope_name, variant)
           rows.push({
             key,
-            item_id: selected.item_id,
+            scope_code: selected.scope_code,
             displayName,
             variant,
             libraryItem,
@@ -260,8 +259,8 @@ export function TakeoffSetupScreen({
       } else {
         // Simple item without variants
         rows.push({
-          key: selected.item_id,
-          item_id: selected.item_id,
+          key: selected.scope_code,
+          scope_code: selected.scope_code,
           displayName: libraryItem.scope_name,
           variant: null,
           libraryItem,

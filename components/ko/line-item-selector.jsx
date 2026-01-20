@@ -23,7 +23,7 @@ import { VariantSelector, VARIANT_OPTIONS } from "./variant-selector"
  * Props:
  * - items: Array of library items from /api/ko/takeoff/library
  * - sections: Object with items grouped by section
- * - selectedItems: Array of { item_id, variants?: [] } objects
+ * - selectedItems: Array of { scope_code, variants?: [] } objects
  * - onChange: Callback when selection changes
  * - gcName: Optional GC name (shows historical rates when available)
  * - loading: Loading state
@@ -47,7 +47,7 @@ export function LineItemSelector({
   const selectedMap = useMemo(() => {
     const map = {}
     for (const item of selectedItems) {
-      map[item.item_id] = item
+      map[item.scope_code] = item
     }
     return map
   }, [selectedItems])
@@ -62,7 +62,7 @@ export function LineItemSelector({
     for (const [section, sectionItems] of Object.entries(sections)) {
       const matchingItems = sectionItems.filter(item =>
         item.scope_name?.toLowerCase().includes(query) ||
-        item.item_id?.toLowerCase().includes(query) ||
+        item.scope_code?.toLowerCase().includes(query) ||
         item.notes?.toLowerCase().includes(query)
       )
       if (matchingItems.length > 0) {
@@ -109,7 +109,7 @@ export function LineItemSelector({
   // Toggle item selection
   const toggleItem = (item) => {
     const newSelected = [...selectedItems]
-    const idx = newSelected.findIndex(s => s.item_id === item.item_id)
+    const idx = newSelected.findIndex(s => s.scope_code === item.scope_code)
 
     if (idx >= 0) {
       // Remove item
@@ -117,16 +117,16 @@ export function LineItemSelector({
       // Collapse if expanded
       setExpandedItems(prev => {
         const next = new Set(prev)
-        next.delete(item.item_id)
+        next.delete(item.scope_code)
         return next
       })
     } else {
       // Add item
-      const newItem = { item_id: item.item_id }
+      const newItem = { scope_code: item.scope_code }
       if (hasVariants(item)) {
         newItem.variants = []
         // Auto-expand variants
-        setExpandedItems(prev => new Set([...prev, item.item_id]))
+        setExpandedItems(prev => new Set([...prev, item.scope_code]))
       }
       newSelected.push(newItem)
     }
@@ -137,7 +137,7 @@ export function LineItemSelector({
   // Update variants for an item
   const updateVariants = (itemId, variants) => {
     const newSelected = selectedItems.map(item => {
-      if (item.item_id === itemId) {
+      if (item.scope_code === itemId) {
         return { ...item, variants }
       }
       return item
@@ -149,8 +149,8 @@ export function LineItemSelector({
   const selectAllInSection = (sectionItems) => {
     const newSelected = [...selectedItems]
     for (const item of sectionItems) {
-      if (!isSelected(item.item_id)) {
-        const newItem = { item_id: item.item_id }
+      if (!isSelected(item.scope_code)) {
+        const newItem = { scope_code: item.scope_code }
         if (hasVariants(item)) {
           newItem.variants = []
         }
@@ -162,14 +162,14 @@ export function LineItemSelector({
 
   // Deselect all items in a section
   const deselectAllInSection = (sectionItems) => {
-    const itemIds = new Set(sectionItems.map(i => i.item_id))
-    const newSelected = selectedItems.filter(s => !itemIds.has(s.item_id))
+    const itemIds = new Set(sectionItems.map(i => i.scope_code))
+    const newSelected = selectedItems.filter(s => !itemIds.has(s.scope_code))
     onChange(newSelected)
   }
 
   // Count selected in section
   const countSelectedInSection = (sectionItems) => {
-    return sectionItems.filter(item => isSelected(item.item_id)).length
+    return sectionItems.filter(item => isSelected(item.scope_code)).length
   }
 
   // Format currency
@@ -285,12 +285,12 @@ export function LineItemSelector({
                 {isExpanded && (
                   <div className="divide-y divide-border">
                     {sectionItems.map(item => {
-                      const selected = isSelected(item.item_id)
-                      const itemExpanded = expandedItems.has(item.item_id) && selected
+                      const selected = isSelected(item.scope_code)
+                      const itemExpanded = expandedItems.has(item.scope_code) && selected
                       const showVariants = hasVariants(item)
 
                       return (
-                        <div key={item.item_id} className="bg-background">
+                        <div key={item.scope_code} className="bg-background">
                           {/* Item row */}
                           <div
                             onClick={() => toggleItem(item)}
@@ -315,7 +315,7 @@ export function LineItemSelector({
                                   {item.scope_name}
                                 </span>
                                 <span className="text-xs text-muted-foreground font-mono">
-                                  ({item.item_id})
+                                  ({item.scope_code})
                                 </span>
                                 {showVariants && (
                                   <span className="text-xs px-1.5 py-0.5 bg-blue-500/10 text-blue-500 rounded">
@@ -346,7 +346,7 @@ export function LineItemSelector({
                               <button
                                 onClick={(e) => {
                                   e.stopPropagation()
-                                  toggleItemExpansion(item.item_id)
+                                  toggleItemExpansion(item.scope_code)
                                 }}
                                 className="p-1 hover:bg-muted rounded"
                               >
@@ -364,11 +364,11 @@ export function LineItemSelector({
                             <div className="px-4 py-3 bg-muted/20 border-t border-border">
                               <VariantSelector
                                 item={item}
-                                variants={selectedMap[item.item_id]?.variants || []}
-                                onChange={(variants) => updateVariants(item.item_id, variants)}
+                                variants={selectedMap[item.scope_code]?.variants || []}
+                                onChange={(variants) => updateVariants(item.scope_code, variants)}
                                 variantOptions={variantOptions}
                               />
-                              {(selectedMap[item.item_id]?.variants || []).length === 0 && (
+                              {(selectedMap[item.scope_code]?.variants || []).length === 0 && (
                                 <p className="text-xs text-muted-foreground mt-2 ml-6">
                                   Add at least one variant to include this item in the takeoff
                                 </p>

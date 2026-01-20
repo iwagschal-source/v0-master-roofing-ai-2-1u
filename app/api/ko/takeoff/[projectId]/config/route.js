@@ -8,9 +8,9 @@
  * {
  *   columns: [{ id, name, mappings: ['FL-1', 'ROOF', ...] }],
  *   selectedItems: [
- *     { item_id: 'MR-VB' },  // Simple item
+ *     { scope_code: 'MR-VB' },  // Simple item
  *     {
- *       item_id: 'MR-INS-BATT',
+ *       scope_code: 'MR-INS-BATT',
  *       variants: [
  *         { r_value: 'R-19', size: '3.5"', type: 'Fiberglass' },
  *         { r_value: 'R-30', size: '6"', type: 'Fiberglass' }
@@ -18,7 +18,6 @@
  *     }
  *   ],
  *   rateOverrides: { 'MR-VB': 7.50, 'MR-INS-BATT|R-19|3.5"|Fiberglass': 2.75 },
- *   gcId: 'mjh-construction',
  *   gcName: 'MJH Construction'
  * }
  */
@@ -191,7 +190,6 @@ function getDefaultConfig() {
     ],
     selectedItems: [],
     rateOverrides: {},
-    gcId: null,
     gcName: null
   }
 }
@@ -225,8 +223,8 @@ function validateConfig(config) {
       return 'selectedItems must be an array'
     }
     for (const item of config.selectedItems) {
-      if (!item.item_id) {
-        return 'Each selectedItem must have item_id'
+      if (!item.scope_code) {
+        return 'Each selectedItem must have scope_code'
       }
       if (item.variants && !Array.isArray(item.variants)) {
         return 'Item variants must be an array'

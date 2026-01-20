@@ -29,8 +29,8 @@ const fetchWithSSL = async (url, options = {}) => {
  *
  * Body:
  * - columns: Array of { id, name, mappings }
- * - selectedItems: Array of { item_id, variants?: [] }
- * - rateOverrides: Object with item-specific rates
+ * - selectedItems: Array of { scope_code, variants?: [] }
+ * - rateOverrides: Object with scope_code-specific rates
  * - gcName: Optional GC name for rate lookup
  */
 export async function POST(request, { params }) {
@@ -130,7 +130,7 @@ async function generateLocally(projectId, config) {
 
     const libraryQuery = `
       SELECT
-        item_id,
+        item_id AS scope_code,
         section,
         scope_name,
         default_unit_cost,
@@ -148,7 +148,7 @@ async function generateLocally(projectId, config) {
   // Build item lookup map
   const itemMap = {}
   for (const item of libraryItems) {
-    itemMap[item.item_id] = item
+    itemMap[item.scope_code] = item
   }
 
   // Generate rows
@@ -156,8 +156,8 @@ async function generateLocally(projectId, config) {
   let rowNum = 4 // Start after header rows (1=title, 2=blank, 3=column headers)
 
   for (const selected of selectedItems) {
-    const libraryItem = itemMap[selected.item_id]
-    const baseName = libraryItem?.scope_name || selected.item_id
+    const libraryItem = itemMap[selected.scope_code]
+    const baseName = libraryItem?.scope_name || selected.scope_code
     const baseRate = libraryItem?.default_unit_cost || 0
     const uom = libraryItem?.uom || 'EA'
 
@@ -166,13 +166,13 @@ async function generateLocally(projectId, config) {
     if (hasVariants) {
       // Generate a row for each variant
       for (const variant of selected.variants) {
-        const variantKey = getVariantKey(selected.item_id, variant)
+        const variantKey = getVariantKey(selected.scope_code, variant)
         const displayName = getVariantDisplayName(baseName, variant)
         const rate = rateOverrides[variantKey] ?? baseRate
 
         rows.push({
           row: rowNum++,
-          item_id: selected.item_id,
+          scope_code: selected.scope_code,
           scope_name: displayName,
           rate,
           uom,
@@ -181,11 +181,11 @@ async function generateLocally(projectId, config) {
       }
     } else {
       // Simple item without variants
-      const rate = rateOverrides[selected.item_id] ?? baseRate
+      const rate = rateOverrides[selected.scope_code] ?? baseRate
 
       rows.push({
         row: rowNum++,
-        item_id: selected.item_id,
+        scope_code: selected.scope_code,
         scope_name: baseName,
         rate,
         uom,
@@ -274,8 +274,8 @@ async function generateLocally(projectId, config) {
 /**
  * Generate a unique key for a variant combination
  */
-function getVariantKey(itemId, variant) {
-  const parts = [itemId]
+function getVariantKey(scopeCode, variant) {
+  const parts = [scopeCode]
   if (variant?.r_value) parts.push(variant.r_value)
   if (variant?.size) parts.push(variant.size)
   if (variant?.type) parts.push(variant.type)
