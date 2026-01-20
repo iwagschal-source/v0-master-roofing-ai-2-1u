@@ -7,7 +7,7 @@
 import { NextResponse } from 'next/server'
 import https from 'https'
 
-const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'https://136.111.252.120'
+const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'https://34.95.128.208'
 
 // Custom fetch that ignores SSL cert errors (for self-signed backend cert)
 const fetchWithSSL = async (url, options = {}) => {
