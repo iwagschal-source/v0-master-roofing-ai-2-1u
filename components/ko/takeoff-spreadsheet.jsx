@@ -341,6 +341,7 @@ export function TakeoffSpreadsheet({
   // Column resize handlers
   const handleResizeStart = (col, e) => {
     e.preventDefault()
+    e.stopPropagation() // Prevent input focus
     setResizing({ col, startX: e.clientX, startWidth: columnWidths[col] || 120 })
   }
 
@@ -355,12 +356,16 @@ export function TakeoffSpreadsheet({
     setResizing(null)
   }, [])
 
-  // Add resize event listeners
+  // Add resize event listeners and cursor style during resize
   useEffect(() => {
     if (resizing) {
+      document.body.style.cursor = 'col-resize'
+      document.body.style.userSelect = 'none'
       document.addEventListener('mousemove', handleResizeMove)
       document.addEventListener('mouseup', handleResizeEnd)
       return () => {
+        document.body.style.cursor = ''
+        document.body.style.userSelect = ''
         document.removeEventListener('mousemove', handleResizeMove)
         document.removeEventListener('mouseup', handleResizeEnd)
       }
@@ -719,10 +724,10 @@ export function TakeoffSpreadsheet({
                     {columns.map(col => (
                       <th
                         key={col}
-                        className="border-r border-border px-1 py-1 text-left group relative"
-                        style={{ width: columnWidths[col] || 120 }}
+                        className="border-r border-border px-1 py-1 text-left group relative select-none"
+                        style={{ width: columnWidths[col] || 120, minWidth: 60, maxWidth: 400 }}
                       >
-                        <div className="flex items-center gap-1">
+                        <div className="flex items-center gap-1 pr-4">
                           <input
                             type="text"
                             value={columnHeaders[col] || col}
@@ -740,12 +745,13 @@ export function TakeoffSpreadsheet({
                             </button>
                           )}
                         </div>
-                        {/* Resize handle - wider hit area */}
+                        {/* Resize handle - wider hit area with z-index to be above content */}
                         <div
                           onMouseDown={(e) => handleResizeStart(col, e)}
-                          className="absolute right-0 top-0 bottom-0 w-4 cursor-col-resize hover:bg-primary/50 flex items-center justify-center group/resize"
+                          className="absolute right-0 top-0 bottom-0 w-4 cursor-col-resize hover:bg-primary/30 z-10 flex items-center justify-center"
+                          style={{ cursor: 'col-resize' }}
                         >
-                          <div className="w-0.5 h-4 bg-border group-hover/resize:bg-primary rounded" />
+                          <div className="w-0.5 h-full bg-border hover:bg-primary transition-colors" />
                         </div>
                       </th>
                     ))}
@@ -769,7 +775,7 @@ export function TakeoffSpreadsheet({
                               "border-r border-border px-1 py-0.5",
                               isPending && "bg-yellow-500/10"
                             )}
-                            style={{ width: columnWidths[col] || 120 }}
+                            style={{ width: columnWidths[col] || 120, minWidth: 60, maxWidth: 400 }}
                           >
                             <input
                               type="text"

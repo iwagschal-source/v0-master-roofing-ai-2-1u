@@ -16,12 +16,7 @@ import { SettingsScreen } from "@/components/ko/settings-screen"
 import { ZoomScreen } from "@/components/ko/zoom-screen"
 import { ModelArenaDashboard } from "@/components/ko/model-arena-dashboard"
 import { MobileMenuToggle } from "@/components/ko/mobile-menu-toggle"
-import { HistoryItem } from "@/types/history"
 import { ChatShell } from "@/components/ko/chat-shell"
-import { HistoryScreen } from "@/components/ko/history-screen"
-import { ProjectsScreen } from "@/components/ko/projects-screen"
-import { ProjectDetailScreen } from "@/components/ko/project-detail-screen"
-import { ProposalPreviewScreen } from "@/components/ko/proposal-preview-screen"
 import { ChatScreen } from "@/components/ko/chat-screen"
 import { AsanaScreen } from "@/components/ko/asana-screen"
 import { WhatsAppScreen } from "@/components/ko/whatsapp-screen"
@@ -55,16 +50,11 @@ export default function HomePage() {
 
   const [hasStartedChat, setHasStartedChat] = useState(false)
   const [activeMode, setActiveMode] = useState("home")
-  const [showHistory, setShowHistory] = useState(false)
   const [showFiles, setShowFiles] = useState(false)
   const [showEmail, setShowEmail] = useState(false)
   const [showSettings, setShowSettings] = useState(false)
   const [showZoom, setShowZoom] = useState(false)
   const [showArena, setShowArena] = useState(false)
-  const [showProjects, setShowProjects] = useState(false)
-  const [selectedProject, setSelectedProject] = useState(null)
-  const [showProposal, setShowProposal] = useState(false)
-  const [proposalTakeoffData, setProposalTakeoffData] = useState(null)
   const [showMessages, setShowMessages] = useState(false)
   const [showAsana, setShowAsana] = useState(false)
   const [showWhatsApp, setShowWhatsApp] = useState(false)
@@ -105,35 +95,9 @@ export default function HomePage() {
     fetchAgents()
   }, [])
 
-  const [historyItems] = useState([
-    {
-      id: "q3-2025-report",
-      type: "pdf",
-      label: "Q3-2025-Report",
-      source: "Vertex AI",
-      content: "Q3 2025 Sales Report\n\nExecutive Summary:\nThis quarter showed strong performance across all metrics.\n\nWin Rate: 18% (up from 15% in Q2)\nTotal Deals Closed: 47\nAverage Deal Size: $125,000\n\nKey Insights:\n- Enterprise segment grew 22%\n- Customer retention at 94%\n- Pipeline value increased to $5.2M",
-      preview: "Q3 2025 sales performance showing 18% win rate and 47 closed deals.",
-      timestamp: new Date(Date.now() - 86400000),
-    },
-    {
-      id: "pipeline-chart-nov",
-      type: "chart",
-      label: "Pipeline-Chart-November",
-      source: "Vertex AI",
-      content: "Sales Pipeline Data - November 2025\n\nStage breakdown:\nProspecting: $2.1M\nQualification: $1.5M\nProposal: $980K\nNegotiation: $620K",
-      preview: "November pipeline analysis with stage-by-stage breakdown.",
-      timestamp: new Date(Date.now() - 172800000),
-    },
-  ])
-
   const [chatContext, setChatContext] = useState(null)
 
   const isWorkspaceVisible = selectedHistoryItem !== undefined || selectedSource !== null
-
-  const handleSelectHistoryItem = (item) => {
-    setSelectedHistoryItem(item)
-    handleStartChat("chat")
-  }
 
   const handleCloseViewer = () => {
     setSelectedHistoryItem(undefined)
@@ -170,7 +134,6 @@ export default function HomePage() {
   const handleStartChat = (mode) => {
     setHasStartedChat(true)
     setActiveMode(mode)
-    setShowHistory(false)
     setShowFiles(false)
     setShowEmail(false)
     setShowSettings(false)
@@ -190,8 +153,6 @@ export default function HomePage() {
       setShowSettings(false)
       setShowZoom(false)
       setShowArena(false)
-      setShowHistory(false)
-      setShowProjects(false)
       setShowMessages(false)
       setShowAsana(false)
       setShowWhatsApp(false)
@@ -203,8 +164,6 @@ export default function HomePage() {
       setShowAgentNetwork(false)
       setShowAddAgent(false)
       setAgentToClone(null)
-      setSelectedProject(null)
-      setShowProposal(false)
       setSelectedHistoryItem(undefined)
     } else if (mode === "estimating") {
       setShowEstimating(true)
@@ -213,23 +172,18 @@ export default function HomePage() {
       setShowSettings(false)
       setShowZoom(false)
       setShowArena(false)
-      setShowHistory(false)
-      setShowProjects(false)
       setShowMessages(false)
       setShowAsana(false)
       setShowWhatsApp(false)
       setShowAgents(false)
       setShowUserAdmin(false)
       setShowSales(false)
-      setSelectedProject(null)
     } else if (mode === "arena") {
       setShowArena(true)
       setShowFiles(false)
       setShowEmail(false)
       setShowSettings(false)
       setShowZoom(false)
-      setShowHistory(false)
-      setShowProjects(false)
       setShowAgents(false)
       setHasStartedChat(true)
     } else if (mode === "email") {
@@ -238,67 +192,34 @@ export default function HomePage() {
       setShowSettings(false)
       setShowZoom(false)
       setShowArena(false)
-      setShowProjects(false)
       setShowAgents(false)
       setHasStartedChat(true)
-      setShowHistory(false)
     } else if (mode === "documents") {
       setShowFiles(true)
       setShowEmail(false)
       setShowSettings(false)
       setShowZoom(false)
       setShowArena(false)
-      setShowProjects(false)
       setShowAgents(false)
       setHasStartedChat(true)
-      setShowHistory(false)
     } else if (mode === "settings") {
       setShowSettings(true)
       setShowFiles(false)
       setShowEmail(false)
       setShowZoom(false)
       setShowArena(false)
-      setShowProjects(false)
       setShowAgents(false)
       setHasStartedChat(true)
-      setShowHistory(false)
     } else if (mode === "zoom") {
       setShowZoom(true)
       setShowFiles(false)
       setShowEmail(false)
       setShowSettings(false)
       setShowArena(false)
-      setShowProjects(false)
-      setShowAgents(false)
-      setHasStartedChat(true)
-      setShowHistory(false)
-    } else if (mode === "history") {
-      setShowHistory(true)
-      setShowFiles(false)
-      setShowEmail(false)
-      setShowSettings(false)
-      setShowZoom(false)
-      setShowArena(false)
-      setShowProjects(false)
-      setShowAgents(false)
-      setHasStartedChat(true)
-    } else if (mode === "projects") {
-      setShowProjects(true)
-      setSelectedProject(null)
-      setShowProposal(false)
-      setShowHistory(false)
-      setShowFiles(false)
-      setShowEmail(false)
-      setShowSettings(false)
-      setShowZoom(false)
-      setShowArena(false)
-      setShowMessages(false)
       setShowAgents(false)
       setHasStartedChat(true)
     } else if (mode === "messages") {
       setShowMessages(true)
-      setShowProjects(false)
-      setShowHistory(false)
       setShowFiles(false)
       setShowEmail(false)
       setShowSettings(false)
@@ -311,8 +232,6 @@ export default function HomePage() {
       setShowAsana(true)
       setShowWhatsApp(false)
       setShowMessages(false)
-      setShowProjects(false)
-      setShowHistory(false)
       setShowFiles(false)
       setShowEmail(false)
       setShowSettings(false)
@@ -324,8 +243,6 @@ export default function HomePage() {
       setShowWhatsApp(true)
       setShowAsana(false)
       setShowMessages(false)
-      setShowProjects(false)
-      setShowHistory(false)
       setShowFiles(false)
       setShowEmail(false)
       setShowSettings(false)
@@ -343,8 +260,6 @@ export default function HomePage() {
       setAgentToClone(null)
       setShowAsana(false)
       setShowMessages(false)
-      setShowProjects(false)
-      setShowHistory(false)
       setShowFiles(false)
       setShowEmail(false)
       setShowSettings(false)
@@ -357,8 +272,6 @@ export default function HomePage() {
       setShowAgents(false)
       setShowAsana(false)
       setShowMessages(false)
-      setShowProjects(false)
-      setShowHistory(false)
       setShowFiles(false)
       setShowEmail(false)
       setShowSettings(false)
@@ -372,8 +285,6 @@ export default function HomePage() {
       setShowAgents(false)
       setShowAsana(false)
       setShowMessages(false)
-      setShowProjects(false)
-      setShowHistory(false)
       setShowFiles(false)
       setShowEmail(false)
       setShowSettings(false)
@@ -387,7 +298,6 @@ export default function HomePage() {
       setShowSettings(false)
       setShowZoom(false)
       setShowArena(false)
-      setShowProjects(false)
       setShowAgents(false)
       if (!hasStartedChat) {
         setHasStartedChat(true)
@@ -413,8 +323,6 @@ export default function HomePage() {
     setShowSettings(false)
     setShowZoom(false)
     setShowArena(false)
-    setShowHistory(false)
-    setShowProjects(false)
     setShowMessages(false)
     setShowAsana(false)
     setShowWhatsApp(false)
@@ -433,7 +341,7 @@ export default function HomePage() {
   return (
     <div className="flex h-dvh bg-background text-foreground">
       {/* Mini KO Chat - floating on all screens except main chat and project detail (which has its own chat) */}
-      {!showHomeScreen && activeMode !== "chat" && !showHistory && !selectedProject && (
+      {!showHomeScreen && activeMode !== "chat" && (
         <MiniKOChat onMaximize={handleGoToKO} />
       )}
       {isMobileMenuOpen && (
@@ -446,7 +354,7 @@ export default function HomePage() {
       <div className={`${isMobileMenuOpen ? "fixed left-0 top-0 bottom-0 z-50" : "hidden"} md:block`}>
         <NavigationRail
           activeMode={
-            showEmail ? "email" : showFiles ? "documents" : showSettings ? "settings" : showZoom ? "zoom" : showArena ? "arena" : showHistory ? "history" : showProjects ? "projects" : showMessages ? "messages" : showAsana ? "asana" : showWhatsApp ? "whatsapp" : showAgents ? "agents" : showUserAdmin ? "admin" : showSales ? "sales" : showEstimating ? "estimating" : activeMode
+            showEmail ? "email" : showFiles ? "documents" : showSettings ? "settings" : showZoom ? "zoom" : showArena ? "arena" : showMessages ? "messages" : showAsana ? "asana" : showWhatsApp ? "whatsapp" : showAgents ? "agents" : showUserAdmin ? "admin" : showSales ? "sales" : showEstimating ? "estimating" : activeMode
           }
           onModeChange={handleModeChange}
           visible={true}
@@ -462,13 +370,7 @@ export default function HomePage() {
         </div>
 
         {
-          showHistory ? (
-            <HistoryScreen
-              historyItems={historyItems}
-              onSelectHistoryItem={handleSelectHistoryItem}
-              selectedHistoryId={selectedHistoryItem?.id}
-            />
-          ) : showFiles ? (
+          showFiles ? (
             <DocumentsScreen onBack={() => setShowFiles(false)} />
           ) : showEmail ? (
             <EmailScreen />
@@ -538,32 +440,6 @@ export default function HomePage() {
             <EstimatingCenterScreen
               onBack={() => setShowEstimating(false)}
             />
-          ) : showProjects ? (
-            showProposal && selectedProject ? (
-              <ProposalPreviewScreen
-                project={selectedProject}
-                takeoffData={proposalTakeoffData}
-                onBack={() => {
-                  setShowProposal(false)
-                  setProposalTakeoffData(null)
-                }}
-              />
-            ) : selectedProject ? (
-              <ProjectDetailScreen
-                project={selectedProject}
-                onBack={() => setSelectedProject(null)}
-                onPreviewProposal={(project, takeoffData = null) => {
-                  setSelectedProject(project)
-                  setProposalTakeoffData(takeoffData)
-                  setShowProposal(true)
-                }}
-              />
-            ) : (
-              <ProjectsScreen
-                onSelectProject={(project) => setSelectedProject(project)}
-                onBack={() => setShowProjects(false)}
-              />
-            )
           ) : (
             <div className="flex-1 flex flex-col md:flex-row overflow-hidden">
               <div className={`flex-1 ${isWorkspaceVisible ? 'md:w-[40%]' : ''} flex flex-col`}>

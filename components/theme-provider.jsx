@@ -13,8 +13,8 @@ const ThemeContext = createContext(undefined)
  * @param {{children:any}} props
  */
 export function ThemeProvider({ children }) {
-  const [theme, setThemeState] = useState("dark")
-  const [resolvedTheme, setResolvedTheme] = useState("dark")
+  const [theme, setThemeState] = useState("light")
+  const [resolvedTheme, setResolvedTheme] = useState("light")
 
   // Initialize theme from localStorage on mount
   useEffect(() => {
@@ -26,7 +26,7 @@ export function ThemeProvider({ children }) {
 
   // Update resolved theme and document class when theme changes
   useEffect(() => {
-    let resolved = "dark"
+    let resolved = "light"
 
     if (theme === "system") {
       resolved = window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light"
