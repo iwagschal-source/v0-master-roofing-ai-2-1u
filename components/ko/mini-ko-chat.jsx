@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect, useCallback } from "react"
 import { Bot, ChevronDown, ChevronUp, Send, Loader2, X, Maximize2, Bell, BellOff, Sparkles } from "lucide-react"
-import { useWebSocketChat } from "@/hooks/useWebSocketChat"
+import { useWebSocketChat } from "@/hooks/useKOPrimeChat"
 import { PhaseTracker } from "./phase-tracker"
 
 // Proactive message types

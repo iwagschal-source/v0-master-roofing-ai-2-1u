@@ -27,7 +27,8 @@ export async function POST(request) {
       )
     }
 
-    const res = await fetch(`${BACKEND_URL}/v1/ko-prime/chat`, {
+    // Use standard agent chat endpoint for KO Prime
+    const res = await fetch(`${BACKEND_URL}/v1/agents/CAO-PRIME-001/chat`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
