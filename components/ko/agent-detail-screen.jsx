@@ -1979,7 +1979,7 @@ function ChatTab({ agent }) {
 
         // Handle KO Prime response format
         if (isKOPrime) {
-          responseContent = data.response || "No response"
+          responseContent = data.result?.response || data.response || "No response"
           toolsUsed = data.tools_used || []
 
           // Update conversation history for context
