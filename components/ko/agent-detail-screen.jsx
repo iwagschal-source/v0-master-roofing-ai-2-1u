@@ -37,6 +37,7 @@ import {
   X,
   File,
   Image as ImageIcon,
+  RefreshCw,
 } from "lucide-react"
 import { statusConfig, agents, getAgentById } from "@/data/agent-data"
 import { AgentModelIcon, StatusDot, QueueIndicator } from "./agent-model-icon"
