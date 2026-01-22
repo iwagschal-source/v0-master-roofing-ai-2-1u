@@ -42,7 +42,7 @@ import {
 import { statusConfig, agents, getAgentById } from "@/data/agent-data"
 import { AgentModelIcon, StatusDot, QueueIndicator } from "./agent-model-icon"
 
-export function AgentDetailScreen({ agent, onBack, onClone, onOpenNetwork }) {
+export function AgentDetailScreen({ agent, onBack, onClone, onOpenNetwork, projectId = null }) {
   const [activeTab, setActiveTab] = useState("overview")
   const [agentConfig, setAgentConfig] = useState(null)
   const [loading, setLoading] = useState(false)
@@ -272,7 +272,7 @@ export function AgentDetailScreen({ agent, onBack, onClone, onOpenNetwork }) {
       {/* Tab content */}
       <main className="flex-1 overflow-auto p-6">
         {activeTab === "overview" && <OverviewTab agent={agent} />}
-        {activeTab === "chat" && <ChatTab agent={agent} />}
+        {activeTab === "chat" && <ChatTab agent={agent} projectId={projectId} />}
         {activeTab === "readme" && <ReadmeTab agent={agent} agentConfig={agentConfig} setAgentConfig={setAgentConfig} />}
         {activeTab === "code" && <CodeTab agent={agent} />}
         {activeTab === "permissions" && <PermissionsTab agent={agent} />}
@@ -1905,7 +1905,7 @@ function LogsTab({ agent }) {
   )
 }
 
-function ChatTab({ agent }) {
+function ChatTab({ agent, projectId = null }) {
   const [messages, setMessages] = useState([])
   const [input, setInput] = useState("")
   const [loading, setLoading] = useState(false)
@@ -2008,7 +2008,7 @@ function ChatTab({ agent }) {
 
       const body = isKOPrime
         ? { message: messageContent, conversation_history: conversationHistory }
-        : { message: messageContent }
+        : { message: messageContent, project_ids: projectId ? [projectId] : null }
 
       const res = await fetch(endpoint, {
         method: 'POST',
