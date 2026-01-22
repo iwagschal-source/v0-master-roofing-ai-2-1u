@@ -1,76 +1,33 @@
 /**
  * Takeoff API - Get/Update takeoff for a project
  *
- * Proxies to backend takeoff service for GCS-based spreadsheet storage.
+ * Uses Google Sheets for takeoff storage (embedded in Truth Source spreadsheet).
  */
 
 import { NextResponse } from 'next/server'
-import https from 'https'
-import { runQuery } from '@/lib/bigquery'
-
-const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'https://136.111.252.120'
-const BQ_PROJECT = 'master-roofing-intelligence'
-const BQ_DATASET = 'ko_estimating'
-
-// Custom fetch that ignores SSL cert errors (for self-signed backend cert)
-const fetchWithSSL = async (url, options = {}) => {
-  const agent = new https.Agent({ rejectUnauthorized: false })
-  return fetch(url, { ...options, agent })
-}
+import { getTakeoffTab } from '@/lib/google-sheets'
 
 /**
  * GET /api/ko/takeoff/[projectId]
- * Get takeoff sheet for a project
+ * Get takeoff sheet info for a project
  *
  * Query params:
- * - format: 'excel' | 'json' (default: json for Luckysheet)
+ * - format: 'sheet' (returns Google Sheet embed info)
  */
 export async function GET(request, { params }) {
   try {
     const { projectId } = await params
     const { searchParams } = new URL(request.url)
-    const format = searchParams.get('format') || 'json'
+    const format = searchParams.get('format') || 'sheet'
 
-    // Try backend first
-    try {
-      const backendRes = await fetchWithSSL(
-        `${BACKEND_URL}/v1/takeoff/${projectId}?format=${format}`,
-        {
-          method: 'GET',
-          headers: { 'Accept': format === 'excel' ? 'application/octet-stream' : 'application/json' },
-          signal: AbortSignal.timeout(10000)
-        }
-      )
+    // Get Google Sheet tab info
+    const sheetInfo = await getTakeoffTab(projectId)
 
-      if (backendRes.ok) {
-        if (format === 'excel') {
-          const blob = await backendRes.blob()
-          return new NextResponse(blob, {
-            status: 200,
-            headers: {
-              'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-              'Content-Disposition': `attachment; filename="${projectId}_takeoff.xlsx"`,
-            },
-          })
-        }
-        const data = await backendRes.json()
-        return NextResponse.json(data)
-      }
-
-      // If not 404, it's a real error
-      if (backendRes.status !== 404) {
-        console.warn('Backend takeoff error:', await backendRes.text())
-      }
-    } catch (backendErr) {
-      console.warn('Backend unreachable, trying BigQuery:', backendErr.message)
-    }
-
-    // Fallback: Load from BigQuery
-    const bqData = await loadTakeoffFromBigQuery(projectId)
-    if (bqData) {
+    if (sheetInfo) {
       return NextResponse.json({
-        sheet_data: bqData,
-        storage: 'bigquery'
+        ...sheetInfo,
+        exists: true,
+        storage: 'google_sheets'
       })
     }
 
