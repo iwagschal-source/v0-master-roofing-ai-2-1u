@@ -23,67 +23,143 @@ import {
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 
-// Master Roofing Official Takeoff Template - aligned with lib_takeoff_template in BigQuery
-// IDs match mr_agent.lib_takeoff_template item_id format (MR-xxxYYY)
-const TEMPLATE_ROWS = [
-  { row: 3, label: 'Headers', code: 'HEADER', section: 'header', isHeader: true },
-  // ROOFING SECTION
-  { row: 4, label: 'Vapor Barrier', code: 'MR-001VB', section: 'roofing', uom: 'SF', rate: 6.95 },
-  { row: 5, label: 'Pitch Upcharge', code: 'MR-002PITCH', section: 'roofing', uom: 'SF', rate: 1.5 },
-  { row: 6, label: 'Roofing - 2 Ply', code: 'MR-003BU2PLY', section: 'roofing', uom: 'SF', rate: 16.25, hasSystem: true },
-  { row: 7, label: 'Up and Over', code: 'MR-004UO', section: 'roofing', uom: 'LF', rate: 12.0 },
-  { row: 8, label: 'Scupper/Leader', code: 'MR-005SCUPPER', section: 'roofing', uom: 'EA', rate: 2500.0 },
-  { row: 10, label: 'Roofing - IRMA', code: 'MR-006IRMA', section: 'roofing', uom: 'SF', hasSystem: true, hasRValue: true },
-  { row: 11, label: 'PMMA @ Building', code: 'MR-007PMMA', section: 'roofing', uom: 'LF', hasSystem: true },
-  { row: 12, label: 'PMMA @ Parapet', code: 'MR-008PMMA', section: 'roofing', uom: 'LF', hasSystem: true },
-  { row: 15, label: 'Drains', code: 'MR-010DRAIN', section: 'roofing', uom: 'EA', rate: 550.0 },
-  { row: 16, label: 'Doorpans - Std', code: 'MR-011DOORSTD', section: 'roofing', uom: 'EA', rate: 550.0 },
-  { row: 17, label: 'Doorpans - Large', code: 'MR-012DOORLG', section: 'roofing', uom: 'EA', rate: 850.0 },
-  { row: 19, label: 'Hatch/Skylight (SF)', code: 'MR-013HATCHSF', section: 'roofing', uom: 'SF' },
-  { row: 20, label: 'Hatch/Skylight (LF)', code: 'MR-014HATCHLF', section: 'roofing', uom: 'LF', rate: 48.0 },
-  { row: 21, label: 'Mech Pads', code: 'MR-015PAD', section: 'roofing', uom: 'SF' },
-  { row: 22, label: 'Fence Posts', code: 'MR-016FENCE', section: 'roofing', uom: 'EA', rate: 250.0 },
-  { row: 23, label: 'Railing Posts', code: 'MR-017RAIL', section: 'roofing', uom: 'EA', rate: 250.0 },
-  { row: 24, label: 'Plumbing Pen.', code: 'MR-018PLUMB', section: 'roofing', uom: 'EA', rate: 250.0 },
-  { row: 25, label: 'Mechanical Pen.', code: 'MR-019MECH', section: 'roofing', uom: 'EA', rate: 250.0 },
-  { row: 26, label: 'Davits', code: 'MR-020DAVIT', section: 'roofing', uom: 'EA', rate: 150.0 },
-  { row: 27, label: 'AC Units/Dunnage', code: 'MR-021AC', section: 'roofing', uom: 'EA', rate: 550.0 },
-  { row: 29, label: 'Coping (Low)', code: 'MR-022COPELO', section: 'roofing', uom: 'LF', rate: 32.0, hasSystem: true },
-  { row: 30, label: 'Coping (High)', code: 'MR-023COPEHI', section: 'roofing', uom: 'LF', rate: 32.0, hasSystem: true },
-  { row: 31, label: 'Insul. Coping', code: 'MR-024INSUCOPE', section: 'roofing', uom: 'LF', rate: 4.0, hasRValue: true },
-  { row: 33, label: 'Flash @ Building', code: 'MR-025FLASHBLDG', section: 'roofing', uom: 'LF', rate: 24.0 },
-  { row: 34, label: 'Flash @ Parapet', code: 'MR-026FLASHPAR', section: 'roofing', uom: 'LF', rate: 24.0 },
-  { row: 36, label: 'Overburden IRMA', code: 'MR-027OBIRMA', section: 'roofing', uom: 'SF', rate: 14.0 },
-  { row: 37, label: 'Pavers', code: 'MR-028PAVER', section: 'roofing', uom: 'SF', hasSystem: true },
-  { row: 38, label: 'Edge @ Pavers', code: 'MR-029FLASHPAV', section: 'roofing', uom: 'LF', rate: 24.0 },
-  { row: 40, label: 'Green Roof', code: 'MR-030GREEN', section: 'roofing', uom: 'SF', rate: 48.0 },
-  { row: 41, label: 'Edge @ Green', code: 'MR-031FLASHGRN', section: 'roofing', uom: 'LF', rate: 24.0 },
-  { row: 43, label: 'Recessed Floor WP', code: 'MR-032RECESSWP', section: 'roofing', uom: 'SF', rate: 32.0 },
-  // BALCONIES SECTION
-  { row: 46, label: 'Traffic Coating', code: 'MR-033TRAFFIC', section: 'balcony', uom: 'SF', rate: 17.0 },
-  { row: 47, label: 'Alum. Drip Edge', code: 'MR-034DRIP', section: 'balcony', uom: 'LF', rate: 22.0 },
-  { row: 48, label: 'Liquid L Flash', code: 'MR-035LFLASH', section: 'balcony', uom: 'LF', rate: 48.0 },
-  { row: 50, label: 'Doorpans - Balc.', code: 'MR-036DOORBAL', section: 'balcony', uom: 'EA', rate: 550.0 },
-  // EXTERIOR SECTION
-  { row: 55, label: 'Brick WP', code: 'MR-037BRICKWP', section: 'exterior', uom: 'SF', rate: 5.25 },
-  { row: 56, label: 'Open Brick (EA)', code: 'MR-038OPNBRKEA', section: 'exterior', uom: 'EA', rate: 250.0 },
-  { row: 57, label: 'Open Brick (LF)', code: 'MR-039OPNBRKLF', section: 'exterior', uom: 'LF', rate: 10.0 },
-  { row: 59, label: 'Panel WP', code: 'MR-040PANELWP', section: 'exterior', uom: 'SF', rate: 5.25 },
-  { row: 60, label: 'Open Panel (EA)', code: 'MR-041OPNPNLEA', section: 'exterior', uom: 'EA', rate: 250.0 },
-  { row: 61, label: 'Open Panel (LF)', code: 'MR-042OPNPNLLF', section: 'exterior', uom: 'LF', rate: 10.0 },
-  { row: 63, label: 'EIFS', code: 'MR-043EIFS', section: 'exterior', uom: 'SF', hasSystem: true, hasRValue: true, hasThickness: true },
-  { row: 64, label: 'Open Stucco (EA)', code: 'MR-044OPNSTCEA', section: 'exterior', uom: 'EA', rate: 250.0 },
-  { row: 65, label: 'Open Stucco (LF)', code: 'MR-045OPNSTCLF', section: 'exterior', uom: 'LF', rate: 10.0 },
-  { row: 66, label: 'Trans. Stucco', code: 'MR-046STUCCO', section: 'exterior', uom: 'SF', rate: 17.0 },
-  { row: 68, label: 'Drip Cap', code: 'MR-047DRIPCAP', section: 'exterior', uom: 'LF', rate: 33.0 },
-  { row: 69, label: 'Sills', code: 'MR-048SILL', section: 'exterior', uom: 'LF', rate: 33.0 },
-  { row: 70, label: 'Tie-In', code: 'MR-049TIEIN', section: 'exterior', uom: 'LF', rate: 48.0 },
-  { row: 71, label: 'Adj. Bldg Horiz', code: 'MR-050ADJHORZ', section: 'exterior', uom: 'LF', rate: 65.0 },
-  { row: 72, label: 'Adj. Bldg Vert', code: 'MR-051ADJVERT', section: 'exterior', uom: 'LF' },
+// ============================================================================
+// MASTER ROOFING OFFICIAL TAKEOFF TEMPLATE
+// Exact replica of the Excel template with proper colors and formatting
+// ============================================================================
+
+// Color constants matching the Excel template
+const COLORS = {
+  headerYellow: '#FFFF00',      // Yellow for headers
+  unitCostYellow: '#FFFF00',    // Yellow for unit cost column
+  totalCostGreen: '#92D050',    // Green for total cost column
+  summaryYellow: '#FFFF00',     // Yellow for summary rows
+  finalTotalGreen: '#92D050',   // Green for final total
+  variableRed: '#FF0000',       // Red for variable indicators (R Value, Scope, etc.)
+  borderGray: '#000000',        // Black borders
+  white: '#FFFFFF',
+}
+
+// ROOFING SECTION - Columns: Unit Cost, Scope, 1st Floor, 2nd Floor, 3rd Floor, 4th Floor, Main Roof, Stair Bulkhead, Elev. Bulkhead, Total Measurements, Total Cost, Comments
+const ROOFING_COLUMNS = [
+  { key: 'unitCost', label: 'Unit Cost', width: 80 },
+  { key: 'scope', label: 'Scope', width: 280 },
+  { key: 'floor1', label: '1st Floor', width: 70 },
+  { key: 'floor2', label: '2nd Floor', width: 70 },
+  { key: 'floor3', label: '3rd Floor', width: 70 },
+  { key: 'floor4', label: '4th Floor', width: 70 },
+  { key: 'mainRoof', label: 'Main Roof', width: 70 },
+  { key: 'stairBulkhead', label: 'Stair Bulkhead', width: 80 },
+  { key: 'elevBulkhead', label: 'Elev. Bulkhead', width: 80 },
+  { key: 'totalMeasurements', label: 'Total Measurements', width: 100 },
+  { key: 'totalCost', label: 'Total Cost', width: 90 },
+  { key: 'comments', label: 'Comments/Notes/Details', width: 150 },
 ]
 
-// Default columns
-const DEFAULT_COLUMNS = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I']
+// BALCONIES SECTION - Different columns
+const BALCONY_COLUMNS = [
+  { key: 'unitCost', label: 'Unit Cost', width: 80 },
+  { key: 'scope', label: 'Scope', width: 200 },
+  { key: 'bal1', label: '1st floor Balconies', width: 90 },
+  { key: 'bal2', label: '2nd floor Balconies', width: 90 },
+  { key: 'bal3', label: '3rd floor Balconies', width: 90 },
+  { key: 'bal4', label: '4th floor Balconies', width: 90 },
+  { key: 'bal5', label: '5th floor Balconies', width: 90 },
+  { key: 'bal6', label: '6th floor Balconies', width: 90 },
+  { key: 'bal7', label: '7th floor Balconies', width: 90 },
+  { key: 'totalMeasurements', label: 'Total Measurements', width: 100 },
+  { key: 'totalCost', label: 'Total Cost', width: 90 },
+  { key: 'comments', label: 'Comments/Notes/Details', width: 150 },
+]
+
+// EXTERIOR SECTION - Different columns
+const EXTERIOR_COLUMNS = [
+  { key: 'unitCost', label: 'Unit Cost', width: 80 },
+  { key: 'scope', label: 'Scope', width: 280 },
+  { key: 'front', label: 'Front / ---- Elevation', width: 90 },
+  { key: 'rear', label: 'Rear / --- Elevation', width: 90 },
+  { key: 'right', label: 'Right / ---- Elevation', width: 90 },
+  { key: 'left', label: 'Left / ---- Elevation', width: 90 },
+  { key: 'bulkhead', label: 'Bulkhead', width: 70 },
+  { key: 'overhang', label: 'Overhang', width: 70 },
+  { key: 'insideParapet', label: 'Inside Parapet', width: 80 },
+  { key: 'totalMeasurements', label: 'Total Measurements', width: 100 },
+  { key: 'totalCost', label: 'Total Cost', width: 90 },
+  { key: 'comments', label: 'Comments/Notes/Details', width: 150 },
+]
+
+// Template rows with EXACT text from the original template
+const TEMPLATE_DATA = {
+  roofing: [
+    { id: 'r1', rate: 6.95, scope: 'Vapor Barrier or Temp waterproofing' },
+    { id: 'r2', rate: 1.50, scope: 'Upcharge for 1/4" Pitch' },
+    { id: 'r3', rate: 16.25, scope: 'Roofing - Builtup - 2 ply', scopeVar: 'Scope (R?)', hasVar: true },
+    { id: 'r4', rate: 12.00, scope: 'up and over' },
+    { id: 'r5', rate: 2500.00, scope: 'Scupper /gutter and leader' },
+    { id: 'r6', rate: null, scope: '' }, // blank row
+    { id: 'r7', rate: null, scope: 'Roofing - IRMA - ', scopeVar: '(Scope - Liquid or 2ply)', hasVar: true },
+    { id: 'r8', rate: null, scope: 'PMMA (Liquid) or 2ply Torch@Building Wall' },
+    { id: 'r9', rate: null, scope: 'PMMA (Liquid) or 2ply Torch@Parapet Wall' },
+    { id: 'r10', rate: null, scope: 'up and over - PMMA (Liquid) or 2ply Torch@Parapet Wall' },
+    { id: 'r11', rate: null, scope: '' }, // blank row
+    { id: 'r12', rate: 550.00, scope: 'Drains' },
+    { id: 'r13', rate: 550.00, scope: 'Doorpans - Standard 3-6\'' },
+    { id: 'r14', rate: 850.00, scope: 'Doorpans - Large' },
+    { id: 'r15', rate: null, scope: '' }, // blank row
+    { id: 'r16', rate: null, scope: 'Roof hatch / Skylights (Area)', comment: 'Select one\'' },
+    { id: 'r17', rate: 48.00, scope: 'Roof hatch / Skylights (Perimeter)', comment: 'Select one\'' },
+    { id: 'r18', rate: null, scope: 'Concrete Mechanical Pads/Walkway pads (sf)' },
+    { id: 'r19', rate: 250.00, scope: 'Fence posts' },
+    { id: 'r20', rate: 250.00, scope: 'Railing Posts' },
+    { id: 'r21', rate: 250.00, scope: 'Plumbing Penetrations' },
+    { id: 'r22', rate: 250.00, scope: 'Mechanical Penetrations' },
+    { id: 'r23', rate: 150.00, scope: 'Davits (EA)' },
+    { id: 'r24', rate: 550.00, scope: 'AC Units -EA (dunnage?)' },
+    { id: 'r25', rate: null, scope: '' }, // blank row
+    { id: 'r26', rate: 32.00, scope: '(Alum.) Coping (Low Parapet) Gravel stop/ Edge Flashing' },
+    { id: 'r27', rate: 32.00, scope: '(Alum.) Coping (high Parapet)' },
+    { id: 'r28', rate: 4.00, scope: 'Insulation under Coping ', scopeVar: '(R Value)', hasVar: true },
+    { id: 'r29', rate: null, scope: '' }, // blank row
+    { id: 'r30', rate: 24.00, scope: '(Alum.) Metal Flashing at building wall' },
+    { id: 'r31', rate: 24.00, scope: '(Alum.) Metal Flashing at Parapet wall' },
+    { id: 'r32', rate: null, scope: '' }, // blank row
+    { id: 'r33', rate: 14.00, scope: 'Overburden for Irma Roof (Drainage mat + ', scopeVar: 'R?', hasVar: true, scopeAfter: ' Insulation + Filterfabric)' },
+    { id: 'r34', rate: null, scope: 'Pavers ', scopeVar: '(R ?)', hasVar: true },
+    { id: 'r35', rate: 24.00, scope: 'Metal Edge flashing at the paver Termination' },
+    { id: 'r36', rate: null, scope: '' }, // blank row
+    { id: 'r37', rate: 48.00, scope: 'Green Roof ', scopeVar: 'Scope', hasVar: true },
+    { id: 'r38', rate: 24.00, scope: 'Metal Edge flashing at the Green Roof' },
+    { id: 'r39', rate: null, scope: '', comment: 'Specify Exclusion' }, // blank row
+    { id: 'r40', rate: 32.00, scope: 'Recessed floor ', scopeVar: '(Location)', hasVar: true, scopeAfter: ' - Liquid Waterproofing' },
+  ],
+  balcony: [
+    { id: 'b1', rate: 17.00, scope: 'Traffic Coating' },
+    { id: 'b2', rate: 22.00, scope: 'Aluminum Drip edge' },
+    { id: 'b3', rate: 48.00, scope: 'Liquid L Flashing ', scopeVar: '(LF)', hasVar: true },
+    { id: 'b4', rate: null, scope: '' }, // blank row
+    { id: 'b5', rate: 550.00, scope: 'Doorpans - Balconies' },
+  ],
+  exterior: [
+    { id: 'e1', rate: 5.25, scope: 'Brick area - Waterproofing' },
+    { id: 'e2', rate: 250.00, scope: 'Openings at brick areas (Count) < 32lf' },
+    { id: 'e3', rate: 10.00, scope: 'Openings at brick areas (LF) > 32lf/40lf' },
+    { id: 'e4', rate: null, scope: '' }, // blank row
+    { id: 'e5', rate: 5.25, scope: 'Panel Area - Waterproofing' },
+    { id: 'e6', rate: 250.00, scope: 'Openings at panel Areas (Count) < 32lf' },
+    { id: 'e7', rate: 10.00, scope: 'Openings at panel Areas (LF) > 32lf/40lf' },
+    { id: 'e8', rate: null, scope: '' }, // blank row
+    { id: 'e9', rate: null, scope: 'Eifs - ', scopeVar: 'Scope (R?)', hasVar: true },
+    { id: 'e10', rate: 250.00, scope: 'openings at stucco areas (Count) < 32lf' },
+    { id: 'e11', rate: 10.00, scope: 'openings at stucco areas (LF) > 32lf/40lf' },
+    { id: 'e12', rate: 17.00, scope: 'Transistional stucco' },
+    { id: 'e13', rate: null, scope: '' }, // blank row
+    { id: 'e14', rate: 33.00, scope: 'Drip cap (LF)', comment: 'Eifs =/> 4"' },
+    { id: 'e15', rate: 33.00, scope: 'Sills', comment: 'Eifs =/> 4"' },
+    { id: 'e16', rate: 48.00, scope: 'Tie - In (LF)' },
+    { id: 'e17', rate: 65.00, scope: 'adj. building horizontal (Coustom Metal Flashing only)' },
+    { id: 'e18', rate: null, scope: 'adj. building Vertical (Detail?)', comment: 'Specify Exclusion' },
+  ],
+}
 
 export function TakeoffSpreadsheet({
   projectId,
@@ -99,22 +175,14 @@ export function TakeoffSpreadsheet({
   const [takeoffExists, setTakeoffExists] = useState(false)
   const [creating, setCreating] = useState(false)
 
-  // Sheet data
+  // Sheet data - keyed by row id and column key
   const [sheetData, setSheetData] = useState({})
-  const [columns, setColumns] = useState(DEFAULT_COLUMNS)
-  const [columnHeaders, setColumnHeaders] = useState({})
   const [pendingChanges, setPendingChanges] = useState({})
-  // Initialize with 75 rows by default
-  const [rows, setRows] = useState(Array.from({ length: 75 }, (_, i) => i + 1))
-  const [maxRow, setMaxRow] = useState(75)
-  const [columnWidths, setColumnWidths] = useState({}) // Track column widths
-  const [resizing, setResizing] = useState(null) // Track which column is being resized
 
   // Tabs state
   const [activeTab, setActiveTab] = useState('master')
   const [imports, setImports] = useState([])
   const [selectedImport, setSelectedImport] = useState(null)
-  const [importData, setImportData] = useState(null)
 
   // Comparison state
   const [showComparison, setShowComparison] = useState(false)
@@ -131,16 +199,6 @@ export function TakeoffSpreadsheet({
   useEffect(() => {
     loadTakeoff()
   }, [projectId])
-
-  // Convert column number to letter (0=A, 1=B, etc.)
-  const colNumToLetter = (num) => {
-    let result = ''
-    while (num >= 0) {
-      result = String.fromCharCode((num % 26) + 65) + result
-      num = Math.floor(num / 26) - 1
-    }
-    return result
-  }
 
   // Load takeoff data
   const loadTakeoff = async () => {
@@ -162,65 +220,12 @@ export function TakeoffSpreadsheet({
 
       const data = await res.json()
 
-      // Parse Luckysheet celldata format
-      // Backend returns: { sheet_data: { celldata: [{ r: row, c: col, v: { v: value, m: display } }] } }
-      const celldata = data.sheet_data?.celldata || data.cells || []
-
-      if (celldata.length > 0) {
-        const parsed = {}
-        const detectedCols = new Set()
-        const detectedRows = new Set()
-
-        for (const cell of celldata) {
-          const rowNum = (cell.r || 0) + 1 // Convert 0-indexed to 1-indexed
-          const colLetter = colNumToLetter(cell.c || 0)
-          const key = `${colLetter}${rowNum}`
-
-          // Get value - handle Luckysheet value object format
-          let value = ''
-          if (cell.v) {
-            if (typeof cell.v === 'object') {
-              value = cell.v.m || cell.v.v || '' // m is display value, v is actual value
-            } else {
-              value = cell.v
-            }
-          }
-
-          parsed[key] = value
-          detectedCols.add(colLetter)
-          detectedRows.add(rowNum)
-        }
-
-        setSheetData(parsed)
-
-        // Set columns in order
-        const sortedCols = Array.from(detectedCols).sort((a, b) => {
-          // Sort alphabetically but handle multi-letter columns
-          if (a.length !== b.length) return a.length - b.length
-          return a.localeCompare(b)
-        })
-        setColumns(sortedCols.length > 0 ? sortedCols : DEFAULT_COLUMNS)
-
-        // Set rows in order (1 to max detected row)
-        const maxDetectedRow = Math.max(...detectedRows, 75)
-        setMaxRow(maxDetectedRow)
-        const rowList = Array.from({ length: maxDetectedRow }, (_, i) => i + 1)
-        setRows(rowList)
-
-        // Extract column headers from row 3
-        const headers = {}
-        sortedCols.forEach(col => {
-          const headerKey = `${col}3`
-          if (parsed[headerKey]) {
-            headers[col] = parsed[headerKey]
-          }
-        })
-        setColumnHeaders(headers)
+      // Parse data into our format
+      if (data.sheet_data) {
+        setSheetData(data.sheet_data)
       }
 
       setTakeoffExists(true)
-
-      // Also load imports
       loadImports()
 
     } catch (err) {
@@ -251,7 +256,6 @@ export function TakeoffSpreadsheet({
         throw new Error(err.error || 'Failed to create takeoff')
       }
 
-      // Reload
       await loadTakeoff()
 
     } catch (err) {
@@ -276,103 +280,40 @@ export function TakeoffSpreadsheet({
   }
 
   // Handle cell edit
-  const handleCellChange = (row, col, value) => {
-    const key = `${col}${row}`
+  const handleCellChange = (rowId, colKey, value) => {
+    const key = `${rowId}_${colKey}`
     setSheetData(prev => ({ ...prev, [key]: value }))
     setPendingChanges(prev => ({
       ...prev,
-      [key]: { row, col, value }
+      [key]: { rowId, colKey, value }
     }))
   }
 
-  // Handle header edit (row 3)
-  const handleHeaderChange = (col, value) => {
-    setColumnHeaders(prev => ({ ...prev, [col]: value }))
-    handleCellChange(3, col, value)
+  // Get cell value
+  const getCellValue = (rowId, colKey) => {
+    return sheetData[`${rowId}_${colKey}`] || ''
   }
 
-  // Add a new row at the end
-  const addRow = () => {
-    const newRowNum = maxRow + 1
-    setMaxRow(newRowNum)
-    setRows(prev => [...prev, newRowNum])
-  }
-
-  // Delete a row
-  const deleteRow = (rowNum) => {
-    if (rows.length <= 1) return // Don't delete last row
-    setRows(prev => prev.filter(r => r !== rowNum))
-    // Clear data for deleted row
-    const newData = { ...sheetData }
-    const newChanges = { ...pendingChanges }
+  // Calculate row total
+  const calculateRowTotal = (rowId, columns, rate) => {
+    let total = 0
     columns.forEach(col => {
-      const key = `${col}${rowNum}`
-      delete newData[key]
-      newChanges[key] = { row: rowNum, col, value: null } // Mark as deleted
-    })
-    setSheetData(newData)
-    setPendingChanges(newChanges)
-  }
-
-  // Add a new column at the end
-  const addColumn = () => {
-    const lastCol = columns[columns.length - 1]
-    // Calculate next column letter
-    const nextCol = lastCol === 'Z' ? 'AA' :
-      lastCol.length === 1 ? String.fromCharCode(lastCol.charCodeAt(0) + 1) :
-      lastCol.slice(0, -1) + String.fromCharCode(lastCol.charCodeAt(lastCol.length - 1) + 1)
-    setColumns(prev => [...prev, nextCol])
-  }
-
-  // Delete a column
-  const deleteColumn = (col) => {
-    if (columns.length <= 2) return // Keep at least A and B
-    setColumns(prev => prev.filter(c => c !== col))
-    // Clear data for deleted column
-    const newData = { ...sheetData }
-    const newChanges = { ...pendingChanges }
-    rows.forEach(rowNum => {
-      const key = `${col}${rowNum}`
-      delete newData[key]
-      newChanges[key] = { row: rowNum, col, value: null } // Mark as deleted
-    })
-    setSheetData(newData)
-    setPendingChanges(newChanges)
-  }
-
-  // Column resize handlers
-  const handleResizeStart = (col, e) => {
-    e.preventDefault()
-    e.stopPropagation() // Prevent input focus
-    setResizing({ col, startX: e.clientX, startWidth: columnWidths[col] || 120 })
-  }
-
-  const handleResizeMove = useCallback((e) => {
-    if (!resizing) return
-    const delta = e.clientX - resizing.startX
-    const newWidth = Math.max(60, resizing.startWidth + delta)
-    setColumnWidths(prev => ({ ...prev, [resizing.col]: newWidth }))
-  }, [resizing])
-
-  const handleResizeEnd = useCallback(() => {
-    setResizing(null)
-  }, [])
-
-  // Add resize event listeners and cursor style during resize
-  useEffect(() => {
-    if (resizing) {
-      document.body.style.cursor = 'col-resize'
-      document.body.style.userSelect = 'none'
-      document.addEventListener('mousemove', handleResizeMove)
-      document.addEventListener('mouseup', handleResizeEnd)
-      return () => {
-        document.body.style.cursor = ''
-        document.body.style.userSelect = ''
-        document.removeEventListener('mousemove', handleResizeMove)
-        document.removeEventListener('mouseup', handleResizeEnd)
+      if (col.key !== 'unitCost' && col.key !== 'scope' && col.key !== 'totalMeasurements' && col.key !== 'totalCost' && col.key !== 'comments') {
+        const val = parseFloat(getCellValue(rowId, col.key)) || 0
+        total += val
       }
+    })
+    return total
+  }
+
+  // Calculate total cost for a row
+  const calculateRowCost = (rowId, columns, rate) => {
+    const measurements = calculateRowTotal(rowId, columns, rate)
+    if (rate && measurements > 0) {
+      return measurements * rate
     }
-  }, [resizing, handleResizeMove, handleResizeEnd])
+    return 0
+  }
 
   // Save changes
   const saveChanges = async () => {
@@ -380,12 +321,10 @@ export function TakeoffSpreadsheet({
 
     setSaving(true)
     try {
-      const updates = Object.values(pendingChanges)
-
       const res = await fetch(`/api/ko/takeoff/${projectId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ updates })
+        body: JSON.stringify({ sheet_data: sheetData })
       })
 
       if (!res.ok) {
@@ -427,11 +366,8 @@ export function TakeoffSpreadsheet({
       }
 
       const data = await res.json()
-
-      // Refresh imports list
       await loadImports()
 
-      // Select the new import
       if (data.import_id) {
         setSelectedImport(data.import_id)
         setActiveTab('imports')
@@ -456,39 +392,11 @@ export function TakeoffSpreadsheet({
       const data = await res.json()
       setComparison(data)
       setShowComparison(true)
-      setApprovedChanges(new Set()) // Reset selections
+      setApprovedChanges(new Set())
 
     } catch (err) {
       console.error('Compare error:', err)
       setError(err.message)
-    }
-  }
-
-  // Toggle change approval
-  const toggleApproval = (key) => {
-    setApprovedChanges(prev => {
-      const next = new Set(prev)
-      if (next.has(key)) {
-        next.delete(key)
-      } else {
-        next.add(key)
-      }
-      return next
-    })
-  }
-
-  // Approve all changes
-  const approveAll = () => {
-    if (comparison?.changes) {
-      // Handle both array format (backend) and object format
-      if (Array.isArray(comparison.changes)) {
-        const keys = comparison.changes.map((change, idx) =>
-          `${change.col}${change.row}` || idx.toString()
-        )
-        setApprovedChanges(new Set(keys))
-      } else {
-        setApprovedChanges(new Set(Object.keys(comparison.changes)))
-      }
     }
   }
 
@@ -498,9 +406,7 @@ export function TakeoffSpreadsheet({
 
     setSyncing(true)
     try {
-      // Convert cell keys like "H6" to {row: 6, col: "H", action: "accept"} for backend
       const approvedList = Array.from(approvedChanges).map(key => {
-        // Parse key: letters are col, numbers are row
         const match = key.match(/^([A-Z]+)(\d+)$/)
         if (match) {
           return { col: match[1], row: parseInt(match[2], 10), action: "accept" }
@@ -511,26 +417,15 @@ export function TakeoffSpreadsheet({
       const res = await fetch(`/api/ko/takeoff/${projectId}/sync/${selectedImport}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          approved_changes: approvedList
-        })
+        body: JSON.stringify({ approved_changes: approvedList })
       })
 
       if (!res.ok) throw new Error('Failed to sync')
 
-      const result = await res.json()
-
-      // Reload master
       await loadTakeoff()
-
       setShowComparison(false)
       setSelectedImport(null)
       setActiveTab('master')
-
-      // Show success message briefly
-      if (result.applied_changes > 0) {
-        setError(null)
-      }
 
     } catch (err) {
       console.error('Sync error:', err)
@@ -540,14 +435,150 @@ export function TakeoffSpreadsheet({
     }
   }
 
-  // Get cell value
-  const getCellValue = (row, col) => {
-    return sheetData[`${col}${row}`] || ''
+  // Format currency
+  const formatCurrency = (value) => {
+    if (value === null || value === undefined || value === '') return ''
+    const num = parseFloat(value)
+    if (isNaN(num)) return ''
+    return `$ ${num.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
   }
 
-  // Check if cell has pending change
-  const hasPendingChange = (row, col) => {
-    return !!pendingChanges[`${col}${row}`]
+  // Render a section header row
+  const renderSectionHeader = (columns, isFirst = false) => (
+    <tr>
+      {columns.map((col, idx) => (
+        <th
+          key={col.key}
+          style={{
+            backgroundColor: COLORS.headerYellow,
+            border: '1px solid ' + COLORS.borderGray,
+            padding: '4px 6px',
+            fontSize: '11px',
+            fontWeight: 'bold',
+            textAlign: col.key === 'unitCost' ? 'right' : 'left',
+            minWidth: col.width,
+            maxWidth: col.width,
+          }}
+        >
+          {col.label}
+        </th>
+      ))}
+    </tr>
+  )
+
+  // Render a data row
+  const renderDataRow = (row, columns) => {
+    const totalMeasurements = calculateRowTotal(row.id, columns, row.rate)
+    const totalCost = calculateRowCost(row.id, columns, row.rate)
+
+    return (
+      <tr key={row.id}>
+        {columns.map((col) => {
+          let cellContent = ''
+          let bgColor = COLORS.white
+          let textColor = '#000000'
+          let textAlign = 'left'
+          let fontWeight = 'normal'
+
+          if (col.key === 'unitCost') {
+            bgColor = COLORS.unitCostYellow
+            textAlign = 'right'
+            cellContent = row.rate ? formatCurrency(row.rate) : ''
+          } else if (col.key === 'scope') {
+            // Handle variable text in red
+            if (row.hasVar) {
+              cellContent = (
+                <span>
+                  {row.scope}
+                  <span style={{ color: COLORS.variableRed }}>{row.scopeVar}</span>
+                  {row.scopeAfter || ''}
+                </span>
+              )
+            } else {
+              cellContent = row.scope
+            }
+          } else if (col.key === 'totalMeasurements') {
+            cellContent = totalMeasurements > 0 ? totalMeasurements : '0'
+            textAlign = 'right'
+          } else if (col.key === 'totalCost') {
+            bgColor = COLORS.totalCostGreen
+            cellContent = formatCurrency(totalCost) || '$ -'
+            textAlign = 'right'
+          } else if (col.key === 'comments') {
+            cellContent = row.comment || ''
+          } else {
+            // Data entry cells
+            const value = getCellValue(row.id, col.key)
+            cellContent = (
+              <input
+                type="text"
+                value={value}
+                onChange={(e) => handleCellChange(row.id, col.key, e.target.value)}
+                style={{
+                  width: '100%',
+                  border: 'none',
+                  background: 'transparent',
+                  textAlign: 'right',
+                  fontSize: '11px',
+                  padding: '2px',
+                }}
+              />
+            )
+          }
+
+          return (
+            <td
+              key={col.key}
+              style={{
+                backgroundColor: bgColor,
+                border: '1px solid ' + COLORS.borderGray,
+                padding: '2px 4px',
+                fontSize: '11px',
+                textAlign: textAlign,
+                fontWeight: fontWeight,
+                minWidth: col.width,
+                maxWidth: col.width,
+              }}
+            >
+              {cellContent}
+            </td>
+          )
+        })}
+      </tr>
+    )
+  }
+
+  // Render summary row
+  const renderSummaryRow = (text, columns, bgColor = COLORS.summaryYellow) => {
+    return (
+      <tr>
+        <td
+          colSpan={columns.length - 1}
+          style={{
+            backgroundColor: bgColor,
+            border: '1px solid ' + COLORS.borderGray,
+            padding: '4px 6px',
+            fontSize: '11px',
+            fontWeight: 'bold',
+            textAlign: 'center',
+          }}
+        >
+          {text}
+        </td>
+        <td
+          style={{
+            backgroundColor: COLORS.totalCostGreen,
+            border: '1px solid ' + COLORS.borderGray,
+            padding: '4px 6px',
+            fontSize: '11px',
+            fontWeight: 'bold',
+            textAlign: 'right',
+          }}
+        >
+          $ -
+        </td>
+      </tr>
+    )
   }
 
   // Render loading state
@@ -598,26 +629,25 @@ export function TakeoffSpreadsheet({
   }
 
   return (
-    <div className="fixed inset-0 z-50 bg-background flex flex-col">
+    <div className="fixed inset-0 z-50 bg-white flex flex-col">
       {/* Header */}
-      <div className="flex items-center justify-between px-4 py-3 border-b border-border bg-card">
+      <div className="flex items-center justify-between px-4 py-3 border-b border-gray-300 bg-gray-100">
         <div className="flex items-center gap-3">
           <button
             onClick={onClose}
-            className="p-2 hover:bg-secondary rounded-lg transition-colors"
+            className="p-2 hover:bg-gray-200 rounded-lg transition-colors"
           >
             <X className="w-5 h-5" />
           </button>
           <div>
-            <h1 className="font-semibold">{projectName || 'Takeoff Sheet'}</h1>
-            <p className="text-xs text-muted-foreground">Master Roofing Template</p>
+            <h1 className="font-semibold text-lg">{projectName || 'Takeoff Sheet'}</h1>
+            <p className="text-xs text-gray-500">Master Roofing Official Template</p>
           </div>
         </div>
 
         <div className="flex items-center gap-2">
-          {/* Pending changes indicator */}
           {Object.keys(pendingChanges).length > 0 && (
-            <span className="text-xs text-yellow-500 flex items-center gap-1">
+            <span className="text-xs text-yellow-600 flex items-center gap-1">
               <AlertCircle className="w-3 h-3" />
               {Object.keys(pendingChanges).length} unsaved
             </span>
@@ -643,7 +673,7 @@ export function TakeoffSpreadsheet({
 
           <button
             onClick={loadTakeoff}
-            className="p-2 hover:bg-secondary rounded-lg"
+            className="p-2 hover:bg-gray-200 rounded-lg"
             title="Refresh"
           >
             <RefreshCw className="w-4 h-4" />
@@ -652,7 +682,7 @@ export function TakeoffSpreadsheet({
           <button
             onClick={saveChanges}
             disabled={saving || Object.keys(pendingChanges).length === 0}
-            className="flex items-center gap-2 px-3 py-2 bg-primary text-primary-foreground rounded-lg text-sm disabled:opacity-50"
+            className="flex items-center gap-2 px-3 py-2 bg-blue-600 text-white rounded-lg text-sm disabled:opacity-50"
           >
             {saving ? (
               <Loader2 className="w-4 h-4 animate-spin" />
@@ -664,162 +694,132 @@ export function TakeoffSpreadsheet({
         </div>
       </div>
 
-      {/* Tabs */}
-      <div className="flex items-center gap-1 px-4 py-2 border-b border-border bg-muted/30">
-        <button
-          onClick={() => { setActiveTab('master'); setShowComparison(false) }}
-          className={cn(
-            "px-4 py-2 text-sm font-medium rounded-lg transition-colors",
-            activeTab === 'master'
-              ? "bg-primary text-primary-foreground"
-              : "text-muted-foreground hover:bg-secondary"
-          )}
-        >
-          Master Sheet
-        </button>
-
-        {imports.length > 0 && (
-          <div className="relative">
-            <button
-              onClick={() => setActiveTab('imports')}
-              className={cn(
-                "flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg transition-colors",
-                activeTab === 'imports'
-                  ? "bg-primary text-primary-foreground"
-                  : "text-muted-foreground hover:bg-secondary"
-              )}
-            >
-              Imports ({imports.length})
-              <ChevronDown className="w-3 h-3" />
-            </button>
-          </div>
-        )}
-      </div>
-
       {/* Error banner */}
       {error && (
-        <div className="px-4 py-2 bg-red-500/10 border-b border-red-500/30 text-red-500 text-sm flex items-center gap-2">
+        <div className="px-4 py-2 bg-red-100 border-b border-red-300 text-red-600 text-sm flex items-center gap-2">
           <AlertCircle className="w-4 h-4" />
           {error}
           <button onClick={() => setError(null)} className="ml-auto hover:underline">Dismiss</button>
         </div>
       )}
 
-      {/* Main content */}
-      <div className="flex-1 overflow-auto">
+      {/* Spreadsheet content */}
+      <div className="flex-1 overflow-auto p-4" style={{ backgroundColor: '#f5f5f5' }}>
         {activeTab === 'master' && !showComparison && (
-          <div className="p-4">
-            {/* Add row/column buttons */}
-            <div className="flex items-center gap-2 mb-3">
-              <button
-                onClick={addRow}
-                className="flex items-center gap-1 px-3 py-1.5 bg-secondary hover:bg-secondary/80 rounded-lg text-sm"
-              >
-                <PlusCircle className="w-4 h-4" />
-                Add Row
-              </button>
-              <button
-                onClick={addColumn}
-                className="flex items-center gap-1 px-3 py-1.5 bg-secondary hover:bg-secondary/80 rounded-lg text-sm"
-              >
-                <PlusCircle className="w-4 h-4" />
-                Add Column
-              </button>
+          <div style={{ backgroundColor: 'white', border: '1px solid #ccc', display: 'inline-block', minWidth: '100%' }}>
+            {/* Master Roofing Header */}
+            <div style={{ padding: '10px 20px', borderBottom: '2px solid #000', backgroundColor: '#fff' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div>
+                  <img
+                    src="/master-roofing-logo.png"
+                    alt="Master Roofing"
+                    style={{ height: '40px' }}
+                    onError={(e) => { e.target.style.display = 'none' }}
+                  />
+                </div>
+                <div style={{ textAlign: 'center', flex: 1 }}>
+                  <h2 style={{ fontSize: '18px', fontWeight: 'bold', margin: 0 }}>Project Name</h2>
+                  <input
+                    type="text"
+                    value={projectName || ''}
+                    readOnly
+                    style={{
+                      fontSize: '16px',
+                      fontWeight: 'bold',
+                      border: '1px solid #ccc',
+                      padding: '4px 8px',
+                      textAlign: 'center',
+                      width: '300px',
+                      marginTop: '4px',
+                    }}
+                  />
+                </div>
+                <div style={{ textAlign: 'right', fontSize: '10px', color: '#666' }}>
+                  <div>TEL: 800.605.1619</div>
+                  <div>FAX: 800.605.1666</div>
+                  <div>MASTERROOFINGSUB.COM</div>
+                </div>
+              </div>
             </div>
 
-            {/* Spreadsheet table with horizontal scroll */}
-            <div className="border border-border rounded-lg overflow-x-auto overflow-y-auto max-h-[calc(100vh-300px)]">
-              <table className="text-sm" style={{ tableLayout: 'fixed', minWidth: '100%' }}>
-                <thead className="bg-muted sticky top-0 z-10">
-                  <tr>
-                    <th className="border-r border-border px-2 py-2 text-left" style={{ width: 50 }}>#</th>
-                    {columns.map(col => (
-                      <th
-                        key={col}
-                        className="border-r border-border px-1 py-1 text-left group relative select-none"
-                        style={{ width: columnWidths[col] || 120, minWidth: 60, maxWidth: 400 }}
-                      >
-                        <div className="flex items-center gap-1 pr-4">
-                          <input
-                            type="text"
-                            value={columnHeaders[col] || col}
-                            onChange={(e) => handleHeaderChange(col, e.target.value)}
-                            className="flex-1 px-2 py-1 bg-transparent border-0 focus:outline-none focus:ring-1 focus:ring-primary rounded text-sm font-semibold min-w-0"
-                            placeholder={col}
-                          />
-                          {col !== 'A' && col !== 'B' && (
-                            <button
-                              onClick={() => deleteColumn(col)}
-                              className="p-1 opacity-0 group-hover:opacity-100 hover:bg-red-500/20 rounded transition-opacity flex-shrink-0"
-                              title={`Delete column ${col}`}
-                            >
-                              <Trash2 className="w-3 h-3 text-red-500" />
-                            </button>
-                          )}
-                        </div>
-                        {/* Resize handle - wider hit area with z-index to be above content */}
-                        <div
-                          onMouseDown={(e) => handleResizeStart(col, e)}
-                          className="absolute right-0 top-0 bottom-0 w-4 cursor-col-resize hover:bg-primary/30 z-10 flex items-center justify-center"
-                          style={{ cursor: 'col-resize' }}
-                        >
-                          <div className="w-0.5 h-full bg-border hover:bg-primary transition-colors" />
-                        </div>
-                      </th>
-                    ))}
-                    <th className="px-2 py-2" style={{ width: 40 }}></th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {rows.map(rowNum => (
-                    <tr key={rowNum} className="border-t border-border hover:bg-muted/30 group">
-                      <td className="border-r border-border px-2 py-1 text-muted-foreground text-xs" style={{ width: 50 }}>
-                        {rowNum}
-                      </td>
-                      {columns.map(col => {
-                        const value = getCellValue(rowNum, col)
-                        const isPending = hasPendingChange(rowNum, col)
+            {/* ROOFING SECTION */}
+            <table style={{ borderCollapse: 'collapse', width: '100%' }}>
+              <thead>
+                {renderSectionHeader(ROOFING_COLUMNS, true)}
+              </thead>
+              <tbody>
+                {TEMPLATE_DATA.roofing.map(row => renderDataRow(row, ROOFING_COLUMNS))}
+              </tbody>
+            </table>
 
-                        return (
-                          <td
-                            key={col}
-                            className={cn(
-                              "border-r border-border px-1 py-0.5",
-                              isPending && "bg-yellow-500/10"
-                            )}
-                            style={{ width: columnWidths[col] || 120, minWidth: 60, maxWidth: 400 }}
-                          >
-                            <input
-                              type="text"
-                              value={value}
-                              onChange={(e) => handleCellChange(rowNum, col, e.target.value)}
-                              className="w-full px-2 py-1 bg-transparent border-0 focus:outline-none focus:ring-1 focus:ring-primary rounded text-sm"
-                            />
-                          </td>
-                        )
-                      })}
-                      <td className="px-1 py-0.5" style={{ width: 40 }}>
-                        <button
-                          onClick={() => deleteRow(rowNum)}
-                          className="p-1 opacity-0 group-hover:opacity-100 hover:bg-red-500/20 rounded transition-opacity"
-                          title={`Delete row ${rowNum}`}
-                        >
-                          <Trash2 className="w-3 h-3 text-red-500" />
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+            {/* BALCONIES SECTION */}
+            <table style={{ borderCollapse: 'collapse', width: '100%', marginTop: '20px' }}>
+              <thead>
+                {renderSectionHeader(BALCONY_COLUMNS)}
+              </thead>
+              <tbody>
+                {TEMPLATE_DATA.balcony.map(row => renderDataRow(row, BALCONY_COLUMNS))}
+                {renderSummaryRow('TOTAL COST FOR ALL THE ROOFING WORKS', BALCONY_COLUMNS)}
+                <tr>
+                  <td colSpan={BALCONY_COLUMNS.length} style={{ textAlign: 'center', fontSize: '11px', color: '#999', padding: '4px' }}>
+                    Note:
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+
+            {/* EXTERIOR SECTION */}
+            <table style={{ borderCollapse: 'collapse', width: '100%', marginTop: '20px' }}>
+              <thead>
+                {renderSectionHeader(EXTERIOR_COLUMNS)}
+              </thead>
+              <tbody>
+                {TEMPLATE_DATA.exterior.map(row => renderDataRow(row, EXTERIOR_COLUMNS))}
+                {renderSummaryRow('TOTAL COST FOR ALL THE EXTERIOR WORKS', EXTERIOR_COLUMNS)}
+              </tbody>
+            </table>
+
+            {/* FINAL TOTAL */}
+            <table style={{ borderCollapse: 'collapse', width: '100%', marginTop: '10px' }}>
+              <tbody>
+                <tr>
+                  <td
+                    style={{
+                      backgroundColor: COLORS.white,
+                      border: '1px solid ' + COLORS.borderGray,
+                      padding: '8px 20px',
+                      fontSize: '12px',
+                      fontWeight: 'bold',
+                      textAlign: 'center',
+                    }}
+                  >
+                    TOTAL COST FOR ALL WORK LISTED IN THIS PROPOSAL -
+                  </td>
+                  <td
+                    style={{
+                      backgroundColor: COLORS.finalTotalGreen,
+                      border: '1px solid ' + COLORS.borderGray,
+                      padding: '8px 20px',
+                      fontSize: '12px',
+                      fontWeight: 'bold',
+                      textAlign: 'right',
+                      width: '120px',
+                    }}
+                  >
+                    $ -
+                  </td>
+                </tr>
+              </tbody>
+            </table>
           </div>
         )}
 
+        {/* Imports Tab */}
         {activeTab === 'imports' && (
           <div className="p-4">
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {imports.map(imp => {
-                // Handle field name differences between backend and frontend
                 const importId = imp.id || imp.import_id
                 const createdAt = imp.uploaded_at || imp.created_at
                 const itemCount = imp.stats?.total_items || imp.item_count || 0
@@ -828,33 +828,33 @@ export function TakeoffSpreadsheet({
                   <div
                     key={importId}
                     className={cn(
-                      "p-4 border rounded-lg cursor-pointer transition-colors",
+                      "p-4 border rounded-lg cursor-pointer transition-colors bg-white",
                       selectedImport === importId
-                        ? "border-primary bg-primary/5"
-                        : "border-border hover:border-primary/50"
+                        ? "border-blue-500 bg-blue-50"
+                        : "border-gray-300 hover:border-blue-300"
                     )}
                     onClick={() => setSelectedImport(importId)}
                   >
                     <div className="flex items-start justify-between mb-2">
                       <div>
                         <p className="font-medium">Import #{importId?.slice(-6)}</p>
-                        <p className="text-xs text-muted-foreground">
+                        <p className="text-xs text-gray-500">
                           {createdAt ? new Date(createdAt).toLocaleString() : 'Unknown date'}
                         </p>
                       </div>
-                      <span className="px-2 py-0.5 text-xs bg-green-500/10 text-green-600 rounded">
+                      <span className="px-2 py-0.5 text-xs bg-green-100 text-green-600 rounded">
                         {itemCount} items
                       </span>
                     </div>
 
                     {selectedImport === importId && (
-                      <div className="flex items-center gap-2 mt-3 pt-3 border-t border-border">
+                      <div className="flex items-center gap-2 mt-3 pt-3 border-t border-gray-200">
                         <button
                           onClick={(e) => {
                             e.stopPropagation()
                             compareImport(importId)
                           }}
-                          className="flex items-center gap-1 px-3 py-1.5 bg-primary text-primary-foreground rounded text-xs"
+                          className="flex items-center gap-1 px-3 py-1.5 bg-blue-600 text-white rounded text-xs"
                         >
                           <GitCompare className="w-3 h-3" />
                           Compare & Sync
@@ -866,7 +866,7 @@ export function TakeoffSpreadsheet({
               })}
 
               {imports.length === 0 && (
-                <div className="col-span-full text-center py-12 text-muted-foreground">
+                <div className="col-span-full text-center py-12 text-gray-500">
                   <History className="w-8 h-8 mx-auto mb-3 opacity-50" />
                   <p>No imports yet</p>
                   <p className="text-xs mt-1">Upload a Bluebeam CSV to create an import</p>
@@ -875,125 +875,51 @@ export function TakeoffSpreadsheet({
             </div>
           </div>
         )}
+      </div>
 
-        {/* Comparison View */}
-        {showComparison && comparison && (
-          <div className="p-4">
-            <div className="mb-4 flex items-center justify-between">
-              <div>
-                <h2 className="font-semibold">Compare & Sync Changes</h2>
-                <p className="text-sm text-muted-foreground">
-                  Review changes from import and approve what to sync to master
-                </p>
-              </div>
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={() => setShowComparison(false)}
-                  className="px-3 py-2 bg-secondary text-foreground rounded-lg text-sm"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={approveAll}
-                  className="px-3 py-2 bg-secondary text-foreground rounded-lg text-sm"
-                >
-                  Approve All
-                </button>
-                <button
-                  onClick={syncChanges}
-                  disabled={syncing || approvedChanges.size === 0}
-                  className="flex items-center gap-2 px-3 py-2 bg-green-600 text-white rounded-lg text-sm disabled:opacity-50"
-                >
-                  {syncing ? (
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                  ) : (
-                    <Check className="w-4 h-4" />
-                  )}
-                  Sync {approvedChanges.size} Changes
-                </button>
-              </div>
-            </div>
+      {/* Tabs */}
+      <div className="flex items-center gap-1 px-4 py-2 border-t border-gray-300 bg-gray-100">
+        <button
+          onClick={() => { setActiveTab('master'); setShowComparison(false) }}
+          className={cn(
+            "px-4 py-2 text-sm font-medium rounded-lg transition-colors",
+            activeTab === 'master'
+              ? "bg-blue-600 text-white"
+              : "text-gray-600 hover:bg-gray-200"
+          )}
+        >
+          Master Sheet
+        </button>
 
-            {/* Changes list */}
-            <div className="space-y-2">
-              {comparison.changes && (Array.isArray(comparison.changes) ? comparison.changes : Object.entries(comparison.changes).map(([k, v]) => ({ ...v, _key: k }))).map((change, idx) => {
-                // Handle both array format (backend) and object format
-                // Backend returns: { row, col, scope, master_value, import_value, type }
-                // Generate cell key like "H6" from row/col
-                const cellKey = change._key || `${change.col}${change.row}` || idx.toString()
-                const masterVal = change.master_value ?? change.master
-                const importVal = change.import_value ?? change.import
-
-                return (
-                  <div
-                    key={cellKey}
-                    onClick={() => toggleApproval(cellKey)}
-                    className={cn(
-                      "flex items-center gap-4 p-3 border rounded-lg cursor-pointer transition-colors",
-                      approvedChanges.has(cellKey)
-                        ? "border-green-500 bg-green-500/5"
-                        : "border-border hover:border-primary/50"
-                    )}
-                  >
-                    <div className={cn(
-                      "w-6 h-6 rounded-full flex items-center justify-center",
-                      approvedChanges.has(cellKey) ? "bg-green-500 text-white" : "bg-muted"
-                    )}>
-                      {approvedChanges.has(cellKey) ? (
-                        <CheckCircle2 className="w-4 h-4" />
-                      ) : (
-                        <div className="w-2 h-2 rounded-full bg-muted-foreground" />
-                      )}
-                    </div>
-
-                    <div className="flex-1 grid grid-cols-4 gap-4">
-                      <div>
-                        <p className="text-xs text-muted-foreground">Cell</p>
-                        <p className="font-mono font-medium">{cellKey}</p>
-                      </div>
-                      <div>
-                        <p className="text-xs text-muted-foreground">Scope</p>
-                        <p className="text-sm truncate">{change.scope || '-'}</p>
-                      </div>
-                      <div>
-                        <p className="text-xs text-muted-foreground">Master Value</p>
-                        <p className="text-red-500 line-through">{masterVal ?? '(empty)'}</p>
-                      </div>
-                      <div>
-                        <p className="text-xs text-muted-foreground">Import Value</p>
-                        <p className="text-green-500">{importVal ?? '(empty)'}</p>
-                      </div>
-                    </div>
-                  </div>
-                )
-              })}
-
-              {comparison.keeps && Object.keys(comparison.keeps).length > 0 && (
-                <div className="mt-6">
-                  <p className="text-sm text-muted-foreground mb-2">
-                    Keeping {Object.keys(comparison.keeps).length} manual values (no override)
-                  </p>
-                </div>
-              )}
-            </div>
-          </div>
+        {imports.length > 0 && (
+          <button
+            onClick={() => setActiveTab('imports')}
+            className={cn(
+              "flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg transition-colors",
+              activeTab === 'imports'
+                ? "bg-blue-600 text-white"
+                : "text-gray-600 hover:bg-gray-200"
+            )}
+          >
+            Imports ({imports.length})
+          </button>
         )}
       </div>
 
       {/* Upload Modal */}
       {showUpload && (
-        <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-center justify-center">
-          <div className="bg-card border border-border rounded-xl shadow-xl w-full max-w-md mx-4 p-6">
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-md mx-4 p-6">
             <h2 className="font-semibold mb-4">Import Bluebeam CSV</h2>
 
             <div
               onClick={() => fileInputRef.current?.click()}
-              className="border-2 border-dashed border-border rounded-xl p-8 text-center cursor-pointer hover:border-primary/50 transition-colors"
+              className="border-2 border-dashed border-gray-300 rounded-xl p-8 text-center cursor-pointer hover:border-blue-400 transition-colors"
             >
               {uploading ? (
-                <Loader2 className="w-8 h-8 mx-auto mb-3 animate-spin text-primary" />
+                <Loader2 className="w-8 h-8 mx-auto mb-3 animate-spin text-blue-600" />
               ) : (
-                <Upload className="w-8 h-8 mx-auto mb-3 text-muted-foreground" />
+                <Upload className="w-8 h-8 mx-auto mb-3 text-gray-400" />
               )}
               <p className="text-sm font-medium">
                 {uploading ? 'Processing...' : 'Click to upload CSV'}
@@ -1011,7 +937,7 @@ export function TakeoffSpreadsheet({
             <div className="flex justify-end mt-4">
               <button
                 onClick={() => setShowUpload(false)}
-                className="px-4 py-2 bg-secondary text-foreground rounded-lg text-sm"
+                className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg text-sm"
               >
                 Cancel
               </button>
