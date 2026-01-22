@@ -27,11 +27,6 @@ import https from 'https'
 
 const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'https://34.95.128.208'
 
-// Bluebeam API endpoints (CLOSED-LOOP SYSTEM)
-// Config and BTX generation use the new Bluebeam integration API
-// Note: Bluebeam router uses /bluebeam prefix (no /v1)
-const BLUEBEAM_API_PREFIX = '/bluebeam/template'
-
 // Custom fetch that ignores SSL cert errors (for self-signed backend cert)
 const fetchWithSSL = async (url, options = {}) => {
   const agent = new https.Agent({ rejectUnauthorized: false })
@@ -46,9 +41,8 @@ export async function GET(request, { params }) {
   try {
     const { projectId } = await params
 
-    // Use Bluebeam API for CLOSED-LOOP template config
     const backendRes = await fetchWithSSL(
-      `${BACKEND_URL}${BLUEBEAM_API_PREFIX}/${projectId}/config`,
+      `${BACKEND_URL}/v1/takeoff/${projectId}/config`,
       {
         method: 'GET',
         headers: { 'Accept': 'application/json' },
@@ -108,35 +102,12 @@ export async function POST(request, { params }) {
       )
     }
 
-    // Transform config to Bluebeam API format
-    const bluebeamConfig = {
-      items: (body.selectedItems || []).map(item => ({
-        item_id: item.scope_code,
-        section: item.section || 'ROOFING',
-        enabled: true,
-        r_value: item.variants?.[0]?.r_value,
-        thickness: item.variants?.[0]?.size,
-        system_id: item.variants?.[0]?.type,
-        display_name: item.display_name
-      })),
-      locations: (body.columns || []).map((col, idx) => ({
-        section: 'ROOFING',
-        template_name: col.name,
-        bluebeam_code: col.mappings?.[0] || col.id,
-        column_index: idx,
-        enabled: true
-      })),
-      note: body.note,
-      created_by: body.created_by
-    }
-
-    // Use Bluebeam API for CLOSED-LOOP template config
     const backendRes = await fetchWithSSL(
-      `${BACKEND_URL}${BLUEBEAM_API_PREFIX}/${projectId}/config`,
+      `${BACKEND_URL}/v1/takeoff/${projectId}/config`,
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(bluebeamConfig),
+        body: JSON.stringify(body),
         signal: AbortSignal.timeout(15000)
       }
     )
@@ -178,11 +149,6 @@ export async function DELETE(request, { params }) {
   try {
     const { projectId } = await params
 
-    // Note: Bluebeam API doesn't support DELETE - configs are versioned
-    // For now, return success but log a warning
-    console.warn('DELETE config not supported in CLOSED-LOOP system - configs are versioned')
-    const backendRes = { ok: true }
-    /* Original code for legacy takeoff API:
     const backendRes = await fetchWithSSL(
       `${BACKEND_URL}/v1/takeoff/${projectId}/config`,
       {
@@ -190,7 +156,6 @@ export async function DELETE(request, { params }) {
         signal: AbortSignal.timeout(10000)
       }
     )
-    */
 
     if (!backendRes.ok) {
       const errText = await backendRes.text()
