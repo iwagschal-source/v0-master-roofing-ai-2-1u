@@ -6,8 +6,11 @@
 
 import { NextResponse } from 'next/server'
 import https from 'https'
+import { runQuery } from '@/lib/bigquery'
 
-const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'https://34.95.128.208'
+const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'https://136.111.252.120'
+const BQ_PROJECT = 'master-roofing-intelligence'
+const BQ_DATASET = 'ko_estimating'
 
 // Custom fetch that ignores SSL cert errors (for self-signed backend cert)
 const fetchWithSSL = async (url, options = {}) => {
@@ -28,42 +31,54 @@ export async function GET(request, { params }) {
     const { searchParams } = new URL(request.url)
     const format = searchParams.get('format') || 'json'
 
-    const backendRes = await fetchWithSSL(
-      `${BACKEND_URL}/v1/takeoff/${projectId}?format=${format}`,
-      {
-        method: 'GET',
-        headers: { 'Accept': format === 'excel' ? 'application/octet-stream' : 'application/json' },
-        signal: AbortSignal.timeout(30000)
-      }
-    )
-
-    if (!backendRes.ok) {
-      if (backendRes.status === 404) {
-        return NextResponse.json(
-          { error: 'Takeoff not found', exists: false },
-          { status: 404 }
-        )
-      }
-      const errText = await backendRes.text()
-      return NextResponse.json(
-        { error: errText },
-        { status: backendRes.status }
+    // Try backend first
+    try {
+      const backendRes = await fetchWithSSL(
+        `${BACKEND_URL}/v1/takeoff/${projectId}?format=${format}`,
+        {
+          method: 'GET',
+          headers: { 'Accept': format === 'excel' ? 'application/octet-stream' : 'application/json' },
+          signal: AbortSignal.timeout(10000)
+        }
       )
+
+      if (backendRes.ok) {
+        if (format === 'excel') {
+          const blob = await backendRes.blob()
+          return new NextResponse(blob, {
+            status: 200,
+            headers: {
+              'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+              'Content-Disposition': `attachment; filename="${projectId}_takeoff.xlsx"`,
+            },
+          })
+        }
+        const data = await backendRes.json()
+        return NextResponse.json(data)
+      }
+
+      // If not 404, it's a real error
+      if (backendRes.status !== 404) {
+        console.warn('Backend takeoff error:', await backendRes.text())
+      }
+    } catch (backendErr) {
+      console.warn('Backend unreachable, trying BigQuery:', backendErr.message)
     }
 
-    if (format === 'excel') {
-      const blob = await backendRes.blob()
-      return new NextResponse(blob, {
-        status: 200,
-        headers: {
-          'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-          'Content-Disposition': `attachment; filename="${projectId}_takeoff.xlsx"`,
-        },
+    // Fallback: Load from BigQuery
+    const bqData = await loadTakeoffFromBigQuery(projectId)
+    if (bqData) {
+      return NextResponse.json({
+        sheet_data: bqData,
+        storage: 'bigquery'
       })
     }
 
-    const data = await backendRes.json()
-    return NextResponse.json(data)
+    // No takeoff exists
+    return NextResponse.json(
+      { error: 'Takeoff not found', exists: false },
+      { status: 404 }
+    )
 
   } catch (err) {
     console.error('Takeoff GET error:', err)
@@ -71,6 +86,29 @@ export async function GET(request, { params }) {
       { error: 'Failed to fetch takeoff: ' + err.message },
       { status: 500 }
     )
+  }
+}
+
+/**
+ * Load takeoff data from BigQuery
+ */
+async function loadTakeoffFromBigQuery(projectId) {
+  try {
+    const query = `
+      SELECT sheet_data_json
+      FROM \`${BQ_PROJECT}.${BQ_DATASET}.takeoff_sheets\`
+      WHERE project_id = @projectId
+      ORDER BY updated_at DESC
+      LIMIT 1
+    `
+    const rows = await runQuery(query, { projectId })
+    if (rows && rows.length > 0 && rows[0].sheet_data_json) {
+      return JSON.parse(rows[0].sheet_data_json)
+    }
+    return null
+  } catch (err) {
+    console.warn('BigQuery takeoff load error:', err.message)
+    return null
   }
 }
 
@@ -86,23 +124,41 @@ export async function PUT(request, { params }) {
     const { projectId } = await params
     const body = await request.json()
 
-    const backendRes = await fetchWithSSL(`${BACKEND_URL}/v1/takeoff/${projectId}`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body),
-      signal: AbortSignal.timeout(30000)
-    })
+    // Try backend first
+    try {
+      const backendRes = await fetchWithSSL(`${BACKEND_URL}/v1/takeoff/${projectId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+        signal: AbortSignal.timeout(10000)
+      })
 
-    if (!backendRes.ok) {
-      const errText = await backendRes.text()
-      return NextResponse.json(
-        { error: errText },
-        { status: backendRes.status }
-      )
+      if (backendRes.ok) {
+        const data = await backendRes.json()
+        return NextResponse.json(data)
+      }
+
+      if (backendRes.status !== 404) {
+        console.warn('Backend PUT error:', await backendRes.text())
+      }
+    } catch (backendErr) {
+      console.warn('Backend unreachable, using BigQuery:', backendErr.message)
     }
 
-    const data = await backendRes.json()
-    return NextResponse.json(data)
+    // Fallback: Save to BigQuery
+    const saved = await saveTakeoffToBigQuery(projectId, body)
+    if (saved) {
+      return NextResponse.json({
+        success: true,
+        message: 'Takeoff saved (local)',
+        storage: 'bigquery'
+      })
+    }
+
+    return NextResponse.json(
+      { error: 'Failed to save takeoff' },
+      { status: 500 }
+    )
 
   } catch (err) {
     console.error('Takeoff PUT error:', err)
@@ -110,6 +166,62 @@ export async function PUT(request, { params }) {
       { error: 'Failed to update takeoff: ' + err.message },
       { status: 500 }
     )
+  }
+}
+
+/**
+ * Save takeoff data to BigQuery
+ */
+async function saveTakeoffToBigQuery(projectId, data) {
+  try {
+    // Upsert: delete then insert
+    try {
+      const deleteQuery = `
+        DELETE FROM \`${BQ_PROJECT}.${BQ_DATASET}.takeoff_sheets\`
+        WHERE project_id = @projectId
+      `
+      await runQuery(deleteQuery, { projectId })
+    } catch (e) {
+      // Table might not exist
+    }
+
+    const insertQuery = `
+      INSERT INTO \`${BQ_PROJECT}.${BQ_DATASET}.takeoff_sheets\`
+      (project_id, sheet_data_json, updated_at)
+      VALUES (@projectId, @sheetDataJson, CURRENT_TIMESTAMP())
+    `
+    await runQuery(insertQuery, {
+      projectId,
+      sheetDataJson: JSON.stringify(data.sheet_data || data)
+    })
+    return true
+  } catch (err) {
+    console.error('BigQuery save error:', err)
+    // Try to create table
+    try {
+      const createQuery = `
+        CREATE TABLE IF NOT EXISTS \`${BQ_PROJECT}.${BQ_DATASET}.takeoff_sheets\` (
+          project_id STRING NOT NULL,
+          sheet_data_json STRING,
+          updated_at TIMESTAMP
+        )
+      `
+      await runQuery(createQuery)
+      // Retry insert
+      const insertQuery = `
+        INSERT INTO \`${BQ_PROJECT}.${BQ_DATASET}.takeoff_sheets\`
+        (project_id, sheet_data_json, updated_at)
+        VALUES (@projectId, @sheetDataJson, CURRENT_TIMESTAMP())
+      `
+      await runQuery(insertQuery, {
+        projectId,
+        sheetDataJson: JSON.stringify(data.sheet_data || data)
+      })
+      return true
+    } catch (createErr) {
+      console.error('Failed to create table:', createErr)
+      return false
+    }
   }
 }
 

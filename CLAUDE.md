@@ -1,7 +1,7 @@
 # CLAUDE.md - KO Project Context
 
-> **Auto-generated from ~/KO_Session_State/ on 2026-01-12 20:37**
-> **Regenerate:** `python3 ~/generate_claude_md.py`
+> **Auto-generated from ~/KO_Session_State/ on 2026-01-22 11:23**
+> **Regenerate:** `python3 /home/iwagschal/open_session.py`
 
 ---
 
@@ -106,30 +106,34 @@ Full project state is maintained in `~/KO_Session_State/`.
 | Health endpoint | WORKING | /health returns status |
 | Session management | WORKING | chat_history/ folder |
 
-## 5-Phase Agent Flow
-| Phase | Status | Notes |
-|-------|--------|-------|
-| Phase 0: Project Resolution | WORKING | Gemini extracts project mentions → v_project_lookup |
-| Phase 1: Query Routing | WORKING | Gemini decides which tools |
-| Phase 2: Tool Execution | WORKING | Claude SQL, Vertex, HubSpot run with project_id filter |
-| Phase 3: Result Merge | WORKING | Gemini combines outputs |
-| Phase 4: CEO Response | WORKING | OpenAI generates final answer |
-
-## Data Warehouse
-
-### Project ID System (CANONICAL ONLY)
+## Bluebeam → Excel Export (NEW - Session 16)
 | Feature | Status | Notes |
 |---------|--------|-------|
-| **project_master** | WORKING | 1,529 canonical projects (single `project_id` column) |
-| **project_id_canonical_map** | WORKING | 8,828 mappings → 5,037 canonical IDs |
-| **dim_project_v2** | WORKING | 5,002 unique projects in mr_core |
+| Bluebeam CSV Converter | WORKING | 100% match rate with legacy patterns |
+| Excel Template Generator | WORKING | Uses MR template at /home/iwagschal/ |
+| CODE → Row Mapping | WORKING | 40+ item codes mapped to template rows |
+| Floor → Column Mapping | WORKING | FL1, FL2, FLCELLAR, etc. |
+| Aggregation by CODE | WORKING | Same items combined per floor |
+| Unmatched Item Handling | WORKING | Red highlight at row 77+ |
+| Frontend Upload Modal | WORKING | "Download Excel Takeoff" button |
+| Backend Endpoint | WORKING | `/v1/bluebeam/export-excel` |
 
-### Core Tables (Canonical IDs)
-| Table | Status | Notes |
-|-------|--------|-------|
-| extracted_facts_v2 | WORKING | 68,505 facts across 1,099 projects |
-| proposal_takeoff_unified_v2 | WORKING | 52,511 rows |
-| proposal_takeoff_matches_v9 | WORKING | 4,430 matches 
+### Supported Bluebeam Patterns
+| Pattern | Extracted Code |
+|---------|---------------|
+| River Rock Ballast | OVERBURDEN |
+| Artificial Turf | GREEN |
+| PTAC Units | AC |
+| Paver, Concrete Paver | PAVER |
+| W.P., Waterproof | LIQUID-WP |
+| Vapor Barrier, VB | VB |
+| Drain, Roof Drain | DRAIN |
+| Coping, Cope | COPE |
+| Traffic Coating | TRAFFIC |
+| (40+ more patterns) | See bluebeam_converter.py |
+
+## 5-Phase Agent Flow
+| P
 
 ### What's Broken
 # What's Broken / Known Issues
@@ -138,6 +142,16 @@ Full project state is maintained in `~/KO_Session_State/`.
 *None currently blocking*
 
 ## Medium Priority
+
+### Estimating Center - Projects Not Linked to BigQuery
+- **Issue:** Projects created in Estimating Center are NOT saved to BigQuery `project_master`
+- **Cause:** Backend endpoint `/api/estimating/projects` doesn't exist; falls back to in-memory storage
+- **Impact:**
+  - Projects disappear on page refresh / Vercel cold start
+  - New project_ids are orphaned (not in canonical project tables)
+  - Takeoffs created for these projects exist in GCS but have no BigQuery linkage
+- **Workaround:** None - projects must be recreated each session
+- **Fix needed:** Build backend endpoint to INSERT into BigQuery when creating projects
 
 ### SSL Certificate Warning
 - **Issue:** Browser shows "Not Secure" warning for backend
@@ -157,67 +171,51 @@ Full project state is maintained in `~/KO_Session_State/`.
 - **Issue:** ~30-35% of proposals fail to download during batch parsing
 - **Cause:** Files moved, renamed, or deleted from GCS
 - **Impact:** Batch extraction gets ~65% success rate
-- **Logged in:** `/home/iwagschal/parsed_proposals_errors.json`
-
-### Unmatched Projects
-- **Issue:** 25% of proposals don't match to takeoffs
-- **Cause:** Different folder naming conventions, root-level files
-- **Impact:** Incomplete project linking
-- **Details:** See MR_DATA_ARCHITECTURE_AUDIT.md Section 4.7
-
-### Vercel Git Author Error (Intermittent)
-- **Issue:** `npx vercel deploy` sometimes fails with "Git author must have access"
-- **Workaround:** Use Vercel API method or git push to main
-- **Details:** See DEPLOYMENT_GUIDE.md
-
-## Monitoring Notes
-| What to Watch | Threshold | Action |
-|---------------|-----------|--------|
-
+- **Log
 
 ### In Progress
 # In Progress
 
-## Current Session: 2026-01-12 (Day 5 of Phase 1, Session 15)
+## Current Session: 2026-01-16 (Day 6 of Phase 1, Session 16)
 
 ### Completed This Session
 | Task | Status | Notes |
 |------|--------|-------|
-| Sprint G Model Arena Review | DONE | All backend components working |
-| Nginx routing fix | DONE | Added /arena/* proxy rules |
-| Frontend integration verified | DONE | Dashboard accessible via nav |
+| Replace Google Sheets with Excel export | DONE | Frontend updated, deployed |
+| Backend Excel generator | DONE | `/v1/bluebeam/export-excel` working |
+| Floor detection fix | DONE | FL1, FL2, FLCELLAR now map correctly |
+| Aggregation by CODE | DONE | Same items combined per floor |
+| Create handoff document | DONE | See 06_Session_Log/ |
 
-### Sprint G Status: RESTORED
-
-The Model Arena system is now fully operational:
+### Bluebeam → Excel System Status: COMPLETE
 
 | Component | Status |
 |-----------|--------|
-| Backend API | WORKING |
-| Model Registry (38 models) | WORKING |
-| Universal Model Caller | WORKING |
-| Test Orchestrator | WORKING |
-| Ranking Engine | WORKING |
-| Live Dashboard | WORKING |
-| Agent Promoter | WORKING |
-| Re-test Scheduler | WORKING |
-| Nginx Routing | FIXED |
-
-### Next Steps (Future Sessions)
-| Task | Priority | Notes |
-|------|----------|-------|
-| End-to-end arena test | HIGH | Run full model comparison |
-| WebSocket streaming test | MEDIUM | Verify through nginx |
-| Add more agents to scheduler | LOW | Currently only test_agent_promotion |
-| Integrate with KO agent | HIGH | Natural language queries over email |
+| Bluebeam CSV Converter | WORKING (100% match rate) |
+| Excel Template Generator | WORKING |
+| CODE → Row Mapping | WORKING (40+ codes) |
+| Floor → Column Mapping | WORKING (FL1, FL2, etc.) |
+| Unmatched Item Handling | WORKING (red highlight at bottom) |
+| Frontend Upload Modal | UPDATED (Download Excel button) |
+| Backend Endpoint | WORKING (`/v1/bluebeam/export-excel`) |
 
 ---
 
-## Parking Lot
-- Gmail agent integration (Phase 2)
-- Google Chat agent (Phase 2)
-- Asana live sync
+### Key Files
+| File | Location | Purpose |
+|------|----------|---------|
+| estimating-center-screen.jsx | Frontend | Upload UI, Excel download |
+| excel_takeoff_generator.py | Backend | Generates Excel from template |
+| bluebeam_converter.py | Backend | CSV parsing, pattern matching |
+| Master Roofing takeoff template.xlsx | /home/iwagschal/ | Excel template |
 
+### Handoff Document
+Full documentation at:
+`/home/iwagschal/KO_Session_State/06_Session_Log/HANDOFF_2026-01-16_Bluebeam_Excel_Export.md`
+
+---
+
+### Next Steps
 
 ---
 
@@ -307,7 +305,7 @@ gcloud compute ssh mr-dev-box-01 --zone=southamerica-east1-b
 gcloud compute ssh mr-dev-box-01 --zone=southamerica-east1-b --command="tail -50 /home/iwagschal/aeyecorp/uvicorn.log"
 
 # Regenerate this file
-python3 ~/generate_claude_md.py
+python3 /home/iwagschal/open_session.py
 ```
 
 ---
@@ -388,113 +386,66 @@ python3 ~/generate_claude_md.py
 ## Session Info
 | Property | Value |
 |----------|-------|
-| Date | 2026-01-12 (Session 15) |
-| Focus | Sprint G Model Arena Restoration |
-| Day | Day 5 of Phase 1 |
-| Key Win | **Fixed nginx routing - Model Arena dashboard now functional** |
+| Date | 2026-01-16 (Session 16) |
+| Focus | Bluebeam to Excel Export System |
+| Day | Day 6 of Phase 1 |
+| Key Win | **Replaced Google Sheets with direct Excel export using MR template** |
 
 ---
 
 ## What Was Accomplished
 
-### Sprint G: Model Arena (TST-001) - Status Restored
+### Bluebeam → Excel Export System - COMPLETE
 
-#### Backend Components (Already Working)
-All backend components were already created and functional:
+Replaced the Google Sheets integration with a direct Excel export that uses the exact Master Roofing template format.
 
-| File | Purpose | Status |
-|------|---------|--------|
-| `app/model_arena/__init__.py` | Module init | WORKING |
-| `app/model_arena/api.py` | REST API endpoints | WORKING |
-| `app/model_arena/bigquery_helper.py` | BigQuery operations | WORKING |
-| `app/model_arena/model_caller.py` | Universal LLM caller | WORKING |
-| `app/model_arena/orchestrator.py` | Test orchestration | WORKING |
-| `app/model_arena/promoter.py` | Agent promotion | WORKING |
-| `app/model_arena/scheduler.py` | Re-test scheduling | WORKING |
-| `app/model_arena/scoring.py` | Output scoring | WORKING |
+| Component | Status | Notes |
+|-----------|--------|-------|
+| Backend Excel Generator | WORKING | `/v1/bluebeam/export-excel` endpoint |
+| Frontend Upload Modal | UPDATED | "Download Excel Takeoff" button |
+| Template Row Mapping | WORKING | CODE_TO_ROW for 40+ item types |
+| Floor Detection | WORKING | FL1, FL2, FL Cellar → correct columns |
+| Aggregation | WORKING | Same CODE items combined by floor |
+| Unmatched Items | WORKING | Red highlighted at bottom (row 77+) |
 
-#### Models Registered
-- **38 LLM models** across 11 providers:
-  - Anthropic (3): Claude Opus 4, Sonnet 4, Haiku 3.5
-  - OpenAI (6): GPT-4o, 4o-mini, 4-turbo, o1, o1-mini, o3-mini
-  - Google (4): Gemini 2.0 Pro/Flash, 1.5 Pro/Flash
-  - DeepSeek (3): V3, R1, Coder
-  - Together/Meta (4): Llama 3.1 8B/70B/405B, 3.3 70B
-  - Mistral (4): Large, Small, Codestral, Ministral 8B
-  - xAI (2): Grok-2, Grok-2 Mini
-  - Groq (4): Llama 3.1 70B/8B, Mixtral, Gemma 2
-  - Cohere (2): Command R, Command R+
-  - Amazon (3): Nova Pro/Lite/Micro
-  - Alibaba (3): Qwen Max/Plus/Turbo
+### Files Modified
 
-#### Frontend Dashboard
-| Component | File | Status |
-|-----------|------|--------|
-| Model Arena Dashboard | `components/ko/model-arena-dashboard.jsx` | WORKING |
-| Navigation Rail (arena mode) | `components/ko/navigation-rail.jsx` | WORKING |
-| Page.jsx integration | `app/page.jsx` | WORKING |
+**Frontend (v0-master-roofing-ai-2-1u):**
+- `components/ko/estimating-center-screen.jsx`
+  - Removed Google Sheets integration (handleCreateSheet, populateGoogleSheet)
+  - Added `handleExportExcel` function
+  - Updated upload modal: "Download Excel Takeoff" instead of Google Sheets
 
-### Issue Fixed This Session
+**Backend (aeyecorp on VM 136.111.252.120):**
+- `app/tools/excel_takeoff_generator.py` - Excel generation with aggregation
+- `app/main.py` - `/v1/bluebeam/export-excel` endpoint
 
-#### Nginx Routing Missing
-- **Problem:** `/arena/*` requests were not proxied t
+---
+
+## System Flow
+
+```
+User uploads CSV → Backend converts → Backend generates Excel → User downloads
+```
+
+1. **Upload**: User clicks "Upload Bluebeam" in Estimating Center
+2. **Convert**: Backend parses CSV with legacy pattern matching (100% match rate)
+3. **Generate**: Backend fills MR template, adds unmatched items at bottom
+4. **Download**: Browser downloads `{ProjectName}_Takeoff.xlsx`
+
+---
+
+## Key Technical Details
+
+### Template Mapping (excel_takeoff_generator.py)
+
+```python
+CODE_TO_ROW = {
+    'VB': 4, 'PITCH': 5, 'ROOF-2PLY': 6, 'DRAIN': 15,
+    'DOOR-STD': 16
 
 ---
 
 *Auto-generated by generate_claude_md.py - Do not edit directly*
 *Source: ~/KO_Session_State/*
-*Regenerate: `python3 ~/generate_claude_md.py`*
-
----
-
-## Git Workflow (IMPORTANT)
-
-### Branch Rules
-| Branch | Purpose | Rule |
-|--------|---------|------|
-| `dev` | Active development | **Always work here** |
-| `main` | Stable/production | Never commit directly |
-
-### At Session Start
-```bash
-git pull origin dev
-```
-Always pull before making changes.
-
-### During Session
-Claude Code should commit frequently with meaningful messages:
-```bash
-git add .
-git commit -m "descriptive message of what changed"
-```
-
-### At Session End (REQUIRED)
-```bash
-git push origin dev
-```
-**Never end a session without pushing.** Unpushed commits only exist on this VM.
-
-### Check Status Anytime
-```bash
-git status
-```
-- "ahead by X commits" = need to push
-- "behind by X commits" = need to pull
-- "nothing to commit, working tree clean" = all good
-
-### NEVER Do These
-- `git push --force` (destroys history)
-- `git push origin dev:main --force` (dangerous)
-- Work directly on `main` branch
-- End a session without pushing
-
-### Deploy to Production
-When `dev` is stable and tested:
-```bash
-git checkout main
-git pull origin main
-git merge dev
-git push origin main
-git checkout dev
-```
-
+*Regenerate: `python3 /home/iwagschal/open_session.py`*

@@ -24,8 +24,11 @@
 
 import { NextResponse } from 'next/server'
 import https from 'https'
+import { runQuery } from '@/lib/bigquery'
 
-const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'https://34.95.128.208'
+const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'https://136.111.252.120'
+const BQ_PROJECT = 'master-roofing-intelligence'
+const BQ_DATASET = 'ko_estimating'
 
 // Custom fetch that ignores SSL cert errors (for self-signed backend cert)
 const fetchWithSSL = async (url, options = {}) => {
@@ -75,12 +78,49 @@ export async function GET(request, { params }) {
   } catch (err) {
     console.error('Takeoff config GET error:', err)
 
+    // Try BigQuery fallback
+    try {
+      const bqConfig = await loadConfigFromBigQuery(projectId)
+      if (bqConfig) {
+        return NextResponse.json({
+          exists: true,
+          config: bqConfig,
+          storage: 'bigquery'
+        })
+      }
+    } catch (bqErr) {
+      console.warn('BigQuery fallback failed:', bqErr.message)
+    }
+
     // Return default config on error
     return NextResponse.json({
       exists: false,
       config: getDefaultConfig(),
       error: err.message
     })
+  }
+}
+
+/**
+ * Load config from BigQuery fallback
+ */
+async function loadConfigFromBigQuery(projectId) {
+  try {
+    const query = `
+      SELECT config_json
+      FROM \`${BQ_PROJECT}.${BQ_DATASET}.takeoff_configs\`
+      WHERE project_id = @projectId
+      ORDER BY updated_at DESC
+      LIMIT 1
+    `
+    const rows = await runQuery(query, { projectId })
+    if (rows && rows.length > 0 && rows[0].config_json) {
+      return JSON.parse(rows[0].config_json)
+    }
+    return null
+  } catch (err) {
+    console.warn('BigQuery config load error:', err.message)
+    return null
   }
 }
 
@@ -102,35 +142,51 @@ export async function POST(request, { params }) {
       )
     }
 
-    const backendRes = await fetchWithSSL(
-      `${BACKEND_URL}/v1/takeoff/${projectId}/config`,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body),
-        signal: AbortSignal.timeout(15000)
-      }
-    )
-
-    if (!backendRes.ok) {
-      const errText = await backendRes.text()
-      let errDetail = errText
-      try {
-        const errJson = JSON.parse(errText)
-        errDetail = errJson.detail || errText
-      } catch {}
-      return NextResponse.json(
-        { error: errDetail },
-        { status: backendRes.status }
+    // Try backend first
+    try {
+      const backendRes = await fetchWithSSL(
+        `${BACKEND_URL}/v1/takeoff/${projectId}/config`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body),
+          signal: AbortSignal.timeout(10000)
+        }
       )
+
+      if (backendRes.ok) {
+        const data = await backendRes.json()
+        return NextResponse.json({
+          success: true,
+          config: data.config || body,
+          message: 'Configuration saved'
+        })
+      }
+
+      // If backend returns 404, fall through to BigQuery storage
+      if (backendRes.status !== 404) {
+        const errText = await backendRes.text()
+        console.warn('Backend config save failed:', errText)
+      }
+    } catch (backendErr) {
+      console.warn('Backend unreachable, using BigQuery fallback:', backendErr.message)
     }
 
-    const data = await backendRes.json()
-    return NextResponse.json({
-      success: true,
-      config: data.config || body,
-      message: 'Configuration saved'
-    })
+    // Fallback: Save to BigQuery
+    const saved = await saveConfigToBigQuery(projectId, body)
+    if (saved) {
+      return NextResponse.json({
+        success: true,
+        config: body,
+        message: 'Configuration saved (local)',
+        storage: 'bigquery'
+      })
+    }
+
+    return NextResponse.json(
+      { error: 'Failed to save configuration' },
+      { status: 500 }
+    )
 
   } catch (err) {
     console.error('Takeoff config POST error:', err)
@@ -138,6 +194,63 @@ export async function POST(request, { params }) {
       { error: 'Failed to save configuration: ' + err.message },
       { status: 500 }
     )
+  }
+}
+
+/**
+ * Save config to BigQuery as fallback
+ */
+async function saveConfigToBigQuery(projectId, config) {
+  try {
+    // First try to delete existing config
+    const deleteQuery = `
+      DELETE FROM \`${BQ_PROJECT}.${BQ_DATASET}.takeoff_configs\`
+      WHERE project_id = @projectId
+    `
+    try {
+      await runQuery(deleteQuery, { projectId })
+    } catch (e) {
+      // Table might not exist, that's OK
+    }
+
+    // Insert new config
+    const insertQuery = `
+      INSERT INTO \`${BQ_PROJECT}.${BQ_DATASET}.takeoff_configs\`
+      (project_id, config_json, updated_at)
+      VALUES (@projectId, @configJson, CURRENT_TIMESTAMP())
+    `
+    await runQuery(insertQuery, {
+      projectId,
+      configJson: JSON.stringify(config)
+    })
+    return true
+  } catch (err) {
+    console.error('BigQuery save error:', err)
+    // Try to create table if it doesn't exist
+    try {
+      const createTableQuery = `
+        CREATE TABLE IF NOT EXISTS \`${BQ_PROJECT}.${BQ_DATASET}.takeoff_configs\` (
+          project_id STRING NOT NULL,
+          config_json STRING,
+          updated_at TIMESTAMP
+        )
+      `
+      await runQuery(createTableQuery)
+      // Retry insert
+      const insertQuery = `
+        INSERT INTO \`${BQ_PROJECT}.${BQ_DATASET}.takeoff_configs\`
+        (project_id, config_json, updated_at)
+        VALUES (@projectId, @configJson, CURRENT_TIMESTAMP())
+      `
+      await runQuery(insertQuery, {
+        projectId,
+        configJson: JSON.stringify(config)
+      })
+      return true
+    } catch (createErr) {
+      console.error('Failed to create table:', createErr)
+      return false
+    }
   }
 }
 
