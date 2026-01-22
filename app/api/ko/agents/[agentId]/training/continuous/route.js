@@ -10,11 +10,14 @@ import { NextResponse } from 'next/server'
 
 const BACKEND_URL = 'https://136.111.252.120'
 
+// Agents that support training
+const TRAINING_AGENTS = ['AGT-TRAIN-001', 'CAO-CE-001']
+
 // GET - Get continuous training status
 export async function GET(request, context) {
   const { agentId } = await context.params
 
-  if (agentId !== 'AGT-TRAIN-001') {
+  if (!TRAINING_AGENTS.includes(agentId)) {
     return NextResponse.json({ error: 'Not a training agent' }, { status: 400 })
   }
 
@@ -50,7 +53,7 @@ export async function POST(request, context) {
   const { searchParams } = new URL(request.url)
   const action = searchParams.get('action') || 'start'
 
-  if (agentId !== 'AGT-TRAIN-001') {
+  if (!TRAINING_AGENTS.includes(agentId)) {
     return NextResponse.json({ error: 'Not a training agent' }, { status: 400 })
   }
 

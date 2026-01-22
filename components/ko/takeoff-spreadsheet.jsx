@@ -24,66 +24,111 @@ import {
 import { cn } from "@/lib/utils"
 
 // Master Roofing Official Takeoff Template - aligned with lib_takeoff_template in BigQuery
-// IDs match mr_agent.lib_takeoff_template item_id format (MR-xxxYYY)
+// IDs are INTERNAL ONLY - never shown to estimators, only display names
+// Styling matches old Excel template: yellow headers, orange totals, green special items
 const TEMPLATE_ROWS = [
-  { row: 3, label: 'Headers', code: 'HEADER', section: 'header', isHeader: true },
   // ROOFING SECTION
-  { row: 4, label: 'Vapor Barrier', code: 'MR-001VB', section: 'roofing', uom: 'SF', rate: 6.95 },
-  { row: 5, label: 'Pitch Upcharge', code: 'MR-002PITCH', section: 'roofing', uom: 'SF', rate: 1.5 },
-  { row: 6, label: 'Roofing - 2 Ply', code: 'MR-003BU2PLY', section: 'roofing', uom: 'SF', rate: 16.25, hasSystem: true },
-  { row: 7, label: 'Up and Over', code: 'MR-004UO', section: 'roofing', uom: 'LF', rate: 12.0 },
-  { row: 8, label: 'Scupper/Leader', code: 'MR-005SCUPPER', section: 'roofing', uom: 'EA', rate: 2500.0 },
-  { row: 10, label: 'Roofing - IRMA', code: 'MR-006IRMA', section: 'roofing', uom: 'SF', hasSystem: true, hasRValue: true },
-  { row: 11, label: 'PMMA @ Building', code: 'MR-007PMMA', section: 'roofing', uom: 'LF', hasSystem: true },
-  { row: 12, label: 'PMMA @ Parapet', code: 'MR-008PMMA', section: 'roofing', uom: 'LF', hasSystem: true },
-  { row: 15, label: 'Drains', code: 'MR-010DRAIN', section: 'roofing', uom: 'EA', rate: 550.0 },
-  { row: 16, label: 'Doorpans - Std', code: 'MR-011DOORSTD', section: 'roofing', uom: 'EA', rate: 550.0 },
-  { row: 17, label: 'Doorpans - Large', code: 'MR-012DOORLG', section: 'roofing', uom: 'EA', rate: 850.0 },
-  { row: 19, label: 'Hatch/Skylight (SF)', code: 'MR-013HATCHSF', section: 'roofing', uom: 'SF' },
-  { row: 20, label: 'Hatch/Skylight (LF)', code: 'MR-014HATCHLF', section: 'roofing', uom: 'LF', rate: 48.0 },
-  { row: 21, label: 'Mech Pads', code: 'MR-015PAD', section: 'roofing', uom: 'SF' },
-  { row: 22, label: 'Fence Posts', code: 'MR-016FENCE', section: 'roofing', uom: 'EA', rate: 250.0 },
-  { row: 23, label: 'Railing Posts', code: 'MR-017RAIL', section: 'roofing', uom: 'EA', rate: 250.0 },
-  { row: 24, label: 'Plumbing Pen.', code: 'MR-018PLUMB', section: 'roofing', uom: 'EA', rate: 250.0 },
-  { row: 25, label: 'Mechanical Pen.', code: 'MR-019MECH', section: 'roofing', uom: 'EA', rate: 250.0 },
-  { row: 26, label: 'Davits', code: 'MR-020DAVIT', section: 'roofing', uom: 'EA', rate: 150.0 },
-  { row: 27, label: 'AC Units/Dunnage', code: 'MR-021AC', section: 'roofing', uom: 'EA', rate: 550.0 },
-  { row: 29, label: 'Coping (Low)', code: 'MR-022COPELO', section: 'roofing', uom: 'LF', rate: 32.0, hasSystem: true },
-  { row: 30, label: 'Coping (High)', code: 'MR-023COPEHI', section: 'roofing', uom: 'LF', rate: 32.0, hasSystem: true },
-  { row: 31, label: 'Insul. Coping', code: 'MR-024INSUCOPE', section: 'roofing', uom: 'LF', rate: 4.0, hasRValue: true },
-  { row: 33, label: 'Flash @ Building', code: 'MR-025FLASHBLDG', section: 'roofing', uom: 'LF', rate: 24.0 },
-  { row: 34, label: 'Flash @ Parapet', code: 'MR-026FLASHPAR', section: 'roofing', uom: 'LF', rate: 24.0 },
-  { row: 36, label: 'Overburden IRMA', code: 'MR-027OBIRMA', section: 'roofing', uom: 'SF', rate: 14.0 },
-  { row: 37, label: 'Pavers', code: 'MR-028PAVER', section: 'roofing', uom: 'SF', hasSystem: true },
-  { row: 38, label: 'Edge @ Pavers', code: 'MR-029FLASHPAV', section: 'roofing', uom: 'LF', rate: 24.0 },
-  { row: 40, label: 'Green Roof', code: 'MR-030GREEN', section: 'roofing', uom: 'SF', rate: 48.0 },
-  { row: 41, label: 'Edge @ Green', code: 'MR-031FLASHGRN', section: 'roofing', uom: 'LF', rate: 24.0 },
-  { row: 43, label: 'Recessed Floor WP', code: 'MR-032RECESSWP', section: 'roofing', uom: 'SF', rate: 32.0 },
+  { row: 1, label: 'ROOFING', section: 'roofing', isSectionHeader: true },
+  { row: 2, label: 'Vapor Barrier or Temp waterproofing', code: 'MR-001VB', section: 'roofing', uom: 'SF', rate: 6.95, isItemized: true },
+  { row: 3, label: 'Upcharge for 1/4" Pitch', code: 'MR-002PITCH', section: 'roofing', uom: 'SF', rate: 1.50, isItemized: true },
+  { row: 4, label: 'Roofing - Builtup - 2 ply Scope', code: 'MR-003BU2PLY', section: 'roofing', uom: 'SF', rate: 16.25, isItemized: true, hasSystem: true },
+  { row: 5, label: 'up and over', code: 'MR-004UO', section: 'roofing', uom: 'LF', rate: 12.00, isItemized: true },
+  { row: 6, label: 'Scupper/gutter and leader', code: 'MR-005SCUPPER', section: 'roofing', uom: 'EA', rate: 2500.00, isItemized: true },
+  { row: 7, isSpacer: true }, // Blank row separator
+  { row: 8, label: 'Roofing - IRMA - (Scope - Liquid or 2ply)', code: 'MR-006IRMA', section: 'roofing', uom: 'SF', isBundled: true, hasSystem: true },
+  { row: 9, label: 'PMMA (Liquid) or 2ply Torch@Building Wall', code: 'MR-007PMMA', section: 'roofing', uom: 'LF', isBundled: true },
+  { row: 10, label: 'PMMA (Liquid) or 2ply Torch@Parapet Wall', code: 'MR-008PMMA', section: 'roofing', uom: 'LF', isBundled: true },
+  { row: 11, label: 'up and over - PMMA (Liquid) or 2ply Torch', code: 'MR-009PMMAUO', section: 'roofing', uom: 'LF', isBundled: true },
+  { row: 12, isSpacer: true }, // Blank row separator
+  { row: 13, label: 'Drains', code: 'MR-010DRAIN', section: 'roofing', uom: 'EA', rate: 550.00, isItemized: true },
+  { row: 14, label: 'Doorpans - Standard 3-6\'', code: 'MR-011DOORSTD', section: 'roofing', uom: 'EA', rate: 550.00, isItemized: true },
+  { row: 15, label: 'Doorpans - Large', code: 'MR-012DOORLG', section: 'roofing', uom: 'EA', rate: 850.00, isItemized: true },
+  { row: 16, isSpacer: true }, // Blank row separator
+  { row: 17, label: 'Roof hatch / Skylights (Area)', code: 'MR-013HATCHSF', section: 'roofing', uom: 'SF', isBundled: true, note: 'Select one' },
+  { row: 18, label: 'Roof hatch / Skylights (Perimeter)', code: 'MR-014HATCHLF', section: 'roofing', uom: 'LF', rate: 48.00, isItemized: true, note: 'Select one' },
+  { row: 19, label: 'Concrete Mechanical Pads/Walkway pads (sf)', code: 'MR-015PAD', section: 'roofing', uom: 'SF', isBundled: true },
+  { row: 20, label: 'Fence posts', code: 'MR-016FENCE', section: 'roofing', uom: 'EA', rate: 250.00, isItemized: true },
+  { row: 21, label: 'Railing Posts', code: 'MR-017RAIL', section: 'roofing', uom: 'EA', rate: 250.00, isItemized: true },
+  { row: 22, label: 'Plumbing Penetrations', code: 'MR-018PLUMB', section: 'roofing', uom: 'EA', rate: 250.00, isItemized: true },
+  { row: 23, label: 'Mechanical Penetrations', code: 'MR-019MECH', section: 'roofing', uom: 'EA', rate: 250.00, isItemized: true },
+  { row: 24, label: 'Davits (EA)', code: 'MR-020DAVIT', section: 'roofing', uom: 'EA', rate: 150.00, isItemized: true },
+  { row: 25, label: 'AC Units -EA (dunnage?)', code: 'MR-021AC', section: 'roofing', uom: 'EA', rate: 550.00, isItemized: true },
+  { row: 26, isSpacer: true }, // Blank row separator
+  { row: 27, label: '(Alum.) Coping (Low Parapet) Gravel stop/Edge Flashing', code: 'MR-022COPELO', section: 'roofing', uom: 'LF', rate: 32.00, isItemized: true },
+  { row: 28, label: '(Alum.) Coping (high Parapet)', code: 'MR-023COPEHI', section: 'roofing', uom: 'LF', rate: 32.00, isItemized: true },
+  { row: 29, label: 'Insulation under Coping (R Value)', code: 'MR-024INSUCOPE', section: 'roofing', uom: 'LF', rate: 4.00, isItemized: true },
+  { row: 30, isSpacer: true }, // Blank row separator
+  { row: 31, label: '(Alum.) Metal Flashing at building wall', code: 'MR-025FLASHBLDG', section: 'roofing', uom: 'LF', rate: 24.00, isItemized: true },
+  { row: 32, label: '(Alum.) Metal Flashing at Parapet wall', code: 'MR-026FLASHPAR', section: 'roofing', uom: 'LF', rate: 24.00, isItemized: true },
+  { row: 33, isSpacer: true }, // Blank row separator
+  { row: 34, label: 'Overburden for Irma Roof (Drainage mat + R? Insulation + Filterfabric)', code: 'MR-027OBIRMA', section: 'roofing', uom: 'SF', rate: 14.00, isItemized: true },
+  { row: 35, label: 'Pavers (R ?)', code: 'MR-028PAVER', section: 'roofing', uom: 'SF', isBundled: true, hasSystem: true },
+  { row: 36, label: 'Metal Edge flashing at the paver Termination', code: 'MR-029FLASHPAV', section: 'roofing', uom: 'LF', rate: 24.00, isItemized: true },
+  { row: 37, isSpacer: true }, // Blank row separator
+  { row: 38, label: 'Green Roof Scope', code: 'MR-030GREEN', section: 'roofing', uom: 'SF', rate: 48.00, isItemized: true },
+  { row: 39, label: 'Metal Edge flashing at the Green Roof', code: 'MR-031FLASHGRN', section: 'roofing', uom: 'LF', rate: 24.00, isItemized: true },
+  { row: 40, isSpacer: true }, // Blank row separator
+  { row: 41, label: 'Recessed floor (Location) - Liquid Waterproofing', code: 'MR-032RECESSWP', section: 'roofing', uom: 'SF', rate: 32.00, isItemized: true },
+  { row: 42, isSectionTotal: true, label: 'TOTAL COST FOR ALL THE ROOFING WORKS', section: 'roofing' },
   // BALCONIES SECTION
-  { row: 46, label: 'Traffic Coating', code: 'MR-033TRAFFIC', section: 'balcony', uom: 'SF', rate: 17.0 },
-  { row: 47, label: 'Alum. Drip Edge', code: 'MR-034DRIP', section: 'balcony', uom: 'LF', rate: 22.0 },
-  { row: 48, label: 'Liquid L Flash', code: 'MR-035LFLASH', section: 'balcony', uom: 'LF', rate: 48.0 },
-  { row: 50, label: 'Doorpans - Balc.', code: 'MR-036DOORBAL', section: 'balcony', uom: 'EA', rate: 550.0 },
+  { row: 43, label: 'BALCONIES', section: 'balcony', isSectionHeader: true },
+  { row: 44, label: 'Traffic Coating', code: 'MR-033TRAFFIC', section: 'balcony', uom: 'SF', rate: 17.00, isItemized: true },
+  { row: 45, label: 'Aluminum Drip edge', code: 'MR-034DRIP', section: 'balcony', uom: 'LF', rate: 22.00, isItemized: true },
+  { row: 46, label: 'Liquid L Flashing (LF)', code: 'MR-035LFLASH', section: 'balcony', uom: 'LF', rate: 48.00, isItemized: true },
+  { row: 47, isSpacer: true }, // Blank row separator
+  { row: 48, label: 'Doorpans - Balconies', code: 'MR-036DOORBAL', section: 'balcony', uom: 'EA', rate: 550.00, isItemized: true },
+  { row: 49, isSectionTotal: true, label: 'TOTAL COST FOR ALL THE BALCONY WORKS', section: 'balcony' },
   // EXTERIOR SECTION
-  { row: 55, label: 'Brick WP', code: 'MR-037BRICKWP', section: 'exterior', uom: 'SF', rate: 5.25 },
-  { row: 56, label: 'Open Brick (EA)', code: 'MR-038OPNBRKEA', section: 'exterior', uom: 'EA', rate: 250.0 },
-  { row: 57, label: 'Open Brick (LF)', code: 'MR-039OPNBRKLF', section: 'exterior', uom: 'LF', rate: 10.0 },
-  { row: 59, label: 'Panel WP', code: 'MR-040PANELWP', section: 'exterior', uom: 'SF', rate: 5.25 },
-  { row: 60, label: 'Open Panel (EA)', code: 'MR-041OPNPNLEA', section: 'exterior', uom: 'EA', rate: 250.0 },
-  { row: 61, label: 'Open Panel (LF)', code: 'MR-042OPNPNLLF', section: 'exterior', uom: 'LF', rate: 10.0 },
-  { row: 63, label: 'EIFS', code: 'MR-043EIFS', section: 'exterior', uom: 'SF', hasSystem: true, hasRValue: true, hasThickness: true },
-  { row: 64, label: 'Open Stucco (EA)', code: 'MR-044OPNSTCEA', section: 'exterior', uom: 'EA', rate: 250.0 },
-  { row: 65, label: 'Open Stucco (LF)', code: 'MR-045OPNSTCLF', section: 'exterior', uom: 'LF', rate: 10.0 },
-  { row: 66, label: 'Trans. Stucco', code: 'MR-046STUCCO', section: 'exterior', uom: 'SF', rate: 17.0 },
-  { row: 68, label: 'Drip Cap', code: 'MR-047DRIPCAP', section: 'exterior', uom: 'LF', rate: 33.0 },
-  { row: 69, label: 'Sills', code: 'MR-048SILL', section: 'exterior', uom: 'LF', rate: 33.0 },
-  { row: 70, label: 'Tie-In', code: 'MR-049TIEIN', section: 'exterior', uom: 'LF', rate: 48.0 },
-  { row: 71, label: 'Adj. Bldg Horiz', code: 'MR-050ADJHORZ', section: 'exterior', uom: 'LF', rate: 65.0 },
-  { row: 72, label: 'Adj. Bldg Vert', code: 'MR-051ADJVERT', section: 'exterior', uom: 'LF' },
+  { row: 50, label: 'EXTERIOR', section: 'exterior', isSectionHeader: true },
+  { row: 51, label: 'Brick area - Waterproofing', code: 'MR-037BRICKWP', section: 'exterior', uom: 'SF', rate: 5.25, isItemized: true },
+  { row: 52, label: 'Openings at brick areas (Count) < 32lf', code: 'MR-038OPNBRKEA', section: 'exterior', uom: 'EA', rate: 250.00, isItemized: true },
+  { row: 53, label: 'Openings at brick areas (LF) > 32lf/40lf', code: 'MR-039OPNBRKLF', section: 'exterior', uom: 'LF', rate: 10.00, isItemized: true },
+  { row: 54, isSpacer: true }, // Blank row separator
+  { row: 55, label: 'Panel Area - Waterproofing', code: 'MR-040PANELWP', section: 'exterior', uom: 'SF', rate: 5.25, isItemized: true },
+  { row: 56, label: 'Openings at panel Areas (Count) < 32lf', code: 'MR-041OPNPNLEA', section: 'exterior', uom: 'EA', rate: 250.00, isItemized: true },
+  { row: 57, label: 'Openings at panel Areas (LF) > 32lf/40lf', code: 'MR-042OPNPNLLF', section: 'exterior', uom: 'LF', rate: 10.00, isItemized: true },
+  { row: 58, isSpacer: true }, // Blank row separator
+  { row: 59, label: 'Eifs - Scope (R?)', code: 'MR-043EIFS', section: 'exterior', uom: 'SF', isBundled: true, hasSystem: true },
+  { row: 60, label: 'openings at stucco areas (Count) < 32lf', code: 'MR-044OPNSTCEA', section: 'exterior', uom: 'EA', rate: 250.00, isItemized: true },
+  { row: 61, label: 'openings at stucco areas (LF) > 32lf/40lf', code: 'MR-045OPNSTCLF', section: 'exterior', uom: 'LF', rate: 10.00, isItemized: true },
+  { row: 62, label: 'Transistional stucco', code: 'MR-046STUCCO', section: 'exterior', uom: 'SF', rate: 17.00, isItemized: true },
+  { row: 63, isSpacer: true }, // Blank row separator
+  { row: 64, label: 'Drip cap (LF)', code: 'MR-047DRIPCAP', section: 'exterior', uom: 'LF', rate: 33.00, isItemized: true, note: 'Eifs =/> 4"' },
+  { row: 65, label: 'Sills', code: 'MR-048SILL', section: 'exterior', uom: 'LF', rate: 33.00, isItemized: true, note: 'Eifs =/> 4"' },
+  { row: 66, label: 'Tie - In (LF)', code: 'MR-049TIEIN', section: 'exterior', uom: 'LF', rate: 48.00, isItemized: true },
+  { row: 67, label: 'adj. building horizontal (Custom Metal Flashing only)', code: 'MR-050ADJHORZ', section: 'exterior', uom: 'LF', rate: 65.00, isItemized: true },
+  { row: 68, label: 'adj. building Vertical (Detail?)', code: 'MR-051ADJVERT', section: 'exterior', uom: 'LF', isBundled: true, note: 'Specify Exclusion' },
+  { row: 69, isSectionTotal: true, label: 'TOTAL COST FOR ALL THE EXTERIOR WORKS', section: 'exterior' },
+  { row: 70, isGrandTotal: true, label: 'TOTAL COST FOR ALL WORK LISTED IN THIS PROPOSAL' },
 ]
 
-// Default columns
-const DEFAULT_COLUMNS = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I']
+// Build lookup map for template rows by code (for Bluebeam import mapping)
+const TEMPLATE_BY_CODE = {}
+TEMPLATE_ROWS.forEach(r => {
+  if (r.code) TEMPLATE_BY_CODE[r.code] = r
+})
+
+// Location columns - default locations for takeoff
+const DEFAULT_LOCATION_COLUMNS = [
+  { id: 'MR', name: 'Main Roof', mappings: ['MR', 'MAIN', 'ROOF'] },
+  { id: 'FL1', name: '1st Floor', mappings: ['FL1', 'FL-1', '1ST', 'GROUND'] },
+  { id: 'FL2', name: '2nd Floor', mappings: ['FL2', 'FL-2', '2ND'] },
+  { id: 'FR', name: 'Front', mappings: ['FR', 'FRONT', 'NORTH'] },
+  { id: 'RR', name: 'Rear', mappings: ['RR', 'REAR', 'SOUTH', 'BACK'] },
+  { id: 'LT', name: 'Left', mappings: ['LT', 'LEFT', 'WEST'] },
+  { id: 'RT', name: 'Right', mappings: ['RT', 'RIGHT', 'EAST'] },
+]
+
+// Styling colors to match old Excel template
+// Colors apply ONLY to the Total Cost column
+const COLORS = {
+  headerGray: '#D9D9D9',        // Gray for header row background
+  itemizedYellow: '#FFFF00',    // Yellow for itemized items (have unit cost, broken out on proposal)
+  bundledGreen: '#92D050',      // Green for bundled/system items (no unit cost, part of system)
+  totalOrange: '#FFC000',       // Orange for section totals and grand total
+  borderThick: '#000000',       // Black for thick borders
+  borderThin: '#D9D9D9',        // Gray for thin borders
+}
 
 export function TakeoffSpreadsheet({
   projectId,
@@ -98,17 +143,27 @@ export function TakeoffSpreadsheet({
   const [error, setError] = useState(null)
   const [takeoffExists, setTakeoffExists] = useState(false)
   const [creating, setCreating] = useState(false)
+  const [viewMode, setViewMode] = useState('template') // 'template' or 'raw'
 
-  // Sheet data
+  // Template data - quantities per location per item
+  // Structure: { [itemCode]: { [locationId]: quantity } }
+  const [templateData, setTemplateData] = useState({})
+
+  // Rate overrides from GC history
+  const [rateOverrides, setRateOverrides] = useState({})
+
+  // Location columns configuration
+  const [locationColumns, setLocationColumns] = useState(DEFAULT_LOCATION_COLUMNS)
+
+  // Legacy sheet data (for raw view)
   const [sheetData, setSheetData] = useState({})
-  const [columns, setColumns] = useState(DEFAULT_COLUMNS)
+  const [columns, setColumns] = useState(['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I'])
   const [columnHeaders, setColumnHeaders] = useState({})
   const [pendingChanges, setPendingChanges] = useState({})
-  // Initialize with 75 rows by default
   const [rows, setRows] = useState(Array.from({ length: 75 }, (_, i) => i + 1))
   const [maxRow, setMaxRow] = useState(75)
-  const [columnWidths, setColumnWidths] = useState({}) // Track column widths
-  const [resizing, setResizing] = useState(null) // Track which column is being resized
+  const [columnWidths, setColumnWidths] = useState({})
+  const [resizing, setResizing] = useState(null)
 
   // Tabs state
   const [activeTab, setActiveTab] = useState('master')
@@ -148,11 +203,65 @@ export function TakeoffSpreadsheet({
     setError(null)
 
     try {
+      // Load config from Bluebeam API (includes locations, items, rates)
+      const configRes = await fetch(`/api/ko/takeoff/${projectId}/config`)
+      if (configRes.ok) {
+        const configData = await configRes.json()
+        if (configData.exists && configData.config) {
+          const config = configData.config
+
+          // Load location columns from config
+          if (config.columns && config.columns.length > 0) {
+            setLocationColumns(config.columns.map((col, idx) => ({
+              id: col.id || `LOC${idx}`,
+              name: col.name,
+              mappings: col.mappings || [col.id]
+            })))
+          }
+
+          // Load rate overrides from config
+          if (config.rateOverrides) {
+            setRateOverrides(config.rateOverrides)
+          }
+
+          // Load template data (quantities per item per location)
+          if (config.templateData) {
+            setTemplateData(config.templateData)
+          }
+        }
+      }
+
+      // Load GC-specific rates if available
+      try {
+        const ratesRes = await fetch(`/api/ko/takeoff/${projectId}/rates`)
+        if (ratesRes.ok) {
+          const ratesData = await ratesRes.json()
+          if (ratesData.rates) {
+            // Merge GC rates with any existing overrides (GC rates take precedence if no override)
+            setRateOverrides(prev => {
+              const merged = { ...ratesData.rates }
+              // User overrides take precedence over GC historical rates
+              Object.keys(prev).forEach(key => {
+                if (prev[key] !== undefined) {
+                  merged[key] = prev[key]
+                }
+              })
+              return merged
+            })
+          }
+        }
+      } catch (rateErr) {
+        console.warn('Could not load GC rates:', rateErr.message)
+      }
+
+      // Load raw sheet data for "raw" view mode
       const res = await fetch(`/api/ko/takeoff/${projectId}?format=json`)
 
       if (res.status === 404) {
-        setTakeoffExists(false)
+        // No takeoff exists - but we can still show template view
+        setTakeoffExists(true) // Allow template view even without raw data
         setLoading(false)
+        loadImports()
         return
       }
 
@@ -199,7 +308,7 @@ export function TakeoffSpreadsheet({
           if (a.length !== b.length) return a.length - b.length
           return a.localeCompare(b)
         })
-        setColumns(sortedCols.length > 0 ? sortedCols : DEFAULT_COLUMNS)
+        setColumns(sortedCols.length > 0 ? sortedCols : ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I'])
 
         // Set rows in order (1 to max detected row)
         const maxDetectedRow = Math.max(...detectedRows, 75)
@@ -374,22 +483,128 @@ export function TakeoffSpreadsheet({
     }
   }, [resizing, handleResizeMove, handleResizeEnd])
 
-  // Save changes
-  const saveChanges = async () => {
-    if (Object.keys(pendingChanges).length === 0) return
+  // ============================================
+  // TEMPLATE VIEW FUNCTIONS
+  // ============================================
 
+  // Handle quantity change in template view
+  const handleQuantityChange = (itemCode, locationId, value) => {
+    const numValue = parseFloat(value) || 0
+    setTemplateData(prev => ({
+      ...prev,
+      [itemCode]: {
+        ...(prev[itemCode] || {}),
+        [locationId]: numValue
+      }
+    }))
+    setPendingChanges(prev => ({
+      ...prev,
+      [`${itemCode}:${locationId}`]: { itemCode, locationId, value: numValue }
+    }))
+  }
+
+  // Get quantity for an item at a location
+  const getQuantity = (itemCode, locationId) => {
+    return templateData[itemCode]?.[locationId] || ''
+  }
+
+  // Calculate total for an item across all locations
+  const getItemTotal = (itemCode) => {
+    const itemData = templateData[itemCode] || {}
+    return Object.values(itemData).reduce((sum, qty) => sum + (parseFloat(qty) || 0), 0)
+  }
+
+  // Get rate for an item (override or default)
+  const getRate = (itemCode, defaultRate) => {
+    return rateOverrides[itemCode] ?? defaultRate ?? 0
+  }
+
+  // Calculate total cost for an item
+  const getItemCost = (item) => {
+    const total = getItemTotal(item.code)
+    const rate = getRate(item.code, item.rate)
+    return total * rate
+  }
+
+  // Format currency
+  const formatCurrency = (value) => {
+    if (!value && value !== 0) return ''
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: 'USD',
+      minimumFractionDigits: 2
+    }).format(value)
+  }
+
+  // Format number with commas
+  const formatNumber = (value) => {
+    if (!value && value !== 0) return ''
+    return new Intl.NumberFormat('en-US').format(value)
+  }
+
+  // Add a new location column
+  const addLocationColumn = () => {
+    const newId = `LOC${locationColumns.length + 1}`
+    setLocationColumns(prev => [
+      ...prev,
+      { id: newId, name: `Location ${locationColumns.length + 1}`, mappings: [newId] }
+    ])
+  }
+
+  // Update location column name
+  const updateLocationName = (locationId, newName) => {
+    setLocationColumns(prev => prev.map(loc =>
+      loc.id === locationId ? { ...loc, name: newName } : loc
+    ))
+  }
+
+  // Remove a location column
+  const removeLocationColumn = (locationId) => {
+    if (locationColumns.length <= 1) return
+    setLocationColumns(prev => prev.filter(loc => loc.id !== locationId))
+  }
+
+  // Save changes - saves both template config and raw data
+  const saveChanges = async () => {
     setSaving(true)
     try {
-      const updates = Object.values(pendingChanges)
+      // Save template configuration (locations, items, rates, quantities)
+      const configPayload = {
+        columns: locationColumns,
+        selectedItems: TEMPLATE_ROWS
+          .filter(item => !item.isSectionHeader && item.code)
+          .map(item => ({
+            scope_code: item.code,
+            section: item.section,
+            display_name: item.label
+          })),
+        rateOverrides,
+        templateData // Quantities per item per location
+      }
 
-      const res = await fetch(`/api/ko/takeoff/${projectId}`, {
-        method: 'PUT',
+      const configRes = await fetch(`/api/ko/takeoff/${projectId}/config`, {
+        method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ updates })
+        body: JSON.stringify(configPayload)
       })
 
-      if (!res.ok) {
-        throw new Error('Failed to save changes')
+      if (!configRes.ok) {
+        console.warn('Config save warning:', await configRes.text())
+      }
+
+      // Save raw sheet updates if any
+      if (Object.keys(pendingChanges).length > 0) {
+        const updates = Object.values(pendingChanges)
+
+        const res = await fetch(`/api/ko/takeoff/${projectId}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ updates })
+        })
+
+        if (!res.ok) {
+          throw new Error('Failed to save changes')
+        }
       }
 
       setPendingChanges({})
@@ -400,6 +615,55 @@ export function TakeoffSpreadsheet({
       setError(err.message)
     } finally {
       setSaving(false)
+    }
+  }
+
+  // Generate BTX file for Bluebeam
+  const [generatingBTX, setGeneratingBTX] = useState(false)
+  const generateBTX = async () => {
+    setGeneratingBTX(true)
+    try {
+      // First save current config
+      await saveChanges()
+
+      // Then generate BTX
+      const res = await fetch(`/api/ko/takeoff/${projectId}/generate`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          columns: locationColumns,
+          selectedItems: TEMPLATE_ROWS
+            .filter(item => !item.isSectionHeader && item.code)
+            .map(item => ({
+              scope_code: item.code,
+              display_name: item.label
+            })),
+          rateOverrides
+        })
+      })
+
+      if (!res.ok) {
+        const errData = await res.json()
+        throw new Error(errData.error || 'Failed to generate BTX')
+      }
+
+      const data = await res.json()
+
+      // If BTX file URL is returned, download it
+      if (data.btx_url || data.download_url) {
+        window.open(data.btx_url || data.download_url, '_blank')
+      } else if (data.btx_id) {
+        // Download via API
+        window.open(`/api/ko/takeoff/${projectId}/btx/${data.btx_id}/download`, '_blank')
+      }
+
+      setError(null)
+
+    } catch (err) {
+      console.error('Generate BTX error:', err)
+      setError(err.message)
+    } finally {
+      setGeneratingBTX(false)
     }
   }
 
@@ -642,6 +906,20 @@ export function TakeoffSpreadsheet({
           </button>
 
           <button
+            onClick={generateBTX}
+            disabled={generatingBTX}
+            className="flex items-center gap-2 px-3 py-2 bg-orange-600 text-white rounded-lg text-sm hover:bg-orange-700 disabled:opacity-50"
+            title="Generate Bluebeam Tool Chest (.btx) for marking up PDF"
+          >
+            {generatingBTX ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : (
+              <Download className="w-4 h-4" />
+            )}
+            Export BTX
+          </button>
+
+          <button
             onClick={loadTakeoff}
             className="p-2 hover:bg-secondary rounded-lg"
             title="Refresh"
@@ -651,7 +929,7 @@ export function TakeoffSpreadsheet({
 
           <button
             onClick={saveChanges}
-            disabled={saving || Object.keys(pendingChanges).length === 0}
+            disabled={saving}
             className="flex items-center gap-2 px-3 py-2 bg-primary text-primary-foreground rounded-lg text-sm disabled:opacity-50"
           >
             {saving ? (
@@ -665,32 +943,63 @@ export function TakeoffSpreadsheet({
       </div>
 
       {/* Tabs */}
-      <div className="flex items-center gap-1 px-4 py-2 border-b border-border bg-muted/30">
-        <button
-          onClick={() => { setActiveTab('master'); setShowComparison(false) }}
-          className={cn(
-            "px-4 py-2 text-sm font-medium rounded-lg transition-colors",
-            activeTab === 'master'
-              ? "bg-primary text-primary-foreground"
-              : "text-muted-foreground hover:bg-secondary"
-          )}
-        >
-          Master Sheet
-        </button>
+      <div className="flex items-center justify-between px-4 py-2 border-b border-border bg-muted/30">
+        <div className="flex items-center gap-1">
+          <button
+            onClick={() => { setActiveTab('master'); setShowComparison(false) }}
+            className={cn(
+              "px-4 py-2 text-sm font-medium rounded-lg transition-colors",
+              activeTab === 'master'
+                ? "bg-primary text-primary-foreground"
+                : "text-muted-foreground hover:bg-secondary"
+            )}
+          >
+            Takeoff Sheet
+          </button>
 
-        {imports.length > 0 && (
-          <div className="relative">
+          {imports.length > 0 && (
+            <div className="relative">
+              <button
+                onClick={() => setActiveTab('imports')}
+                className={cn(
+                  "flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg transition-colors",
+                  activeTab === 'imports'
+                    ? "bg-primary text-primary-foreground"
+                    : "text-muted-foreground hover:bg-secondary"
+                )}
+              >
+                Imports ({imports.length})
+                <ChevronDown className="w-3 h-3" />
+              </button>
+            </div>
+          )}
+        </div>
+
+        {/* View mode toggle - only show for master tab */}
+        {activeTab === 'master' && (
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-muted-foreground">View:</span>
             <button
-              onClick={() => setActiveTab('imports')}
+              onClick={() => setViewMode('template')}
               className={cn(
-                "flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg transition-colors",
-                activeTab === 'imports'
-                  ? "bg-primary text-primary-foreground"
-                  : "text-muted-foreground hover:bg-secondary"
+                "px-3 py-1 text-xs rounded transition-colors",
+                viewMode === 'template'
+                  ? "bg-blue-600 text-white"
+                  : "bg-secondary text-muted-foreground hover:bg-secondary/80"
               )}
             >
-              Imports ({imports.length})
-              <ChevronDown className="w-3 h-3" />
+              Template
+            </button>
+            <button
+              onClick={() => setViewMode('raw')}
+              className={cn(
+                "px-3 py-1 text-xs rounded transition-colors",
+                viewMode === 'raw'
+                  ? "bg-blue-600 text-white"
+                  : "bg-secondary text-muted-foreground hover:bg-secondary/80"
+              )}
+            >
+              Raw
             </button>
           </div>
         )}
@@ -707,7 +1016,211 @@ export function TakeoffSpreadsheet({
 
       {/* Main content */}
       <div className="flex-1 overflow-auto">
-        {activeTab === 'master' && !showComparison && (
+        {/* TEMPLATE VIEW - Styled like old Excel */}
+        {activeTab === 'master' && !showComparison && viewMode === 'template' && (
+          <div className="p-4">
+            {/* Add location column button */}
+            <div className="flex items-center gap-2 mb-3">
+              <button
+                onClick={addLocationColumn}
+                className="flex items-center gap-1 px-3 py-1.5 bg-secondary hover:bg-secondary/80 rounded-lg text-sm"
+              >
+                <PlusCircle className="w-4 h-4" />
+                Add Location
+              </button>
+            </div>
+
+            {/* Template spreadsheet - styled like old Excel */}
+            <div className="border-2 border-black overflow-x-auto overflow-y-auto max-h-[calc(100vh-260px)]">
+              <table className="text-xs border-collapse" style={{ minWidth: '100%' }}>
+                <thead className="sticky top-0 z-10">
+                  {/* Header row - Gray background with thick borders */}
+                  <tr style={{ backgroundColor: COLORS.headerGray }}>
+                    <th className="border-2 border-black px-2 py-1 text-center font-bold" style={{ width: 70 }}>
+                      Unit Cost
+                    </th>
+                    <th className="border-2 border-black px-2 py-1 text-left font-bold" style={{ width: 280 }}>
+                      Scope
+                    </th>
+                    {/* Location columns */}
+                    {locationColumns.map(loc => (
+                      <th
+                        key={loc.id}
+                        className="border-2 border-black px-1 py-1 text-center font-bold group relative"
+                        style={{ width: 70, minWidth: 60 }}
+                      >
+                        <input
+                          type="text"
+                          value={loc.name}
+                          onChange={(e) => updateLocationName(loc.id, e.target.value)}
+                          className="w-full text-center bg-transparent border-0 focus:outline-none focus:ring-1 focus:ring-blue-500 rounded text-xs font-bold"
+                        />
+                        {locationColumns.length > 1 && (
+                          <button
+                            onClick={() => removeLocationColumn(loc.id)}
+                            className="absolute top-0 right-0 p-0.5 opacity-0 group-hover:opacity-100 hover:bg-red-500/20 rounded"
+                          >
+                            <X className="w-3 h-3 text-red-500" />
+                          </button>
+                        )}
+                      </th>
+                    ))}
+                    <th className="border-2 border-black px-2 py-1 text-center font-bold" style={{ width: 80 }}>
+                      Total<br/>Measurements
+                    </th>
+                    <th className="border-2 border-black px-2 py-1 text-center font-bold" style={{ width: 90 }}>
+                      Total Cost
+                    </th>
+                    <th className="border-2 border-black px-2 py-1 text-left font-bold" style={{ width: 120 }}>
+                      Comments/Notes
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {TEMPLATE_ROWS.map((item) => {
+                    // Spacer/blank row
+                    if (item.isSpacer) {
+                      return (
+                        <tr key={item.row} style={{ height: 8 }}>
+                          <td colSpan={5 + locationColumns.length} className="border border-gray-300 bg-white"></td>
+                        </tr>
+                      )
+                    }
+
+                    // Section header row (ROOFING, BALCONIES, EXTERIOR)
+                    if (item.isSectionHeader) {
+                      return (
+                        <tr key={item.row}>
+                          <td colSpan={5 + locationColumns.length} className="border-2 border-black px-2 py-1 font-bold bg-white">
+                            {/* Section headers don't span full width in original */}
+                          </td>
+                        </tr>
+                      )
+                    }
+
+                    // Section total row
+                    if (item.isSectionTotal) {
+                      const sectionItems = TEMPLATE_ROWS.filter(r => r.section === item.section && r.code && !r.isSectionHeader && !r.isSpacer && !r.isSectionTotal)
+                      const sectionTotal = sectionItems.reduce((sum, i) => {
+                        const total = getItemTotal(i.code)
+                        const rate = getRate(i.code, i.rate)
+                        return sum + (total * rate)
+                      }, 0)
+                      return (
+                        <tr key={item.row}>
+                          <td colSpan={2 + locationColumns.length} className="border border-gray-300 px-2 py-1 text-right font-bold">
+                            {item.label}
+                          </td>
+                          <td className="border border-gray-300 px-2 py-1"></td>
+                          <td className="border border-gray-300 px-2 py-1 text-right font-bold" style={{ backgroundColor: COLORS.totalOrange }}>
+                            {sectionTotal > 0 ? formatCurrency(sectionTotal) : '$ -'}
+                          </td>
+                          <td className="border border-gray-300 px-2 py-1"></td>
+                        </tr>
+                      )
+                    }
+
+                    // Grand total row
+                    if (item.isGrandTotal) {
+                      const grandTotal = TEMPLATE_ROWS.filter(r => r.code && !r.isSpacer).reduce((sum, i) => {
+                        const total = getItemTotal(i.code)
+                        const rate = getRate(i.code, i.rate)
+                        return sum + (total * rate)
+                      }, 0)
+                      return (
+                        <tr key={item.row}>
+                          <td colSpan={2 + locationColumns.length} className="border-2 border-black px-2 py-1 text-right font-bold">
+                            {item.label}
+                          </td>
+                          <td className="border-2 border-black px-2 py-1"></td>
+                          <td className="border-2 border-black px-2 py-1 text-right font-bold" style={{ backgroundColor: COLORS.totalOrange }}>
+                            {grandTotal > 0 ? formatCurrency(grandTotal) : '$ -'}
+                          </td>
+                          <td className="border-2 border-black px-2 py-1"></td>
+                        </tr>
+                      )
+                    }
+
+                    // Regular item row
+                    const total = getItemTotal(item.code)
+                    const rate = getRate(item.code, item.rate)
+                    const cost = total * rate
+
+                    // Determine Total Cost cell color:
+                    // Yellow = isItemized (has unit cost, broken out on proposal)
+                    // Green = isBundled (no unit cost, part of system)
+                    let costCellColor = 'white'
+                    if (item.isItemized) {
+                      costCellColor = COLORS.itemizedYellow
+                    } else if (item.isBundled) {
+                      costCellColor = COLORS.bundledGreen
+                    }
+
+                    return (
+                      <tr key={item.row} className="hover:bg-gray-50">
+                        {/* Unit Cost column - shows $ prefix */}
+                        <td className="border border-gray-300 px-1 py-0.5 text-right">
+                          {item.rate !== undefined ? (
+                            <div className="flex items-center justify-end">
+                              <span className="text-gray-500 mr-0.5">$</span>
+                              <input
+                                type="number"
+                                step="0.01"
+                                value={rate || ''}
+                                onChange={(e) => setRateOverrides(prev => ({
+                                  ...prev,
+                                  [item.code]: parseFloat(e.target.value) || 0
+                                }))}
+                                className="w-14 text-right bg-transparent border-0 focus:outline-none focus:ring-1 focus:ring-blue-500 rounded text-xs"
+                                placeholder="0.00"
+                              />
+                            </div>
+                          ) : (
+                            <span className="text-gray-400">$ -</span>
+                          )}
+                        </td>
+                        {/* Scope/Item name - NO CODE shown to estimator */}
+                        <td className="border border-gray-300 px-2 py-0.5">
+                          {item.label}
+                        </td>
+                        {/* Location quantity cells */}
+                        {locationColumns.map(loc => (
+                          <td key={loc.id} className="border border-gray-300 px-1 py-0.5">
+                            <input
+                              type="number"
+                              value={getQuantity(item.code, loc.id)}
+                              onChange={(e) => handleQuantityChange(item.code, loc.id, e.target.value)}
+                              className="w-full text-center bg-transparent border-0 focus:outline-none focus:ring-1 focus:ring-blue-500 rounded text-xs"
+                              placeholder=""
+                            />
+                          </td>
+                        ))}
+                        {/* Total Measurements */}
+                        <td className="border border-gray-300 px-2 py-0.5 text-center">
+                          {total > 0 ? total : 0}
+                        </td>
+                        {/* Total Cost - COLOR APPLIES HERE ONLY */}
+                        <td
+                          className="border border-gray-300 px-2 py-0.5 text-right"
+                          style={{ backgroundColor: costCellColor }}
+                        >
+                          <span className="text-gray-500">$</span> {cost > 0 ? formatNumber(cost) : '-'}
+                        </td>
+                        {/* Comments/Notes column */}
+                        <td className="border border-gray-300 px-2 py-0.5 text-xs text-gray-600">
+                          {item.note || ''}
+                        </td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
+        {/* RAW VIEW - Generic spreadsheet */}
+        {activeTab === 'master' && !showComparison && viewMode === 'raw' && (
           <div className="p-4">
             {/* Add row/column buttons */}
             <div className="flex items-center gap-2 mb-3">

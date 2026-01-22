@@ -8,6 +8,7 @@ process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0'
 import { NextResponse } from 'next/server'
 
 const BACKEND_URL = 'https://136.111.252.120'
+const TRAINING_AGENTS = ['AGT-TRAIN-001', 'CAO-CE-001']
 
 export async function GET(request, context) {
   const { agentId } = await context.params
@@ -15,7 +16,7 @@ export async function GET(request, context) {
   const limit = searchParams.get('limit') || 50
   const offset = searchParams.get('offset') || 0
 
-  if (agentId !== 'AGT-TRAIN-001') {
+  if (!TRAINING_AGENTS.includes(agentId)) {
     return NextResponse.json({ error: 'Not a training agent' }, { status: 400 })
   }
 

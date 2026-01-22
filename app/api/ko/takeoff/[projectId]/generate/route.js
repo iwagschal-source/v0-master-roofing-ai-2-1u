@@ -17,6 +17,10 @@ import https from 'https'
 
 const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'https://34.95.128.208'
 
+// Bluebeam API endpoints (CLOSED-LOOP SYSTEM)
+// Note: Bluebeam router uses /bluebeam prefix (no /v1)
+const BLUEBEAM_API_PREFIX = '/bluebeam/template'
+
 // Custom fetch that ignores SSL cert errors (for self-signed backend cert)
 const fetchWithSSL = async (url, options = {}) => {
   const agent = new https.Agent({ rejectUnauthorized: false })
@@ -53,17 +57,15 @@ export async function POST(request, { params }) {
       )
     }
 
-    // Call backend to generate takeoff
+    // Call Bluebeam API to generate BTX (CLOSED-LOOP SYSTEM)
+    // This generates a BTX file from the saved config
     const backendRes = await fetchWithSSL(
-      `${BACKEND_URL}/v1/takeoff/${projectId}/generate`,
+      `${BACKEND_URL}${BLUEBEAM_API_PREFIX}/${projectId}/generate-btx`,
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          columns: body.columns,
-          selected_items: body.selectedItems,
-          rate_overrides: body.rateOverrides || {},
-          gc_name: body.gcName
+          generated_by: body.gcName || 'frontend'
         }),
         signal: AbortSignal.timeout(30000)
       }
