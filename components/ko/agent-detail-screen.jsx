@@ -1672,6 +1672,10 @@ function MonitoringTab({ agent }) {
 }
 
 function HistoryTab({ agent }) {
+  const [history, setHistory] = useState(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(null)
+
   const eventTypeIcon = {
     info: <Clock size={12} className="text-blue-400" />,
     success: <CheckCircle size={12} className="text-emerald-400" />,
@@ -1679,76 +1683,116 @@ function HistoryTab({ agent }) {
     error: <XCircle size={12} className="text-red-400" />,
   }
 
+  // Fetch history from BigQuery via API
+  const fetchHistory = useCallback(async () => {
+    try {
+      setLoading(true)
+      const res = await fetch(`/api/ko/agents/${agent.id}/history?limit=50`)
+      if (res.ok) {
+        const data = await res.json()
+        if (data.success) {
+          setHistory(data.history)
+          setError(null)
+        } else {
+          setError(data.error || 'Failed to load history')
+        }
+      } else {
+        setError('Failed to fetch history')
+      }
+    } catch (err) {
+      console.error('Failed to fetch history:', err)
+      setError(err.message)
+    }
+    setLoading(false)
+  }, [agent.id])
+
+  useEffect(() => {
+    fetchHistory()
+    // Refresh every 30 seconds
+    const interval = setInterval(fetchHistory, 30000)
+    return () => clearInterval(interval)
+  }, [fetchHistory])
+
+  if (loading && !history) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <RefreshCw className="animate-spin text-muted-foreground" size={24} />
+        <span className="ml-2 text-muted-foreground">Loading history from BigQuery...</span>
+      </div>
+    )
+  }
+
+  if (error && !history) {
+    return (
+      <div className="bg-red-500/10 border border-red-500/30 rounded-xl p-6 text-center">
+        <XCircle className="mx-auto mb-2 text-red-400" size={32} />
+        <p className="text-red-400">{error}</p>
+        <button onClick={fetchHistory} className="mt-4 px-4 py-2 bg-red-500/20 hover:bg-red-500/30 rounded-lg text-sm">
+          Retry
+        </button>
+      </div>
+    )
+  }
+
+  const stats = history?.stats || {}
+  const recentEvents = history?.recentEvents || []
+
   return (
     <div className="space-y-6">
       {/* Stats */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <div className="bg-card border border-border rounded-xl p-4">
           <p className="text-xs text-muted-foreground mb-1">Total Executions</p>
-          <p className="text-2xl font-bold">{agent.history?.totalExecutions?.toLocaleString() || 0}</p>
+          <p className="text-2xl font-bold">{stats.totalExecutions?.toLocaleString() || 0}</p>
         </div>
         <div className="bg-card border border-border rounded-xl p-4">
           <p className="text-xs text-muted-foreground mb-1">First Active</p>
-          <p className="text-2xl font-bold">{agent.history?.firstActive || "N/A"}</p>
+          <p className="text-2xl font-bold text-xs">{stats.firstActive ? new Date(stats.firstActive).toLocaleString() : "N/A"}</p>
         </div>
         <div className="bg-card border border-border rounded-xl p-4">
-          <p className="text-xs text-muted-foreground mb-1">Uptime</p>
-          <p className="text-2xl font-bold text-emerald-400">{agent.history?.uptimePercent || 0}%</p>
+          <p className="text-xs text-muted-foreground mb-1">Last Active</p>
+          <p className="text-2xl font-bold text-xs">{stats.lastActive ? new Date(stats.lastActive).toLocaleString() : "N/A"}</p>
         </div>
         <div className="bg-card border border-border rounded-xl p-4">
-          <p className="text-xs text-muted-foreground mb-1">Total Errors</p>
-          <p className="text-2xl font-bold text-red-400">{agent.history?.totalErrors?.toLocaleString() || 0}</p>
+          <p className="text-xs text-muted-foreground mb-1">Avg Latency</p>
+          <p className="text-2xl font-bold text-emerald-400">{stats.avgLatencyMs || 0}ms</p>
         </div>
       </div>
 
       {/* Recent Events */}
       <div className="bg-card border border-border rounded-xl p-6">
-        <h2 className="font-semibold text-foreground mb-4 flex items-center gap-2">
-          <History size={18} />
-          Recent Events
-        </h2>
-        <div className="space-y-2">
-          {agent.history?.recentEvents?.map((event, idx) => (
-            <div key={idx} className="flex items-start gap-4 p-3 bg-secondary rounded-lg">
-              <div className="mt-0.5">{eventTypeIcon[event.type] || eventTypeIcon.info}</div>
-              <div className="flex-1">
-                <div className="flex items-center justify-between">
-                  <p className="text-sm font-medium">{event.message}</p>
-                  <span className="text-xs text-muted-foreground">{event.timestamp}</span>
-                </div>
-                {event.details && (
-                  <p className="text-xs text-muted-foreground mt-1">{event.details}</p>
-                )}
-              </div>
-            </div>
-          ))}
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="font-semibold text-foreground flex items-center gap-2">
+            <History size={18} />
+            Recent Chat History
+          </h2>
+          <button onClick={fetchHistory} className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1">
+            <RefreshCw size={12} className={loading ? 'animate-spin' : ''} />
+            Refresh
+          </button>
         </div>
-      </div>
-
-      {/* Version History */}
-      <div className="bg-card border border-border rounded-xl p-6">
-        <h2 className="font-semibold text-foreground mb-4">Version History</h2>
-        <div className="space-y-3">
-          {agent.history?.versions?.map((version, idx) => (
-            <div key={idx} className="flex items-center justify-between p-3 bg-secondary rounded-lg">
-              <div className="flex items-center gap-3">
-                <span className="font-mono text-sm font-bold">{version.version}</span>
-                <span
-                  className={`px-2 py-0.5 rounded text-xs ${
-                    idx === 0
-                      ? "bg-emerald-500/20 text-emerald-400"
-                      : "bg-gray-500/20 text-gray-400"
-                  }`}
-                >
-                  {idx === 0 ? "Current" : "Previous"}
-                </span>
+        <div className="space-y-2 max-h-96 overflow-y-auto">
+          {recentEvents.length === 0 ? (
+            <p className="text-muted-foreground text-center py-8">No chat history yet. Start a conversation!</p>
+          ) : (
+            recentEvents.map((event, idx) => (
+              <div key={event.id || idx} className="flex items-start gap-4 p-3 bg-secondary rounded-lg">
+                <div className="mt-0.5">{eventTypeIcon[event.type] || eventTypeIcon.info}</div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="text-sm font-medium truncate">{event.title}</p>
+                    <span className="text-xs text-muted-foreground whitespace-nowrap">
+                      {event.timestamp ? new Date(event.timestamp).toLocaleString() : ''}
+                    </span>
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-1 line-clamp-2">{event.description}</p>
+                  {event.latencyMs && (
+                    <p className="text-xs text-emerald-400 mt-1">Latency: {event.latencyMs}ms | Model: {event.model || 'N/A'}</p>
+                  )}
+                </div>
               </div>
-              <div className="text-right">
-                <p className="text-sm">{version.date}</p>
-                <p className="text-xs text-muted-foreground">{version.changes}</p>
-              </div>
-            </div>
-          ))}
+            ))
+          )}
         </div>
       </div>
     </div>
