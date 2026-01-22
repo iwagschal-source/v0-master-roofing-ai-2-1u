@@ -1,5 +1,6 @@
 /**
  * Factory Agents API - List and create agents
+ * Now includes real stats from BigQuery chat history
  */
 
 process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0'
@@ -11,6 +12,41 @@ const BACKEND_URL = 'https://136.111.252.120'
 
 // Static agents that should always be included (not in backend)
 const STATIC_AGENT_IDS = ['AGT-TRAIN-001']
+
+// Fetch stats for a single agent from history endpoint
+async function fetchAgentStats(agentId) {
+  try {
+    const res = await fetch(`${BACKEND_URL}/v1/agents/${agentId}/history?limit=100`, {
+      cache: 'no-store',
+    })
+    if (!res.ok) return null
+    const data = await res.json()
+    const history = data.history || []
+
+    // Calculate stats from history
+    const now = new Date()
+    const oneDayAgo = new Date(now - 24 * 60 * 60 * 1000)
+    const oneMinuteAgo = new Date(now - 60 * 1000)
+
+    const todayMessages = history.filter(h => new Date(h.timestamp) > oneDayAgo)
+    const recentMessages = history.filter(h => new Date(h.timestamp) > oneMinuteAgo)
+    const messagesWithLatency = history.filter(h => h.latency_ms)
+    const errorMessages = todayMessages.filter(h => h.sender_type === 'error' || h.message?.includes('error'))
+
+    return {
+      totalRequests: data.total || history.length,
+      successRate: history.length > 0 ? Math.round((1 - errorMessages.length / Math.max(1, todayMessages.length)) * 100) : 0,
+      avgLatency: messagesWithLatency.length > 0
+        ? Math.round(messagesWithLatency.reduce((sum, h) => sum + (h.latency_ms || 0), 0) / messagesWithLatency.length)
+        : 0,
+      errorsToday: errorMessages.length,
+      requestsPerMinute: recentMessages.length,
+    }
+  } catch (e) {
+    console.error(`Failed to fetch stats for ${agentId}:`, e)
+    return null
+  }
+}
 
 // GET - List all agents from factory
 export async function GET() {
@@ -26,7 +62,7 @@ export async function GET() {
 
     const data = await res.json()
 
-    // Transform backend agents to frontend format
+    // Transform backend agents to frontend format (without stats first)
     const backendAgents = (data.agents || []).map(agent => ({
       id: agent.id,
       name: agent.name,
@@ -36,13 +72,7 @@ export async function GET() {
       status: agent.enabled ? 'idle' : 'offline',
       provider: agent.provider,
       tools: agent.tools || [],
-      stats: {
-        totalRequests: 0,
-        successRate: 0,
-        avgLatency: 0,
-        errorsToday: 0,
-        requestsPerMinute: 0,
-      },
+      stats: null, // Will be populated below
       lastActivity: agent.updated_at || agent.created_at || new Date().toISOString(),
       currentAction: agent.enabled ? 'Ready' : 'Disabled',
       queueDepth: 0,
@@ -63,6 +93,21 @@ export async function GET() {
         { name: 'system.md', content: agent.prompts.system || '', type: 'markdown' }
       ] : [],
     }))
+
+    // Fetch stats for all agents in parallel
+    const statsPromises = backendAgents.map(agent => fetchAgentStats(agent.id))
+    const statsResults = await Promise.all(statsPromises)
+
+    // Merge stats into agents
+    backendAgents.forEach((agent, i) => {
+      agent.stats = statsResults[i] || {
+        totalRequests: 0,
+        successRate: 0,
+        avgLatency: 0,
+        errorsToday: 0,
+        requestsPerMinute: 0,
+      }
+    })
 
     // Get static agents that should always be included
     const staticAgentsToInclude = staticAgents.filter(a => STATIC_AGENT_IDS.includes(a.id))

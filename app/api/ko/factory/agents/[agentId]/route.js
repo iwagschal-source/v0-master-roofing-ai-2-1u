@@ -46,6 +46,8 @@ export async function PUT(request, { params }) {
       tools: body.tools,
       communication_preset: body.communication_preset,
       settings: body.settings || {},
+      prompts: body.prompts, // Add prompts support
+      enabled: body.enabled,
     }
 
     // Only include fields that were provided
@@ -55,11 +57,30 @@ export async function PUT(request, { params }) {
       }
     })
 
-    const res = await fetch(`${BACKEND_URL}/v1/factory/agents/${agentId}`, {
+    // Try PUT first, then POST with update flag if PUT fails
+    let res = await fetch(`${BACKEND_URL}/v1/factory/agents/${agentId}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(backendPayload),
     })
+
+    // If PUT returns 405, try POST with update action
+    if (res.status === 405) {
+      res = await fetch(`${BACKEND_URL}/v1/factory/agents/${agentId}/update`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(backendPayload),
+      })
+    }
+
+    // If still fails, try PATCH
+    if (res.status === 405 || res.status === 404) {
+      res = await fetch(`${BACKEND_URL}/v1/factory/agents/${agentId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(backendPayload),
+      })
+    }
 
     if (!res.ok) {
       const errorText = await res.text()
