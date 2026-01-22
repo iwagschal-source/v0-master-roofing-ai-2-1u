@@ -2,98 +2,49 @@
  * Estimating Center API
  *
  * Endpoints for the Estimating Center workspace.
- * Returns project data for estimators to manage their work queue.
+ * Returns project data from BigQuery for estimators.
  */
 
 import { NextResponse } from 'next/server'
+import { runQuery } from '@/lib/bigquery'
 
-const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'https://136.111.252.120'
+const BQ_DATASET = 'mr_staging'
+const BQ_TABLE = 'estimating_projects'
 
-// Mock data for when backend is unavailable
-const MOCK_PROJECTS = [
-  {
-    project_id: "b01c9f28d8acb8f17c8fdcf2003c1ce5",
-    project_name: "1086 Dumont Ave",
-    gc_name: "B Management",
-    proposal_total: 383071,
-    takeoff_total: 380000,
-    estimate_status: "in_progress",
-    assigned_to: "Steve",
-    due_date: "2026-01-20",
-    priority: "high",
-    has_takeoff: true,
-    has_proposal: true
-  },
-  {
-    project_id: "6267cd7a1cc37be59b278b7d23892520",
-    project_name: "253 Empire Blvd",
-    gc_name: "MJH Construction",
-    proposal_total: 156000,
-    takeoff_total: 152000,
-    estimate_status: "draft",
-    assigned_to: "Steve",
-    due_date: "2026-01-18",
-    priority: "urgent",
-    has_takeoff: true,
-    has_proposal: false
-  },
-  {
-    project_id: "abc123def456789",
-    project_name: "960 Franklin Ave",
-    gc_name: "Mega Contracting",
-    proposal_total: 892500,
-    takeoff_total: 890000,
-    estimate_status: "submitted",
-    assigned_to: "Mike",
-    due_date: "2026-01-15",
-    priority: "normal",
-    has_takeoff: true,
-    has_proposal: true
-  },
-  {
-    project_id: "def456ghi789012",
-    project_name: "445 Park Place",
-    gc_name: "B Management",
-    proposal_total: 245000,
-    takeoff_total: 240000,
-    estimate_status: "won",
-    assigned_to: "Steve",
-    due_date: "2026-01-10",
-    priority: "normal",
-    has_takeoff: true,
-    has_proposal: true
-  },
-  {
-    project_id: "ghi789jkl012345",
-    project_name: "889 Bushwick Ave",
-    gc_name: "Bushwick Partners",
-    proposal_total: 178500,
-    takeoff_total: null,
-    estimate_status: "draft",
-    assigned_to: "Mike",
-    due_date: "2026-01-22",
-    priority: "normal",
-    has_takeoff: false,
-    has_proposal: false
-  },
-  {
-    project_id: "jkl012mno345678",
-    project_name: "625 Fulton St",
-    gc_name: "Prestige Builders",
-    proposal_total: 520000,
-    takeoff_total: 515000,
-    estimate_status: "review",
-    assigned_to: "Steve",
-    due_date: "2026-01-19",
-    priority: "high",
-    has_takeoff: true,
-    has_proposal: true
+/**
+ * Ensure the estimating_projects table exists
+ */
+async function ensureTable() {
+  const createTableSQL = `
+    CREATE TABLE IF NOT EXISTS \`master-roofing-intelligence.${BQ_DATASET}.${BQ_TABLE}\` (
+      project_id STRING NOT NULL,
+      project_name STRING NOT NULL,
+      gc_name STRING,
+      address STRING,
+      due_date DATE,
+      priority STRING,
+      assigned_to STRING,
+      estimate_status STRING,
+      proposal_total FLOAT64,
+      takeoff_total FLOAT64,
+      has_takeoff BOOL,
+      has_proposal BOOL,
+      created_at TIMESTAMP,
+      updated_at TIMESTAMP
+    )
+  `
+  try {
+    await runQuery(createTableSQL)
+  } catch (err) {
+    if (!err.message?.includes('Already Exists')) {
+      console.warn('Table creation warning:', err.message)
+    }
   }
-]
+}
 
 /**
  * GET /api/ko/estimating
- * Returns list of projects for estimating center
+ * Returns list of projects for estimating center from BigQuery
  *
  * Query params:
  * - search: Filter by project name or GC name
@@ -107,51 +58,69 @@ export async function GET(request) {
   const assignedTo = searchParams.get('assigned_to')
 
   try {
-    // Try to fetch from backend
-    const backendRes = await fetch(`${BACKEND_URL}/api/estimating/projects`, {
-      headers: {
-        'Accept': 'application/json',
-      },
-      // Short timeout for backend
-      signal: AbortSignal.timeout(5000)
+    await ensureTable()
+
+    let query = `
+      SELECT *
+      FROM \`master-roofing-intelligence.${BQ_DATASET}.${BQ_TABLE}\`
+      WHERE 1=1
+    `
+    const params = {}
+
+    if (search) {
+      query += ` AND (LOWER(project_name) LIKE @search OR LOWER(gc_name) LIKE @search)`
+      params.search = `%${search}%`
+    }
+
+    if (status && status !== 'all') {
+      query += ` AND estimate_status = @status`
+      params.status = status
+    }
+
+    if (assignedTo) {
+      query += ` AND assigned_to = @assignedTo`
+      params.assignedTo = assignedTo
+    }
+
+    query += ` ORDER BY updated_at DESC LIMIT 100`
+
+    const rows = await runQuery(query, params)
+
+    const projects = (rows || []).map(row => ({
+      project_id: row.project_id,
+      project_name: row.project_name,
+      gc_name: row.gc_name,
+      address: row.address,
+      due_date: row.due_date?.value || row.due_date,
+      priority: row.priority,
+      assigned_to: row.assigned_to,
+      estimate_status: row.estimate_status,
+      proposal_total: row.proposal_total,
+      takeoff_total: row.takeoff_total,
+      has_takeoff: row.has_takeoff,
+      has_proposal: row.has_proposal,
+      created_at: row.created_at?.value || row.created_at,
+      updated_at: row.updated_at?.value || row.updated_at
+    }))
+
+    return NextResponse.json({
+      projects,
+      total: projects.length,
+      source: 'bigquery'
     })
 
-    if (backendRes.ok) {
-      const data = await backendRes.json()
-      return NextResponse.json(data)
-    }
   } catch (err) {
-    console.log('Backend not available for estimating, using mock data')
-  }
-
-  // Filter mock data
-  let projects = [...MOCK_PROJECTS]
-
-  if (search) {
-    projects = projects.filter(p =>
-      p.project_name?.toLowerCase().includes(search) ||
-      p.gc_name?.toLowerCase().includes(search)
+    console.error('Error fetching projects from BigQuery:', err)
+    return NextResponse.json(
+      { error: 'Failed to fetch projects: ' + err.message },
+      { status: 500 }
     )
   }
-
-  if (status && status !== 'all') {
-    projects = projects.filter(p => p.estimate_status === status)
-  }
-
-  if (assignedTo) {
-    projects = projects.filter(p => p.assigned_to === assignedTo)
-  }
-
-  return NextResponse.json({
-    projects,
-    total: projects.length,
-    source: 'mock'
-  })
 }
 
 /**
  * PUT /api/ko/estimating
- * Update project status or assignment
+ * Update project status or assignment in BigQuery
  */
 export async function PUT(request) {
   try {
@@ -165,38 +134,41 @@ export async function PUT(request) {
       )
     }
 
-    // Try to update on backend
-    try {
-      const backendRes = await fetch(`${BACKEND_URL}/api/estimating/projects/${project_id}`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ estimate_status, assigned_to }),
-        signal: AbortSignal.timeout(5000)
-      })
+    await ensureTable()
 
-      if (backendRes.ok) {
-        const data = await backendRes.json()
-        return NextResponse.json(data)
-      }
-    } catch (err) {
-      console.log('Backend not available for update')
+    const setClauses = ['updated_at = CURRENT_TIMESTAMP()']
+    const params = { project_id }
+
+    if (estimate_status !== undefined) {
+      setClauses.push('estimate_status = @estimate_status')
+      params.estimate_status = estimate_status
     }
 
-    // Return success for mock mode
+    if (assigned_to !== undefined) {
+      setClauses.push('assigned_to = @assigned_to')
+      params.assigned_to = assigned_to
+    }
+
+    const updateQuery = `
+      UPDATE \`master-roofing-intelligence.${BQ_DATASET}.${BQ_TABLE}\`
+      SET ${setClauses.join(', ')}
+      WHERE project_id = @project_id
+    `
+
+    await runQuery(updateQuery, params)
+
     return NextResponse.json({
       success: true,
       project_id,
       estimate_status,
       assigned_to,
-      source: 'mock'
+      source: 'bigquery'
     })
 
   } catch (err) {
     console.error('Error updating project:', err)
     return NextResponse.json(
-      { error: 'Failed to update project' },
+      { error: 'Failed to update project: ' + err.message },
       { status: 500 }
     )
   }
