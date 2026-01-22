@@ -3,15 +3,15 @@
  *
  * Endpoints for creating and managing estimating projects.
  * Uses canonical project_id generation (MD5 hash of project name).
+ * Persists to BigQuery for durability.
  */
 
 import { NextResponse } from 'next/server'
 import crypto from 'crypto'
+import { runQuery } from '@/lib/bigquery'
 
-const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'https://136.111.252.120'
-
-// In-memory storage for mock mode (will be replaced with BigQuery)
-let mockProjects = []
+const BQ_DATASET = 'mr_staging'
+const BQ_TABLE = 'estimating_projects'
 
 /**
  * Generate canonical project_id from project name
@@ -22,6 +22,38 @@ function generateProjectId(projectName) {
     .createHash('md5')
     .update(projectName.toLowerCase().trim())
     .digest('hex')
+}
+
+/**
+ * Ensure the estimating_projects table exists in BigQuery
+ */
+async function ensureTable() {
+  const createTableSQL = `
+    CREATE TABLE IF NOT EXISTS \`master-roofing-intelligence.${BQ_DATASET}.${BQ_TABLE}\` (
+      project_id STRING NOT NULL,
+      project_name STRING NOT NULL,
+      gc_name STRING,
+      address STRING,
+      due_date DATE,
+      priority STRING,
+      assigned_to STRING,
+      estimate_status STRING,
+      proposal_total FLOAT64,
+      takeoff_total FLOAT64,
+      has_takeoff BOOL,
+      has_proposal BOOL,
+      created_at TIMESTAMP,
+      updated_at TIMESTAMP
+    )
+  `
+  try {
+    await runQuery(createTableSQL)
+  } catch (err) {
+    // Table may already exist
+    if (!err.message?.includes('Already Exists')) {
+      console.warn('Table creation warning:', err.message)
+    }
+  }
 }
 
 /**
@@ -61,36 +93,60 @@ export async function POST(request) {
       updated_at: new Date().toISOString()
     }
 
-    // Try to save to backend
-    try {
-      const backendRes = await fetch(`${BACKEND_URL}/api/estimating/projects`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(project),
-        signal: AbortSignal.timeout(5000)
-      })
+    // Ensure table exists
+    await ensureTable()
 
-      if (backendRes.ok) {
-        const data = await backendRes.json()
-        return NextResponse.json({
-          success: true,
-          project: data.project || project,
-          source: 'backend'
-        })
-      }
-    } catch (err) {
-      console.log('Backend not available for project creation, using mock storage')
+    // Check if project already exists
+    const existingQuery = `
+      SELECT project_id FROM \`master-roofing-intelligence.${BQ_DATASET}.${BQ_TABLE}\`
+      WHERE project_id = @project_id
+      LIMIT 1
+    `
+    const existing = await runQuery(existingQuery, { project_id })
+
+    if (existing && existing.length > 0) {
+      // Project exists, return it
+      return NextResponse.json({
+        success: true,
+        project,
+        source: 'bigquery',
+        existed: true
+      })
     }
 
-    // Store in mock storage
-    mockProjects.push(project)
+    // Insert new project
+    const insertQuery = `
+      INSERT INTO \`master-roofing-intelligence.${BQ_DATASET}.${BQ_TABLE}\`
+      (project_id, project_name, gc_name, address, due_date, priority, assigned_to,
+       estimate_status, proposal_total, takeoff_total, has_takeoff, has_proposal,
+       created_at, updated_at)
+      VALUES
+      (@project_id, @project_name, @gc_name, @address,
+       ${due_date ? `DATE(@due_date)` : 'NULL'},
+       @priority, @assigned_to, @estimate_status,
+       @proposal_total, @takeoff_total, @has_takeoff, @has_proposal,
+       CURRENT_TIMESTAMP(), CURRENT_TIMESTAMP())
+    `
+
+    await runQuery(insertQuery, {
+      project_id,
+      project_name: project.project_name,
+      gc_name: project.gc_name,
+      address: project.address,
+      due_date: project.due_date,
+      priority: project.priority,
+      assigned_to: project.assigned_to,
+      estimate_status: project.estimate_status,
+      proposal_total: project.proposal_total,
+      takeoff_total: project.takeoff_total,
+      has_takeoff: project.has_takeoff,
+      has_proposal: project.has_proposal
+    })
 
     return NextResponse.json({
       success: true,
       project,
-      source: 'mock'
+      source: 'bigquery'
     })
 
   } catch (err) {
@@ -104,47 +160,69 @@ export async function POST(request) {
 
 /**
  * GET /api/ko/estimating/projects
- * Get all projects (for admin/search purposes)
+ * Get all projects from BigQuery
  */
 export async function GET(request) {
   const { searchParams } = new URL(request.url)
   const search = searchParams.get('search')?.toLowerCase()
 
   try {
-    // Try backend first
-    const backendRes = await fetch(`${BACKEND_URL}/api/estimating/projects`, {
-      headers: { 'Accept': 'application/json' },
-      signal: AbortSignal.timeout(5000)
+    await ensureTable()
+
+    let query = `
+      SELECT *
+      FROM \`master-roofing-intelligence.${BQ_DATASET}.${BQ_TABLE}\`
+    `
+
+    const params = {}
+    if (search) {
+      query += `
+        WHERE LOWER(project_name) LIKE @search
+           OR LOWER(gc_name) LIKE @search
+      `
+      params.search = `%${search}%`
+    }
+
+    query += ` ORDER BY updated_at DESC LIMIT 100`
+
+    const rows = await runQuery(query, params)
+
+    // Convert BigQuery rows to project objects
+    const projects = (rows || []).map(row => ({
+      project_id: row.project_id,
+      project_name: row.project_name,
+      gc_name: row.gc_name,
+      address: row.address,
+      due_date: row.due_date?.value || row.due_date,
+      priority: row.priority,
+      assigned_to: row.assigned_to,
+      estimate_status: row.estimate_status,
+      proposal_total: row.proposal_total,
+      takeoff_total: row.takeoff_total,
+      has_takeoff: row.has_takeoff,
+      has_proposal: row.has_proposal,
+      created_at: row.created_at?.value || row.created_at,
+      updated_at: row.updated_at?.value || row.updated_at
+    }))
+
+    return NextResponse.json({
+      projects,
+      total: projects.length,
+      source: 'bigquery'
     })
 
-    if (backendRes.ok) {
-      const data = await backendRes.json()
-      return NextResponse.json(data)
-    }
   } catch (err) {
-    console.log('Backend not available, returning mock projects')
-  }
-
-  // Return mock projects
-  let projects = [...mockProjects]
-
-  if (search) {
-    projects = projects.filter(p =>
-      p.project_name?.toLowerCase().includes(search) ||
-      p.gc_name?.toLowerCase().includes(search)
+    console.error('Error fetching projects:', err)
+    return NextResponse.json(
+      { error: 'Failed to fetch projects: ' + err.message },
+      { status: 500 }
     )
   }
-
-  return NextResponse.json({
-    projects,
-    total: projects.length,
-    source: 'mock'
-  })
 }
 
 /**
  * PUT /api/ko/estimating/projects
- * Update a project
+ * Update a project in BigQuery
  */
 export async function PUT(request) {
   try {
@@ -158,35 +236,66 @@ export async function PUT(request) {
       )
     }
 
-    // Try backend first
-    try {
-      const backendRes = await fetch(`${BACKEND_URL}/api/estimating/projects/${project_id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(updates),
-        signal: AbortSignal.timeout(5000)
-      })
+    await ensureTable()
 
-      if (backendRes.ok) {
-        const data = await backendRes.json()
-        return NextResponse.json(data)
-      }
-    } catch (err) {
-      console.log('Backend not available for update')
+    // Build SET clause dynamically
+    const setClauses = []
+    const params = { project_id }
+
+    const fieldMap = {
+      project_name: 'STRING',
+      gc_name: 'STRING',
+      address: 'STRING',
+      due_date: 'DATE',
+      priority: 'STRING',
+      assigned_to: 'STRING',
+      estimate_status: 'STRING',
+      proposal_total: 'FLOAT64',
+      takeoff_total: 'FLOAT64',
+      has_takeoff: 'BOOL',
+      has_proposal: 'BOOL'
     }
 
-    // Update mock project
-    const idx = mockProjects.findIndex(p => p.project_id === project_id)
-    if (idx !== -1) {
-      mockProjects[idx] = {
-        ...mockProjects[idx],
-        ...updates,
-        updated_at: new Date().toISOString()
+    for (const [key, value] of Object.entries(updates)) {
+      if (fieldMap[key] && value !== undefined) {
+        if (key === 'due_date' && value) {
+          setClauses.push(`${key} = DATE(@${key})`)
+        } else {
+          setClauses.push(`${key} = @${key}`)
+        }
+        params[key] = value
       }
+    }
+
+    if (setClauses.length === 0) {
+      return NextResponse.json(
+        { error: 'No valid fields to update' },
+        { status: 400 }
+      )
+    }
+
+    setClauses.push('updated_at = CURRENT_TIMESTAMP()')
+
+    const updateQuery = `
+      UPDATE \`master-roofing-intelligence.${BQ_DATASET}.${BQ_TABLE}\`
+      SET ${setClauses.join(', ')}
+      WHERE project_id = @project_id
+    `
+
+    await runQuery(updateQuery, params)
+
+    // Fetch updated project
+    const selectQuery = `
+      SELECT * FROM \`master-roofing-intelligence.${BQ_DATASET}.${BQ_TABLE}\`
+      WHERE project_id = @project_id
+    `
+    const rows = await runQuery(selectQuery, { project_id })
+
+    if (rows && rows.length > 0) {
       return NextResponse.json({
         success: true,
-        project: mockProjects[idx],
-        source: 'mock'
+        project: rows[0],
+        source: 'bigquery'
       })
     }
 
@@ -198,7 +307,7 @@ export async function PUT(request) {
   } catch (err) {
     console.error('Error updating project:', err)
     return NextResponse.json(
-      { error: 'Failed to update project' },
+      { error: 'Failed to update project: ' + err.message },
       { status: 500 }
     )
   }
