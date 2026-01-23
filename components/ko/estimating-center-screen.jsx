@@ -28,7 +28,6 @@ import {
   Download,
   Folder,
   File,
-  FilePdf,
   FileImage,
   Mail,
   Phone,
@@ -348,7 +347,7 @@ export function EstimatingCenterScreen({ onSelectProject, onBack }) {
   // Get file icon
   const getFileIcon = (type) => {
     switch (type) {
-      case 'pdf': return <FilePdf className="w-5 h-5 text-red-500" />
+      case 'pdf': return <FileText className="w-5 h-5 text-red-500" />
       case 'excel': return <FileSpreadsheet className="w-5 h-5 text-green-500" />
       case 'doc': return <FileText className="w-5 h-5 text-blue-500" />
       case 'image': return <FileImage className="w-5 h-5 text-purple-500" />
