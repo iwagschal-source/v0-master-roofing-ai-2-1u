@@ -94,13 +94,11 @@ export async function GET() {
       ] : [],
     }))
 
-    // Fetch stats for all agents in parallel
-    const statsPromises = backendAgents.map(agent => fetchAgentStats(agent.id))
-    const statsResults = await Promise.all(statsPromises)
-
-    // Merge stats into agents
-    backendAgents.forEach((agent, i) => {
-      agent.stats = statsResults[i] || {
+    // Skip slow stats fetching to avoid Vercel timeout (was taking 14+ seconds for 33 agents)
+    // Stats are now fetched lazily via /api/ko/agents/status endpoint
+    // Set default stats for all agents
+    backendAgents.forEach((agent) => {
+      agent.stats = {
         totalRequests: 0,
         successRate: 0,
         avgLatency: 0,
