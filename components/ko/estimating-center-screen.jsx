@@ -15,6 +15,7 @@ import {
   FileSpreadsheet,
   X,
   GripHorizontal,
+  GripVertical,
   Send,
   Bot,
   Sparkles,
@@ -24,94 +25,21 @@ import {
   RefreshCw,
   DollarSign,
   Calendar,
-  Download
+  Download,
+  Folder,
+  File,
+  FilePdf,
+  FileImage,
+  Mail,
+  Phone,
+  MessageSquare,
+  User,
+  MapPin,
+  ArrowRight,
+  Eye
 } from "lucide-react"
-import { GCBrief } from "./gc-brief"
 import { TakeoffSpreadsheet } from "./takeoff-spreadsheet"
-import { TakeoffSetupScreen } from "./takeoff-setup-screen"
 import { cn } from "@/lib/utils"
-
-// Mock data for development - will be replaced with API calls
-const MOCK_PROJECTS = [
-  {
-    project_id: "b01c9f28d8acb8f17c8fdcf2003c1ce5",
-    project_name: "1086 Dumont Ave",
-    gc_name: "B Management",
-    proposal_total: 383071,
-    takeoff_total: 380000,
-    estimate_status: "in_progress",
-    assigned_to: "Steve",
-    due_date: "2026-01-20",
-    priority: "high",
-    has_takeoff: true,
-    has_proposal: true
-  },
-  {
-    project_id: "6267cd7a1cc37be59b278b7d23892520",
-    project_name: "253 Empire Blvd",
-    gc_name: "MJH Construction",
-    proposal_total: 156000,
-    takeoff_total: 152000,
-    estimate_status: "draft",
-    assigned_to: "Steve",
-    due_date: "2026-01-18",
-    priority: "urgent",
-    has_takeoff: true,
-    has_proposal: false
-  },
-  {
-    project_id: "abc123def456789",
-    project_name: "960 Franklin Ave",
-    gc_name: "Mega Contracting",
-    proposal_total: 892500,
-    takeoff_total: 890000,
-    estimate_status: "submitted",
-    assigned_to: "Mike",
-    due_date: "2026-01-15",
-    priority: "normal",
-    has_takeoff: true,
-    has_proposal: true
-  },
-  {
-    project_id: "def456ghi789012",
-    project_name: "445 Park Place",
-    gc_name: "B Management",
-    proposal_total: 245000,
-    takeoff_total: 240000,
-    estimate_status: "won",
-    assigned_to: "Steve",
-    due_date: "2026-01-10",
-    priority: "normal",
-    has_takeoff: true,
-    has_proposal: true
-  },
-  {
-    project_id: "ghi789jkl012345",
-    project_name: "889 Bushwick Ave",
-    gc_name: "Bushwick Partners",
-    proposal_total: 178500,
-    takeoff_total: null,
-    estimate_status: "draft",
-    assigned_to: "Mike",
-    due_date: "2026-01-22",
-    priority: "normal",
-    has_takeoff: false,
-    has_proposal: false
-  },
-  {
-    project_id: "jkl012mno345678",
-    project_name: "625 Fulton St",
-    gc_name: "Prestige Builders",
-    proposal_total: 520000,
-    takeoff_total: 515000,
-    estimate_status: "review",
-    assigned_to: "Steve",
-    due_date: "2026-01-19",
-    priority: "high",
-    has_takeoff: true,
-    has_proposal: true
-  }
-]
 
 const STATUS_CONFIG = {
   draft: { label: "Draft", color: "bg-gray-500", textColor: "text-gray-400" },
@@ -123,41 +51,47 @@ const STATUS_CONFIG = {
 }
 
 export function EstimatingCenterScreen({ onSelectProject, onBack }) {
+  // Project state
   const [searchQuery, setSearchQuery] = useState("")
   const [statusFilter, setStatusFilter] = useState("all")
   const [projects, setProjects] = useState([])
   const [loading, setLoading] = useState(true)
   const [selectedProject, setSelectedProject] = useState(null)
-  const [showUploadModal, setShowUploadModal] = useState(false)
+
+  // Modal states
   const [showNewProjectModal, setShowNewProjectModal] = useState(false)
   const [showTakeoffSheet, setShowTakeoffSheet] = useState(false)
-  const [showTakeoffSetup, setShowTakeoffSetup] = useState(false)
-  const [uploadingFile, setUploadingFile] = useState(false)
-  const [uploadResult, setUploadResult] = useState(null)
-  const fileInputRef = useRef(null)
-  const projectListRef = useRef(null)
+  const [showUploadModal, setShowUploadModal] = useState(false)
 
-  // Excel export state
-  const [exportingExcel, setExportingExcel] = useState(false)
+  // Preview state
+  const [previewDoc, setPreviewDoc] = useState(null)
 
-  // Historical rates toggle
-  const [useHistoricalRates, setUseHistoricalRates] = useState(true)
-
-  // Chat state
-  const [chatHeight, setChatHeight] = useState(280)
-  const [isDragging, setIsDragging] = useState(false)
-  const [messages, setMessages] = useState([])
+  // Folder agent chat state
+  const [chatMessages, setChatMessages] = useState([])
   const [chatInput, setChatInput] = useState("")
   const [chatLoading, setChatLoading] = useState(false)
-  const containerRef = useRef(null)
   const messagesEndRef = useRef(null)
-  const startYRef = useRef(0)
-  const startHeightRef = useRef(0)
 
-  const minChatHeight = 150
-  const maxChatHeight = 500
+  // Folder agent brief/summaries
+  const [folderBrief, setFolderBrief] = useState(null)
+  const [folderFiles, setFolderFiles] = useState([])
 
-  // New project form state
+  // Communication summaries
+  const [commSummaries, setCommSummaries] = useState([])
+
+  // Draggable dividers - vertical (between columns)
+  const [leftPanelWidth, setLeftPanelWidth] = useState(320)
+  const [rightPanelWidth, setRightPanelWidth] = useState(350)
+
+  // Draggable dividers - horizontal (within center and right panels)
+  const [centerTopHeight, setCenterTopHeight] = useState(280)
+  const [rightTopHeight, setRightTopHeight] = useState(300)
+
+  // Drag state
+  const [isDragging, setIsDragging] = useState(null) // 'left', 'right', 'center-h', 'right-h'
+  const dragStartRef = useRef({ x: 0, y: 0, value: 0 })
+
+  // New project form
   const [newProject, setNewProject] = useState({
     project_name: "",
     gc_name: "",
@@ -168,20 +102,25 @@ export function EstimatingCenterScreen({ onSelectProject, onBack }) {
   })
   const [savingProject, setSavingProject] = useState(false)
 
+  // Load projects on mount
   useEffect(() => {
     loadProjects()
   }, [])
 
-  // Reset chat when project changes
+  // Reset states when project changes
   useEffect(() => {
-    setMessages([])
-    setChatInput("")
+    if (selectedProject) {
+      setChatMessages([])
+      setChatInput("")
+      setPreviewDoc(null)
+      loadFolderData(selectedProject.project_id)
+    }
   }, [selectedProject?.project_id])
 
   // Scroll chat to bottom
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [messages])
+  }, [chatMessages])
 
   const loadProjects = async () => {
     setLoading(true)
@@ -190,93 +129,117 @@ export function EstimatingCenterScreen({ onSelectProject, onBack }) {
       if (res.ok) {
         const data = await res.json()
         setProjects(data.projects || [])
-      } else {
-        setProjects(MOCK_PROJECTS)
       }
     } catch (err) {
-      console.log("Failed to fetch projects, using mock data:", err)
-      setProjects(MOCK_PROJECTS)
+      console.error("Failed to fetch projects:", err)
     } finally {
       setLoading(false)
     }
   }
 
-  // Export Bluebeam data to Excel (MR Template)
-  const handleExportExcel = async (templateData, csvContent = null) => {
-    if (!templateData && !csvContent) return
-    setExportingExcel(true)
-
+  const loadFolderData = async (projectId) => {
+    // Load folder brief/summaries
     try {
-      const projectName = selectedProject?.project_name || 'Takeoff'
-      const res = await fetch('/api/ko/bluebeam/export-excel', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          csv_content: csvContent,
-          template_data: templateData,
-          project_name: projectName,
-          gc_name: selectedProject?.gc_name || null
-        })
-      })
-
-      if (!res.ok) {
-        const err = await res.json()
-        throw new Error(err.detail || 'Failed to generate Excel')
+      const briefRes = await fetch(`/api/ko/folder-agent/${projectId}/brief`)
+      if (briefRes.ok) {
+        const data = await briefRes.json()
+        setFolderBrief(data)
       }
-
-      // Download the file
-      const blob = await res.blob()
-      const url = window.URL.createObjectURL(blob)
-      const a = document.createElement('a')
-      a.href = url
-      a.download = `${projectName.replace(/[^a-zA-Z0-9]/g, '_')}_Takeoff.xlsx`
-      document.body.appendChild(a)
-      a.click()
-      window.URL.revokeObjectURL(url)
-      a.remove()
-      return true
     } catch (err) {
-      console.error('Export Excel error:', err)
-      alert('Error exporting Excel: ' + err.message)
-      return false
-    } finally {
-      setExportingExcel(false)
+      // Use placeholder data for now
+      setFolderBrief({
+        next_steps: ["Review takeoff quantities", "Send proposal to GC"],
+        stage: "in_progress",
+        stats: { emails: 12, calls: 3, meetings: 1 },
+        last_activity: new Date().toISOString()
+      })
+    }
+
+    // Load folder files
+    try {
+      const filesRes = await fetch(`/api/ko/folder-agent/${projectId}/files`)
+      if (filesRes.ok) {
+        const data = await filesRes.json()
+        setFolderFiles(data.files || [])
+      }
+    } catch (err) {
+      // Placeholder files
+      setFolderFiles([
+        { name: "Proposal_v1.pdf", type: "pdf", url: "#" },
+        { name: "Takeoff.xlsx", type: "excel", url: "#" },
+        { name: "Site_Photos.zip", type: "archive", url: "#" },
+        { name: "Contract_Draft.docx", type: "doc", url: "#" }
+      ])
+    }
+
+    // Load communication summaries
+    try {
+      const commRes = await fetch(`/api/ko/folder-agent/${projectId}/communications`)
+      if (commRes.ok) {
+        const data = await commRes.json()
+        setCommSummaries(data.summaries || [])
+      }
+    } catch (err) {
+      // Placeholder summaries
+      setCommSummaries([
+        { type: "email", date: "2026-01-22", summary: "GC requested updated pricing for roofing materials" },
+        { type: "call", date: "2026-01-21", summary: "Discussed timeline - need proposal by Friday" },
+        { type: "email", date: "2026-01-20", summary: "Initial RFP received with scope documents" }
+      ])
     }
   }
 
-  const handleMouseDown = useCallback((e) => {
+  // Drag handlers
+  const handleDragStart = (type, e) => {
     e.preventDefault()
-    setIsDragging(true)
-    startYRef.current = e.clientY
-    startHeightRef.current = chatHeight
-  }, [chatHeight])
+    setIsDragging(type)
+    dragStartRef.current = {
+      x: e.clientX,
+      y: e.clientY,
+      value: type === 'left' ? leftPanelWidth
+           : type === 'right' ? rightPanelWidth
+           : type === 'center-h' ? centerTopHeight
+           : rightTopHeight
+    }
+  }
 
-  const handleMouseMove = useCallback((e) => {
+  const handleDragMove = useCallback((e) => {
     if (!isDragging) return
-    const delta = startYRef.current - e.clientY
-    const newHeight = Math.min(maxChatHeight, Math.max(minChatHeight, startHeightRef.current + delta))
-    setChatHeight(newHeight)
+
+    const deltaX = e.clientX - dragStartRef.current.x
+    const deltaY = e.clientY - dragStartRef.current.y
+
+    if (isDragging === 'left') {
+      setLeftPanelWidth(Math.max(250, Math.min(500, dragStartRef.current.value + deltaX)))
+    } else if (isDragging === 'right') {
+      setRightPanelWidth(Math.max(280, Math.min(600, dragStartRef.current.value - deltaX)))
+    } else if (isDragging === 'center-h') {
+      setCenterTopHeight(Math.max(150, Math.min(500, dragStartRef.current.value + deltaY)))
+    } else if (isDragging === 'right-h') {
+      setRightTopHeight(Math.max(150, Math.min(500, dragStartRef.current.value + deltaY)))
+    }
   }, [isDragging])
 
-  const handleMouseUp = useCallback(() => {
-    setIsDragging(false)
+  const handleDragEnd = useCallback(() => {
+    setIsDragging(null)
   }, [])
 
   useEffect(() => {
     if (isDragging) {
-      document.addEventListener('mousemove', handleMouseMove)
-      document.addEventListener('mouseup', handleMouseUp)
-      document.body.style.cursor = 'row-resize'
+      document.addEventListener('mousemove', handleDragMove)
+      document.addEventListener('mouseup', handleDragEnd)
+      document.body.style.cursor = isDragging.includes('h') ? 'row-resize' : 'col-resize'
       document.body.style.userSelect = 'none'
     }
     return () => {
-      document.removeEventListener('mousemove', handleMouseMove)
-      document.removeEventListener('mouseup', handleMouseUp)
+      document.removeEventListener('mousemove', handleDragMove)
+      document.removeEventListener('mouseup', handleDragEnd)
       document.body.style.cursor = ''
       document.body.style.userSelect = ''
     }
-  }, [isDragging, handleMouseMove, handleMouseUp])
+  }, [isDragging, handleDragMove, handleDragEnd])
 
+  // Filter and sort projects
   const filteredProjects = projects.filter(project => {
     if (statusFilter !== "all" && project.estimate_status !== statusFilter) return false
     if (searchQuery) {
@@ -296,15 +259,6 @@ export function EstimatingCenterScreen({ onSelectProject, onBack }) {
     return new Date(a.due_date) - new Date(b.due_date)
   })
 
-  // Stats for all projects
-  const stats = {
-    total: projects.length,
-    pending: projects.filter(p => p.estimate_status === "draft").length,
-    inProgress: projects.filter(p => p.estimate_status === "in_progress").length,
-    review: projects.filter(p => p.estimate_status === "review").length,
-    submitted: projects.filter(p => p.estimate_status === "submitted").length
-  }
-
   const formatCurrency = (value) => {
     if (!value) return "-"
     return new Intl.NumberFormat('en-US', {
@@ -320,93 +274,42 @@ export function EstimatingCenterScreen({ onSelectProject, onBack }) {
     return new Date(dateStr).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
   }
 
-  const handleFileUpload = async (event) => {
-    const file = event.target.files?.[0]
-    if (!file) return
-
-    setUploadingFile(true)
-    setUploadResult(null)
-
-    try {
-      const content = await file.text()
-      const res = await fetch('/api/ko/bluebeam/convert', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          csv_content: content,
-          project_name: selectedProject?.project_name || file.name.replace('.csv', ''),
-          gc_name: selectedProject?.gc_name || null,
-          use_historical_rates: useHistoricalRates
-        })
-      })
-
-      const data = await res.json()
-
-      if (res.ok && data.success) {
-        setUploadResult({
-          success: true,
-          summary: data.summary,
-          items: data.items,
-          template_data: data.template_data,
-          csvContent: content,  // Keep CSV for Excel export
-          rateSource: data.rate_source,
-          historicalRatesUsed: data.summary?.historical_rates_used || 0,
-          formatDetected: data.format_detected,  // 'protocol' or 'legacy'
-          unmatched: data.unmatched || [],       // items that didn't match known codes
-          bySection: data.by_section,            // roofing/balconies/exterior breakdown
-          source: data.source,                   // 'backend' or 'local'
-          message: `Processed ${data.summary?.total_items || 0} items`
-        })
-      } else {
-        setUploadResult({
-          success: false,
-          message: data.error || 'Failed to process file'
-        })
-      }
-    } catch (err) {
-      setUploadResult({
-        success: false,
-        message: 'Error uploading file: ' + err.message
-      })
-    } finally {
-      setUploadingFile(false)
-    }
-  }
-
+  // Chat handler
   const handleChatSend = async () => {
     if (!chatInput.trim() || chatLoading || !selectedProject) return
 
     const userMessage = chatInput.trim()
     setChatInput("")
-    setMessages(prev => [...prev, { role: 'user', content: userMessage }])
+    setChatMessages(prev => [...prev, { role: 'user', content: userMessage }])
     setChatLoading(true)
 
     try {
-      const response = await fetch('/api/ko/estimator-chat', {
+      const res = await fetch(`/api/ko/folder-agent/${selectedProject.project_id}/chat`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           message: userMessage,
-          gcName: selectedProject.gc_name,
-          projectName: selectedProject.project_name,
-          history: messages.slice(-6)
+          history: chatMessages.slice(-6)
         })
       })
 
-      if (!response.ok) throw new Error('Failed to get response')
-
-      const data = await response.json()
-      setMessages(prev => [...prev, { role: 'assistant', content: data.response }])
-    } catch (error) {
-      setMessages(prev => [...prev, {
+      if (res.ok) {
+        const data = await res.json()
+        setChatMessages(prev => [...prev, { role: 'assistant', content: data.response }])
+      } else {
+        throw new Error('Failed to get response')
+      }
+    } catch (err) {
+      setChatMessages(prev => [...prev, {
         role: 'assistant',
-        content: `Based on the data for ${selectedProject.gc_name}, I can help answer questions about their pricing history, bundling preferences, negotiation patterns, and more. What would you like to know?`
+        content: `I can help you with information about ${selectedProject.project_name}. What would you like to know?`
       }])
     } finally {
       setChatLoading(false)
     }
   }
 
+  // Save new project
   const handleSaveNewProject = async () => {
     if (!newProject.project_name || !newProject.gc_name) return
 
@@ -442,17 +345,34 @@ export function EstimatingCenterScreen({ onSelectProject, onBack }) {
     }
   }
 
-  const suggestions = [
-    "What's their typical roofing system?",
-    "Preferred coping material?",
-    "Any payment issues?",
-    "Best pricing strategy?",
-  ]
+  // Get file icon
+  const getFileIcon = (type) => {
+    switch (type) {
+      case 'pdf': return <FilePdf className="w-5 h-5 text-red-500" />
+      case 'excel': return <FileSpreadsheet className="w-5 h-5 text-green-500" />
+      case 'doc': return <FileText className="w-5 h-5 text-blue-500" />
+      case 'image': return <FileImage className="w-5 h-5 text-purple-500" />
+      default: return <File className="w-5 h-5 text-gray-500" />
+    }
+  }
+
+  // Get comm icon
+  const getCommIcon = (type) => {
+    switch (type) {
+      case 'email': return <Mail className="w-4 h-4 text-blue-400" />
+      case 'call': return <Phone className="w-4 h-4 text-green-400" />
+      case 'meeting': return <MessageSquare className="w-4 h-4 text-purple-400" />
+      default: return <MessageSquare className="w-4 h-4 text-gray-400" />
+    }
+  }
 
   return (
-    <div className="flex h-full bg-background">
-      {/* LEFT PANEL - Project List */}
-      <div className="w-[400px] flex-shrink-0 flex flex-col border-r border-border">
+    <div className="flex h-full bg-background overflow-hidden">
+      {/* ============ LEFT PANEL - Project List ============ */}
+      <div
+        style={{ width: leftPanelWidth }}
+        className="flex-shrink-0 flex flex-col border-r border-border bg-card"
+      >
         {/* Header */}
         <div className="px-4 py-4 border-b border-border">
           <div className="flex items-center justify-between mb-4">
@@ -461,11 +381,11 @@ export function EstimatingCenterScreen({ onSelectProject, onBack }) {
                 <Calculator className="w-4 h-4 text-primary" />
               </div>
               <div>
-                <h1 className="font-semibold">Estimating Center</h1>
-                <p className="text-xs text-muted-foreground">{stats.total} projects</p>
+                <h1 className="font-semibold">Estimating</h1>
+                <p className="text-xs text-muted-foreground">{projects.length} projects</p>
               </div>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1">
               <button
                 onClick={loadProjects}
                 disabled={loading}
@@ -473,13 +393,6 @@ export function EstimatingCenterScreen({ onSelectProject, onBack }) {
                 title="Refresh"
               >
                 <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
-              </button>
-              <button
-                onClick={() => setShowUploadModal(true)}
-                className="p-2 hover:bg-muted rounded-lg transition-colors"
-                title="Upload Bluebeam"
-              >
-                <Upload className="w-4 h-4" />
               </button>
               <button
                 onClick={() => setShowNewProjectModal(true)}
@@ -498,31 +411,29 @@ export function EstimatingCenterScreen({ onSelectProject, onBack }) {
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search projects, GCs..."
-              className="w-full pl-10 pr-4 py-2.5 bg-muted border border-input rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+              placeholder="Search..."
+              className="w-full pl-9 pr-3 py-2 bg-muted border border-input rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
             />
           </div>
 
-          {/* Status Filter Pills */}
-          <div className="flex items-center gap-2 mt-3 overflow-x-auto pb-1">
+          {/* Status Filter */}
+          <div className="flex items-center gap-1.5 mt-3 overflow-x-auto">
             {[
               { value: 'all', label: 'All' },
-              { value: 'draft', label: 'Draft', color: 'bg-gray-500' },
-              { value: 'in_progress', label: 'In Progress', color: 'bg-yellow-500' },
-              { value: 'review', label: 'Review', color: 'bg-blue-500' },
-              { value: 'submitted', label: 'Submitted', color: 'bg-purple-500' },
+              { value: 'draft', label: 'Draft' },
+              { value: 'in_progress', label: 'Active' },
+              { value: 'submitted', label: 'Sent' },
             ].map(opt => (
               <button
                 key={opt.value}
                 onClick={() => setStatusFilter(opt.value)}
                 className={cn(
-                  "px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-colors flex items-center gap-1.5",
+                  "px-2.5 py-1 rounded-full text-xs font-medium whitespace-nowrap transition-colors",
                   statusFilter === opt.value
                     ? "bg-primary text-primary-foreground"
-                    : "bg-secondary text-muted-foreground hover:text-foreground"
+                    : "bg-muted text-muted-foreground hover:text-foreground"
                 )}
               >
-                {opt.color && <div className={`w-2 h-2 rounded-full ${opt.color}`} />}
                 {opt.label}
               </button>
             ))}
@@ -530,24 +441,19 @@ export function EstimatingCenterScreen({ onSelectProject, onBack }) {
         </div>
 
         {/* Project List */}
-        <div ref={projectListRef} className="flex-1 overflow-auto p-3">
+        <div className="flex-1 overflow-auto p-2">
           {loading ? (
             <div className="flex items-center justify-center h-32">
               <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
             </div>
           ) : sortedProjects.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-32 text-muted-foreground">
-              <FileSpreadsheet className="w-8 h-8 mb-2 opacity-50" />
-              <p className="text-sm">No projects found</p>
-              {searchQuery && (
-                <button onClick={() => setSearchQuery('')} className="text-primary text-xs mt-2 hover:underline">
-                  Clear search
-                </button>
-              )}
+              <Folder className="w-8 h-8 mb-2 opacity-50" />
+              <p className="text-sm">No projects</p>
             </div>
           ) : (
-            <div className="space-y-2">
-              {sortedProjects.map((project, index) => {
+            <div className="space-y-1.5">
+              {sortedProjects.map((project) => {
                 const status = STATUS_CONFIG[project.estimate_status] || STATUS_CONFIG.draft
                 const isSelected = selectedProject?.project_id === project.project_id
 
@@ -555,73 +461,37 @@ export function EstimatingCenterScreen({ onSelectProject, onBack }) {
                   <button
                     key={project.project_id}
                     onClick={() => setSelectedProject(project)}
-                    style={{
-                      animationDelay: `${index * 30}ms`,
-                      animation: "fadeInUp 0.3s ease-out forwards",
-                      opacity: 0,
-                    }}
                     className={cn(
-                      "w-full group relative bg-card rounded-xl p-4 text-left transition-all duration-200 hover:scale-[1.01] border hover:shadow-lg",
+                      "w-full group relative bg-background rounded-lg p-3 text-left transition-all border",
                       isSelected
-                        ? "border-primary/50 bg-primary/5 shadow-md"
-                        : "border-border/50 hover:border-primary/20"
+                        ? "border-primary/50 bg-primary/5"
+                        : "border-transparent hover:border-border hover:bg-muted/50"
                     )}
                   >
-                    {/* Active indicator line */}
-                    <div className={cn(
-                      "absolute left-0 top-4 bottom-4 w-[3px] rounded-r-full transition-all",
-                      isSelected ? "bg-primary opacity-100" : "bg-primary opacity-0 group-hover:opacity-50"
-                    )} />
-
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="flex-1 min-w-0 pl-2">
-                        {/* Project Name */}
-                        <div className="flex items-center gap-2 mb-1">
-                          <h3 className="font-semibold text-foreground truncate">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-1.5 mb-0.5">
+                          <h3 className="font-medium text-sm truncate">
                             {project.project_name}
                           </h3>
                           {project.priority === "urgent" && (
-                            <span className="px-1.5 py-0.5 text-[10px] font-medium bg-red-500/20 text-red-400 rounded">
-                              URGENT
-                            </span>
-                          )}
-                          {project.priority === "high" && (
-                            <span className="px-1.5 py-0.5 text-[10px] font-medium bg-orange-500/20 text-orange-400 rounded">
-                              HIGH
+                            <span className="px-1 py-0.5 text-[9px] font-bold bg-red-500/20 text-red-400 rounded">
+                              !
                             </span>
                           )}
                         </div>
-
-                        {/* GC Name */}
-                        <p className="text-muted-foreground text-sm truncate mb-2 flex items-center gap-1.5">
-                          <Building2 className="w-3.5 h-3.5" />
-                          {project.gc_name || "No GC assigned"}
+                        <p className="text-xs text-muted-foreground truncate">
+                          {project.gc_name}
                         </p>
-
-                        {/* Bottom row */}
-                        <div className="flex items-center gap-3 text-sm">
-                          <span className="font-semibold text-foreground flex items-center gap-1">
-                            <DollarSign className="w-3.5 h-3.5 text-green-500" />
-                            {formatCurrency(project.proposal_total).replace('$', '')}
+                        <div className="flex items-center gap-2 mt-1.5 text-xs text-muted-foreground">
+                          <span className="font-medium text-foreground">
+                            {formatCurrency(project.proposal_total)}
                           </span>
-                          <span className="text-muted-foreground">•</span>
-                          <span className="text-muted-foreground flex items-center gap-1">
-                            <Calendar className="w-3.5 h-3.5" />
-                            {formatDate(project.due_date)}
-                          </span>
+                          <span>•</span>
+                          <span>{formatDate(project.due_date)}</span>
                         </div>
                       </div>
-
-                      {/* Status + Arrow */}
-                      <div className="flex items-center gap-2 shrink-0">
-                        <div className="flex items-center gap-1.5">
-                          <span className={`w-2 h-2 rounded-full ${status.color}`} />
-                          <span className="text-xs text-muted-foreground hidden sm:inline">
-                            {status.label}
-                          </span>
-                        </div>
-                        <ChevronRight className="w-5 h-5 text-muted-foreground group-hover:text-primary transition-colors" />
-                      </div>
+                      <div className={`w-2 h-2 rounded-full ${status.color} mt-1.5`} />
                     </div>
                   </button>
                 )
@@ -631,140 +501,179 @@ export function EstimatingCenterScreen({ onSelectProject, onBack }) {
         </div>
       </div>
 
-      {/* RIGHT PANEL - Emails + Chat */}
-      <div ref={containerRef} className="flex-1 flex flex-col overflow-hidden">
-        {selectedProject ? (
-          <>
-            {/* Project Header with Actions */}
-            <div className="px-4 py-3 border-b border-border bg-muted/30 flex items-center justify-between">
-              <div>
-                <h2 className="text-lg font-semibold">{selectedProject.project_name}</h2>
-                <p className="text-sm text-muted-foreground">{selectedProject.gc_name} • {formatCurrency(selectedProject.proposal_total)}</p>
+      {/* Left Divider */}
+      <div
+        onMouseDown={(e) => handleDragStart('left', e)}
+        className={cn(
+          "w-1 flex-shrink-0 bg-border hover:bg-primary/50 cursor-col-resize transition-colors",
+          isDragging === 'left' && "bg-primary"
+        )}
+      />
+
+      {/* ============ CENTER PANEL ============ */}
+      {selectedProject ? (
+        <div className="flex-1 flex flex-col min-w-0">
+          {/* Center Top - Project Details + Summary Cards */}
+          <div style={{ height: centerTopHeight }} className="flex-shrink-0 overflow-auto border-b border-border">
+            <div className="p-4">
+              {/* Project Header */}
+              <div className="flex items-start justify-between mb-4">
+                <div>
+                  <h2 className="text-xl font-semibold">{selectedProject.project_name}</h2>
+                  <div className="flex items-center gap-3 mt-1 text-sm text-muted-foreground">
+                    <span className="flex items-center gap-1">
+                      <Building2 className="w-4 h-4" />
+                      {selectedProject.gc_name}
+                    </span>
+                    {selectedProject.address && (
+                      <span className="flex items-center gap-1">
+                        <MapPin className="w-4 h-4" />
+                        {selectedProject.address}
+                      </span>
+                    )}
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => setShowUploadModal(true)}
+                    className="flex items-center gap-1.5 px-3 py-1.5 bg-green-600 text-white hover:bg-green-700 rounded-lg text-sm"
+                  >
+                    <Upload className="w-4 h-4" />
+                    Bluebeam
+                  </button>
+                  <button
+                    onClick={() => setShowTakeoffSheet(true)}
+                    className="flex items-center gap-1.5 px-3 py-1.5 bg-secondary hover:bg-secondary/80 rounded-lg text-sm"
+                  >
+                    <FileSpreadsheet className="w-4 h-4" />
+                    Takeoff
+                  </button>
+                  <button
+                    onClick={() => setPreviewDoc({ type: 'proposal', name: 'Proposal' })}
+                    className="flex items-center gap-1.5 px-3 py-1.5 bg-primary text-primary-foreground hover:bg-primary/90 rounded-lg text-sm"
+                  >
+                    <FileText className="w-4 h-4" />
+                    Proposal
+                  </button>
+                </div>
               </div>
-              <div className="flex items-center gap-2">
-                {/* Upload Bluebeam button */}
-                <button
-                  onClick={() => setShowUploadModal(true)}
-                  className="flex items-center gap-2 px-3 py-2 bg-green-600 text-white hover:bg-green-700 rounded-lg text-sm transition-colors"
-                >
-                  <Upload className="w-4 h-4" />
-                  Upload Bluebeam
-                </button>
-                <button
-                  onClick={() => setShowTakeoffSetup(true)}
-                  className="flex items-center gap-2 px-3 py-2 bg-blue-600 text-white hover:bg-blue-700 rounded-lg text-sm transition-colors"
-                >
-                  <Calculator className="w-4 h-4" />
-                  Setup Takeoff
-                </button>
-                <button
-                  onClick={() => setShowTakeoffSheet(true)}
-                  className="flex items-center gap-2 px-3 py-2 bg-secondary hover:bg-secondary/80 rounded-lg text-sm transition-colors"
-                >
-                  <FileSpreadsheet className="w-4 h-4" />
-                  View Takeoff
-                </button>
-                <button
-                  onClick={() => {
-                    const proposalUrl = `/proposal-preview?projectId=${selectedProject.project_id}&gcName=${encodeURIComponent(selectedProject.gc_name)}&projectName=${encodeURIComponent(selectedProject.project_name)}`
-                    window.open(proposalUrl, '_blank')
-                  }}
-                  className="flex items-center gap-2 px-3 py-2 bg-primary text-primary-foreground hover:bg-primary/90 rounded-lg text-sm transition-colors"
-                >
-                  <FileText className="w-4 h-4" />
-                  Proposal
-                  <ExternalLink className="w-3 h-3" />
-                </button>
+
+              {/* Info Cards Row */}
+              <div className="grid grid-cols-4 gap-3 mb-4">
+                <div className="bg-muted/50 rounded-lg p-3">
+                  <p className="text-xs text-muted-foreground mb-1">Status</p>
+                  <div className="flex items-center gap-2">
+                    <span className={`w-2 h-2 rounded-full ${STATUS_CONFIG[selectedProject.estimate_status]?.color || 'bg-gray-500'}`} />
+                    <span className="font-medium text-sm">{STATUS_CONFIG[selectedProject.estimate_status]?.label || 'Draft'}</span>
+                  </div>
+                </div>
+                <div className="bg-muted/50 rounded-lg p-3">
+                  <p className="text-xs text-muted-foreground mb-1">Due Date</p>
+                  <p className="font-medium text-sm">{formatDate(selectedProject.due_date)}</p>
+                </div>
+                <div className="bg-muted/50 rounded-lg p-3">
+                  <p className="text-xs text-muted-foreground mb-1">Proposal</p>
+                  <p className="font-medium text-sm">{formatCurrency(selectedProject.proposal_total)}</p>
+                </div>
+                <div className="bg-muted/50 rounded-lg p-3">
+                  <p className="text-xs text-muted-foreground mb-1">Assigned</p>
+                  <p className="font-medium text-sm">{selectedProject.assigned_to || 'Unassigned'}</p>
+                </div>
               </div>
-            </div>
 
-            {/* Takeoff Setup Wizard */}
-            {showTakeoffSetup && (
-              <TakeoffSetupScreen
-                projectId={selectedProject.project_id}
-                projectName={selectedProject.project_name}
-                gcName={selectedProject.gc_name}
-                onClose={() => setShowTakeoffSetup(false)}
-                onComplete={(config) => {
-                  setShowTakeoffSetup(false)
-                  setShowTakeoffSheet(true) // Open spreadsheet after setup
-                }}
-              />
-            )}
-
-            {/* GCS-based Takeoff Spreadsheet */}
-            {showTakeoffSheet && !showTakeoffSetup && (
-              <TakeoffSpreadsheet
-                projectId={selectedProject.project_id}
-                projectName={selectedProject.project_name}
-                onClose={() => setShowTakeoffSheet(false)}
-                onEditSetup={() => {
-                  setShowTakeoffSheet(false)
-                  setShowTakeoffSetup(true)
-                }}
-              />
-            )}
-
-            {/* GC Brief - Top Section */}
-            <div className="flex-1 min-h-0 overflow-y-auto">
-              <div className="p-4">
-                <GCBrief
-                  gcName={selectedProject.gc_name}
-                  projectName={selectedProject.project_name}
-                  className="border-0 rounded-none"
-                />
+              {/* GC Contact */}
+              <div className="bg-muted/30 rounded-lg p-3 mb-4">
+                <p className="text-xs text-muted-foreground mb-2 font-medium">GC Contact</p>
+                <div className="flex items-center gap-4 text-sm">
+                  <span className="flex items-center gap-1.5">
+                    <User className="w-4 h-4 text-muted-foreground" />
+                    {selectedProject.gc_contact_name || 'Not set'}
+                  </span>
+                  <span className="flex items-center gap-1.5">
+                    <Phone className="w-4 h-4 text-muted-foreground" />
+                    {selectedProject.gc_contact_phone || '-'}
+                  </span>
+                  <span className="flex items-center gap-1.5">
+                    <Mail className="w-4 h-4 text-muted-foreground" />
+                    {selectedProject.gc_contact_email || '-'}
+                  </span>
+                </div>
               </div>
-            </div>
 
-            {/* Draggable Divider */}
-            <div
-              onMouseDown={handleMouseDown}
-              className={cn(
-                "h-1.5 flex-shrink-0 bg-border hover:bg-primary/50 cursor-row-resize transition-colors relative group flex items-center justify-center",
-                isDragging && "bg-primary"
+              {/* Stage Summary */}
+              {folderBrief?.next_steps && (
+                <div className="bg-primary/5 border border-primary/20 rounded-lg p-3">
+                  <p className="text-xs text-primary font-medium mb-2">Next Steps</p>
+                  <ul className="space-y-1">
+                    {folderBrief.next_steps.map((step, i) => (
+                      <li key={i} className="flex items-center gap-2 text-sm">
+                        <ArrowRight className="w-3 h-3 text-primary" />
+                        {step}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
               )}
-            >
-              <div className="absolute -top-2 -bottom-2 left-0 right-0" />
-              <GripHorizontal className="w-6 h-4 text-foreground-tertiary opacity-0 group-hover:opacity-100 transition-opacity" />
+            </div>
+          </div>
+
+          {/* Center Horizontal Divider */}
+          <div
+            onMouseDown={(e) => handleDragStart('center-h', e)}
+            className={cn(
+              "h-1 flex-shrink-0 bg-border hover:bg-primary/50 cursor-row-resize transition-colors flex items-center justify-center",
+              isDragging === 'center-h' && "bg-primary"
+            )}
+          >
+            <GripHorizontal className="w-6 h-3 text-muted-foreground/50" />
+          </div>
+
+          {/* Center Bottom - Communication Summaries + Folder Agent Chat */}
+          <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
+            {/* Communication Summaries */}
+            <div className="flex-shrink-0 max-h-[200px] overflow-auto border-b border-border p-4">
+              <h3 className="text-sm font-medium mb-3 flex items-center gap-2">
+                <MessageSquare className="w-4 h-4" />
+                Communication Summary
+              </h3>
+              {commSummaries.length > 0 ? (
+                <div className="space-y-2">
+                  {commSummaries.map((comm, i) => (
+                    <div key={i} className="flex items-start gap-3 p-2 bg-muted/30 rounded-lg">
+                      {getCommIcon(comm.type)}
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm">{comm.summary}</p>
+                        <p className="text-xs text-muted-foreground mt-0.5">{formatDate(comm.date)}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-sm text-muted-foreground">No communications logged yet</p>
+              )}
             </div>
 
-            {/* Chat Section - Bottom */}
-            <div
-              style={{ height: chatHeight }}
-              className="flex-shrink-0 flex flex-col bg-background border-t border-border"
-            >
-              {/* Chat Header */}
+            {/* Folder Agent Chat */}
+            <div className="flex-1 flex flex-col min-h-0">
               <div className="px-4 py-2 border-b border-border bg-primary/5 flex items-center gap-2">
                 <div className="w-6 h-6 rounded-full bg-primary/20 flex items-center justify-center">
-                  <Sparkles className="w-3.5 h-3.5 text-primary" />
+                  <Folder className="w-3.5 h-3.5 text-primary" />
                 </div>
-                <span className="text-sm font-medium">Estimator Assistant</span>
-                <span className="text-xs text-muted-foreground">• Ask about {selectedProject.gc_name}</span>
+                <span className="text-sm font-medium">Folder Agent</span>
               </div>
 
               {/* Messages */}
               <div className="flex-1 overflow-y-auto px-4 py-3 space-y-3">
-                {messages.length === 0 ? (
-                  <div className="text-center py-4">
+                {chatMessages.length === 0 ? (
+                  <div className="text-center py-6">
                     <Bot className="w-8 h-8 mx-auto mb-2 text-muted-foreground opacity-50" />
-                    <p className="text-sm text-muted-foreground mb-3">
-                      Ask me anything about {selectedProject.gc_name}
+                    <p className="text-sm text-muted-foreground">
+                      Ask me about this project folder
                     </p>
-                    <div className="flex flex-wrap gap-2 justify-center">
-                      {suggestions.map((s, i) => (
-                        <button
-                          key={i}
-                          onClick={() => setChatInput(s)}
-                          className="px-3 py-1.5 text-xs bg-secondary hover:bg-secondary/80 text-foreground rounded-full transition-colors"
-                        >
-                          {s}
-                        </button>
-                      ))}
-                    </div>
                   </div>
                 ) : (
                   <>
-                    {messages.map((msg, i) => (
+                    {chatMessages.map((msg, i) => (
                       <div
                         key={i}
                         className={cn(
@@ -774,15 +683,15 @@ export function EstimatingCenterScreen({ onSelectProject, onBack }) {
                       >
                         {msg.role === 'assistant' && (
                           <div className="w-6 h-6 rounded-full bg-primary/20 flex items-center justify-center flex-shrink-0">
-                            <Sparkles className="w-3 h-3 text-primary" />
+                            <Folder className="w-3 h-3 text-primary" />
                           </div>
                         )}
                         <div
                           className={cn(
-                            "max-w-[85%] px-3 py-2 rounded-lg text-sm",
+                            "max-w-[80%] px-3 py-2 rounded-lg text-sm",
                             msg.role === 'user'
                               ? "bg-primary text-primary-foreground"
-                              : "bg-secondary text-foreground"
+                              : "bg-muted"
                           )}
                         >
                           {msg.content}
@@ -794,9 +703,9 @@ export function EstimatingCenterScreen({ onSelectProject, onBack }) {
                         <div className="w-6 h-6 rounded-full bg-primary/20 flex items-center justify-center">
                           <Loader2 className="w-3 h-3 text-primary animate-spin" />
                         </div>
-                        <div className="bg-secondary px-3 py-2 rounded-lg">
+                        <div className="bg-muted px-3 py-2 rounded-lg">
                           <div className="flex gap-1">
-                            <span className="w-2 h-2 bg-muted-foreground rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
+                            <span className="w-2 h-2 bg-muted-foreground rounded-full animate-bounce" />
                             <span className="w-2 h-2 bg-muted-foreground rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
                             <span className="w-2 h-2 bg-muted-foreground rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
                           </div>
@@ -816,176 +725,178 @@ export function EstimatingCenterScreen({ onSelectProject, onBack }) {
                     value={chatInput}
                     onChange={(e) => setChatInput(e.target.value)}
                     onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && handleChatSend()}
-                    placeholder={`Ask about ${selectedProject.gc_name}...`}
-                    className="flex-1 px-3 py-2 bg-background border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                    placeholder="Ask the folder agent..."
+                    className="flex-1 px-3 py-2 bg-background border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
                   />
                   <button
                     onClick={handleChatSend}
                     disabled={!chatInput.trim() || chatLoading}
-                    className="px-3 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                    className="px-3 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 disabled:opacity-50"
                   >
                     <Send className="w-4 h-4" />
                   </button>
                 </div>
               </div>
             </div>
-          </>
-        ) : (
-          <div className="flex-1 flex items-center justify-center text-muted-foreground">
-            <div className="text-center">
-              <Calculator className="w-12 h-12 mx-auto mb-3 opacity-30" />
-              <p className="font-medium">Select a project</p>
-              <p className="text-sm mt-1">Choose a project from the left to view GC brief and chat</p>
-            </div>
           </div>
-        )}
-      </div>
+        </div>
+      ) : (
+        <div className="flex-1 flex items-center justify-center text-muted-foreground">
+          <div className="text-center">
+            <Folder className="w-12 h-12 mx-auto mb-3 opacity-30" />
+            <p className="font-medium">Select a project</p>
+            <p className="text-sm mt-1">Choose from the list on the left</p>
+          </div>
+        </div>
+      )}
+
+      {/* Right Divider */}
+      {selectedProject && (
+        <div
+          onMouseDown={(e) => handleDragStart('right', e)}
+          className={cn(
+            "w-1 flex-shrink-0 bg-border hover:bg-primary/50 cursor-col-resize transition-colors",
+            isDragging === 'right' && "bg-primary"
+          )}
+        />
+      )}
+
+      {/* ============ RIGHT PANEL ============ */}
+      {selectedProject && (
+        <div
+          style={{ width: rightPanelWidth }}
+          className="flex-shrink-0 flex flex-col border-l border-border bg-card"
+        >
+          {/* Right Top - Folder Brief / Preview */}
+          <div style={{ height: rightTopHeight }} className="flex-shrink-0 overflow-auto border-b border-border">
+            {previewDoc ? (
+              <div className="h-full flex flex-col">
+                <div className="flex items-center justify-between px-4 py-2 border-b border-border bg-muted/30">
+                  <span className="text-sm font-medium">{previewDoc.name}</span>
+                  <button
+                    onClick={() => setPreviewDoc(null)}
+                    className="p-1 hover:bg-muted rounded"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+                <div className="flex-1 flex items-center justify-center bg-muted/20">
+                  <div className="text-center text-muted-foreground">
+                    <Eye className="w-8 h-8 mx-auto mb-2 opacity-50" />
+                    <p className="text-sm">Preview: {previewDoc.name}</p>
+                    <p className="text-xs mt-1">PDF viewer will be here</p>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div className="p-4">
+                <h3 className="text-sm font-medium mb-3 flex items-center gap-2">
+                  <Sparkles className="w-4 h-4 text-primary" />
+                  Project Intelligence
+                </h3>
+
+                {/* Stats */}
+                {folderBrief?.stats && (
+                  <div className="grid grid-cols-3 gap-2 mb-4">
+                    <div className="bg-muted/50 rounded-lg p-2 text-center">
+                      <p className="text-lg font-semibold">{folderBrief.stats.emails}</p>
+                      <p className="text-xs text-muted-foreground">Emails</p>
+                    </div>
+                    <div className="bg-muted/50 rounded-lg p-2 text-center">
+                      <p className="text-lg font-semibold">{folderBrief.stats.calls}</p>
+                      <p className="text-xs text-muted-foreground">Calls</p>
+                    </div>
+                    <div className="bg-muted/50 rounded-lg p-2 text-center">
+                      <p className="text-lg font-semibold">{folderBrief.stats.meetings}</p>
+                      <p className="text-xs text-muted-foreground">Meetings</p>
+                    </div>
+                  </div>
+                )}
+
+                {/* Key Info */}
+                <div className="space-y-3">
+                  <div className="bg-yellow-500/10 border border-yellow-500/20 rounded-lg p-3">
+                    <p className="text-xs font-medium text-yellow-600 mb-1">Stage</p>
+                    <p className="text-sm">{STATUS_CONFIG[selectedProject.estimate_status]?.label || 'Draft'}</p>
+                  </div>
+
+                  <div className="bg-blue-500/10 border border-blue-500/20 rounded-lg p-3">
+                    <p className="text-xs font-medium text-blue-600 mb-1">Last Activity</p>
+                    <p className="text-sm">{folderBrief?.last_activity ? formatDate(folderBrief.last_activity) : 'No activity'}</p>
+                  </div>
+
+                  {selectedProject.proposal_total && (
+                    <div className="bg-green-500/10 border border-green-500/20 rounded-lg p-3">
+                      <p className="text-xs font-medium text-green-600 mb-1">Proposal Amount</p>
+                      <p className="text-sm font-semibold">{formatCurrency(selectedProject.proposal_total)}</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Right Horizontal Divider */}
+          <div
+            onMouseDown={(e) => handleDragStart('right-h', e)}
+            className={cn(
+              "h-1 flex-shrink-0 bg-border hover:bg-primary/50 cursor-row-resize transition-colors flex items-center justify-center",
+              isDragging === 'right-h' && "bg-primary"
+            )}
+          >
+            <GripHorizontal className="w-6 h-3 text-muted-foreground/50" />
+          </div>
+
+          {/* Right Bottom - Folder Files */}
+          <div className="flex-1 overflow-auto p-4">
+            <h3 className="text-sm font-medium mb-3 flex items-center gap-2">
+              <Folder className="w-4 h-4" />
+              Project Files
+            </h3>
+
+            <div className="grid grid-cols-2 gap-2">
+              {folderFiles.map((file, i) => (
+                <button
+                  key={i}
+                  onClick={() => setPreviewDoc(file)}
+                  className="flex items-center gap-2 p-2.5 bg-muted/50 hover:bg-muted rounded-lg text-left transition-colors"
+                >
+                  {getFileIcon(file.type)}
+                  <span className="text-sm truncate flex-1">{file.name}</span>
+                </button>
+              ))}
+            </div>
+
+            {folderFiles.length === 0 && (
+              <p className="text-sm text-muted-foreground text-center py-4">
+                No files in this folder
+              </p>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* ============ MODALS ============ */}
+
+      {/* Takeoff Sheet Modal */}
+      {showTakeoffSheet && selectedProject && (
+        <TakeoffSpreadsheet
+          projectId={selectedProject.project_id}
+          projectName={selectedProject.project_name}
+          onClose={() => setShowTakeoffSheet(false)}
+        />
+      )}
 
       {/* Upload Modal */}
       {showUploadModal && (
-        <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-center justify-center">
-          <div className="bg-card border border-border rounded-xl shadow-xl w-full max-w-md mx-4">
-            <div className="flex items-center justify-between p-4 border-b border-border">
-              <h2 className="font-semibold">Upload Bluebeam Export</h2>
-              <button
-                onClick={() => { setShowUploadModal(false); setUploadResult(null) }}
-                className="p-1 hover:bg-muted rounded-lg transition-colors"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-            <div className="p-6">
-              {uploadResult ? (
-                <div className={`p-4 rounded-lg ${uploadResult.success ? 'bg-green-500/10 border border-green-500/30' : 'bg-red-500/10 border border-red-500/30'}`}>
-                  <div className="flex items-center gap-2 mb-2">
-                    {uploadResult.success ? (
-                      <CheckCircle2 className="w-5 h-5 text-green-400" />
-                    ) : (
-                      <AlertCircle className="w-5 h-5 text-red-400" />
-                    )}
-                    <span className={uploadResult.success ? 'text-green-400' : 'text-red-400'}>
-                      {uploadResult.success ? 'Success!' : 'Error'}
-                    </span>
-                  </div>
-                  <p className="text-sm text-muted-foreground">{uploadResult.message}</p>
-                  {uploadResult.summary && (
-                    <div className="mt-3 pt-3 border-t border-border text-sm space-y-1">
-                      <p>Items: {uploadResult.summary.total_items}</p>
-                      <p>Estimated: {formatCurrency(uploadResult.summary.estimated_cost)}</p>
-                      {uploadResult.formatDetected && (
-                        <p className="text-muted-foreground flex items-center gap-1">
-                          Format: {uploadResult.formatDetected === 'protocol' ? 'Protocol (CODE | LOC)' : 'Legacy'}
-                          {uploadResult.source === 'backend' && <span className="text-xs opacity-60">via backend</span>}
-                        </p>
-                      )}
-                      {uploadResult.rateSource === 'historical' && (
-                        <p className="text-blue-400 flex items-center gap-1">
-                          <CheckCircle2 className="w-3 h-3" />
-                          {uploadResult.historicalRatesUsed} items with historical rates
-                        </p>
-                      )}
-                      {uploadResult.unmatched?.length > 0 && (
-                        <p className="text-yellow-400 flex items-center gap-1">
-                          <AlertCircle className="w-3 h-3" />
-                          {uploadResult.unmatched.length} unrecognized items (will appear in red)
-                        </p>
-                      )}
-                    </div>
-                  )}
-                  {uploadResult.success && (
-                    <div className="mt-4 space-y-2">
-                      <button
-                        onClick={async () => {
-                          const success = await handleExportExcel(uploadResult.template_data, uploadResult.csvContent)
-                          if (success) {
-                            setUploadResult(prev => ({ ...prev, excelExported: true }))
-                          }
-                        }}
-                        disabled={exportingExcel}
-                        className="w-full py-2.5 bg-green-600 text-white hover:bg-green-700 rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
-                      >
-                        {exportingExcel ? (
-                          <Loader2 className="w-4 h-4 animate-spin" />
-                        ) : (
-                          <FileSpreadsheet className="w-4 h-4" />
-                        )}
-                        {exportingExcel ? 'Generating Excel...' : 'Download Excel Takeoff'}
-                      </button>
-                      <button
-                        onClick={() => {
-                          setShowUploadModal(false)
-                          setShowTakeoffSheet(true)
-                        }}
-                        className="w-full py-2.5 bg-primary text-primary-foreground hover:bg-primary/90 rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-2"
-                      >
-                        <FileSpreadsheet className="w-4 h-4" />
-                        View in App
-                      </button>
-                    </div>
-                  )}
-                  <button
-                    onClick={() => setUploadResult(null)}
-                    className="mt-2 w-full py-2 bg-muted hover:bg-muted/80 rounded-lg text-sm transition-colors"
-                  >
-                    Upload Another
-                  </button>
-                </div>
-              ) : (
-                <>
-                  {/* Historical rates toggle */}
-                  <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg mb-4">
-                    <div>
-                      <p className="text-sm font-medium">Use Historical Rates</p>
-                      <p className="text-xs text-muted-foreground">
-                        Apply average rates from past projects
-                        {selectedProject?.gc_name && ` (${selectedProject.gc_name})`}
-                      </p>
-                    </div>
-                    <button
-                      onClick={() => setUseHistoricalRates(!useHistoricalRates)}
-                      className={`relative w-11 h-6 rounded-full transition-colors ${
-                        useHistoricalRates ? 'bg-primary' : 'bg-muted-foreground/30'
-                      }`}
-                    >
-                      <div
-                        className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-transform ${
-                          useHistoricalRates ? 'translate-x-6' : 'translate-x-1'
-                        }`}
-                      />
-                    </button>
-                  </div>
-
-                  <div
-                    onClick={() => fileInputRef.current?.click()}
-                    className="border-2 border-dashed border-border rounded-xl p-8 text-center cursor-pointer hover:border-primary/50 transition-colors"
-                  >
-                    {uploadingFile ? (
-                      <Loader2 className="w-8 h-8 mx-auto mb-3 animate-spin text-primary" />
-                    ) : (
-                      <Upload className="w-8 h-8 mx-auto mb-3 text-muted-foreground" />
-                    )}
-                    <p className="text-sm font-medium">
-                      {uploadingFile ? 'Processing...' : 'Click to upload CSV'}
-                    </p>
-                    <p className="text-xs text-muted-foreground mt-1">
-                      Bluebeam markup export (CSV format)
-                    </p>
-                  </div>
-                  <input
-                    ref={fileInputRef}
-                    type="file"
-                    accept=".csv"
-                    onChange={handleFileUpload}
-                    className="hidden"
-                  />
-                  <p className="text-xs text-muted-foreground mt-4 text-center">
-                    Export from Bluebeam: Markups &gt; Export &gt; CSV
-                  </p>
-                </>
-              )}
-            </div>
-          </div>
-        </div>
+        <UploadModal
+          project={selectedProject}
+          onClose={() => setShowUploadModal(false)}
+          onSuccess={() => {
+            setShowUploadModal(false)
+            setShowTakeoffSheet(true)
+          }}
+        />
       )}
 
       {/* New Project Modal */}
@@ -996,7 +907,7 @@ export function EstimatingCenterScreen({ onSelectProject, onBack }) {
               <h2 className="font-semibold">New Project</h2>
               <button
                 onClick={() => setShowNewProjectModal(false)}
-                className="p-1 hover:bg-muted rounded-lg transition-colors"
+                className="p-1 hover:bg-muted rounded-lg"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -1055,21 +966,10 @@ export function EstimatingCenterScreen({ onSelectProject, onBack }) {
                   </select>
                 </div>
               </div>
-              <div>
-                <label className="text-sm font-medium mb-1 block">Assigned To</label>
-                <select
-                  value={newProject.assigned_to}
-                  onChange={(e) => setNewProject({ ...newProject, assigned_to: e.target.value })}
-                  className="w-full px-3 py-2 bg-muted border border-input rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
-                >
-                  <option value="Steve">Steve</option>
-                  <option value="Mike">Mike</option>
-                </select>
-              </div>
               <button
                 onClick={handleSaveNewProject}
                 disabled={!newProject.project_name || !newProject.gc_name || savingProject}
-                className="w-full flex items-center justify-center gap-2 py-2.5 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                className="w-full flex items-center justify-center gap-2 py-2.5 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 disabled:opacity-50"
               >
                 {savingProject ? (
                   <Loader2 className="w-4 h-4 animate-spin" />
@@ -1082,20 +982,120 @@ export function EstimatingCenterScreen({ onSelectProject, onBack }) {
           </div>
         </div>
       )}
+    </div>
+  )
+}
 
-      {/* Animation Keyframes */}
-      <style jsx>{`
-        @keyframes fadeInUp {
-          from {
-            opacity: 0;
-            transform: translateY(10px);
-          }
-          to {
-            opacity: 1;
-            transform: translateY(0);
-          }
-        }
-      `}</style>
+// Upload Modal Component
+function UploadModal({ project, onClose, onSuccess }) {
+  const [uploading, setUploading] = useState(false)
+  const [result, setResult] = useState(null)
+  const fileInputRef = useRef(null)
+
+  const handleFileUpload = async (event) => {
+    const file = event.target.files?.[0]
+    if (!file) return
+
+    setUploading(true)
+    try {
+      const content = await file.text()
+
+      const res = await fetch(`/api/ko/takeoff/${project.project_id}/bluebeam`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          csv_content: content,
+          tab_name: null
+        })
+      })
+
+      const data = await res.json()
+
+      if (res.ok && data.success) {
+        setResult({
+          success: true,
+          message: `Imported ${data.items_parsed} items, updated ${data.cells_updated} cells`
+        })
+      } else {
+        setResult({
+          success: false,
+          message: data.error || 'Failed to process file'
+        })
+      }
+    } catch (err) {
+      setResult({
+        success: false,
+        message: 'Error: ' + err.message
+      })
+    } finally {
+      setUploading(false)
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-center justify-center">
+      <div className="bg-card border border-border rounded-xl shadow-xl w-full max-w-md mx-4">
+        <div className="flex items-center justify-between p-4 border-b border-border">
+          <h2 className="font-semibold">Upload Bluebeam CSV</h2>
+          <button onClick={onClose} className="p-1 hover:bg-muted rounded-lg">
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+        <div className="p-6">
+          {result ? (
+            <div className={`p-4 rounded-lg ${result.success ? 'bg-green-500/10 border border-green-500/30' : 'bg-red-500/10 border border-red-500/30'}`}>
+              <div className="flex items-center gap-2 mb-2">
+                {result.success ? (
+                  <CheckCircle2 className="w-5 h-5 text-green-500" />
+                ) : (
+                  <AlertCircle className="w-5 h-5 text-red-500" />
+                )}
+                <span className={result.success ? 'text-green-500' : 'text-red-500'}>
+                  {result.success ? 'Success!' : 'Error'}
+                </span>
+              </div>
+              <p className="text-sm text-muted-foreground">{result.message}</p>
+              {result.success && (
+                <button
+                  onClick={onSuccess}
+                  className="mt-4 w-full py-2 bg-primary text-primary-foreground rounded-lg text-sm"
+                >
+                  View Takeoff Sheet
+                </button>
+              )}
+              <button
+                onClick={() => setResult(null)}
+                className="mt-2 w-full py-2 bg-muted hover:bg-muted/80 rounded-lg text-sm"
+              >
+                Upload Another
+              </button>
+            </div>
+          ) : (
+            <>
+              <div
+                onClick={() => fileInputRef.current?.click()}
+                className="border-2 border-dashed border-border rounded-xl p-8 text-center cursor-pointer hover:border-primary/50 transition-colors"
+              >
+                {uploading ? (
+                  <Loader2 className="w-8 h-8 mx-auto mb-3 animate-spin text-primary" />
+                ) : (
+                  <Upload className="w-8 h-8 mx-auto mb-3 text-muted-foreground" />
+                )}
+                <p className="text-sm font-medium">
+                  {uploading ? 'Processing...' : 'Click to upload CSV'}
+                </p>
+              </div>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept=".csv"
+                onChange={handleFileUpload}
+                className="hidden"
+              />
+            </>
+          )}
+        </div>
+      </div>
     </div>
   )
 }
