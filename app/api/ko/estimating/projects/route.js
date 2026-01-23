@@ -114,34 +114,26 @@ export async function POST(request) {
       })
     }
 
-    // Insert new project
+    // Insert new project - use inline values for nullable fields to avoid BigQuery type issues
+    const escapeString = (s) => s ? `'${s.replace(/'/g, "\\'")}'` : 'NULL'
     const insertQuery = `
       INSERT INTO \`master-roofing-intelligence.${BQ_DATASET}.${BQ_TABLE}\`
       (project_id, project_name, gc_name, address, due_date, priority, assigned_to,
        estimate_status, proposal_total, takeoff_total, has_takeoff, has_proposal,
        created_at, updated_at)
       VALUES
-      (@project_id, @project_name, @gc_name, @address,
-       ${due_date ? `DATE(@due_date)` : 'NULL'},
-       @priority, @assigned_to, @estimate_status,
-       @proposal_total, @takeoff_total, @has_takeoff, @has_proposal,
+      ('${project_id}', ${escapeString(project.project_name)}, ${escapeString(project.gc_name)},
+       ${escapeString(project.address)},
+       ${due_date ? `DATE('${due_date}')` : 'NULL'},
+       ${escapeString(project.priority)}, ${escapeString(project.assigned_to)},
+       ${escapeString(project.estimate_status)},
+       ${project.proposal_total !== null ? project.proposal_total : 'NULL'},
+       ${project.takeoff_total !== null ? project.takeoff_total : 'NULL'},
+       ${project.has_takeoff}, ${project.has_proposal},
        CURRENT_TIMESTAMP(), CURRENT_TIMESTAMP())
     `
 
-    await runQuery(insertQuery, {
-      project_id,
-      project_name: project.project_name,
-      gc_name: project.gc_name,
-      address: project.address,
-      due_date: project.due_date,
-      priority: project.priority,
-      assigned_to: project.assigned_to,
-      estimate_status: project.estimate_status,
-      proposal_total: project.proposal_total,
-      takeoff_total: project.takeoff_total,
-      has_takeoff: project.has_takeoff,
-      has_proposal: project.has_proposal
-    })
+    await runQuery(insertQuery)
 
     return NextResponse.json({
       success: true,
