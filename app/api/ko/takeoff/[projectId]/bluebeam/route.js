@@ -2,11 +2,25 @@
  * Bluebeam Import API
  *
  * Import Bluebeam CSV data into a project's takeoff Google Sheet tab.
- * Parses CSV locally and fills the Google Sheet directly.
+ *
+ * Supports two parsing modes:
+ * 1. DETERMINISTIC: If project has a saved config, parses using PIPE delimiter
+ *    Subject format: "ITEM_CODE | LOCATION" (e.g., "MR-VB | FL1")
+ *
+ * 2. LEGACY/FUZZY: Falls back to pattern matching for older exports
  */
 
 import { NextResponse } from 'next/server'
+import https from 'https'
 import { fillBluebeamDataToTab, getTakeoffTab, createTakeoffTab } from '@/lib/google-sheets'
+
+const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'https://136.111.252.120'
+
+// Custom fetch that ignores SSL cert errors
+const fetchWithSSL = async (url, options = {}) => {
+  const agent = new https.Agent({ rejectUnauthorized: false })
+  return fetch(url, { ...options, agent })
+}
 
 // Pattern matching for Bluebeam layer names → item codes
 const ITEM_PATTERNS = [
@@ -42,7 +56,7 @@ const ITEM_PATTERNS = [
   { pattern: /up\s*over|upover/i, code: 'UP-OVER' }
 ]
 
-// Floor detection patterns
+// Floor detection patterns (for legacy/fuzzy parsing)
 const FLOOR_PATTERNS = [
   { pattern: /\bfl\s*1\b|\bfloor\s*1\b|1st\s*floor/i, floor: 'FL1' },
   { pattern: /\bfl\s*2\b|\bfloor\s*2\b|2nd\s*floor/i, floor: 'FL2' },
@@ -53,6 +67,93 @@ const FLOOR_PATTERNS = [
   { pattern: /stair|bulkhead/i, floor: 'STAIR' },
   { pattern: /elev/i, floor: 'ELEV' }
 ]
+
+/**
+ * DETERMINISTIC PARSING
+ * Used when project has a saved config with PIPE delimiter format
+ * Subject format: "ITEM_CODE | LOCATION" (e.g., "MR-VB | FL1")
+ */
+function parseDeterministicCSV(csvContent, config) {
+  const lines = csvContent.split('\n').filter(line => line.trim())
+  if (lines.length < 2) return { items: [], mode: 'deterministic', error: 'No data rows' }
+
+  // Parse header
+  const header = parseCSVLine(lines[0]).map(h => h.toLowerCase().trim())
+  const subjectIdx = header.findIndex(h => h.includes('subject') || h.includes('layer') || h.includes('label'))
+  const measurementIdx = header.findIndex(h => h.includes('measurement') || h.includes('area') || h.includes('length') || h.includes('count'))
+
+  if (subjectIdx === -1) {
+    return { items: [], mode: 'deterministic', error: 'No Subject column found' }
+  }
+
+  // Build location mapping from config
+  const locationMap = {}
+  for (const col of config.columns || []) {
+    const locationCode = col.mappings?.[0] || col.name.toUpperCase().replace(/[^A-Z0-9]/g, '')
+    locationMap[locationCode] = col.name
+    // Also add the full name mapping
+    locationMap[col.name.toUpperCase()] = col.name
+    // Add each mapping
+    for (const mapping of col.mappings || []) {
+      locationMap[mapping.toUpperCase()] = col.name
+    }
+  }
+
+  // Build item code set from config
+  const validItemCodes = new Set(
+    (config.selectedItems || []).map(item => item.scope_code.toUpperCase())
+  )
+
+  const items = []
+  let deterministicCount = 0
+  let skippedCount = 0
+
+  for (let i = 1; i < lines.length; i++) {
+    const cols = parseCSVLine(lines[i])
+    if (cols.length < 2) continue
+
+    const subject = cols[subjectIdx] || ''
+    const measurement = cols[measurementIdx >= 0 ? measurementIdx : 1] || ''
+
+    // Skip empty or summary rows
+    if (!subject || /^\d+\s*(?:sf|lf|ea)?\s*\(\d+\)$/i.test(subject)) continue
+
+    // Check for PIPE delimiter format
+    if (subject.includes(' | ')) {
+      const [itemCode, location] = subject.split(' | ').map(s => s.trim())
+
+      // Extract quantity
+      const quantity = parseFloat(measurement.replace(/[^0-9.]/g, '')) || 0
+      if (quantity === 0) continue
+
+      // Validate item code exists in config
+      if (!validItemCodes.has(itemCode.toUpperCase())) {
+        skippedCount++
+        continue
+      }
+
+      // Map location to column
+      const floor = locationMap[location.toUpperCase()] || location
+
+      items.push({
+        code: itemCode,
+        floor: floor,
+        quantity: quantity
+      })
+      deterministicCount++
+    }
+  }
+
+  return {
+    items,
+    mode: 'deterministic',
+    stats: {
+      totalRows: lines.length - 1,
+      parsed: deterministicCount,
+      skipped: skippedCount
+    }
+  }
+}
 
 /**
  * Parse Bluebeam CSV and extract items with code, floor, quantity
@@ -149,12 +250,13 @@ function parseCSVLine(line) {
  * Body:
  * - csv_content: Raw CSV content from Bluebeam export
  * - tab_name: Optional tab name to fill (will auto-detect if not provided)
+ * - force_legacy: If true, skip deterministic parsing and use fuzzy matching
  */
 export async function POST(request, { params }) {
   try {
     const { projectId } = await params
     const body = await request.json()
-    const { csv_content, tab_name } = body
+    const { csv_content, tab_name, force_legacy } = body
 
     if (!csv_content) {
       return NextResponse.json(
@@ -163,12 +265,68 @@ export async function POST(request, { params }) {
       )
     }
 
-    // Parse CSV to extract items
-    const items = parseBluebeamCSV(csv_content)
+    let items = []
+    let parseMode = 'legacy'
+    let parseStats = null
+
+    // Try deterministic parsing first if not forced to legacy
+    if (!force_legacy) {
+      try {
+        // Fetch project config
+        const configRes = await fetchWithSSL(
+          `${BACKEND_URL}/v1/takeoff/${projectId}/config`,
+          { signal: AbortSignal.timeout(5000) }
+        )
+
+        let config = null
+        if (configRes.ok) {
+          const configData = await configRes.json()
+          config = configData.config || configData
+        }
+
+        // If no backend config, try BigQuery fallback
+        if (!config) {
+          const localConfigRes = await fetch(
+            new URL(`/api/ko/takeoff/${projectId}/config`, request.url).toString(),
+            { headers: { 'Accept': 'application/json' } }
+          )
+          if (localConfigRes.ok) {
+            const localConfigData = await localConfigRes.json()
+            if (localConfigData.exists) {
+              config = localConfigData.config
+            }
+          }
+        }
+
+        // Check if CSV has PIPE delimiter format
+        const hasPipeDelimiter = csv_content.includes(' | ')
+
+        if (config && config.columns && config.selectedItems && hasPipeDelimiter) {
+          // Use deterministic parsing
+          const result = parseDeterministicCSV(csv_content, config)
+
+          if (result.items.length > 0) {
+            items = result.items
+            parseMode = 'deterministic'
+            parseStats = result.stats
+
+            console.log(`Deterministic parsing: ${items.length} items from ${parseStats.parsed} rows`)
+          }
+        }
+      } catch (configErr) {
+        console.log('Config fetch failed, using legacy parsing:', configErr.message)
+      }
+    }
+
+    // Fall back to legacy/fuzzy parsing if deterministic didn't work
+    if (items.length === 0) {
+      items = parseBluebeamCSV(csv_content)
+      parseMode = 'legacy'
+    }
 
     if (items.length === 0) {
       return NextResponse.json(
-        { error: 'No recognizable items found in CSV. Check that the CSV contains valid Bluebeam data.' },
+        { error: 'No recognizable items found in CSV. Check that the CSV contains valid Bluebeam data or set up the takeoff configuration first.' },
         { status: 400 }
       )
     }
@@ -193,7 +351,9 @@ export async function POST(request, { params }) {
       items_parsed: items.length,
       cells_updated: result.updated,
       tab_name: tabInfo.tabName,
-      storage: 'google_sheets'
+      storage: 'google_sheets',
+      parse_mode: parseMode,
+      parse_stats: parseStats
     })
 
   } catch (err) {

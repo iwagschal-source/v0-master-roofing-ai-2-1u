@@ -38,6 +38,7 @@ import {
   Eye
 } from "lucide-react"
 import { TakeoffSpreadsheet } from "./takeoff-spreadsheet"
+import { TakeoffSetupScreen } from "./takeoff-setup-screen"
 import { cn } from "@/lib/utils"
 
 const STATUS_CONFIG = {
@@ -61,6 +62,7 @@ export function EstimatingCenterScreen({ onSelectProject, onBack }) {
   const [showNewProjectModal, setShowNewProjectModal] = useState(false)
   const [showTakeoffSheet, setShowTakeoffSheet] = useState(false)
   const [showUploadModal, setShowUploadModal] = useState(false)
+  const [showTakeoffSetup, setShowTakeoffSetup] = useState(false)
 
   // Preview state
   const [previewDoc, setPreviewDoc] = useState(null)
@@ -534,6 +536,14 @@ export function EstimatingCenterScreen({ onSelectProject, onBack }) {
                 </div>
                 <div className="flex items-center gap-2">
                   <button
+                    onClick={() => setShowTakeoffSetup(true)}
+                    className="flex items-center gap-1.5 px-3 py-1.5 bg-orange-600 text-white hover:bg-orange-700 rounded-lg text-sm"
+                    title="Configure takeoff structure and generate BTX for Bluebeam"
+                  >
+                    <Calculator className="w-4 h-4" />
+                    Setup
+                  </button>
+                  <button
                     onClick={() => setShowUploadModal(true)}
                     className="flex items-center gap-1.5 px-3 py-1.5 bg-green-600 text-white hover:bg-green-700 rounded-lg text-sm"
                   >
@@ -876,6 +886,21 @@ export function EstimatingCenterScreen({ onSelectProject, onBack }) {
       )}
 
       {/* ============ MODALS ============ */}
+
+      {/* Takeoff Setup Wizard */}
+      {showTakeoffSetup && selectedProject && (
+        <TakeoffSetupScreen
+          projectId={selectedProject.project_id}
+          projectName={selectedProject.project_name}
+          gcName={selectedProject.gc_name}
+          onClose={() => setShowTakeoffSetup(false)}
+          onComplete={(config) => {
+            setShowTakeoffSetup(false)
+            // Open the takeoff sheet to view results
+            setShowTakeoffSheet(true)
+          }}
+        />
+      )}
 
       {/* Takeoff Sheet Modal */}
       {showTakeoffSheet && selectedProject && (

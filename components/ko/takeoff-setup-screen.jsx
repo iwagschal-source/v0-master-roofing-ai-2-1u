@@ -16,7 +16,9 @@ import {
   Calculator,
   Check,
   AlertCircle,
-  Info
+  Info,
+  Download,
+  Wrench
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { LineItemSelector } from "./line-item-selector"
@@ -25,7 +27,8 @@ import { getVariantKey, getVariantDisplayName } from "./variant-selector"
 const STEPS = [
   { id: 'columns', label: 'Location Columns', icon: MapPin },
   { id: 'items', label: 'Line Items', icon: List },
-  { id: 'rates', label: 'Rates', icon: DollarSign }
+  { id: 'rates', label: 'Rates', icon: DollarSign },
+  { id: 'generate', label: 'Generate BTX', icon: Wrench }
 ]
 
 /**
@@ -57,6 +60,8 @@ export function TakeoffSetupScreen({
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [generating, setGenerating] = useState(false)
+  const [downloadingBtx, setDownloadingBtx] = useState(false)
+  const [btxGenerated, setBtxGenerated] = useState(false)
   const [error, setError] = useState(null)
 
   // Library data
@@ -292,6 +297,53 @@ export function TakeoffSetupScreen({
     return true
   }
 
+  // Download BTX file
+  const downloadBtx = async () => {
+    setDownloadingBtx(true)
+    setError(null)
+
+    try {
+      // First save the config
+      const saved = await saveConfig()
+      if (!saved) {
+        throw new Error('Failed to save configuration')
+      }
+
+      // Generate and download BTX
+      const res = await fetch(`/api/ko/takeoff/${projectId}/btx`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          config: { columns, selectedItems, rateOverrides, gcName },
+          projectName
+        })
+      })
+
+      if (!res.ok) {
+        const errData = await res.json()
+        throw new Error(errData.error || 'Failed to generate BTX')
+      }
+
+      // Get the BTX content and download
+      const blob = await res.blob()
+      const url = window.URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `${(projectName || projectId).replace(/[^a-zA-Z0-9]/g, '_')}_Takeoff.btx`
+      document.body.appendChild(a)
+      a.click()
+      window.URL.revokeObjectURL(url)
+      document.body.removeChild(a)
+
+      setBtxGenerated(true)
+    } catch (err) {
+      console.error('BTX download error:', err)
+      setError('Failed to download BTX: ' + err.message)
+    } finally {
+      setDownloadingBtx(false)
+    }
+  }
+
   // Render step content
   const renderStepContent = () => {
     switch (currentStep) {
@@ -301,6 +353,8 @@ export function TakeoffSetupScreen({
         return renderItemsStep()
       case 2:
         return renderRatesStep()
+      case 3:
+        return renderGenerateStep()
       default:
         return null
     }
@@ -483,6 +537,112 @@ export function TakeoffSetupScreen({
     )
   }
 
+  // Step 4: Generate BTX
+  const renderGenerateStep = () => {
+    const toolCount = selectedItems.length * columns.length
+
+    return (
+      <div className="p-6">
+        <div className="mb-6">
+          <h2 className="text-lg font-semibold mb-2">Generate Bluebeam Tool Chest</h2>
+          <p className="text-sm text-muted-foreground">
+            Download a BTX file containing measurement tools for Bluebeam. Each tool is named with a deterministic format
+            for accurate parsing when imported back.
+          </p>
+        </div>
+
+        {/* Summary */}
+        <div className="bg-muted/30 rounded-lg p-6 mb-6">
+          <h3 className="font-medium mb-4">Configuration Summary</h3>
+
+          <div className="grid grid-cols-3 gap-4 mb-6">
+            <div className="bg-background rounded-lg p-4 text-center">
+              <p className="text-2xl font-bold text-primary">{selectedItems.length}</p>
+              <p className="text-sm text-muted-foreground">Line Items</p>
+            </div>
+            <div className="bg-background rounded-lg p-4 text-center">
+              <p className="text-2xl font-bold text-primary">{columns.length}</p>
+              <p className="text-sm text-muted-foreground">Locations</p>
+            </div>
+            <div className="bg-background rounded-lg p-4 text-center">
+              <p className="text-2xl font-bold text-green-600">{toolCount}</p>
+              <p className="text-sm text-muted-foreground">Total Tools</p>
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <p className="text-sm"><strong>Locations:</strong> {columns.map(c => c.name).join(', ')}</p>
+            <p className="text-sm"><strong>Items:</strong> {selectedItems.slice(0, 5).map(i => i.scope_code).join(', ')}{selectedItems.length > 5 ? ` (+${selectedItems.length - 5} more)` : ''}</p>
+          </div>
+        </div>
+
+        {/* Tool Format Explanation */}
+        <div className="bg-orange-500/10 border border-orange-500/30 rounded-lg p-4 mb-6">
+          <h4 className="font-medium text-orange-700 dark:text-orange-300 mb-2">Tool Naming Format</h4>
+          <p className="text-sm text-orange-600 dark:text-orange-400 mb-2">
+            Each tool will be named: <code className="bg-orange-500/20 px-1 rounded">ITEM_CODE | LOCATION</code>
+          </p>
+          <p className="text-xs text-muted-foreground">
+            Example: <code>MR-VB | FL1</code>, <code>MR-2PLY | ROOF</code>
+          </p>
+          <p className="text-xs text-muted-foreground mt-2">
+            This format enables automatic parsing when you upload the Bluebeam CSV export back to the system.
+          </p>
+        </div>
+
+        {/* Download Button */}
+        <div className="flex flex-col items-center gap-4">
+          <button
+            onClick={downloadBtx}
+            disabled={downloadingBtx || selectedItems.length === 0}
+            className="flex items-center gap-3 px-8 py-4 bg-orange-600 text-white rounded-xl text-lg font-medium hover:bg-orange-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          >
+            {downloadingBtx ? (
+              <Loader2 className="w-6 h-6 animate-spin" />
+            ) : (
+              <Download className="w-6 h-6" />
+            )}
+            {downloadingBtx ? 'Generating...' : 'Download BTX File'}
+          </button>
+
+          {btxGenerated && (
+            <div className="flex items-center gap-2 text-green-600">
+              <Check className="w-5 h-5" />
+              <span>BTX file downloaded successfully!</span>
+            </div>
+          )}
+        </div>
+
+        {/* Instructions */}
+        <div className="mt-8 p-4 bg-muted/30 rounded-lg">
+          <h4 className="font-medium mb-3">Next Steps</h4>
+          <ol className="space-y-2 text-sm text-muted-foreground">
+            <li className="flex items-start gap-2">
+              <span className="w-5 h-5 rounded-full bg-primary/20 text-primary flex items-center justify-center flex-shrink-0 text-xs font-bold">1</span>
+              <span>Import the BTX file into Bluebeam Revu (Tool Chest → Import)</span>
+            </li>
+            <li className="flex items-start gap-2">
+              <span className="w-5 h-5 rounded-full bg-primary/20 text-primary flex items-center justify-center flex-shrink-0 text-xs font-bold">2</span>
+              <span>Open your PDF plans in Bluebeam</span>
+            </li>
+            <li className="flex items-start gap-2">
+              <span className="w-5 h-5 rounded-full bg-primary/20 text-primary flex items-center justify-center flex-shrink-0 text-xs font-bold">3</span>
+              <span>Use ONLY the imported tools to mark up measurements</span>
+            </li>
+            <li className="flex items-start gap-2">
+              <span className="w-5 h-5 rounded-full bg-primary/20 text-primary flex items-center justify-center flex-shrink-0 text-xs font-bold">4</span>
+              <span>Export markup summary to CSV (Markups → Summary → Export CSV)</span>
+            </li>
+            <li className="flex items-start gap-2">
+              <span className="w-5 h-5 rounded-full bg-primary/20 text-primary flex items-center justify-center flex-shrink-0 text-xs font-bold">5</span>
+              <span>Upload the CSV using the "Bluebeam" button in the Estimating Center</span>
+            </li>
+          </ol>
+        </div>
+      </div>
+    )
+  }
+
   // Loading state
   if (loading) {
     return (
@@ -604,15 +764,15 @@ export function TakeoffSetupScreen({
           ) : (
             <button
               onClick={handleComplete}
-              disabled={generating || !validateStep() || selectedItems.length === 0}
+              disabled={generating || !btxGenerated}
               className="flex items-center gap-2 px-6 py-2.5 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {generating ? (
                 <Loader2 className="w-4 h-4 animate-spin" />
               ) : (
-                <FileSpreadsheet className="w-4 h-4" />
+                <Check className="w-4 h-4" />
               )}
-              {generating ? 'Generating...' : 'Generate Takeoff'}
+              {generating ? 'Finishing...' : 'Finish Setup'}
             </button>
           )}
         </div>
