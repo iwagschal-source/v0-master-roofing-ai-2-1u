@@ -55,11 +55,6 @@ export function HomeScreen({
       action: "messages",
     },
     {
-      icon: "/images/hubspot-1.png",
-      label: "Pipeline",
-      action: "hubspot",
-    },
-    {
       icon: "/images/icons8-email-apple-sf-regular-96.png",
       label: "Emails",
       action: "email",

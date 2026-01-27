@@ -25,12 +25,6 @@ export function NavigationRail({ activeMode, onModeChange, visible }) {
       label: "Asana",
       type: "image",
     },
-    {
-      id: "hubspot",
-      icon: "/images/hubspot.png",
-      label: "HubSpot",
-      type: "image",
-    },
     { id: "email", icon: Mail, label: "Email", type: "lucide" },
 
     {
