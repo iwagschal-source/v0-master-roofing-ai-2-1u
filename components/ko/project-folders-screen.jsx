@@ -5,6 +5,7 @@ import { useTheme } from "@/components/theme-provider"
 import { ProjectFolder } from "@/components/ko/project-folder"
 import { ProjectFolderLight } from "@/components/ko/project-folder-light"
 import { ProjectFolderDetail } from "@/components/ko/project-folder-detail"
+import { CreateProjectModal } from "@/components/ko/create-project-modal"
 import { Search, LayoutGrid, List, Settings, Bell, Sun, Moon, Plus, Loader2, FolderOpen } from "lucide-react"
 
 /**
@@ -19,6 +20,7 @@ export default function ProjectFoldersScreen() {
   const [selectedProject, setSelectedProject] = useState(null)
   const [searchQuery, setSearchQuery] = useState("")
   const [viewMode, setViewMode] = useState("grid")
+  const [showCreateModal, setShowCreateModal] = useState(false)
   const { resolvedTheme, toggleTheme } = useTheme()
 
   // Fetch projects from API on mount
@@ -148,6 +150,15 @@ export default function ProjectFoldersScreen() {
                 </button>
               </div>
 
+              {/* New Project Button */}
+              <button
+                onClick={() => setShowCreateModal(true)}
+                className="flex items-center gap-2 px-3 py-1.5 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors"
+              >
+                <Plus className="w-4 h-4" />
+                <span className="hidden sm:inline">New Project</span>
+              </button>
+
               {/* Actions */}
               <div className="flex items-center gap-2">
                 <button className="p-2 rounded hover:bg-secondary transition-colors relative">
@@ -212,6 +223,7 @@ export default function ProjectFoldersScreen() {
               Create your first project folder to start tracking documents, RFIs, and project health.
             </p>
             <button
+              onClick={() => setShowCreateModal(true)}
               className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors"
             >
               <Plus className="w-4 h-4" />
@@ -292,6 +304,17 @@ export default function ProjectFoldersScreen() {
           onClose={() => setSelectedProject(null)}
         />
       )}
+
+      {/* Create Project Modal */}
+      <CreateProjectModal
+        isOpen={showCreateModal}
+        onClose={() => setShowCreateModal(false)}
+        onSuccess={(newProject) => {
+          // Prepend new project to list
+          setProjects(prev => [newProject, ...prev])
+          setShowCreateModal(false)
+        }}
+      />
     </div>
   )
 }
