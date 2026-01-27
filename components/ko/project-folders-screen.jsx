@@ -1,132 +1,72 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useTheme } from "@/components/theme-provider"
 import { ProjectFolder } from "@/components/ko/project-folder"
 import { ProjectFolderLight } from "@/components/ko/project-folder-light"
 import { ProjectFolderDetail } from "@/components/ko/project-folder-detail"
-import { Search, LayoutGrid, List, Settings, Bell, Sun, Moon } from "lucide-react"
+import { Search, LayoutGrid, List, Settings, Bell, Sun, Moon, Plus, Loader2, FolderOpen } from "lucide-react"
 
 /**
  * @typedef {"green"|"yellow"|"red"} HealthStatus
- * @typedef {{id: string, name: string, summary: string, status: HealthStatus, isIngesting: boolean, tickerMessages: string[]}} Project
+ * @typedef {{id: string, name: string, summary: string, healthStatus: HealthStatus, isIngesting: boolean, tickerMessages: string[], companyName?: string}} Project
  */
 
-/** @type {Project[]} */
-const mockProjects = [
-  {
-    id: "1",
-    name: "Riverside Office Complex",
-    summary: "Roofing submittals approved; lead times locked; no schedule risk.",
-    status: "green",
-    isIngesting: true,
-    tickerMessages: ["Ingesting RFI 247", "Comparing Rev 4 vs Rev 5", "Updating dependencies"],
-  },
-  {
-    id: "2",
-    name: "Downtown Medical Center",
-    summary: "Awaiting GC response on membrane specification; 3 days to deadline.",
-    status: "yellow",
-    isIngesting: true,
-    tickerMessages: ["Awaiting GC response", "Monitoring deadline", "Preparing escalation draft"],
-  },
-  {
-    id: "3",
-    name: "Harbor View Apartments",
-    summary: "Material delivery delayed; schedule impact being assessed.",
-    status: "red",
-    isIngesting: true,
-    tickerMessages: ["Tracking shipment", "Calculating delay impact", "Notifying stakeholders"],
-  },
-  {
-    id: "4",
-    name: "Tech Park Building A",
-    summary: "All phases on track; final inspection scheduled for next week.",
-    status: "green",
-    isIngesting: false,
-    tickerMessages: [],
-  },
-  {
-    id: "5",
-    name: "Metro Station Canopy",
-    summary: "Weather hold lifted; crews resuming work tomorrow.",
-    status: "green",
-    isIngesting: true,
-    tickerMessages: ["Updating schedule", "Confirming crew availability"],
-  },
-  {
-    id: "6",
-    name: "University Science Hall",
-    summary: "Change order pending approval; budget impact under review.",
-    status: "yellow",
-    isIngesting: true,
-    tickerMessages: ["Analyzing cost impact", "Preparing documentation"],
-  },
-  {
-    id: "7",
-    name: "Corporate HQ Renovation",
-    summary: "Submittal reviews complete; installation begins Monday.",
-    status: "green",
-    isIngesting: false,
-    tickerMessages: [],
-  },
-  {
-    id: "8",
-    name: "Airport Terminal Roof",
-    summary: "Critical path item delayed; mitigation plan in progress.",
-    status: "red",
-    isIngesting: true,
-    tickerMessages: ["Developing mitigation plan", "Coordinating with GC", "Updating timeline"],
-  },
-  {
-    id: "9",
-    name: "Retail Plaza Phase 2",
-    summary: "Warranty documentation finalized; closeout in progress.",
-    status: "green",
-    isIngesting: false,
-    tickerMessages: [],
-  },
-  {
-    id: "10",
-    name: "Warehouse Distribution",
-    summary: "Prefab panels on schedule; quality checks passed.",
-    status: "green",
-    isIngesting: true,
-    tickerMessages: ["Processing QC reports", "Updating completion %"],
-  },
-  {
-    id: "11",
-    name: "Community Center Gym",
-    summary: "Minor punch list items remaining; substantial completion achieved.",
-    status: "green",
-    isIngesting: false,
-    tickerMessages: [],
-  },
-  {
-    id: "12",
-    name: "Hotel Tower Podium",
-    summary: "Design revision required; architect coordination underway.",
-    status: "yellow",
-    isIngesting: true,
-    tickerMessages: ["Reviewing architect feedback", "Updating shop drawings"],
-  },
-]
-
 export default function ProjectFoldersScreen() {
+  const [projects, setProjects] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(null)
   const [selectedProject, setSelectedProject] = useState(null)
   const [searchQuery, setSearchQuery] = useState("")
   const [viewMode, setViewMode] = useState("grid")
   const { resolvedTheme, toggleTheme } = useTheme()
 
-  const filteredProjects = mockProjects.filter((project) =>
+  // Fetch projects from API on mount
+  useEffect(() => {
+    async function fetchProjects() {
+      try {
+        setLoading(true)
+        setError(null)
+        const res = await fetch('/api/ko/project-folders')
+        if (!res.ok) {
+          throw new Error(`Failed to fetch projects: ${res.status}`)
+        }
+        const data = await res.json()
+        // Map API response to component format
+        const mappedProjects = (data.projects || []).map(p => ({
+          id: p.id,
+          name: p.name,
+          summary: p.summary || `Project with ${p.companyName || 'company'}`,
+          status: p.healthStatus || 'green',
+          healthStatus: p.healthStatus || 'green',
+          isIngesting: p.isIngesting || false,
+          tickerMessages: p.tickerMessages || [],
+          companyName: p.companyName,
+          contactName: p.contactName,
+          address: p.address,
+          city: p.city,
+          state: p.state,
+        }))
+        setProjects(mappedProjects)
+      } catch (err) {
+        console.error('Error fetching projects:', err)
+        setError(err.message)
+      } finally {
+        setLoading(false)
+      }
+    }
+    fetchProjects()
+  }, [])
+
+  const filteredProjects = projects.filter((project) =>
     project.name.toLowerCase().includes(searchQuery.toLowerCase())
   )
 
   const statusCounts = {
-    total: mockProjects.length,
-    green: mockProjects.filter((p) => p.status === "green").length,
-    yellow: mockProjects.filter((p) => p.status === "yellow").length,
-    red: mockProjects.filter((p) => p.status === "red").length,
+    total: projects.length,
+    green: projects.filter((p) => p.status === "green" || p.healthStatus === "green").length,
+    yellow: projects.filter((p) => p.status === "yellow" || p.healthStatus === "yellow").length,
+    red: projects.filter((p) => p.status === "red" || p.healthStatus === "red").length,
   }
 
   return (
@@ -236,62 +176,112 @@ export default function ProjectFoldersScreen() {
 
       {/* Main Content */}
       <main className="max-w-[1800px] mx-auto px-6 py-8">
-        {viewMode === "grid" ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-            {filteredProjects.map((project) => (
-              resolvedTheme === "light" ? (
-                <ProjectFolderLight
-                  key={project.id}
-                  {...project}
-                  isActive={selectedProject?.id === project.id}
-                  onClick={() => setSelectedProject(project)}
-                />
-              ) : (
-                <ProjectFolder
-                  key={project.id}
-                  {...project}
-                  isActive={selectedProject?.id === project.id}
-                  onClick={() => setSelectedProject(project)}
-                />
-              )
-            ))}
-          </div>
-        ) : (
-          <div className="space-y-2">
-            {filteredProjects.map((project) => (
-              <button
-                key={project.id}
-                onClick={() => setSelectedProject(project)}
-                className="w-full flex items-center gap-4 p-4 bg-card border border-border/50 rounded-lg hover:border-primary/30 transition-colors text-left"
-              >
-                <div
-                  className={`w-3 h-3 rounded-full ${
-                    project.status === "green"
-                      ? "bg-green-500"
-                      : project.status === "yellow"
-                        ? "bg-yellow-500"
-                        : "bg-red-500"
-                  }`}
-                />
-                <div className="flex-1 min-w-0">
-                  <h3 className="font-mono text-sm font-medium truncate">{project.name}</h3>
-                  <p className="text-xs text-muted-foreground truncate">{project.summary}</p>
-                </div>
-                {project.isIngesting && (
-                  <div className="flex items-center gap-1.5">
-                    <div className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
-                    <span className="text-[10px] font-mono text-green-500/70 uppercase">Live</span>
-                  </div>
-                )}
-              </button>
-            ))}
+        {/* Loading State */}
+        {loading && (
+          <div className="flex flex-col items-center justify-center py-24">
+            <Loader2 className="w-8 h-8 animate-spin text-primary mb-4" />
+            <p className="text-sm text-muted-foreground">Loading projects...</p>
           </div>
         )}
 
-        {filteredProjects.length === 0 && (
-          <div className="text-center py-16">
-            <p className="text-muted-foreground">No projects found matching your search.</p>
+        {/* Error State */}
+        {error && !loading && (
+          <div className="flex flex-col items-center justify-center py-24">
+            <div className="text-red-500 mb-4">
+              <FolderOpen className="w-12 h-12" />
+            </div>
+            <p className="text-sm text-red-500 mb-2">Error loading projects</p>
+            <p className="text-xs text-muted-foreground">{error}</p>
+            <button
+              onClick={() => window.location.reload()}
+              className="mt-4 px-4 py-2 text-sm bg-primary text-primary-foreground rounded-lg hover:bg-primary/90"
+            >
+              Retry
+            </button>
           </div>
+        )}
+
+        {/* Empty State - No Projects Yet */}
+        {!loading && !error && projects.length === 0 && (
+          <div className="flex flex-col items-center justify-center py-24">
+            <div className="w-20 h-20 rounded-full bg-secondary/50 flex items-center justify-center mb-6">
+              <FolderOpen className="w-10 h-10 text-muted-foreground" />
+            </div>
+            <h3 className="text-lg font-medium mb-2">No Projects Yet</h3>
+            <p className="text-sm text-muted-foreground mb-6 text-center max-w-md">
+              Create your first project folder to start tracking documents, RFIs, and project health.
+            </p>
+            <button
+              className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors"
+            >
+              <Plus className="w-4 h-4" />
+              <span>Create Project</span>
+            </button>
+          </div>
+        )}
+
+        {/* Projects Grid/List */}
+        {!loading && !error && projects.length > 0 && (
+          <>
+            {viewMode === "grid" ? (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                {filteredProjects.map((project) => (
+                  resolvedTheme === "light" ? (
+                    <ProjectFolderLight
+                      key={project.id}
+                      {...project}
+                      isActive={selectedProject?.id === project.id}
+                      onClick={() => setSelectedProject(project)}
+                    />
+                  ) : (
+                    <ProjectFolder
+                      key={project.id}
+                      {...project}
+                      isActive={selectedProject?.id === project.id}
+                      onClick={() => setSelectedProject(project)}
+                    />
+                  )
+                ))}
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {filteredProjects.map((project) => (
+                  <button
+                    key={project.id}
+                    onClick={() => setSelectedProject(project)}
+                    className="w-full flex items-center gap-4 p-4 bg-card border border-border/50 rounded-lg hover:border-primary/30 transition-colors text-left"
+                  >
+                    <div
+                      className={`w-3 h-3 rounded-full ${
+                        (project.status === "green" || project.healthStatus === "green")
+                          ? "bg-green-500"
+                          : (project.status === "yellow" || project.healthStatus === "yellow")
+                            ? "bg-yellow-500"
+                            : "bg-red-500"
+                      }`}
+                    />
+                    <div className="flex-1 min-w-0">
+                      <h3 className="font-mono text-sm font-medium truncate">{project.name}</h3>
+                      <p className="text-xs text-muted-foreground truncate">{project.summary}</p>
+                    </div>
+                    {project.isIngesting && (
+                      <div className="flex items-center gap-1.5">
+                        <div className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
+                        <span className="text-[10px] font-mono text-green-500/70 uppercase">Live</span>
+                      </div>
+                    )}
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {/* No search results */}
+            {filteredProjects.length === 0 && searchQuery && (
+              <div className="text-center py-16">
+                <p className="text-muted-foreground">No projects found matching "{searchQuery}"</p>
+              </div>
+            )}
+          </>
         )}
       </main>
 
