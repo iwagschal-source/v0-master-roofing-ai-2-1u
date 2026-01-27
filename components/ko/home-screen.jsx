@@ -16,7 +16,6 @@ import { ConversationList } from "./conversation-list"
 export function HomeScreen({
   onSubmit,
   onStartChat,
-  onNavigateToFiles,
   savedConversations = [],
   currentSessionId,
   onSelectConversation,
@@ -61,11 +60,6 @@ export function HomeScreen({
       action: "hubspot",
     },
     {
-      icon: "/images/folder.png",
-      label: "Documents",
-      action: "files",
-    },
-    {
       icon: "/images/icons8-email-apple-sf-regular-96.png",
       label: "Emails",
       action: "email",
@@ -78,11 +72,8 @@ export function HomeScreen({
   ]
 
   const handleActionClick = (action) => {
-    if (action === "files") {
-      onNavigateToFiles()
-    } else {
-      //onStartChat()
-    }
+    // Handle quick action clicks
+    //onStartChat()
   }
 
   const handleMicToggle = useCallback(async () => {

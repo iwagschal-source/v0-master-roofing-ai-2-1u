@@ -39,12 +39,6 @@ export function NavigationRail({ activeMode, onModeChange, visible }) {
       label: "Zoom",
       type: "image",
     },
-    {
-      id: "documents",
-      icon: "/images/folder-1.png",
-      label: "Documents",
-      type: "image",
-    },
   ]
 
   if (!visible) return null

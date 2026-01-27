@@ -10,7 +10,6 @@ import { KOStage } from "@/components/ko/ko-stage"
 import { ConversationPane } from "@/components/ko/conversation-pane"
 import { StartupSequence } from "@/components/ko/startup-sequence"
 import { HomeScreen } from "@/components/ko/home-screen"
-import { DocumentsScreen } from "@/components/ko/documents-screen"
 import { EmailScreen } from "@/components/ko/email-screen"
 import { SettingsScreen } from "@/components/ko/settings-screen"
 import { ZoomScreen } from "@/components/ko/zoom-screen"
@@ -49,7 +48,6 @@ export default function HomePage() {
 
   const [hasStartedChat, setHasStartedChat] = useState(false)
   const [activeMode, setActiveMode] = useState("home")
-  const [showFiles, setShowFiles] = useState(false)
   const [showEmail, setShowEmail] = useState(false)
   const [showSettings, setShowSettings] = useState(false)
   const [showZoom, setShowZoom] = useState(false)
@@ -132,7 +130,6 @@ export default function HomePage() {
   const handleStartChat = (mode) => {
     setHasStartedChat(true)
     setActiveMode(mode)
-    setShowFiles(false)
     setShowEmail(false)
     setShowSettings(false)
     setShowZoom(false)
@@ -146,7 +143,6 @@ export default function HomePage() {
     if (mode === "home") {
       setHasStartedChat(false)
       setActiveMode("home")
-      setShowFiles(false)
       setShowEmail(false)
       setShowSettings(false)
       setShowZoom(false)
@@ -164,7 +160,6 @@ export default function HomePage() {
       setSelectedHistoryItem(undefined)
     } else if (mode === "estimating") {
       setShowEstimating(true)
-      setShowFiles(false)
       setShowEmail(false)
       setShowSettings(false)
       setShowZoom(false)
@@ -176,7 +171,6 @@ export default function HomePage() {
       setShowSales(false)
     } else if (mode === "arena") {
       setShowArena(true)
-      setShowFiles(false)
       setShowEmail(false)
       setShowSettings(false)
       setShowZoom(false)
@@ -184,15 +178,6 @@ export default function HomePage() {
       setHasStartedChat(true)
     } else if (mode === "email") {
       setShowEmail(true)
-      setShowFiles(false)
-      setShowSettings(false)
-      setShowZoom(false)
-      setShowArena(false)
-      setShowAgents(false)
-      setHasStartedChat(true)
-    } else if (mode === "documents") {
-      setShowFiles(true)
-      setShowEmail(false)
       setShowSettings(false)
       setShowZoom(false)
       setShowArena(false)
@@ -200,7 +185,6 @@ export default function HomePage() {
       setHasStartedChat(true)
     } else if (mode === "settings") {
       setShowSettings(true)
-      setShowFiles(false)
       setShowEmail(false)
       setShowZoom(false)
       setShowArena(false)
@@ -208,7 +192,6 @@ export default function HomePage() {
       setHasStartedChat(true)
     } else if (mode === "zoom") {
       setShowZoom(true)
-      setShowFiles(false)
       setShowEmail(false)
       setShowSettings(false)
       setShowArena(false)
@@ -216,7 +199,6 @@ export default function HomePage() {
       setHasStartedChat(true)
     } else if (mode === "messages") {
       setShowMessages(true)
-      setShowFiles(false)
       setShowEmail(false)
       setShowSettings(false)
       setShowZoom(false)
@@ -227,7 +209,6 @@ export default function HomePage() {
     } else if (mode === "asana") {
       setShowAsana(true)
       setShowMessages(false)
-      setShowFiles(false)
       setShowEmail(false)
       setShowSettings(false)
       setShowZoom(false)
@@ -242,7 +223,6 @@ export default function HomePage() {
       setAgentToClone(null)
       setShowAsana(false)
       setShowMessages(false)
-      setShowFiles(false)
       setShowEmail(false)
       setShowSettings(false)
       setShowZoom(false)
@@ -254,7 +234,6 @@ export default function HomePage() {
       setShowAgents(false)
       setShowAsana(false)
       setShowMessages(false)
-      setShowFiles(false)
       setShowEmail(false)
       setShowSettings(false)
       setShowZoom(false)
@@ -267,7 +246,6 @@ export default function HomePage() {
       setShowAgents(false)
       setShowAsana(false)
       setShowMessages(false)
-      setShowFiles(false)
       setShowEmail(false)
       setShowSettings(false)
       setShowZoom(false)
@@ -275,7 +253,6 @@ export default function HomePage() {
       setHasStartedChat(true)
     } else {
       setActiveMode(mode)
-      setShowFiles(false)
       setShowEmail(false)
       setShowSettings(false)
       setShowZoom(false)
@@ -287,20 +264,12 @@ export default function HomePage() {
     }
   }
 
-  const handleNavigateToFiles = () => {
-    setShowFiles(true)
-    setShowEmail(false)
-    setShowSettings(false)
-    setHasStartedChat(true)
-  }
-
   const showHomeScreen =
-    !hasStartedChat && activeMode === "home" && !showFiles && !showEmail && !showSettings && !showZoom
+    !hasStartedChat && activeMode === "home" && !showEmail && !showSettings && !showZoom
 
   const handleGoToKO = () => {
     setHasStartedChat(true)
     setActiveMode("chat")
-    setShowFiles(false)
     setShowEmail(false)
     setShowSettings(false)
     setShowZoom(false)
@@ -335,7 +304,7 @@ export default function HomePage() {
       <div className={`${isMobileMenuOpen ? "fixed left-0 top-0 bottom-0 z-50" : "hidden"} md:block`}>
         <NavigationRail
           activeMode={
-            showEmail ? "email" : showFiles ? "documents" : showSettings ? "settings" : showZoom ? "zoom" : showArena ? "arena" : showMessages ? "messages" : showAsana ? "asana" : showAgents ? "agents" : showUserAdmin ? "admin" : showSales ? "sales" : showEstimating ? "estimating" : activeMode
+            showEmail ? "email" : showSettings ? "settings" : showZoom ? "zoom" : showArena ? "arena" : showMessages ? "messages" : showAsana ? "asana" : showAgents ? "agents" : showUserAdmin ? "admin" : showSales ? "sales" : showEstimating ? "estimating" : activeMode
           }
           onModeChange={handleModeChange}
           visible={true}
@@ -351,9 +320,7 @@ export default function HomePage() {
         </div>
 
         {
-          showFiles ? (
-            <DocumentsScreen onBack={() => setShowFiles(false)} />
-          ) : showEmail ? (
+          showEmail ? (
             <EmailScreen />
           ) : showSettings ? (
             <SettingsScreen />
@@ -426,7 +393,6 @@ export default function HomePage() {
                   activeMode={activeMode}
                   onExpandStage={() => { }}
                   onKoStateChange={setKoState}
-                  onNavigateToFiles={handleNavigateToFiles}
                   initialContext={chatContext}
                   onClearContext={() => setChatContext(null)}
                   historyItem={selectedHistoryItem}
