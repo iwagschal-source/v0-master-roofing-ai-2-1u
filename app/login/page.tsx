@@ -1,5 +1,8 @@
 "use client"
 
+// Force dynamic rendering - login page needs runtime auth context
+export const dynamic = 'force-dynamic'
+
 import { signIn, useSession } from "next-auth/react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { useEffect, useState, Suspense } from "react"

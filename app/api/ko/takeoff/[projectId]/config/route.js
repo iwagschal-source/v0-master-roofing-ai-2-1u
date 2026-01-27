@@ -201,6 +201,7 @@ export async function POST(request, { params }) {
  * Save config to BigQuery as fallback
  */
 async function saveConfigToBigQuery(projectId, config) {
+  console.log('[saveConfigToBigQuery] Starting for project:', projectId)
   try {
     // First try to delete existing config
     const deleteQuery = `
@@ -208,9 +209,11 @@ async function saveConfigToBigQuery(projectId, config) {
       WHERE project_id = @projectId
     `
     try {
+      console.log('[saveConfigToBigQuery] Attempting DELETE...')
       await runQuery(deleteQuery, { projectId })
+      console.log('[saveConfigToBigQuery] DELETE succeeded')
     } catch (e) {
-      // Table might not exist, that's OK
+      console.log('[saveConfigToBigQuery] DELETE failed (OK if table new):', e.message)
     }
 
     // Insert new config
@@ -219,15 +222,18 @@ async function saveConfigToBigQuery(projectId, config) {
       (project_id, config_json, updated_at)
       VALUES (@projectId, @configJson, CURRENT_TIMESTAMP())
     `
+    console.log('[saveConfigToBigQuery] Attempting INSERT...')
     await runQuery(insertQuery, {
       projectId,
       configJson: JSON.stringify(config)
     })
+    console.log('[saveConfigToBigQuery] INSERT succeeded')
     return true
   } catch (err) {
-    console.error('BigQuery save error:', err)
+    console.error('[saveConfigToBigQuery] BigQuery save error:', err.message, err.stack)
     // Try to create table if it doesn't exist
     try {
+      console.log('[saveConfigToBigQuery] Attempting CREATE TABLE...')
       const createTableQuery = `
         CREATE TABLE IF NOT EXISTS \`${BQ_PROJECT}.${BQ_DATASET}.takeoff_configs\` (
           project_id STRING NOT NULL,
@@ -236,6 +242,7 @@ async function saveConfigToBigQuery(projectId, config) {
         )
       `
       await runQuery(createTableQuery)
+      console.log('[saveConfigToBigQuery] CREATE TABLE succeeded, retrying INSERT...')
       // Retry insert
       const insertQuery = `
         INSERT INTO \`${BQ_PROJECT}.${BQ_DATASET}.takeoff_configs\`
@@ -246,9 +253,10 @@ async function saveConfigToBigQuery(projectId, config) {
         projectId,
         configJson: JSON.stringify(config)
       })
+      console.log('[saveConfigToBigQuery] Retry INSERT succeeded')
       return true
     } catch (createErr) {
-      console.error('Failed to create table:', createErr)
+      console.error('[saveConfigToBigQuery] Failed to create table:', createErr.message, createErr.stack)
       return false
     }
   }

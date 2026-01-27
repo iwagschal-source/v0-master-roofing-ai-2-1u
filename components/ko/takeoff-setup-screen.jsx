@@ -303,13 +303,12 @@ export function TakeoffSetupScreen({
     setError(null)
 
     try {
-      // First save the config
-      const saved = await saveConfig()
-      if (!saved) {
-        throw new Error('Failed to save configuration')
-      }
+      // Try to save config (best effort - don't block on failure)
+      await saveConfig().catch(err => {
+        console.warn('Config save failed (continuing with BTX download):', err.message)
+      })
 
-      // Generate and download BTX
+      // Generate and download BTX - config is passed in body, so save not required
       const res = await fetch(`/api/ko/takeoff/${projectId}/btx`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
