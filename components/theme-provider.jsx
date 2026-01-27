@@ -4,7 +4,7 @@ import * as React from "react"
 import { createContext, useContext, useEffect, useState } from "react"
 
 /** @typedef {"light"|"dark"|"system"} Theme */
-/** @typedef {{ theme: string, setTheme: function, resolvedTheme: string }} ThemeContextType */
+/** @typedef {{ theme: string, setTheme: function, resolvedTheme: string, toggleTheme: function }} ThemeContextType */
 
 const ThemeContext = createContext(undefined)
 
@@ -66,7 +66,12 @@ export function ThemeProvider({ children }) {
     console.log("[v0] Theme set to:", newTheme)
   }
 
-  return <ThemeContext.Provider value={{ theme, setTheme, resolvedTheme }}>{children}</ThemeContext.Provider>
+  const toggleTheme = () => {
+    const newTheme = resolvedTheme === "dark" ? "light" : "dark"
+    setTheme(newTheme)
+  }
+
+  return <ThemeContext.Provider value={{ theme, setTheme, resolvedTheme, toggleTheme }}>{children}</ThemeContext.Provider>
 }
 
 /** @param {any} props */

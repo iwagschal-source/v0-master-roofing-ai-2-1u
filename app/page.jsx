@@ -27,6 +27,7 @@ import { CloneAgentModal } from "@/components/ko/clone-agent-modal"
 import { UserAdminScreen } from "@/components/ko/user-admin-screen"
 import { SalesDashboard } from "@/components/ko/sales-dashboard"
 import { EstimatingCenterScreen } from "@/components/ko/estimating-center-screen"
+import ProjectFoldersScreen from "@/components/ko/project-folders-screen"
 import { agents as fallbackAgents } from "@/data/agent-data"
 
 export default function HomePage() {
@@ -58,6 +59,7 @@ export default function HomePage() {
   const [showUserAdmin, setShowUserAdmin] = useState(false)
   const [showSales, setShowSales] = useState(false)
   const [showEstimating, setShowEstimating] = useState(false)
+  const [showProjects, setShowProjects] = useState(false)
   const [selectedAgent, setSelectedAgent] = useState(null)
   const [showAgentNetwork, setShowAgentNetwork] = useState(false)
   const [showAddAgent, setShowAddAgent] = useState(false)
@@ -134,6 +136,7 @@ export default function HomePage() {
     setShowSettings(false)
     setShowZoom(false)
     setShowArena(false)
+    setShowProjects(false)
   }
 
   const handleModeChange = (mode) => {
@@ -153,6 +156,7 @@ export default function HomePage() {
       setShowUserAdmin(false)
       setShowSales(false)
       setShowEstimating(false)
+      setShowProjects(false)
       setSelectedAgent(null)
       setShowAgentNetwork(false)
       setShowAddAgent(false)
@@ -160,6 +164,7 @@ export default function HomePage() {
       setSelectedHistoryItem(undefined)
     } else if (mode === "estimating") {
       setShowEstimating(true)
+      setShowProjects(false)
       setShowEmail(false)
       setShowSettings(false)
       setShowZoom(false)
@@ -169,6 +174,19 @@ export default function HomePage() {
       setShowAgents(false)
       setShowUserAdmin(false)
       setShowSales(false)
+    } else if (mode === "projects") {
+      setShowProjects(true)
+      setShowEstimating(false)
+      setShowEmail(false)
+      setShowSettings(false)
+      setShowZoom(false)
+      setShowArena(false)
+      setShowMessages(false)
+      setShowAsana(false)
+      setShowAgents(false)
+      setShowUserAdmin(false)
+      setShowSales(false)
+      setHasStartedChat(true)
     } else if (mode === "arena") {
       setShowArena(true)
       setShowEmail(false)
@@ -277,6 +295,7 @@ export default function HomePage() {
     setShowMessages(false)
     setShowAsana(false)
     setShowAgents(false)
+    setShowProjects(false)
   }
 
   // Show loading while checking auth
@@ -304,7 +323,7 @@ export default function HomePage() {
       <div className={`${isMobileMenuOpen ? "fixed left-0 top-0 bottom-0 z-50" : "hidden"} md:block`}>
         <NavigationRail
           activeMode={
-            showEmail ? "email" : showSettings ? "settings" : showZoom ? "zoom" : showArena ? "arena" : showMessages ? "messages" : showAsana ? "asana" : showAgents ? "agents" : showUserAdmin ? "admin" : showSales ? "sales" : showEstimating ? "estimating" : activeMode
+            showEmail ? "email" : showSettings ? "settings" : showZoom ? "zoom" : showArena ? "arena" : showMessages ? "messages" : showAsana ? "asana" : showAgents ? "agents" : showUserAdmin ? "admin" : showSales ? "sales" : showEstimating ? "estimating" : showProjects ? "projects" : activeMode
           }
           onModeChange={handleModeChange}
           visible={true}
@@ -386,6 +405,8 @@ export default function HomePage() {
             <EstimatingCenterScreen
               onBack={() => setShowEstimating(false)}
             />
+          ) : showProjects ? (
+            <ProjectFoldersScreen />
           ) : (
             <div className="flex-1 flex flex-col md:flex-row overflow-hidden">
               <div className={`flex-1 ${isWorkspaceVisible ? 'md:w-[40%]' : ''} flex flex-col`}>
