@@ -19,7 +19,6 @@ import { MobileMenuToggle } from "@/components/ko/mobile-menu-toggle"
 import { ChatShell } from "@/components/ko/chat-shell"
 import { ChatScreen } from "@/components/ko/chat-screen"
 import { AsanaScreen } from "@/components/ko/asana-screen"
-import { WhatsAppScreen } from "@/components/ko/whatsapp-screen"
 import { MiniKOChat } from "@/components/ko/mini-ko-chat"
 import { AgentDashboardScreen } from "@/components/ko/agent-dashboard-screen"
 import { AgentDetailScreen } from "@/components/ko/agent-detail-screen"
@@ -57,7 +56,6 @@ export default function HomePage() {
   const [showArena, setShowArena] = useState(false)
   const [showMessages, setShowMessages] = useState(false)
   const [showAsana, setShowAsana] = useState(false)
-  const [showWhatsApp, setShowWhatsApp] = useState(false)
   const [showAgents, setShowAgents] = useState(false)
   const [showUserAdmin, setShowUserAdmin] = useState(false)
   const [showSales, setShowSales] = useState(false)
@@ -155,7 +153,6 @@ export default function HomePage() {
       setShowArena(false)
       setShowMessages(false)
       setShowAsana(false)
-      setShowWhatsApp(false)
       setShowAgents(false)
       setShowUserAdmin(false)
       setShowSales(false)
@@ -174,7 +171,6 @@ export default function HomePage() {
       setShowArena(false)
       setShowMessages(false)
       setShowAsana(false)
-      setShowWhatsApp(false)
       setShowAgents(false)
       setShowUserAdmin(false)
       setShowSales(false)
@@ -230,7 +226,6 @@ export default function HomePage() {
       setHasStartedChat(true)
     } else if (mode === "asana") {
       setShowAsana(true)
-      setShowWhatsApp(false)
       setShowMessages(false)
       setShowFiles(false)
       setShowEmail(false)
@@ -238,19 +233,6 @@ export default function HomePage() {
       setShowZoom(false)
       setShowArena(false)
       setShowAgents(false)
-      setHasStartedChat(true)
-    } else if (mode === "whatsapp") {
-      setShowWhatsApp(true)
-      setShowAsana(false)
-      setShowMessages(false)
-      setShowFiles(false)
-      setShowEmail(false)
-      setShowSettings(false)
-      setShowZoom(false)
-      setShowArena(false)
-      setShowAgents(false)
-      setShowUserAdmin(false)
-      setShowSales(false)
       setHasStartedChat(true)
     } else if (mode === "agents") {
       setShowAgents(true)
@@ -325,7 +307,6 @@ export default function HomePage() {
     setShowArena(false)
     setShowMessages(false)
     setShowAsana(false)
-    setShowWhatsApp(false)
     setShowAgents(false)
   }
 
@@ -354,7 +335,7 @@ export default function HomePage() {
       <div className={`${isMobileMenuOpen ? "fixed left-0 top-0 bottom-0 z-50" : "hidden"} md:block`}>
         <NavigationRail
           activeMode={
-            showEmail ? "email" : showFiles ? "documents" : showSettings ? "settings" : showZoom ? "zoom" : showArena ? "arena" : showMessages ? "messages" : showAsana ? "asana" : showWhatsApp ? "whatsapp" : showAgents ? "agents" : showUserAdmin ? "admin" : showSales ? "sales" : showEstimating ? "estimating" : activeMode
+            showEmail ? "email" : showFiles ? "documents" : showSettings ? "settings" : showZoom ? "zoom" : showArena ? "arena" : showMessages ? "messages" : showAsana ? "asana" : showAgents ? "agents" : showUserAdmin ? "admin" : showSales ? "sales" : showEstimating ? "estimating" : activeMode
           }
           onModeChange={handleModeChange}
           visible={true}
@@ -384,8 +365,6 @@ export default function HomePage() {
             <ChatScreen />
           ) : showAsana ? (
             <AsanaScreen />
-          ) : showWhatsApp ? (
-            <WhatsAppScreen />
           ) : showAgents ? (
             showAddAgent ? (
               <AddAgentScreen
