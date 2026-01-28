@@ -318,6 +318,7 @@ function EmailContentPanel({
   const [selectedProject, setSelectedProject] = useState(null)
   const [dropdownOpen, setDropdownOpen] = useState(false)
   const [projectSearch, setProjectSearch] = useState('')
+  const [loggingStatus, setLoggingStatus] = useState(null) // null | 'logging' | 'success' | 'error'
   const dropdownRef = useRef(null)
 
   // Fetch projects on mount
@@ -342,6 +343,7 @@ function EmailContentPanel({
     setSelectedProject(null)
     setDropdownOpen(false)
     setProjectSearch('')
+    setLoggingStatus(null)
   }, [selectedMessage?.id])
 
   // Close dropdown when clicking outside
@@ -356,16 +358,48 @@ function EmailContentPanel({
   }, [])
 
   // Handle project selection
-  const handleSelectProject = (project) => {
+  const handleSelectProject = async (project) => {
     setSelectedProject(project)
     setDropdownOpen(false)
     setProjectSearch('')
-    console.log('Log email to project:', {
-      emailId: selectedMessage?.id,
-      threadId: selectedMessage?.threadId,
-      projectId: project.id,
-      projectName: project.name,
-    })
+    setLoggingStatus('logging')
+
+    try {
+      const res = await fetch('/api/ko/project-communications', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          projectId: project.id,
+          type: 'email',
+          sourceId: selectedMessage?.id,
+          threadId: selectedMessage?.threadId,
+          from: selectedMessage?.from,
+          to: Array.isArray(selectedMessage?.to) ? selectedMessage.to[0] : selectedMessage?.to,
+          subject: selectedMessage?.subject,
+          snippet: selectedMessage?.snippet,
+        }),
+      })
+
+      const data = await res.json()
+
+      if (data.error) {
+        console.error('Failed to log email:', data.error)
+        setLoggingStatus('error')
+        setTimeout(() => setLoggingStatus(null), 3000)
+      } else {
+        console.log('Email logged to project:', {
+          emailId: selectedMessage?.id,
+          projectId: project.id,
+          projectName: project.name,
+          communicationId: data.id,
+        })
+        setLoggingStatus('success')
+      }
+    } catch (err) {
+      console.error('Failed to log email:', err)
+      setLoggingStatus('error')
+      setTimeout(() => setLoggingStatus(null), 3000)
+    }
   }
 
   // Filter projects by search
@@ -429,16 +463,31 @@ function EmailContentPanel({
               <div className="relative" ref={dropdownRef}>
                 <button
                   onClick={() => setDropdownOpen(!dropdownOpen)}
+                  disabled={loggingStatus === 'logging'}
                   className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm transition-colors ${
-                    selectedProject
+                    loggingStatus === 'success'
+                      ? 'bg-green-500/10 text-green-600 border border-green-500/30'
+                      : loggingStatus === 'error'
+                      ? 'bg-red-500/10 text-red-600 border border-red-500/30'
+                      : selectedProject
                       ? 'bg-green-500/10 text-green-600 border border-green-500/30'
                       : 'bg-secondary/50 hover:bg-secondary text-muted-foreground hover:text-foreground border border-border/50'
-                  }`}
+                  } disabled:opacity-50`}
                 >
-                  {selectedProject ? (
+                  {loggingStatus === 'logging' ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      <span>Logging...</span>
+                    </>
+                  ) : loggingStatus === 'error' ? (
+                    <>
+                      <AlertCircle className="w-4 h-4" />
+                      <span>Failed to log</span>
+                    </>
+                  ) : selectedProject ? (
                     <>
                       <Check className="w-4 h-4" />
-                      <span className="max-w-[150px] truncate">{selectedProject.name}</span>
+                      <span className="max-w-[150px] truncate">Logged to {selectedProject.name}</span>
                     </>
                   ) : (
                     <>
