@@ -137,5 +137,39 @@ PDF saved to Project Folder → Email to customer
 - project_documents (takeoffs, proposals, markups)
 - (R-value, insulation thickness, type - columns to add)
 
-## What Exists vs What's Needed
-(Isaac to document next)
+## Current Implementation Status (from Isaac's tracker)
+
+### BTX/Bluebeam Converter
+- BTX-001: ✅ btx_location_generator.py WORKING
+- BTX-002: PENDING - Map all 87 tools (38 done, 49 remaining)
+- BTX-003: PENDING - /bluebeam/generate-btx API endpoint
+- BTX-004: PENDING - nginx route for /bluebeam/
+- BTX-005: PENDING - Frontend BTX download button
+- BTX-006: PENDING - CSV Parser (pipe delimiter)
+
+### Takeoff Sheet System
+- TKF-001: PARTIAL - Blank template exists
+- TKF-002: UNTESTED - /api/ko/takeoff/create
+- TKF-003: PARTIAL - Config save failing
+- TKF-004: PENDING - Bluebeam CSV → populate sheet
+- TKF-005: ✅ WORKING - Line item selector
+- TKF-006: UNTESTED - Rate overrides
+
+### Proposal System
+- PRP-001: PENDING - Need Word template
+- PRP-002: PARTIAL - /api/ko/export-pdf returns 400
+- PRP-003: PARTIAL - /api/ko/generate-descriptions returns 400
+- PRP-004: PENDING - Connect proposal to takeoff
+- PRP-005: UNTESTED - Proposal preview
+
+### Key Files
+- btx_location_generator.py
+- Teju Tool Set.btx (48 items)
+- BLUEBEAM_COMPLETE_MAPPING.json
+- BLANK_TEMPLATE_TAKEOFF_SHEET
+
+### UI Issues (Isaac feedback)
+- Center panel has noise (status, GC context) - move or remove
+- Folder agent in wrong place - should be in right panel
+- Buttons may be redundant
+- Giant cards/bubbles - needs cleaner layout like actual takeoff sheet
