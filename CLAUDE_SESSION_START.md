@@ -1,15 +1,24 @@
 # KO PLATFORM SPRINT - SESSION STARTUP
 
 ## READ THIS FIRST
-You are continuing a tracked sprint. Previous session: cc_20260127_2240
+You are continuing a tracked sprint. Previous session: cc_20260128_0332
 
 ## CURRENT SPRINT STATUS
-- Phase 1: DONE (Shell Cleanup)
-- Phase 2: DONE (BigQuery Infrastructure)
-- Phase 3: DONE (Project Folders)
-- Phase 4: IN PROGRESS (Contacts) - Steps 4.1-4.3 done, 4.4 next
-- Phase 5: DONE (Gmail Integration) - All 9 steps complete
-- Phases 6-9: Not started
+- Phase 1: ✅ DONE (Shell Cleanup)
+- Phase 2: ✅ DONE (BigQuery Infrastructure)
+- Phase 3: ✅ DONE (Project Folders)
+- Phase 4: ✅ DONE (Contacts)
+- Phase 5: ✅ DONE (Gmail Integration)
+- Phase 6: NOT STARTED (Google Chat) - 3 steps
+- Phase 7: NOT STARTED (Users) - 1 step
+- Phase 8: NOT STARTED (Estimating Center) - 7 steps
+- Phase 9: NOT STARTED (Testing) - 8 steps
+- Phase 10: NOT STARTED (Asana) - 5 steps
+
+## PHASE 6 STEPS (Google Chat) - NEXT
+- 6.1: Keep Google Chat as separate page
+- 6.2: Add "Log to project" dropdown per conversation
+- 6.3: Wire chat logging to BigQuery
 
 ## PHASE 5 STEPS (Gmail Integration) - COMPLETE
 - 5.1: 3-panel layout - DONE
@@ -21,14 +30,6 @@ You are continuing a tracked sprint. Previous session: cc_20260127_2240
 - 5.7: Document email_drafts schema - DONE
 - 5.8: Log to Project dropdown - DONE
 - 5.9: Wire email logging to BigQuery - DONE
-
-## PHASE 4 STEPS (Contacts)
-- 4.1: Companies view - DONE
-- 4.2: People view - DONE
-- 4.3: BigQuery CRUD - DONE
-- 4.4: Company selector - NEXT
-- 4.5: Add/Edit Company modal - not_started
-- 4.6: Add/Edit Person modal - not_started
 
 ## CRITICAL: BigQuery Dataset Locations
 - **mr_main dataset: REGION = US** (not us-east4)
@@ -43,9 +44,44 @@ You are continuing a tracked sprint. Previous session: cc_20260127_2240
 
 ## API ROUTES
 - `/api/ko/contacts` - Full CRUD (GET, POST, PUT, DELETE) for companies and people
-- `/api/ko/project-folders` - Full CRUD for project folders
+- `/api/ko/project-folders` - Full CRUD (GET, POST) for project folders
 - `/api/ko/email-drafts` - GET (fetch drafts), PUT (update status)
 - `/api/ko/project-communications` - GET (fetch), POST (log email to project)
+
+## TABLES
+
+### mr_main.contacts_companies
+Company records for contacts system.
+
+### mr_main.contacts_people
+Person records linked to companies.
+
+### mr_main.project_folders
+Project folder records with company/contact associations.
+
+### mr_main.project_documents
+Documents associated with projects.
+
+### mr_main.project_communications
+Email/chat logged to projects:
+- id, project_id, comm_type, source_id, subject, content
+- from_address, to_address, comm_date, notes
+- created_at, updated_at
+
+### mr_main.email_drafts
+Agent-generated email reply drafts:
+- id (STRING, REQUIRED): Primary key
+- user_email (STRING, REQUIRED): KO user this draft is for
+- thread_id (STRING): Gmail thread ID
+- original_email_id (STRING): Gmail message ID replying to
+- from_address, to_address, subject (STRING)
+- draft_number (INT64): 1, 2, or 3
+- draft_text (STRING): Generated draft content
+- status (STRING, default 'pending'): pending/selected/edited/sent/discarded
+- agent_id (STRING): Which agent generated this
+- generated_at, selected_at, sent_at (TIMESTAMP)
+- project_id (STRING): If logged to project folder
+- created_at, updated_at (TIMESTAMP, auto)
 
 ## TRACKING SYSTEM
 - **BigQuery Table:** `master-roofing-intelligence.aeyey_dev.ko_final_sprint`
@@ -61,28 +97,8 @@ You are continuing a tracked sprint. Previous session: cc_20260127_2240
 5. At 50% context: checkpoint immediately
 6. Mark steps done in BigQuery after visual verification
 
-## TABLES
-
-### mr_main.email_drafts
-For agent-generated email reply drafts:
-- id (STRING, REQUIRED): Primary key
-- user_email (STRING, REQUIRED): KO user this draft is for
-- thread_id (STRING): Gmail thread ID
-- original_email_id (STRING): Gmail message ID replying to
-- from_address (STRING): Who sent original email
-- to_address (STRING): Who reply goes to
-- subject (STRING): Email subject
-- draft_number (INT64): 1, 2, or 3
-- draft_text (STRING): Generated draft content
-- status (STRING, default 'pending'): pending/selected/edited/sent/discarded
-- agent_id (STRING): Which agent generated this
-- generated_at, selected_at, sent_at (TIMESTAMP)
-- project_id (STRING): If logged to project folder
-- created_at, updated_at (TIMESTAMP, auto)
-
 ## KEY INFO
 - Dataset: `master-roofing-intelligence.mr_main`
-- Tables: contacts_companies (29), contacts_people (29), project_folders (2), email_drafts (6)
 - Branch: dev (work here, merge to main for production)
 - Verify changes visually via localhost:3000 tunnel before marking done
 
@@ -102,4 +118,4 @@ WHERE record_type = 'checkpoint'
 ORDER BY created_at DESC LIMIT 1;
 ```
 4. Confirm ready with Isaac
-5. Continue from Step 4.4 (Company selector)
+5. Continue from Phase 6 Step 6.1 (Google Chat)
