@@ -8,10 +8,10 @@ You are continuing a tracked sprint. Previous session: cc_20260127_2240
 - Phase 2: DONE (BigQuery Infrastructure)
 - Phase 3: DONE (Project Folders)
 - Phase 4: IN PROGRESS (Contacts) - Steps 4.1-4.3 done, 4.4 next
-- Phase 5: IN PROGRESS (Gmail Integration) - Steps 5.1-5.7 done
+- Phase 5: DONE (Gmail Integration) - All 9 steps complete
 - Phases 6-9: Not started
 
-## PHASE 5 STEPS (Gmail Integration)
+## PHASE 5 STEPS (Gmail Integration) - COMPLETE
 - 5.1: 3-panel layout - DONE
 - 5.2: Draggable dividers - DONE
 - 5.3: Draft options panel - DONE
@@ -19,6 +19,8 @@ You are continuing a tracked sprint. Previous session: cc_20260127_2240
 - 5.5: Regenerate button - DONE
 - 5.6: AI chat panel UI - DONE
 - 5.7: Document email_drafts schema - DONE
+- 5.8: Log to Project dropdown - DONE
+- 5.9: Wire email logging to BigQuery - DONE
 
 ## PHASE 4 STEPS (Contacts)
 - 4.1: Companies view - DONE
@@ -43,6 +45,7 @@ You are continuing a tracked sprint. Previous session: cc_20260127_2240
 - `/api/ko/contacts` - Full CRUD (GET, POST, PUT, DELETE) for companies and people
 - `/api/ko/project-folders` - Full CRUD for project folders
 - `/api/ko/email-drafts` - GET (fetch drafts), PUT (update status)
+- `/api/ko/project-communications` - GET (fetch), POST (log email to project)
 
 ## TRACKING SYSTEM
 - **BigQuery Table:** `master-roofing-intelligence.aeyey_dev.ko_final_sprint`
