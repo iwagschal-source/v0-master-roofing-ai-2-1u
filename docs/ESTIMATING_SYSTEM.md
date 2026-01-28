@@ -1,4 +1,4 @@
-# Master Roofing Estimating System
+# Master Roofing Estimating System - Complete
 
 ## Overview
 Commercial roofing company with multiple scopes:
@@ -6,98 +6,136 @@ Commercial roofing company with multiple scopes:
 - Exterior (EIFS, metal panel, ACM panels)
 - Waterproofing
 
-## Current Manual Process
+## The KO Automated Flow
 
-### 1. RFP Intake
-- Email received with RFP and link to drawings
-- Drawing types: architectural, mechanical, plumbing, landscaping, pool
+### Phase 1: Intelligent Project Intake
 
-### 2. Project Folder Setup (Admin)
-- Create project folder with project name
-- Subfolders:
-  - Drawings/ - downloaded drawings
-  - Takeoff/ - blank Excel takeoff template
-  - Markup/ - marked-up drawings (after takeoff)
-  - Proposal/ - proposal versions
-- Notify estimator via email/chat/Asana
+1. **New project created in Project Folders**
+2. **Architectural drawing uploaded**
+3. **Intelligence agent automatically:**
+   - Analyzes the drawings
+   - Looks up GC's prior history in BigQuery
+   - Determines likely scope based on GC patterns + drawings
+   - Generates "GC Summary Brief" for estimator
+   - Saves to brief table (brief_estimate or similar)
 
-### 3. Estimator Review
-- Review drawings + RFP + customer history
-- Determine scope: roofing type, waterproofing, balconies, coping, etc.
+4. **Project auto-appears in Estimating Center**
+   - No manual project creation needed
+   - Projects flow from Project Folders
 
-### 4. Takeoff Template Setup
-- Open blank Excel takeoff template
-- Configure columns (starting ~C): Areas/locations (1st floor, 2nd floor, roof levels)
-- Configure rows: Line items for project (roofing, coping, flashing, etc.)
+### Phase 2: Estimating Center UI
 
-### 5. Bluebeam Markup
-- Use pre-built tool sets (reusable, not project-specific)
-- Each tool has: correct unit of measure (LF, SF), company-standard colors
-- Mark up drawings, Bluebeam shows measurements
+**When estimator opens a project:**
 
-### 6. Manual Entry (PAIN POINT)
-- Two screens: Bluebeam (right), Excel (left)
-- Manually transcribe quantities from Bluebeam to Excel by location/line item
-- Error-prone and time-consuming
+**Left/Center Area:**
+- Project details
+- Takeoff sheet setup interface
 
-### 7. Review Cycle
-- Estimator notifies senior: markup complete
-- Senior reviews: missed items, correct formulas, right prices
-- Chief estimator approves
-- Task sent to create proposal
+**Right Panel (split horizontal, draggable):**
+- **Top:** GC Summary Brief (AI-analyzed scope, GC history, recommendations)
+- **Bottom:** AI Chat with agent that knows this GC's full history
 
-### 8. Proposal Creation
+### Phase 3: Takeoff Sheet Setup
 
-**Proposal maker receives approved takeoff and uses:**
-- Takeoff sheet (scope and quantities)
-- "Cheat sheet" template (standard items, descriptions, bullet points)
+1. **Estimator configures takeoff sheet:**
+   - Columns: Areas/locations (floors, roof, bulkheads, elevators)
+   - Rows: Line items (linked to BigQuery line_item_libraries)
+   - System selections (linked to system_libraries)
+   - R-value, insulation thickness, type columns (to add)
 
-**Decision logic - line item vs bundled into system:**
-- Look at TOTALS column in takeoff sheet
-- **Yellow highlighted total = standalone line item** on proposal
-- **Not highlighted = bundled into system** (rolls up to sum row)
-- Can verify by: color OR formula (what's included in sum row)
+2. **Can add/remove rows and columns as needed**
+   - Formulas continue automatically
+   - Links to libraries maintained
 
-**Building the proposal:**
-- Standalone items (yellow) → own line item on proposal
-- Bundled items (in sum formula) → bullet point in system description
-- Reference cheat sheet for standard descriptions
-- Fill in: project name, date, customer details
+### Phase 4: BTX Generation (Bluebeam Tool Sets)
 
-**Final steps:**
-- Chief estimator final approval
-- Send proposal to customer
+1. **Click "Generate" button**
+2. **System creates BTX file containing:**
+   - Tool sets for each line item
+   - Pre-coded per location (floor 1, floor 2, etc.)
+   - Correct units of measure
+   - Company-standard colors
+   - Rules for main roof vs bulkheads vs elevators
 
-## Complete Current Manual Flow
+3. **Estimator opens BTX in Bluebeam**
+   - Tool sets import automatically
+   - Ready for markup
+
+### Phase 5: Bluebeam Markup
+
+1. **Open project drawings in Bluebeam**
+2. **Do markup using imported tool sets**
+3. **Save marked-up drawings to Markup/ folder**
+4. **Export CSV report from Bluebeam** (markup totals)
+5. **Save CSV to Markup/ or Takeoff/ folder**
+
+### Phase 6: Auto-Populate Takeoff Sheet
+
+1. **Upload Bluebeam CSV export to converter**
+2. **Converter knows:**
+   - The toolkit structure
+   - Location codes
+   - Line item mappings
+3. **Auto-populates takeoff sheet with quantities**
+   - Eliminates manual entry (former pain point)
+
+4. **Estimator reviews and edits as needed**
+5. **Senior estimator reviews**
+6. **Chief estimator approves**
+
+### Phase 7: Proposal Generation
+
+1. **Takeoff sheet approved and ready**
+2. **Click "Generate Proposal" button**
+3. **System uses:**
+   - Word template with merge fields (new format, no bullet points)
+   - Takeoff sheet data
+   - Yellow highlights = standalone line items
+   - Sum formulas = bundled into system descriptions
+
+4. **Generates proposal PDF**
+5. **Saves to Proposal/ folder in Project Folders**
+6. **Email proposal to customer**
+
+## Complete Automated Loop
 ```
-RFP Email → Admin creates project folder
-                    ↓
-         Drawings/, Takeoff/, Markup/, Proposal/
-                    ↓
-         Notify estimator (email/chat/Asana)
-                    ↓
-         Estimator reviews drawings + RFP
-                    ↓
-         Setup takeoff Excel (columns=areas, rows=items)
-                    ↓
-         Bluebeam markup using tool sets
-                    ↓
-         MANUAL ENTRY: Bluebeam quantities → Excel (PAIN POINT)
-                    ↓
-         Senior estimator reviews
-                    ↓
-         Chief estimator approves takeoff
-                    ↓
-         Proposal maker reads takeoff + cheat sheet
-                    ↓
-         Yellow = line item, Not yellow = bundled in system
-                    ↓
-         Build proposal with descriptions
-                    ↓
-         Chief estimator approves proposal
-                    ↓
-         Send to customer
+New Project + Drawing Upload
+         ↓
+Intelligence Agent analyzes (GC history + drawings)
+         ↓
+GC Summary Brief generated → saved to BigQuery
+         ↓
+Project appears in Estimating Center
+         ↓
+Estimator sees Brief + AI Chat in right panel
+         ↓
+Setup takeoff sheet (locations, line items, systems)
+         ↓
+Click Generate → BTX file created
+         ↓
+Import BTX to Bluebeam → tool sets ready
+         ↓
+Do markup in Bluebeam
+         ↓
+Export CSV from Bluebeam
+         ↓
+Upload CSV → Auto-populates takeoff sheet
+         ↓
+Review & approve takeoff
+         ↓
+Click Generate Proposal → PDF created
+         ↓
+PDF saved to Project Folder → Email to customer
 ```
 
-## What KO Will Automate
-(To be documented - Isaac to explain next)
+## BigQuery Tables Involved
+
+- line_item_libraries (line items from audited jobs)
+- system_libraries (roofing system types/selections)
+- brief_estimate / gc_summary_brief (AI-analyzed scope briefs)
+- project_folders (project management)
+- project_documents (takeoffs, proposals, markups)
+- (R-value, insulation thickness, type - columns to add)
+
+## What Exists vs What's Needed
+(Isaac to document next)
