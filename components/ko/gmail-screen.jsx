@@ -428,6 +428,12 @@ function DraftPanel({ selectedMessage, draftReply, draftLoading, onSelectDraft, 
   const [selectedDraftId, setSelectedDraftId] = useState(null)
   const [regenerating, setRegenerating] = useState(false)
 
+  // Chat state
+  const [chatMessages, setChatMessages] = useState([])
+  const [chatInput, setChatInput] = useState('')
+  const [chatSending, setChatSending] = useState(false)
+  const chatEndRef = useRef(null)
+
   // Fetch drafts when selected message changes
   useEffect(() => {
     if (!selectedMessage?.id) {
@@ -500,6 +506,48 @@ function DraftPanel({ selectedMessage, draftReply, draftLoading, onSelectDraft, 
     // Simulate delay for visual feedback (actual regeneration handled by agent)
     await new Promise(resolve => setTimeout(resolve, 1500))
     setRegenerating(false)
+  }
+
+  // Clear chat when email changes
+  useEffect(() => {
+    setChatMessages([])
+    setChatInput('')
+  }, [selectedMessage?.id])
+
+  // Scroll to bottom when new messages arrive
+  useEffect(() => {
+    chatEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+  }, [chatMessages])
+
+  // Handle chat send
+  const handleSendChat = async () => {
+    if (!chatInput.trim() || !selectedMessage || chatSending) return
+
+    const userMessage = chatInput.trim()
+    setChatInput('')
+    setChatSending(true)
+
+    // Add user message
+    setChatMessages(prev => [...prev, { role: 'user', content: userMessage }])
+
+    // Simulate AI response delay
+    await new Promise(resolve => setTimeout(resolve, 1000))
+
+    // Add simulated assistant response
+    setChatMessages(prev => [...prev, {
+      role: 'assistant',
+      content: "I'll help you refine that draft. This feature will be connected to the AI agent soon."
+    }])
+
+    setChatSending(false)
+  }
+
+  // Handle Enter key in chat input
+  const handleChatKeyDown = (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault()
+      handleSendChat()
+    }
   }
 
   const handleHorizontalDrag = useCallback((clientY) => {
@@ -624,7 +672,7 @@ function DraftPanel({ selectedMessage, draftReply, draftLoading, onSelectDraft, 
       {/* Horizontal Divider between Draft Options and AI Chat */}
       <HorizontalDivider onDrag={handleHorizontalDrag} />
 
-      {/* AI Chat Placeholder */}
+      {/* AI Assistant Chat */}
       <div
         className="flex flex-col flex-shrink-0"
         style={{ height: `${aiChatHeight}px` }}
@@ -636,24 +684,65 @@ function DraftPanel({ selectedMessage, draftReply, draftLoading, onSelectDraft, 
           </div>
         </div>
 
-        <div className="flex-1 flex flex-col items-center justify-center p-4 text-muted-foreground min-h-0 overflow-hidden">
-          <MessageSquare className="w-8 h-8 mb-3 opacity-30" />
-          <p className="text-sm text-center">Chat with AI to refine drafts</p>
-          <p className="text-xs text-center mt-1 opacity-70">Coming soon</p>
+        {/* Chat Messages Area */}
+        <div className="flex-1 overflow-y-auto p-3 min-h-0">
+          {!selectedMessage ? (
+            <div className="flex flex-col items-center justify-center h-full text-muted-foreground">
+              <MessageSquare className="w-8 h-8 mb-3 opacity-30" />
+              <p className="text-sm text-center">Select an email to chat</p>
+            </div>
+          ) : chatMessages.length === 0 ? (
+            <div className="flex flex-col items-center justify-center h-full text-muted-foreground">
+              <MessageSquare className="w-8 h-8 mb-3 opacity-30" />
+              <p className="text-sm text-center">Ask me to refine drafts</p>
+              <p className="text-xs text-center mt-1 opacity-70">e.g., "Make it more formal"</p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {chatMessages.map((msg, idx) => (
+                <div
+                  key={idx}
+                  className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
+                >
+                  <div
+                    className={`max-w-[85%] px-3 py-2 rounded-lg text-xs ${
+                      msg.role === 'user'
+                        ? 'bg-primary text-primary-foreground'
+                        : 'bg-secondary/50 text-foreground'
+                    }`}
+                  >
+                    {msg.content}
+                  </div>
+                </div>
+              ))}
+              {chatSending && (
+                <div className="flex justify-start">
+                  <div className="bg-secondary/50 px-3 py-2 rounded-lg">
+                    <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />
+                  </div>
+                </div>
+              )}
+              <div ref={chatEndRef} />
+            </div>
+          )}
         </div>
 
-        {/* Chat Input Placeholder */}
+        {/* Chat Input */}
         <div className="p-3 border-t border-border flex-shrink-0">
           <div className="flex gap-2">
             <input
               type="text"
+              value={chatInput}
+              onChange={(e) => setChatInput(e.target.value)}
+              onKeyDown={handleChatKeyDown}
               placeholder="Ask to modify draft..."
-              disabled
-              className="flex-1 px-3 py-2 bg-secondary/30 border border-border/50 rounded-lg text-sm placeholder:text-muted-foreground/50 disabled:opacity-50"
+              disabled={!selectedMessage || chatSending}
+              className="flex-1 px-3 py-2 bg-secondary/30 border border-border/50 rounded-lg text-sm placeholder:text-muted-foreground/50 focus:outline-none focus:border-primary/50 disabled:opacity-50 transition-colors"
             />
             <button
-              disabled
-              className="px-3 py-2 bg-primary/50 text-primary-foreground rounded-lg disabled:opacity-50"
+              onClick={handleSendChat}
+              disabled={!selectedMessage || !chatInput.trim() || chatSending}
+              className="px-3 py-2 bg-primary text-primary-foreground rounded-lg disabled:opacity-50 disabled:cursor-not-allowed hover:bg-primary/90 transition-colors"
             >
               <Send className="w-4 h-4" />
             </button>
