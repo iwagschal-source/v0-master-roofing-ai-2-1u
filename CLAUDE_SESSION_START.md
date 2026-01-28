@@ -8,7 +8,17 @@ You are continuing a tracked sprint. Previous session: cc_20260127_2240
 - Phase 2: DONE (BigQuery Infrastructure)
 - Phase 3: DONE (Project Folders)
 - Phase 4: IN PROGRESS (Contacts) - Steps 4.1-4.3 done, 4.4 next
-- Phases 5-9: Not started
+- Phase 5: IN PROGRESS (Gmail Integration) - Steps 5.1-5.7 done
+- Phases 6-9: Not started
+
+## PHASE 5 STEPS (Gmail Integration)
+- 5.1: 3-panel layout - DONE
+- 5.2: Draggable dividers - DONE
+- 5.3: Draft options panel - DONE
+- 5.4: Draft selection behavior - DONE
+- 5.5: Regenerate button - DONE
+- 5.6: AI chat panel UI - DONE
+- 5.7: Document email_drafts schema - DONE
 
 ## PHASE 4 STEPS (Contacts)
 - 4.1: Companies view - DONE
@@ -32,6 +42,7 @@ You are continuing a tracked sprint. Previous session: cc_20260127_2240
 ## API ROUTES
 - `/api/ko/contacts` - Full CRUD (GET, POST, PUT, DELETE) for companies and people
 - `/api/ko/project-folders` - Full CRUD for project folders
+- `/api/ko/email-drafts` - GET (fetch drafts), PUT (update status)
 
 ## TRACKING SYSTEM
 - **BigQuery Table:** `master-roofing-intelligence.aeyey_dev.ko_final_sprint`
@@ -47,9 +58,28 @@ You are continuing a tracked sprint. Previous session: cc_20260127_2240
 5. At 50% context: checkpoint immediately
 6. Mark steps done in BigQuery after visual verification
 
+## TABLES
+
+### mr_main.email_drafts
+For agent-generated email reply drafts:
+- id (STRING, REQUIRED): Primary key
+- user_email (STRING, REQUIRED): KO user this draft is for
+- thread_id (STRING): Gmail thread ID
+- original_email_id (STRING): Gmail message ID replying to
+- from_address (STRING): Who sent original email
+- to_address (STRING): Who reply goes to
+- subject (STRING): Email subject
+- draft_number (INT64): 1, 2, or 3
+- draft_text (STRING): Generated draft content
+- status (STRING, default 'pending'): pending/selected/edited/sent/discarded
+- agent_id (STRING): Which agent generated this
+- generated_at, selected_at, sent_at (TIMESTAMP)
+- project_id (STRING): If logged to project folder
+- created_at, updated_at (TIMESTAMP, auto)
+
 ## KEY INFO
 - Dataset: `master-roofing-intelligence.mr_main`
-- Tables: contacts_companies (29), contacts_people (29), project_folders (2)
+- Tables: contacts_companies (29), contacts_people (29), project_folders (2), email_drafts (6)
 - Branch: dev (work here, merge to main for production)
 - Verify changes visually via localhost:3000 tunnel before marking done
 
