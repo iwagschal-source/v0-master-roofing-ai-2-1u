@@ -422,13 +422,68 @@ function EmailContentPanel({
 // Right Panel - Draft Options & AI Chat
 function DraftPanel({ selectedMessage, draftReply, draftLoading, onSelectDraft, width, aiChatHeight, onAiChatHeightChange }) {
   const panelRef = useRef(null)
+  const [drafts, setDrafts] = useState([])
+  const [draftsLoading, setDraftsLoading] = useState(false)
+  const [draftsError, setDraftsError] = useState(null)
+  const [selectedDraftId, setSelectedDraftId] = useState(null)
 
-  // Placeholder draft options - will be replaced with actual drafts
-  const placeholderDrafts = selectedMessage && draftReply ? [
-    { id: 1, label: "Professional", preview: draftReply },
-    { id: 2, label: "Brief", preview: "Thanks for reaching out. I'll look into this and get back to you shortly." },
-    { id: 3, label: "Detailed", preview: "Thank you for your email regarding this matter. I've reviewed the details and would like to provide a comprehensive response..." },
-  ] : []
+  // Fetch drafts when selected message changes
+  useEffect(() => {
+    if (!selectedMessage?.id) {
+      setDrafts([])
+      setSelectedDraftId(null)
+      return
+    }
+
+    const fetchDrafts = async () => {
+      setDraftsLoading(true)
+      setDraftsError(null)
+
+      try {
+        const res = await fetch(`/api/ko/email-drafts?email_id=${encodeURIComponent(selectedMessage.id)}`)
+        const data = await res.json()
+
+        if (data.error) {
+          setDraftsError(data.error)
+          setDrafts([])
+        } else {
+          setDrafts(data.drafts || [])
+          // Auto-select if there's a previously selected draft
+          const selected = (data.drafts || []).find(d => d.status === 'selected')
+          if (selected) {
+            setSelectedDraftId(selected.id)
+          } else {
+            setSelectedDraftId(null)
+          }
+        }
+      } catch (err) {
+        console.error('Failed to fetch drafts:', err)
+        setDraftsError('Failed to load drafts')
+        setDrafts([])
+      } finally {
+        setDraftsLoading(false)
+      }
+    }
+
+    fetchDrafts()
+  }, [selectedMessage?.id])
+
+  // Handle draft selection
+  const handleDraftSelect = async (draft) => {
+    setSelectedDraftId(draft.id)
+    onSelectDraft(draft.draftText)
+
+    // Update draft status in database
+    try {
+      await fetch('/api/ko/email-drafts', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: draft.id, status: 'selected' }),
+      })
+    } catch (err) {
+      console.error('Failed to update draft status:', err)
+    }
+  }
 
   const handleHorizontalDrag = useCallback((clientY) => {
     if (!panelRef.current) return
@@ -444,6 +499,10 @@ function DraftPanel({ selectedMessage, draftReply, draftLoading, onSelectDraft, 
     onAiChatHeightChange(clampedHeight)
   }, [onAiChatHeightChange])
 
+  // Determine what to show based on loading states
+  const isLoading = draftLoading || draftsLoading
+  const hasDrafts = drafts.length > 0
+
   return (
     <div
       ref={panelRef}
@@ -456,6 +515,9 @@ function DraftPanel({ selectedMessage, draftReply, draftLoading, onSelectDraft, 
           <div className="flex items-center gap-2">
             <Sparkles className="w-4 h-4 text-primary" />
             <h3 className="text-sm font-medium text-foreground">Draft Options</h3>
+            {hasDrafts && (
+              <span className="text-xs text-muted-foreground">({drafts.length})</span>
+            )}
           </div>
         </div>
 
@@ -465,35 +527,57 @@ function DraftPanel({ selectedMessage, draftReply, draftLoading, onSelectDraft, 
               <FileText className="w-10 h-10 mb-3 opacity-30" />
               <p className="text-sm text-center">Select an email to see draft options</p>
             </div>
-          ) : draftLoading ? (
+          ) : isLoading ? (
             <div className="flex flex-col items-center justify-center h-full">
               <Loader2 className="w-6 h-6 text-primary animate-spin mb-3" />
-              <p className="text-sm text-muted-foreground">Generating drafts...</p>
+              <p className="text-sm text-muted-foreground">Loading drafts...</p>
             </div>
-          ) : placeholderDrafts.length === 0 ? (
+          ) : draftsError ? (
+            <div className="flex flex-col items-center justify-center h-full text-muted-foreground">
+              <AlertCircle className="w-10 h-10 mb-3 opacity-30 text-destructive" />
+              <p className="text-sm text-center text-destructive">{draftsError}</p>
+            </div>
+          ) : !hasDrafts ? (
             <div className="flex flex-col items-center justify-center h-full text-muted-foreground">
               <Sparkles className="w-10 h-10 mb-3 opacity-30" />
               <p className="text-sm text-center">No drafts available</p>
-              <p className="text-xs text-center mt-1">Drafts will appear here</p>
+              <p className="text-xs text-center mt-1">Drafts will appear here when generated</p>
             </div>
           ) : (
             <div className="space-y-2">
-              {placeholderDrafts.map((draft) => (
-                <button
-                  key={draft.id}
-                  onClick={() => onSelectDraft(draft.preview)}
-                  className="w-full text-left p-3 bg-secondary/30 hover:bg-secondary/50 border border-border/50 rounded-lg transition-colors"
-                >
-                  <div className="flex items-center gap-2 mb-2">
-                    <span className="text-xs font-medium px-2 py-0.5 bg-primary/10 text-primary rounded">
-                      {draft.label}
-                    </span>
-                  </div>
-                  <p className="text-xs text-muted-foreground line-clamp-3">
-                    {draft.preview}
-                  </p>
-                </button>
-              ))}
+              {drafts.map((draft, index) => {
+                const isSelected = selectedDraftId === draft.id
+                const label = `Option ${draft.draftNumber || index + 1}`
+                const preview = draft.draftText?.substring(0, 100) + (draft.draftText?.length > 100 ? '...' : '')
+
+                return (
+                  <button
+                    key={draft.id}
+                    onClick={() => handleDraftSelect(draft)}
+                    className={`w-full text-left p-3 rounded-lg transition-colors ${
+                      isSelected
+                        ? 'bg-primary/10 border-2 border-primary'
+                        : 'bg-secondary/30 hover:bg-secondary/50 border border-border/50'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2 mb-2">
+                      <span className={`text-xs font-medium px-2 py-0.5 rounded ${
+                        isSelected
+                          ? 'bg-primary text-primary-foreground'
+                          : 'bg-primary/10 text-primary'
+                      }`}>
+                        {label}
+                      </span>
+                      {isSelected && (
+                        <Check className="w-3 h-3 text-primary" />
+                      )}
+                    </div>
+                    <p className="text-xs text-muted-foreground line-clamp-3">
+                      {preview || 'No preview available'}
+                    </p>
+                  </button>
+                )
+              })}
             </div>
           )}
         </div>
