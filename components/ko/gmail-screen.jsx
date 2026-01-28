@@ -426,6 +426,7 @@ function DraftPanel({ selectedMessage, draftReply, draftLoading, onSelectDraft, 
   const [draftsLoading, setDraftsLoading] = useState(false)
   const [draftsError, setDraftsError] = useState(null)
   const [selectedDraftId, setSelectedDraftId] = useState(null)
+  const [regenerating, setRegenerating] = useState(false)
 
   // Fetch drafts when selected message changes
   useEffect(() => {
@@ -483,6 +484,22 @@ function DraftPanel({ selectedMessage, draftReply, draftLoading, onSelectDraft, 
     } catch (err) {
       console.error('Failed to update draft status:', err)
     }
+  }
+
+  // Handle regenerate drafts request
+  const handleRegenerate = async () => {
+    if (!selectedMessage) return
+
+    setRegenerating(true)
+    console.log('Regenerate drafts requested', {
+      emailId: selectedMessage.id,
+      threadId: selectedMessage.threadId,
+      subject: selectedMessage.subject,
+    })
+
+    // Simulate delay for visual feedback (actual regeneration handled by agent)
+    await new Promise(resolve => setTimeout(resolve, 1500))
+    setRegenerating(false)
   }
 
   const handleHorizontalDrag = useCallback((clientY) => {
@@ -580,6 +597,27 @@ function DraftPanel({ selectedMessage, draftReply, draftLoading, onSelectDraft, 
               })}
             </div>
           )}
+        </div>
+
+        {/* Regenerate Drafts Button */}
+        <div className="px-3 pb-3 flex-shrink-0">
+          <button
+            onClick={handleRegenerate}
+            disabled={!selectedMessage || regenerating}
+            className="w-full px-3 py-2 bg-secondary/50 hover:bg-secondary text-foreground rounded-lg text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+          >
+            {regenerating ? (
+              <>
+                <Loader2 className="w-4 h-4 animate-spin" />
+                Regenerating...
+              </>
+            ) : (
+              <>
+                <RefreshCw className="w-4 h-4" />
+                Regenerate Drafts
+              </>
+            )}
+          </button>
         </div>
       </div>
 
