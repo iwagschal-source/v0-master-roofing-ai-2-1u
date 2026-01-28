@@ -46,8 +46,58 @@ Commercial roofing company with multiple scopes:
 - Chief estimator approves
 - Task sent to create proposal
 
-### 8. Proposal Phase
-- (To be documented)
+### 8. Proposal Creation
 
-## What KO Should Automate
-- (To be documented after Isaac explains)
+**Proposal maker receives approved takeoff and uses:**
+- Takeoff sheet (scope and quantities)
+- "Cheat sheet" template (standard items, descriptions, bullet points)
+
+**Decision logic - line item vs bundled into system:**
+- Look at TOTALS column in takeoff sheet
+- **Yellow highlighted total = standalone line item** on proposal
+- **Not highlighted = bundled into system** (rolls up to sum row)
+- Can verify by: color OR formula (what's included in sum row)
+
+**Building the proposal:**
+- Standalone items (yellow) → own line item on proposal
+- Bundled items (in sum formula) → bullet point in system description
+- Reference cheat sheet for standard descriptions
+- Fill in: project name, date, customer details
+
+**Final steps:**
+- Chief estimator final approval
+- Send proposal to customer
+
+## Complete Current Manual Flow
+```
+RFP Email → Admin creates project folder
+                    ↓
+         Drawings/, Takeoff/, Markup/, Proposal/
+                    ↓
+         Notify estimator (email/chat/Asana)
+                    ↓
+         Estimator reviews drawings + RFP
+                    ↓
+         Setup takeoff Excel (columns=areas, rows=items)
+                    ↓
+         Bluebeam markup using tool sets
+                    ↓
+         MANUAL ENTRY: Bluebeam quantities → Excel (PAIN POINT)
+                    ↓
+         Senior estimator reviews
+                    ↓
+         Chief estimator approves takeoff
+                    ↓
+         Proposal maker reads takeoff + cheat sheet
+                    ↓
+         Yellow = line item, Not yellow = bundled in system
+                    ↓
+         Build proposal with descriptions
+                    ↓
+         Chief estimator approves proposal
+                    ↓
+         Send to customer
+```
+
+## What KO Will Automate
+(To be documented - Isaac to explain next)
