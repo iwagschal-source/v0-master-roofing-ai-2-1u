@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef, useCallback } from "react"
 import {
   Mail, Send, Plus, RefreshCw, Search, Loader2, X,
   AlertCircle, ExternalLink, LogOut, Check, Sparkles,
@@ -8,6 +8,112 @@ import {
 } from "lucide-react"
 import { useGmail } from "@/hooks/useGmail"
 import { useGoogleAuth } from "@/hooks/useGoogleAuth"
+
+// Panel width constraints
+const LEFT_PANEL_MIN = 200
+const LEFT_PANEL_MAX = 400
+const LEFT_PANEL_DEFAULT = 320
+
+const RIGHT_PANEL_MIN = 250
+const RIGHT_PANEL_MAX = 450
+const RIGHT_PANEL_DEFAULT = 320
+
+const ATTACHMENT_MIN_HEIGHT = 100
+
+// localStorage keys
+const STORAGE_LEFT_WIDTH = 'gmail-left-panel-width'
+const STORAGE_RIGHT_WIDTH = 'gmail-right-panel-width'
+const STORAGE_ATTACHMENT_HEIGHT = 'gmail-attachment-height'
+
+// Vertical Resizable Divider
+function VerticalDivider({ onDrag, position }) {
+  const [isDragging, setIsDragging] = useState(false)
+  const dividerRef = useRef(null)
+
+  const handleMouseDown = useCallback((e) => {
+    e.preventDefault()
+    setIsDragging(true)
+  }, [])
+
+  useEffect(() => {
+    if (!isDragging) return
+
+    const handleMouseMove = (e) => {
+      onDrag(e.clientX)
+    }
+
+    const handleMouseUp = () => {
+      setIsDragging(false)
+    }
+
+    document.addEventListener('mousemove', handleMouseMove)
+    document.addEventListener('mouseup', handleMouseUp)
+    document.body.style.cursor = 'col-resize'
+    document.body.style.userSelect = 'none'
+
+    return () => {
+      document.removeEventListener('mousemove', handleMouseMove)
+      document.removeEventListener('mouseup', handleMouseUp)
+      document.body.style.cursor = ''
+      document.body.style.userSelect = ''
+    }
+  }, [isDragging, onDrag])
+
+  return (
+    <div
+      ref={dividerRef}
+      onMouseDown={handleMouseDown}
+      className={`w-1 flex-shrink-0 cursor-col-resize transition-colors ${
+        isDragging ? 'bg-primary' : 'bg-border hover:bg-primary/50'
+      }`}
+      style={{ touchAction: 'none' }}
+    />
+  )
+}
+
+// Horizontal Resizable Divider (for attachment preview)
+function HorizontalDivider({ onDrag }) {
+  const [isDragging, setIsDragging] = useState(false)
+
+  const handleMouseDown = useCallback((e) => {
+    e.preventDefault()
+    setIsDragging(true)
+  }, [])
+
+  useEffect(() => {
+    if (!isDragging) return
+
+    const handleMouseMove = (e) => {
+      onDrag(e.clientY)
+    }
+
+    const handleMouseUp = () => {
+      setIsDragging(false)
+    }
+
+    document.addEventListener('mousemove', handleMouseMove)
+    document.addEventListener('mouseup', handleMouseUp)
+    document.body.style.cursor = 'row-resize'
+    document.body.style.userSelect = 'none'
+
+    return () => {
+      document.removeEventListener('mousemove', handleMouseMove)
+      document.removeEventListener('mouseup', handleMouseUp)
+      document.body.style.cursor = ''
+      document.body.style.userSelect = ''
+    }
+  }, [isDragging, onDrag])
+
+  return (
+    <div
+      onMouseDown={handleMouseDown}
+      className={`h-1 flex-shrink-0 cursor-row-resize transition-colors ${
+        isDragging ? 'bg-primary' : 'bg-border hover:bg-primary/50'
+      }`}
+      style={{ touchAction: 'none' }}
+    />
+  )
+}
 
 function formatDate(dateString) {
   const date = new Date(dateString)
@@ -52,7 +158,8 @@ function EmailListPanel({
   authLoading,
   authUrl,
   onDisconnect,
-  user
+  user,
+  width
 }) {
   const filteredMessages = messages.filter(email => {
     if (!searchQuery) return true
@@ -65,7 +172,10 @@ function EmailListPanel({
   })
 
   return (
-    <div className="w-80 border-r border-border flex flex-col bg-card flex-shrink-0">
+    <div
+      className="flex flex-col bg-card flex-shrink-0"
+      style={{ width: `${width}px` }}
+    >
       {/* Header */}
       <div className="p-4 border-b border-border">
         <div className="flex items-center justify-between mb-3">
@@ -304,7 +414,7 @@ function EmailContentPanel({
 }
 
 // Right Panel - Draft Options & AI Chat
-function DraftPanel({ selectedMessage, draftReply, draftLoading, onSelectDraft }) {
+function DraftPanel({ selectedMessage, draftReply, draftLoading, onSelectDraft, width }) {
   // Placeholder draft options - will be replaced with actual drafts
   const placeholderDrafts = selectedMessage && draftReply ? [
     { id: 1, label: "Professional", preview: draftReply },
@@ -313,7 +423,10 @@ function DraftPanel({ selectedMessage, draftReply, draftLoading, onSelectDraft }
   ] : []
 
   return (
-    <div className="w-80 border-l border-border flex flex-col bg-card flex-shrink-0">
+    <div
+      className="flex flex-col bg-card flex-shrink-0"
+      style={{ width: `${width}px` }}
+    >
       {/* Draft Options */}
       <div className="flex-1 overflow-hidden flex flex-col border-b border-border">
         <div className="px-4 py-3 border-b border-border">
@@ -567,6 +680,57 @@ export function GmailScreen() {
   const [sendingReply, setSendingReply] = useState(false)
   const [sendSuccess, setSendSuccess] = useState(false)
 
+  // Panel width state
+  const [leftPanelWidth, setLeftPanelWidth] = useState(LEFT_PANEL_DEFAULT)
+  const [rightPanelWidth, setRightPanelWidth] = useState(RIGHT_PANEL_DEFAULT)
+  const containerRef = useRef(null)
+
+  // Load saved widths from localStorage
+  useEffect(() => {
+    const savedLeftWidth = localStorage.getItem(STORAGE_LEFT_WIDTH)
+    const savedRightWidth = localStorage.getItem(STORAGE_RIGHT_WIDTH)
+
+    if (savedLeftWidth) {
+      const width = parseInt(savedLeftWidth, 10)
+      if (width >= LEFT_PANEL_MIN && width <= LEFT_PANEL_MAX) {
+        setLeftPanelWidth(width)
+      }
+    }
+
+    if (savedRightWidth) {
+      const width = parseInt(savedRightWidth, 10)
+      if (width >= RIGHT_PANEL_MIN && width <= RIGHT_PANEL_MAX) {
+        setRightPanelWidth(width)
+      }
+    }
+  }, [])
+
+  // Handle left divider drag
+  const handleLeftDividerDrag = useCallback((clientX) => {
+    if (!containerRef.current) return
+
+    const containerRect = containerRef.current.getBoundingClientRect()
+    const newWidth = clientX - containerRect.left
+
+    // Clamp to min/max
+    const clampedWidth = Math.min(LEFT_PANEL_MAX, Math.max(LEFT_PANEL_MIN, newWidth))
+    setLeftPanelWidth(clampedWidth)
+    localStorage.setItem(STORAGE_LEFT_WIDTH, clampedWidth.toString())
+  }, [])
+
+  // Handle right divider drag
+  const handleRightDividerDrag = useCallback((clientX) => {
+    if (!containerRef.current) return
+
+    const containerRect = containerRef.current.getBoundingClientRect()
+    const newWidth = containerRect.right - clientX
+
+    // Clamp to min/max
+    const clampedWidth = Math.min(RIGHT_PANEL_MAX, Math.max(RIGHT_PANEL_MIN, newWidth))
+    setRightPanelWidth(clampedWidth)
+    localStorage.setItem(STORAGE_RIGHT_WIDTH, clampedWidth.toString())
+  }, [])
+
   // Update reply text when draft is generated
   useEffect(() => {
     if (draftReply) {
@@ -665,7 +829,7 @@ export function GmailScreen() {
   }
 
   return (
-    <div className="flex h-full bg-background overflow-hidden">
+    <div ref={containerRef} className="flex h-full bg-background overflow-hidden">
       {/* Left Panel - Email List */}
       <EmailListPanel
         messages={messages}
@@ -682,7 +846,11 @@ export function GmailScreen() {
         authUrl={authUrl}
         onDisconnect={disconnect}
         user={user}
+        width={leftPanelWidth}
       />
+
+      {/* Left/Center Divider */}
+      <VerticalDivider onDrag={handleLeftDividerDrag} position="left" />
 
       {/* Center Panel - Email Content & Reply */}
       <EmailContentPanel
@@ -698,12 +866,16 @@ export function GmailScreen() {
         onReplyTextChange={setReplyText}
       />
 
+      {/* Center/Right Divider */}
+      <VerticalDivider onDrag={handleRightDividerDrag} position="right" />
+
       {/* Right Panel - Draft Options & AI Chat */}
       <DraftPanel
         selectedMessage={selectedMessage}
         draftReply={draftReply}
         draftLoading={draftLoading}
         onSelectDraft={handleSelectDraft}
+        width={rightPanelWidth}
       />
 
       {/* Compose Modal */}
