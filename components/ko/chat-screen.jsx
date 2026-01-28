@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect, useRef } from "react"
-import { MessageSquare, Send, RefreshCw, Loader2, Search, Hash, User, ExternalLink, LogOut, AlertTriangle } from "lucide-react"
+import { MessageSquare, Send, RefreshCw, Loader2, Search, Hash, User, ExternalLink, LogOut, AlertTriangle, FolderOpen, ChevronDown, Check } from "lucide-react"
 import { useChatSpaces, formatMessageTime, getInitials } from "@/hooks/useChatSpaces"
 import { useGoogleAuth } from "@/hooks/useGoogleAuth"
 
@@ -14,9 +14,82 @@ export function ChatScreen() {
   const [sending, setSending] = useState(false)
   const messagesEndRef = useRef(null)
 
+  // Project logging state
+  const [projects, setProjects] = useState([])
+  const [projectsLoading, setProjectsLoading] = useState(false)
+  const [selectedProject, setSelectedProject] = useState(null)
+  const [dropdownOpen, setDropdownOpen] = useState(false)
+  const [projectSearch, setProjectSearch] = useState('')
+  const [loggingStatus, setLoggingStatus] = useState(null) // null | 'logging' | 'success' | 'error'
+  const dropdownRef = useRef(null)
+
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages])
+
+  // Fetch projects on mount
+  useEffect(() => {
+    const fetchProjects = async () => {
+      setProjectsLoading(true)
+      try {
+        const res = await fetch('/api/ko/project-folders')
+        const data = await res.json()
+        setProjects(data.projects || [])
+      } catch (err) {
+        console.error('Failed to fetch projects:', err)
+      } finally {
+        setProjectsLoading(false)
+      }
+    }
+    fetchProjects()
+  }, [])
+
+  // Reset selected project when space changes
+  useEffect(() => {
+    setSelectedProject(null)
+    setDropdownOpen(false)
+    setProjectSearch('')
+    setLoggingStatus(null)
+  }, [selectedSpace?.id])
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
+        setDropdownOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [])
+
+  // Handle project selection - console.log only for now (BigQuery in 6.3)
+  const handleSelectProject = async (project) => {
+    setSelectedProject(project)
+    setDropdownOpen(false)
+    setProjectSearch('')
+    setLoggingStatus('logging')
+
+    // Simulate brief delay then log to console
+    await new Promise(resolve => setTimeout(resolve, 300))
+
+    console.log('Chat conversation logged to project:', {
+      spaceId: selectedSpace?.id,
+      spaceName: selectedSpace?.displayName,
+      spaceType: selectedSpace?.type,
+      projectId: project.id,
+      projectName: project.name,
+      timestamp: new Date().toISOString(),
+    })
+
+    setLoggingStatus('success')
+  }
+
+  // Filter projects by search
+  const filteredProjects = projects.filter(p =>
+    p.name?.toLowerCase().includes(projectSearch.toLowerCase()) ||
+    p.companyName?.toLowerCase().includes(projectSearch.toLowerCase())
+  )
 
   const handleSend = async () => {
     if (!inputValue.trim() || sending || !selectedSpace) return
@@ -191,23 +264,114 @@ export function ChatScreen() {
         {selectedSpace ? (
           <>
             <div className="px-6 py-4 border-b border-border bg-card">
-              <div className="flex items-center gap-3">
-                {selectedSpace.type === 'ROOM' ? (
-                  <div className="w-10 h-10 rounded-lg bg-primary/20 flex items-center justify-center">
-                    <Hash className="w-5 h-5 text-primary" />
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  {selectedSpace.type === 'ROOM' ? (
+                    <div className="w-10 h-10 rounded-lg bg-primary/20 flex items-center justify-center">
+                      <Hash className="w-5 h-5 text-primary" />
+                    </div>
+                  ) : (
+                    <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center text-sm font-medium">
+                      {getInitials(selectedSpace.displayName || 'DM')}
+                    </div>
+                  )}
+                  <div>
+                    <h3 className="font-medium text-foreground">{selectedSpace.displayName}</h3>
+                    <p className="text-xs text-foreground-secondary">
+                      {selectedSpace.type === 'ROOM'
+                        ? `${selectedSpace.memberCount || 0} members`
+                        : 'Direct message'}
+                    </p>
                   </div>
-                ) : (
-                  <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center text-sm font-medium">
-                    {getInitials(selectedSpace.displayName || 'DM')}
-                  </div>
-                )}
-                <div>
-                  <h3 className="font-medium text-foreground">{selectedSpace.displayName}</h3>
-                  <p className="text-xs text-foreground-secondary">
-                    {selectedSpace.type === 'ROOM'
-                      ? `${selectedSpace.memberCount || 0} members`
-                      : 'Direct message'}
-                  </p>
+                </div>
+
+                {/* Log to Project Dropdown */}
+                <div className="relative" ref={dropdownRef}>
+                  <button
+                    onClick={() => setDropdownOpen(!dropdownOpen)}
+                    disabled={loggingStatus === 'logging'}
+                    className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm transition-colors ${
+                      loggingStatus === 'success'
+                        ? 'bg-green-500/10 text-green-600 border border-green-500/30'
+                        : loggingStatus === 'error'
+                        ? 'bg-red-500/10 text-red-600 border border-red-500/30'
+                        : selectedProject
+                        ? 'bg-green-500/10 text-green-600 border border-green-500/30'
+                        : 'bg-secondary/50 hover:bg-secondary text-foreground-secondary hover:text-foreground border border-border/50'
+                    } disabled:opacity-50`}
+                  >
+                    {loggingStatus === 'logging' ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        <span>Logging...</span>
+                      </>
+                    ) : selectedProject ? (
+                      <>
+                        <Check className="w-4 h-4" />
+                        <span className="max-w-[150px] truncate">Logged to {selectedProject.name}</span>
+                      </>
+                    ) : (
+                      <>
+                        <FolderOpen className="w-4 h-4" />
+                        <span>Log to Project</span>
+                      </>
+                    )}
+                    <ChevronDown className={`w-4 h-4 transition-transform ${dropdownOpen ? 'rotate-180' : ''}`} />
+                  </button>
+
+                  {/* Dropdown Menu */}
+                  {dropdownOpen && (
+                    <div className="absolute right-0 top-full mt-1 w-72 bg-card border border-border rounded-lg shadow-lg z-50 overflow-hidden">
+                      {/* Search */}
+                      <div className="p-2 border-b border-border">
+                        <div className="relative">
+                          <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-4 h-4 text-foreground-secondary" />
+                          <input
+                            type="text"
+                            value={projectSearch}
+                            onChange={(e) => setProjectSearch(e.target.value)}
+                            placeholder="Search projects..."
+                            className="w-full pl-8 pr-3 py-1.5 bg-secondary/30 border border-border/50 rounded text-sm placeholder:text-foreground-secondary/50 focus:outline-none focus:border-primary/50"
+                            autoFocus
+                          />
+                        </div>
+                      </div>
+
+                      {/* Project List */}
+                      <div className="max-h-64 overflow-y-auto">
+                        {projectsLoading ? (
+                          <div className="flex items-center justify-center py-4">
+                            <Loader2 className="w-5 h-5 animate-spin text-foreground-secondary" />
+                          </div>
+                        ) : filteredProjects.length === 0 ? (
+                          <div className="py-4 text-center text-sm text-foreground-secondary">
+                            {projectSearch ? 'No matching projects' : 'No projects found'}
+                          </div>
+                        ) : (
+                          filteredProjects.map((project) => (
+                            <button
+                              key={project.id}
+                              onClick={() => handleSelectProject(project)}
+                              className={`w-full text-left px-3 py-2 hover:bg-muted/50 transition-colors ${
+                                selectedProject?.id === project.id ? 'bg-primary/5' : ''
+                              }`}
+                            >
+                              <div className="flex items-center gap-2">
+                                <FolderOpen className="w-4 h-4 text-foreground-secondary flex-shrink-0" />
+                                <div className="min-w-0">
+                                  <p className="text-sm font-medium text-foreground truncate">{project.name}</p>
+                                  <p className="text-xs text-foreground-secondary truncate">{project.companyName}</p>
+                                </div>
+                                {selectedProject?.id === project.id && (
+                                  <Check className="w-4 h-4 text-primary ml-auto flex-shrink-0" />
+                                )}
+                              </div>
+                            </button>
+                          ))
+                        )}
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
