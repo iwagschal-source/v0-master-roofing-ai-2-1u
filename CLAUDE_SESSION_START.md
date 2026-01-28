@@ -36,6 +36,12 @@ You are continuing a tracked sprint. Previous session: cc_20260127_2033
 - 3.6: Build Create New Project functionality
 - 3.7: Add duplicate name validation
 
+## CRITICAL: BigQuery Dataset Locations
+- **mr_main dataset: REGION = US** (not us-east4)
+- **aeyey_dev dataset: REGION = US**
+- Always verify dataset region before queries
+- API routes must pass `{ location: 'US' }` for mr_main queries
+
 ## KEY INFO
 - Dataset: `master-roofing-intelligence.mr_main`
 - Tables: contacts_companies (29), contacts_people (29), project_folders, project_documents, project_communications

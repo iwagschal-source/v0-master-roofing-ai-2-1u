@@ -28,6 +28,7 @@ import { UserAdminScreen } from "@/components/ko/user-admin-screen"
 import { SalesDashboard } from "@/components/ko/sales-dashboard"
 import { EstimatingCenterScreen } from "@/components/ko/estimating-center-screen"
 import ProjectFoldersScreen from "@/components/ko/project-folders-screen"
+import { ContactsScreen } from "@/components/ko/contacts-screen"
 import { agents as fallbackAgents } from "@/data/agent-data"
 
 export default function HomePage() {
@@ -60,6 +61,7 @@ export default function HomePage() {
   const [showSales, setShowSales] = useState(false)
   const [showEstimating, setShowEstimating] = useState(false)
   const [showProjects, setShowProjects] = useState(false)
+  const [showContacts, setShowContacts] = useState(false)
   const [selectedAgent, setSelectedAgent] = useState(null)
   const [showAgentNetwork, setShowAgentNetwork] = useState(false)
   const [showAddAgent, setShowAddAgent] = useState(false)
@@ -157,6 +159,7 @@ export default function HomePage() {
       setShowSales(false)
       setShowEstimating(false)
       setShowProjects(false)
+      setShowContacts(false)
       setSelectedAgent(null)
       setShowAgentNetwork(false)
       setShowAddAgent(false)
@@ -176,6 +179,21 @@ export default function HomePage() {
       setShowSales(false)
     } else if (mode === "projects") {
       setShowProjects(true)
+      setShowContacts(false)
+      setShowEstimating(false)
+      setShowEmail(false)
+      setShowSettings(false)
+      setShowZoom(false)
+      setShowArena(false)
+      setShowMessages(false)
+      setShowAsana(false)
+      setShowAgents(false)
+      setShowUserAdmin(false)
+      setShowSales(false)
+      setHasStartedChat(true)
+    } else if (mode === "contacts") {
+      setShowContacts(true)
+      setShowProjects(false)
       setShowEstimating(false)
       setShowEmail(false)
       setShowSettings(false)
@@ -323,7 +341,7 @@ export default function HomePage() {
       <div className={`${isMobileMenuOpen ? "fixed left-0 top-0 bottom-0 z-50" : "hidden"} md:block`}>
         <NavigationRail
           activeMode={
-            showEmail ? "email" : showSettings ? "settings" : showZoom ? "zoom" : showArena ? "arena" : showMessages ? "messages" : showAsana ? "asana" : showAgents ? "agents" : showUserAdmin ? "admin" : showSales ? "sales" : showEstimating ? "estimating" : showProjects ? "projects" : activeMode
+            showEmail ? "email" : showSettings ? "settings" : showZoom ? "zoom" : showArena ? "arena" : showMessages ? "messages" : showAsana ? "asana" : showAgents ? "agents" : showUserAdmin ? "admin" : showSales ? "sales" : showEstimating ? "estimating" : showProjects ? "projects" : showContacts ? "contacts" : activeMode
           }
           onModeChange={handleModeChange}
           visible={true}
@@ -407,6 +425,8 @@ export default function HomePage() {
             />
           ) : showProjects ? (
             <ProjectFoldersScreen />
+          ) : showContacts ? (
+            <ContactsScreen />
           ) : (
             <div className="flex-1 flex flex-col md:flex-row overflow-hidden">
               <div className={`flex-1 ${isWorkspaceVisible ? 'md:w-[40%]' : ''} flex flex-col`}>

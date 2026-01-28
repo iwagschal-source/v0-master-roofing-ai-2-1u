@@ -41,7 +41,7 @@ export async function GET() {
       ORDER BY p.updated_at DESC
     `
 
-    const rows = await runQuery(query, {}, { location: 'us-east4' })
+    const rows = await runQuery(query, {}, { location: 'US' })
 
     const projects = rows.map(row => ({
       id: row.id,
@@ -92,7 +92,7 @@ export async function POST(request) {
     const duplicateCheck = await runQuery(
       'SELECT id FROM \`master-roofing-intelligence.mr_main.project_folders\` WHERE LOWER(project_name) = LOWER(@projectName)',
       { projectName },
-      { location: 'us-east4' }
+      { location: 'US' }
     )
 
     if (duplicateCheck.length > 0) {
@@ -113,8 +113,8 @@ export async function POST(request) {
 
     await runQuery(
       insertQuery,
-      { id, projectName, companyId, contactId, address: address || null, city: city || null, state: state || null, zip: zip || null, notes: notes || null },
-      { location: 'us-east4' }
+      { id, projectName, companyId, contactId, address: address || '', city: city || '', state: state || '', zip: zip || '', notes: notes || '' },
+      { location: 'US' }
     )
 
     const newProjectQuery = `
@@ -125,7 +125,7 @@ export async function POST(request) {
       WHERE p.id = @id
     `
 
-    const [newProject] = await runQuery(newProjectQuery, { id }, { location: 'us-east4' })
+    const [newProject] = await runQuery(newProjectQuery, { id }, { location: 'US' })
 
     return NextResponse.json({
       success: true,
