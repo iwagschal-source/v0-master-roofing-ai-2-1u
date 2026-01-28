@@ -4,7 +4,7 @@ import { useState, useEffect, useRef, useCallback } from "react"
 import {
   Mail, Send, Plus, RefreshCw, Search, Loader2, X,
   AlertCircle, ExternalLink, LogOut, Check, Sparkles,
-  MessageSquare, FileText, Paperclip
+  MessageSquare, FileText, Paperclip, FolderOpen, ChevronDown
 } from "lucide-react"
 import { useGmail } from "@/hooks/useGmail"
 import { useGoogleAuth } from "@/hooks/useGoogleAuth"
@@ -312,6 +312,68 @@ function EmailContentPanel({
   replyText,
   onReplyTextChange
 }) {
+  // Project logging state
+  const [projects, setProjects] = useState([])
+  const [projectsLoading, setProjectsLoading] = useState(false)
+  const [selectedProject, setSelectedProject] = useState(null)
+  const [dropdownOpen, setDropdownOpen] = useState(false)
+  const [projectSearch, setProjectSearch] = useState('')
+  const dropdownRef = useRef(null)
+
+  // Fetch projects on mount
+  useEffect(() => {
+    const fetchProjects = async () => {
+      setProjectsLoading(true)
+      try {
+        const res = await fetch('/api/ko/project-folders')
+        const data = await res.json()
+        setProjects(data.projects || [])
+      } catch (err) {
+        console.error('Failed to fetch projects:', err)
+      } finally {
+        setProjectsLoading(false)
+      }
+    }
+    fetchProjects()
+  }, [])
+
+  // Reset selected project when email changes
+  useEffect(() => {
+    setSelectedProject(null)
+    setDropdownOpen(false)
+    setProjectSearch('')
+  }, [selectedMessage?.id])
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
+        setDropdownOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [])
+
+  // Handle project selection
+  const handleSelectProject = (project) => {
+    setSelectedProject(project)
+    setDropdownOpen(false)
+    setProjectSearch('')
+    console.log('Log email to project:', {
+      emailId: selectedMessage?.id,
+      threadId: selectedMessage?.threadId,
+      projectId: project.id,
+      projectName: project.name,
+    })
+  }
+
+  // Filter projects by search
+  const filteredProjects = projects.filter(p =>
+    p.name?.toLowerCase().includes(projectSearch.toLowerCase()) ||
+    p.companyName?.toLowerCase().includes(projectSearch.toLowerCase())
+  )
+
   if (!isConnected) {
     return (
       <div className="flex-1 flex items-center justify-center bg-background">
@@ -356,10 +418,91 @@ function EmailContentPanel({
           {/* Header */}
           <div className="mb-6">
             <h1 className="text-xl font-semibold text-foreground mb-3">{selectedMessage.subject || '(No Subject)'}</h1>
-            <div className="flex items-center gap-3 text-sm text-muted-foreground">
-              <span className="font-medium text-foreground">{extractSenderName(selectedMessage.from)}</span>
-              <span className="text-xs">&lt;{extractSenderEmail(selectedMessage.from)}&gt;</span>
-              <span>{formatDate(selectedMessage.date)}</span>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3 text-sm text-muted-foreground">
+                <span className="font-medium text-foreground">{extractSenderName(selectedMessage.from)}</span>
+                <span className="text-xs">&lt;{extractSenderEmail(selectedMessage.from)}&gt;</span>
+                <span>{formatDate(selectedMessage.date)}</span>
+              </div>
+
+              {/* Log to Project Dropdown */}
+              <div className="relative" ref={dropdownRef}>
+                <button
+                  onClick={() => setDropdownOpen(!dropdownOpen)}
+                  className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm transition-colors ${
+                    selectedProject
+                      ? 'bg-green-500/10 text-green-600 border border-green-500/30'
+                      : 'bg-secondary/50 hover:bg-secondary text-muted-foreground hover:text-foreground border border-border/50'
+                  }`}
+                >
+                  {selectedProject ? (
+                    <>
+                      <Check className="w-4 h-4" />
+                      <span className="max-w-[150px] truncate">{selectedProject.name}</span>
+                    </>
+                  ) : (
+                    <>
+                      <FolderOpen className="w-4 h-4" />
+                      <span>Log to Project</span>
+                    </>
+                  )}
+                  <ChevronDown className={`w-4 h-4 transition-transform ${dropdownOpen ? 'rotate-180' : ''}`} />
+                </button>
+
+                {/* Dropdown Menu */}
+                {dropdownOpen && (
+                  <div className="absolute right-0 top-full mt-1 w-72 bg-card border border-border rounded-lg shadow-lg z-50 overflow-hidden">
+                    {/* Search */}
+                    <div className="p-2 border-b border-border">
+                      <div className="relative">
+                        <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                        <input
+                          type="text"
+                          value={projectSearch}
+                          onChange={(e) => setProjectSearch(e.target.value)}
+                          placeholder="Search projects..."
+                          className="w-full pl-8 pr-3 py-1.5 bg-secondary/30 border border-border/50 rounded text-sm placeholder:text-muted-foreground/50 focus:outline-none focus:border-primary/50"
+                          autoFocus
+                        />
+                      </div>
+                    </div>
+
+                    {/* Project List */}
+                    <div className="max-h-64 overflow-y-auto">
+                      {projectsLoading ? (
+                        <div className="flex items-center justify-center py-4">
+                          <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
+                        </div>
+                      ) : filteredProjects.length === 0 ? (
+                        <div className="py-4 text-center text-sm text-muted-foreground">
+                          {projectSearch ? 'No matching projects' : 'No projects found'}
+                        </div>
+                      ) : (
+                        filteredProjects.map((project) => (
+                          <button
+                            key={project.id}
+                            onClick={() => handleSelectProject(project)}
+                            className={`w-full text-left px-3 py-2 hover:bg-muted/50 transition-colors ${
+                              selectedProject?.id === project.id ? 'bg-primary/5' : ''
+                            }`}
+                          >
+                            <div className="flex items-center gap-2">
+                              <FolderOpen className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+                              <div className="min-w-0">
+                                <p className="text-sm font-medium text-foreground truncate">{project.name}</p>
+                                <p className="text-xs text-muted-foreground truncate">{project.companyName}</p>
+                              </div>
+                              {selectedProject?.id === project.id && (
+                                <Check className="w-4 h-4 text-primary ml-auto flex-shrink-0" />
+                              )}
+                            </div>
+                          </button>
+                        ))
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
 
