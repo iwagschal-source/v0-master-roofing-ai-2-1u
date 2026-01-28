@@ -137,39 +137,80 @@ PDF saved to Project Folder → Email to customer
 - project_documents (takeoffs, proposals, markups)
 - (R-value, insulation thickness, type - columns to add)
 
-## Current Implementation Status (from Isaac's tracker)
+## Phase 8: Estimating Center (36 Steps)
+
+### 8.A Data Reconciliation
+1. Reconcile description item_ids to line item library
+2. Reconcile Bluebeam tool mappings to line item library
+3. Define systems/bundles in BigQuery
+4. Verify every line item has complete data
+
+### 8.B Takeoff Sheet System
+5. Fix spreadsheet integration (Google Sheets or React)
+6. Takeoff sheet read/write yellow highlighting
+7. Takeoff sheet save to project folder
+8. Test: Create takeoff with locations/items/formulas
+9. Test: CSV import populates correct cells
+
+### 8.C Proposal Preview
+10. Build proposal preview screen with editable fields
+11. Pull project info (name, GC, address, date)
+12. Pull line items from takeoff (yellow cells)
+13. Pull descriptions from BigQuery by item_id
+14. Show Areas from location columns
+15. Editable description fields before PDF
+16. Calculate totals (subtotals, section, grand)
+
+### 8.D Proposal PDF Generation
+17. Implement Word template merge
+18. Map takeoff data to template fields
+19. Handle multi-page with proper page breaks
+20. Generate PDF from merged Word doc
+21. Test: 3, 10, 20 items - verify pagination
+22. Test: Cover sheet renders correctly
+23. Test: Fonts/spacing match Word template exactly
+
+### 8.E Proposal Storage
+24. Save PDF to project Proposal folder
+25. Preview PDF in platform
+26. Version numbering (v1, v2, v3)
+
+### 8.F UI Cleanup
+27. Remove noise from center panel
+28. Move Folder Agent to right panel bottom
+29. Right panel top: GC Brief/Project Intelligence
+30. Left panel: Clean project list
+31. Takeoff sheet displays in center panel
+32. Fix button colors
+33. Location columns vertical layout
+
+### 8.G End-to-End Testing
+34. Full flow test: Project to PDF
+35. Test with real project data (1086 Dumont)
+36. Verify PDF matches Word template exactly
+
+---
+
+## Verified Working (Session cc_20260128_0701)
 
 ### BTX/Bluebeam Converter
-- BTX-001: ✅ btx_location_generator.py WORKING
-- BTX-002: PENDING - Map all 87 tools (38 done, 49 remaining)
-- BTX-003: PENDING - /bluebeam/generate-btx API endpoint
-- BTX-004: PENDING - nginx route for /bluebeam/
-- BTX-005: PENDING - Frontend BTX download button
-- BTX-006: PENDING - CSV Parser (pipe delimiter)
+- ✅ BTX generation backend: `localhost:8000/bluebeam/generate-btx`
+- ✅ BTX frontend button: `/api/ko/takeoff/{projectId}/btx`
+- ✅ 64/74 tools mapped (86%)
+- ✅ CSV parser works with pipe format
 
 ### Takeoff Sheet System
-- TKF-001: PARTIAL - Blank template exists
-- TKF-002: UNTESTED - /api/ko/takeoff/create
-- TKF-003: PARTIAL - Config save failing
-- TKF-004: PENDING - Bluebeam CSV → populate sheet
-- TKF-005: ✅ WORKING - Line item selector
-- TKF-006: UNTESTED - Rate overrides
+- ✅ Line item library: 58 items from BigQuery
+- ✅ CSV upload UI exists in Estimating Center
+- ⚠️ Config save needs testing
 
 ### Proposal System
-- PRP-001: PENDING - Need Word template
-- PRP-002: PARTIAL - /api/ko/export-pdf returns 400
-- PRP-003: PARTIAL - /api/ko/generate-descriptions returns 400
-- PRP-004: PENDING - Connect proposal to takeoff
-- PRP-005: UNTESTED - Proposal preview
+- ✅ proposal_line_item_descriptions loaded to BigQuery (56 rows)
+- ⚠️ 33 item_ids need reconciliation with library
+- ⚠️ export-pdf and generate-descriptions are MOCK code
 
 ### Key Files
-- btx_location_generator.py
-- Teju Tool Set.btx (48 items)
-- BLUEBEAM_COMPLETE_MAPPING.json
-- BLANK_TEMPLATE_TAKEOFF_SHEET
-
-### UI Issues (Isaac feedback)
-- Center panel has noise (status, GC context) - move or remove
-- Folder agent in wrong place - should be in right panel
-- Buttons may be redundant
-- Giant cards/bubbles - needs cleaner layout like actual takeoff sheet
+- `/home/iwagschal/bluebeam_generators/btx_location_generator.py`
+- `/home/iwagschal/Teju Tool Set.btx`
+- `/home/iwagschal/BLUEBEAM_COMPLETE_MAPPING.json` (64 tools)
+- `mr_main.proposal_line_item_descriptions` (BigQuery)
