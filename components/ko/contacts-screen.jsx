@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { Search, Plus, Loader2, Building2, Users, ExternalLink } from "lucide-react"
+import { CompanyModal } from "./company-modal"
 
 export function ContactsScreen() {
   const [activeTab, setActiveTab] = useState("companies")
@@ -11,6 +12,8 @@ export function ContactsScreen() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [searchQuery, setSearchQuery] = useState("")
+  const [companyModal, setCompanyModal] = useState({ open: false, company: null })
+  const [refreshKey, setRefreshKey] = useState(0)
 
   // Fetch data when tab or search changes
   useEffect(() => {
@@ -62,7 +65,7 @@ export function ContactsScreen() {
 
     const timer = setTimeout(fetchData, searchQuery ? 300 : 0)
     return () => clearTimeout(timer)
-  }, [activeTab, searchQuery])
+  }, [activeTab, searchQuery, refreshKey])
 
   // Reset search when switching tabs
   const handleTabChange = (tab) => {
@@ -72,14 +75,24 @@ export function ContactsScreen() {
 
   const handleAdd = () => {
     if (activeTab === "companies") {
-      console.log('Add company clicked - modal coming soon')
+      setCompanyModal({ open: true, company: null })
     } else {
       console.log('Add person clicked - modal coming soon')
     }
   }
 
   const handleEditCompany = (company) => {
-    console.log('Edit company:', company.id, company.name)
+    setCompanyModal({ open: true, company })
+  }
+
+  const handleCompanyModalSuccess = () => {
+    // Refresh companies list
+    setRefreshKey(prev => prev + 1)
+    setCompanyModal({ open: false, company: null })
+  }
+
+  const handleCompanyModalClose = () => {
+    setCompanyModal({ open: false, company: null })
   }
 
   const handleEditPerson = (person) => {
@@ -326,6 +339,14 @@ export function ContactsScreen() {
           </div>
         )}
       </div>
+
+      {/* Company Modal */}
+      <CompanyModal
+        isOpen={companyModal.open}
+        onClose={handleCompanyModalClose}
+        onSuccess={handleCompanyModalSuccess}
+        company={companyModal.company}
+      />
     </div>
   )
 }
