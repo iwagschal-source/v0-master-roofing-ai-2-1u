@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react"
 import { Search, Plus, Loader2, Building2, Users, ExternalLink } from "lucide-react"
 import { CompanyModal } from "./company-modal"
+import { PersonModal } from "./person-modal"
 
 export function ContactsScreen() {
   const [activeTab, setActiveTab] = useState("companies")
@@ -13,6 +14,7 @@ export function ContactsScreen() {
   const [error, setError] = useState(null)
   const [searchQuery, setSearchQuery] = useState("")
   const [companyModal, setCompanyModal] = useState({ open: false, company: null })
+  const [personModal, setPersonModal] = useState({ open: false, person: null })
   const [refreshKey, setRefreshKey] = useState(0)
 
   // Fetch data when tab or search changes
@@ -77,7 +79,7 @@ export function ContactsScreen() {
     if (activeTab === "companies") {
       setCompanyModal({ open: true, company: null })
     } else {
-      console.log('Add person clicked - modal coming soon')
+      setPersonModal({ open: true, person: null })
     }
   }
 
@@ -96,7 +98,17 @@ export function ContactsScreen() {
   }
 
   const handleEditPerson = (person) => {
-    console.log('Edit person:', person.id, person.name)
+    setPersonModal({ open: true, person })
+  }
+
+  const handlePersonModalSuccess = () => {
+    // Refresh people list
+    setRefreshKey(prev => prev + 1)
+    setPersonModal({ open: false, person: null })
+  }
+
+  const handlePersonModalClose = () => {
+    setPersonModal({ open: false, person: null })
   }
 
   const currentCount = activeTab === "companies" ? companies.length : people.length
@@ -346,6 +358,14 @@ export function ContactsScreen() {
         onClose={handleCompanyModalClose}
         onSuccess={handleCompanyModalSuccess}
         company={companyModal.company}
+      />
+
+      {/* Person Modal */}
+      <PersonModal
+        isOpen={personModal.open}
+        onClose={handlePersonModalClose}
+        onSuccess={handlePersonModalSuccess}
+        person={personModal.person}
       />
     </div>
   )
