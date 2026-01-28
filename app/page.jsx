@@ -10,7 +10,7 @@ import { KOStage } from "@/components/ko/ko-stage"
 import { ConversationPane } from "@/components/ko/conversation-pane"
 import { StartupSequence } from "@/components/ko/startup-sequence"
 import { HomeScreen } from "@/components/ko/home-screen"
-import { EmailScreen } from "@/components/ko/email-screen"
+import { GmailScreen } from "@/components/ko/gmail-screen"
 import { SettingsScreen } from "@/components/ko/settings-screen"
 import { ZoomScreen } from "@/components/ko/zoom-screen"
 import { ModelArenaDashboard } from "@/components/ko/model-arena-dashboard"
@@ -358,7 +358,7 @@ export default function HomePage() {
 
         {
           showEmail ? (
-            <EmailScreen />
+            <GmailScreen />
           ) : showSettings ? (
             <SettingsScreen />
           ) : showZoom ? (
