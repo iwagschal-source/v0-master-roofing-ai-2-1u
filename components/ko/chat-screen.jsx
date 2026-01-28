@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect, useRef } from "react"
-import { MessageSquare, Send, RefreshCw, Loader2, Search, Hash, User, ExternalLink, LogOut, AlertTriangle, FolderOpen, ChevronDown, Check } from "lucide-react"
+import { MessageSquare, Send, RefreshCw, Loader2, Search, Hash, User, ExternalLink, LogOut, AlertTriangle, AlertCircle, FolderOpen, ChevronDown, Check } from "lucide-react"
 import { useChatSpaces, formatMessageTime, getInitials } from "@/hooks/useChatSpaces"
 import { useGoogleAuth } from "@/hooks/useGoogleAuth"
 
@@ -63,26 +63,52 @@ export function ChatScreen() {
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [])
 
-  // Handle project selection - console.log only for now (BigQuery in 6.3)
+  // Handle project selection - save to BigQuery via API
   const handleSelectProject = async (project) => {
     setSelectedProject(project)
     setDropdownOpen(false)
     setProjectSearch('')
     setLoggingStatus('logging')
 
-    // Simulate brief delay then log to console
-    await new Promise(resolve => setTimeout(resolve, 300))
+    try {
+      // Get last message snippet if available
+      const lastMessage = messages.length > 0 ? messages[messages.length - 1] : null
+      const contentSnippet = lastMessage?.text?.substring(0, 200) || ''
 
-    console.log('Chat conversation logged to project:', {
-      spaceId: selectedSpace?.id,
-      spaceName: selectedSpace?.displayName,
-      spaceType: selectedSpace?.type,
-      projectId: project.id,
-      projectName: project.name,
-      timestamp: new Date().toISOString(),
-    })
+      const res = await fetch('/api/ko/project-communications', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          projectId: project.id,
+          type: 'chat',
+          sourceId: selectedSpace?.id,
+          subject: selectedSpace?.displayName || 'Chat Conversation',
+          content: contentSnippet,
+          loggedBy: user?.email || 'unknown',
+        }),
+      })
 
-    setLoggingStatus('success')
+      const data = await res.json()
+
+      if (data.error) {
+        console.error('Failed to log chat:', data.error)
+        setLoggingStatus('error')
+        setTimeout(() => setLoggingStatus(null), 3000)
+      } else {
+        console.log('Chat conversation logged to project:', {
+          spaceId: selectedSpace?.id,
+          spaceName: selectedSpace?.displayName,
+          projectId: project.id,
+          projectName: project.name,
+          communicationId: data.id,
+        })
+        setLoggingStatus('success')
+      }
+    } catch (err) {
+      console.error('Failed to log chat:', err)
+      setLoggingStatus('error')
+      setTimeout(() => setLoggingStatus(null), 3000)
+    }
   }
 
   // Filter projects by search
@@ -304,6 +330,11 @@ export function ChatScreen() {
                       <>
                         <Loader2 className="w-4 h-4 animate-spin" />
                         <span>Logging...</span>
+                      </>
+                    ) : loggingStatus === 'error' ? (
+                      <>
+                        <AlertCircle className="w-4 h-4" />
+                        <span>Failed to log</span>
                       </>
                     ) : selectedProject ? (
                       <>
