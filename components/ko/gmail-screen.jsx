@@ -18,12 +18,18 @@ const RIGHT_PANEL_MIN = 250
 const RIGHT_PANEL_MAX = 450
 const RIGHT_PANEL_DEFAULT = 320
 
-const ATTACHMENT_MIN_HEIGHT = 100
+// Horizontal split constraints
+const CENTER_SPLIT_MIN = 100
+const CENTER_SPLIT_DEFAULT = 200 // attachment preview height
+
+const RIGHT_SPLIT_MIN = 150
+const RIGHT_SPLIT_DEFAULT = 256 // AI chat section height (h-64 = 256px)
 
 // localStorage keys
 const STORAGE_LEFT_WIDTH = 'gmail-left-panel-width'
 const STORAGE_RIGHT_WIDTH = 'gmail-right-panel-width'
-const STORAGE_ATTACHMENT_HEIGHT = 'gmail-attachment-height'
+const STORAGE_CENTER_SPLIT_HEIGHT = 'gmail-center-split-height'
+const STORAGE_RIGHT_SPLIT_HEIGHT = 'gmail-right-split-height'
 
 // Vertical Resizable Divider
 function VerticalDivider({ onDrag, position }) {
@@ -414,7 +420,9 @@ function EmailContentPanel({
 }
 
 // Right Panel - Draft Options & AI Chat
-function DraftPanel({ selectedMessage, draftReply, draftLoading, onSelectDraft, width }) {
+function DraftPanel({ selectedMessage, draftReply, draftLoading, onSelectDraft, width, aiChatHeight, onAiChatHeightChange }) {
+  const panelRef = useRef(null)
+
   // Placeholder draft options - will be replaced with actual drafts
   const placeholderDrafts = selectedMessage && draftReply ? [
     { id: 1, label: "Professional", preview: draftReply },
@@ -422,21 +430,36 @@ function DraftPanel({ selectedMessage, draftReply, draftLoading, onSelectDraft, 
     { id: 3, label: "Detailed", preview: "Thank you for your email regarding this matter. I've reviewed the details and would like to provide a comprehensive response..." },
   ] : []
 
+  const handleHorizontalDrag = useCallback((clientY) => {
+    if (!panelRef.current) return
+
+    const panelRect = panelRef.current.getBoundingClientRect()
+    const newHeight = panelRect.bottom - clientY
+
+    // Get total panel height and calculate max (panel height - min for top section - header heights ~88px)
+    const maxHeight = panelRect.height - RIGHT_SPLIT_MIN - 88
+
+    // Clamp to min/max
+    const clampedHeight = Math.min(maxHeight, Math.max(RIGHT_SPLIT_MIN, newHeight))
+    onAiChatHeightChange(clampedHeight)
+  }, [onAiChatHeightChange])
+
   return (
     <div
+      ref={panelRef}
       className="flex flex-col bg-card flex-shrink-0"
       style={{ width: `${width}px` }}
     >
       {/* Draft Options */}
-      <div className="flex-1 overflow-hidden flex flex-col border-b border-border">
-        <div className="px-4 py-3 border-b border-border">
+      <div className="flex-1 overflow-hidden flex flex-col min-h-0">
+        <div className="px-4 py-3 border-b border-border flex-shrink-0">
           <div className="flex items-center gap-2">
             <Sparkles className="w-4 h-4 text-primary" />
             <h3 className="text-sm font-medium text-foreground">Draft Options</h3>
           </div>
         </div>
 
-        <div className="flex-1 overflow-y-auto p-3">
+        <div className="flex-1 overflow-y-auto p-3 min-h-0">
           {!selectedMessage ? (
             <div className="flex flex-col items-center justify-center h-full text-muted-foreground">
               <FileText className="w-10 h-10 mb-3 opacity-30" />
@@ -476,23 +499,29 @@ function DraftPanel({ selectedMessage, draftReply, draftLoading, onSelectDraft, 
         </div>
       </div>
 
+      {/* Horizontal Divider between Draft Options and AI Chat */}
+      <HorizontalDivider onDrag={handleHorizontalDrag} />
+
       {/* AI Chat Placeholder */}
-      <div className="h-64 flex flex-col">
-        <div className="px-4 py-3 border-b border-border">
+      <div
+        className="flex flex-col flex-shrink-0"
+        style={{ height: `${aiChatHeight}px` }}
+      >
+        <div className="px-4 py-3 border-b border-border flex-shrink-0">
           <div className="flex items-center gap-2">
             <MessageSquare className="w-4 h-4 text-primary" />
             <h3 className="text-sm font-medium text-foreground">AI Assistant</h3>
           </div>
         </div>
 
-        <div className="flex-1 flex flex-col items-center justify-center p-4 text-muted-foreground">
+        <div className="flex-1 flex flex-col items-center justify-center p-4 text-muted-foreground min-h-0 overflow-hidden">
           <MessageSquare className="w-8 h-8 mb-3 opacity-30" />
           <p className="text-sm text-center">Chat with AI to refine drafts</p>
           <p className="text-xs text-center mt-1 opacity-70">Coming soon</p>
         </div>
 
         {/* Chat Input Placeholder */}
-        <div className="p-3 border-t border-border">
+        <div className="p-3 border-t border-border flex-shrink-0">
           <div className="flex gap-2">
             <input
               type="text"
@@ -683,12 +712,14 @@ export function GmailScreen() {
   // Panel width state
   const [leftPanelWidth, setLeftPanelWidth] = useState(LEFT_PANEL_DEFAULT)
   const [rightPanelWidth, setRightPanelWidth] = useState(RIGHT_PANEL_DEFAULT)
+  const [rightSplitHeight, setRightSplitHeight] = useState(RIGHT_SPLIT_DEFAULT)
   const containerRef = useRef(null)
 
-  // Load saved widths from localStorage
+  // Load saved dimensions from localStorage
   useEffect(() => {
     const savedLeftWidth = localStorage.getItem(STORAGE_LEFT_WIDTH)
     const savedRightWidth = localStorage.getItem(STORAGE_RIGHT_WIDTH)
+    const savedRightSplitHeight = localStorage.getItem(STORAGE_RIGHT_SPLIT_HEIGHT)
 
     if (savedLeftWidth) {
       const width = parseInt(savedLeftWidth, 10)
@@ -701,6 +732,13 @@ export function GmailScreen() {
       const width = parseInt(savedRightWidth, 10)
       if (width >= RIGHT_PANEL_MIN && width <= RIGHT_PANEL_MAX) {
         setRightPanelWidth(width)
+      }
+    }
+
+    if (savedRightSplitHeight) {
+      const height = parseInt(savedRightSplitHeight, 10)
+      if (height >= RIGHT_SPLIT_MIN) {
+        setRightSplitHeight(height)
       }
     }
   }, [])
@@ -729,6 +767,12 @@ export function GmailScreen() {
     const clampedWidth = Math.min(RIGHT_PANEL_MAX, Math.max(RIGHT_PANEL_MIN, newWidth))
     setRightPanelWidth(clampedWidth)
     localStorage.setItem(STORAGE_RIGHT_WIDTH, clampedWidth.toString())
+  }, [])
+
+  // Handle right panel horizontal split drag
+  const handleRightSplitHeightChange = useCallback((height) => {
+    setRightSplitHeight(height)
+    localStorage.setItem(STORAGE_RIGHT_SPLIT_HEIGHT, height.toString())
   }, [])
 
   // Update reply text when draft is generated
@@ -876,6 +920,8 @@ export function GmailScreen() {
         draftLoading={draftLoading}
         onSelectDraft={handleSelectDraft}
         width={rightPanelWidth}
+        aiChatHeight={rightSplitHeight}
+        onAiChatHeightChange={handleRightSplitHeightChange}
       />
 
       {/* Compose Modal */}
