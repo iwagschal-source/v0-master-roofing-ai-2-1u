@@ -128,7 +128,11 @@ export async function POST(request) {
       existed: false,
       project_id,
       ...result,
-      message: 'Takeoff spreadsheet and project folder created'
+      message: 'Takeoff spreadsheet and project folder created',
+      debug: {
+        receivedColumns: columns?.length || 0,
+        receivedLineItems: lineItems?.length || 0
+      }
     })
 
   } catch (err) {
