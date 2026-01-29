@@ -642,9 +642,12 @@ export function TakeoffSetupScreen({
           columns,
           lineItems: selectedItems.map(item => {
             const libraryItem = libraryItems.find(i => i.scope_code === item.scope_code)
+            // Get unit cost from overrides or library
+            const unitCost = rateOverrides[item.scope_code] || libraryItem?.gc_rate || libraryItem?.default_unit_cost || ''
             return {
               scope_code: item.scope_code,
               scope_name: libraryItem?.scope_name || item.scope_code,
+              unit_cost: unitCost,
               variants: item.variants
             }
           })
