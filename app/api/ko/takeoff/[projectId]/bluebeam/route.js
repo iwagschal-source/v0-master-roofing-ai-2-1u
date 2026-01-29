@@ -12,7 +12,8 @@
 
 import { NextResponse } from 'next/server'
 import https from 'https'
-import { fillBluebeamDataToTab, getTakeoffTab, createTakeoffTab } from '@/lib/google-sheets'
+import { fillBluebeamDataToTab, fillBluebeamDataToSpreadsheet, getTakeoffTab, createTakeoffTab } from '@/lib/google-sheets'
+import { runQuery } from '@/lib/bigquery'
 
 const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'https://136.111.252.120'
 
@@ -331,27 +332,59 @@ export async function POST(request, { params }) {
       )
     }
 
-    // Get or create the takeoff tab
-    let tabInfo = null
-    if (tab_name) {
-      tabInfo = { tabName: tab_name }
-    } else {
-      tabInfo = await getTakeoffTab(projectId)
-      if (!tabInfo) {
-        // Create a new tab if none exists
-        tabInfo = await createTakeoffTab(projectId, projectId)
+    // Check for standalone spreadsheet first (8.B.6+ approach)
+    let spreadsheetId = null
+    let config = null
+    try {
+      const bqResult = await runQuery(
+        `SELECT takeoff_spreadsheet_id FROM \`master-roofing-intelligence.mr_main.project_folders\` WHERE id = @projectId`,
+        { projectId },
+        { location: 'US' }
+      )
+      if (bqResult.length > 0 && bqResult[0].takeoff_spreadsheet_id) {
+        spreadsheetId = bqResult[0].takeoff_spreadsheet_id
       }
+
+      // Also fetch config for mapping
+      const configRes = await fetch(
+        new URL(`/api/ko/takeoff/${projectId}/config`, request.url).toString(),
+        { headers: { 'Accept': 'application/json' } }
+      )
+      if (configRes.ok) {
+        const configData = await configRes.json()
+        if (configData.exists) config = configData.config
+      }
+    } catch (bqErr) {
+      console.warn('BigQuery lookup failed:', bqErr.message)
     }
 
-    // Fill data into Google Sheet
-    const result = await fillBluebeamDataToTab(tabInfo.tabName, items)
+    let result
+    let storage = 'google_sheets'
+
+    if (spreadsheetId) {
+      // Use standalone spreadsheet (new approach)
+      result = await fillBluebeamDataToSpreadsheet(spreadsheetId, items, config)
+      storage = 'standalone_spreadsheet'
+    } else {
+      // Fall back to tab-based approach (legacy)
+      let tabInfo = null
+      if (tab_name) {
+        tabInfo = { tabName: tab_name }
+      } else {
+        tabInfo = await getTakeoffTab(projectId)
+        if (!tabInfo) {
+          tabInfo = await createTakeoffTab(projectId, projectId)
+        }
+      }
+      result = await fillBluebeamDataToTab(tabInfo.tabName, items)
+    }
 
     return NextResponse.json({
       success: true,
       items_parsed: items.length,
       cells_updated: result.updated,
-      tab_name: tabInfo.tabName,
-      storage: 'google_sheets',
+      spreadsheet_id: spreadsheetId,
+      storage,
       parse_mode: parseMode,
       parse_stats: parseStats
     })
