@@ -61,12 +61,23 @@ export async function POST(request, { params }) {
     const templateBuffer = await templateResponse.arrayBuffer()
     const zip = new PizZip(templateBuffer)
 
+    // Custom parser to handle undefined tags gracefully
+    const expressionParser = (tag) => ({
+      get: (scope) => {
+        const value = scope[tag]
+        if (value === undefined || value === null) {
+          return ''
+        }
+        return value
+      }
+    })
+
     const doc = new Docxtemplater(zip, {
       paragraphLoop: true,
       linebreaks: true,
       delimiters: { start: '{', end: '}' },
-      // Don't throw on undefined variables - replace with empty string
       nullGetter: () => '',
+      parser: expressionParser,
     })
 
     // 4. Render the template with data
