@@ -111,8 +111,21 @@ export async function POST(request, { params }) {
 
   } catch (err) {
     console.error('Proposal generate error:', err)
+    // Return detailed error for debugging
+    const errorDetails = {
+      message: err.message,
+      name: err.name,
+      // docxtemplater specific errors
+      properties: err.properties ? {
+        errors: err.properties.errors?.map(e => ({
+          message: e.message,
+          name: e.name,
+          properties: e.properties
+        }))
+      } : undefined
+    }
     return NextResponse.json(
-      { error: 'Failed to generate proposal: ' + err.message },
+      { error: 'Failed to generate proposal: ' + err.message, details: errorDetails },
       { status: 500 }
     )
   }
