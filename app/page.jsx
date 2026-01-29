@@ -32,17 +32,17 @@ import { ContactsScreen } from "@/components/ko/contacts-screen"
 import { agents as fallbackAgents } from "@/data/agent-data"
 
 export default function HomePage() {
-  // TEMPORARY: Auth disabled for testing
-  const session = { user: { name: "Test User", email: "test@masterroofingus.com" } }
-  const status = "authenticated"
+  const sessionResult = useSession()
+  const session = sessionResult?.data
+  const status = sessionResult?.status || "loading"
   const router = useRouter()
 
-  // Auth redirect disabled for testing
-  // useEffect(() => {
-  //   if (status === "unauthenticated") {
-  //     router.push("/login")
-  //   }
-  // }, [status, router])
+  // Redirect to login if not authenticated
+  useEffect(() => {
+    if (status === "unauthenticated") {
+      router.push("/login")
+    }
+  }, [status, router])
 
   const [isStartupComplete, setIsStartupComplete] = useState(false)
   const [isShuttingDown, setIsShuttingDown] = useState(false)
