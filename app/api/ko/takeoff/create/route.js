@@ -1,8 +1,9 @@
 /**
- * Create Takeoff API (Step 8.B.6)
+ * Create Takeoff API (Step 8.B.6 + 8.B.7)
  *
  * Creates a new standalone Google Sheets takeoff workbook for a project.
- * Each project gets its own spreadsheet (not tabs in a master sheet).
+ * Also creates project folder structure in Google Drive:
+ * KO Projects > [Project] > Drawings, Markups, Proposals
  */
 
 import { NextResponse } from 'next/server'
@@ -23,6 +24,7 @@ import { runQuery } from '@/lib/bigquery'
  * - spreadsheetId: The new spreadsheet ID
  * - spreadsheetUrl: URL for editing
  * - embedUrl: URL for embedding
+ * - folderId: Project folder ID in Google Drive
  */
 export async function POST(request) {
   try {
@@ -36,29 +38,36 @@ export async function POST(request) {
       )
     }
 
-    // Check if project already has a takeoff spreadsheet
+    // Check if project already has a takeoff spreadsheet and/or folder
     const existingCheck = await runQuery(
-      `SELECT takeoff_spreadsheet_id FROM \`master-roofing-intelligence.mr_main.project_folders\`
-       WHERE id = @projectId AND takeoff_spreadsheet_id IS NOT NULL`,
+      `SELECT takeoff_spreadsheet_id, drive_folder_id, drive_drawings_folder_id
+       FROM \`master-roofing-intelligence.mr_main.project_folders\`
+       WHERE id = @projectId`,
       { projectId: project_id },
       { location: 'US' }
     )
 
-    if (existingCheck.length > 0 && existingCheck[0].takeoff_spreadsheet_id) {
-      const existingId = existingCheck[0].takeoff_spreadsheet_id
+    const existing = existingCheck.length > 0 ? existingCheck[0] : null
+    const existingSpreadsheetId = existing?.takeoff_spreadsheet_id
+    const existingFolderId = existing?.drive_folder_id
+
+    // If spreadsheet already exists, return it
+    if (existingSpreadsheetId) {
       return NextResponse.json({
         success: true,
         existed: true,
         project_id,
-        spreadsheetId: existingId,
-        spreadsheetUrl: `https://docs.google.com/spreadsheets/d/${existingId}/edit`,
-        embedUrl: `https://docs.google.com/spreadsheets/d/${existingId}/edit?embedded=true&rm=minimal`,
+        spreadsheetId: existingSpreadsheetId,
+        spreadsheetUrl: `https://docs.google.com/spreadsheets/d/${existingSpreadsheetId}/edit`,
+        embedUrl: `https://docs.google.com/spreadsheets/d/${existingSpreadsheetId}/edit?embedded=true&rm=minimal`,
+        folderId: existingFolderId,
         message: 'Takeoff spreadsheet already exists'
       })
     }
 
-    // Create new standalone Google Sheet for this project
-    const result = await createProjectTakeoffSheet(project_id, project_name)
+    // Create new standalone Google Sheet in project folder
+    // This also creates the folder structure if it doesn't exist
+    const result = await createProjectTakeoffSheet(project_id, project_name, existingFolderId)
 
     // Populate sheet with locations and line items if provided
     if ((columns && columns.length > 0) || (lineItems && lineItems.length > 0)) {
@@ -73,21 +82,25 @@ export async function POST(request) {
       }
     }
 
-    // Save spreadsheet_id to BigQuery project_folders
+    // Save spreadsheet_id and folder IDs to BigQuery
     try {
       await runQuery(
         `UPDATE \`master-roofing-intelligence.mr_main.project_folders\`
          SET takeoff_spreadsheet_id = @spreadsheetId,
+             drive_folder_id = @folderId,
+             drive_drawings_folder_id = @drawingsFolderId,
              updated_at = CURRENT_TIMESTAMP()
          WHERE id = @projectId`,
         {
           spreadsheetId: result.spreadsheetId,
+          folderId: result.folderId || null,
+          drawingsFolderId: result.drawingsFolderId || null,
           projectId: project_id
         },
         { location: 'US' }
       )
     } catch (bqErr) {
-      console.warn('Failed to save spreadsheet_id to BigQuery:', bqErr.message)
+      console.warn('Failed to save IDs to BigQuery:', bqErr.message)
       // Don't fail the request - sheet was created successfully
     }
 
@@ -96,7 +109,7 @@ export async function POST(request) {
       existed: false,
       project_id,
       ...result,
-      message: 'Takeoff spreadsheet created'
+      message: 'Takeoff spreadsheet and project folder created'
     })
 
   } catch (err) {
@@ -110,7 +123,7 @@ export async function POST(request) {
 
 /**
  * GET /api/ko/takeoff/create?project_id=xxx
- * Check if a takeoff spreadsheet exists for a project
+ * Check if a takeoff spreadsheet and folder exists for a project
  */
 export async function GET(request) {
   try {
@@ -125,19 +138,23 @@ export async function GET(request) {
     }
 
     const result = await runQuery(
-      `SELECT takeoff_spreadsheet_id FROM \`master-roofing-intelligence.mr_main.project_folders\`
+      `SELECT takeoff_spreadsheet_id, drive_folder_id, drive_drawings_folder_id
+       FROM \`master-roofing-intelligence.mr_main.project_folders\`
        WHERE id = @projectId`,
       { projectId },
       { location: 'US' }
     )
 
     if (result.length > 0 && result[0].takeoff_spreadsheet_id) {
-      const spreadsheetId = result[0].takeoff_spreadsheet_id
+      const { takeoff_spreadsheet_id: spreadsheetId, drive_folder_id, drive_drawings_folder_id } = result[0]
       return NextResponse.json({
         exists: true,
         spreadsheetId,
         spreadsheetUrl: `https://docs.google.com/spreadsheets/d/${spreadsheetId}/edit`,
         embedUrl: `https://docs.google.com/spreadsheets/d/${spreadsheetId}/edit?embedded=true&rm=minimal`,
+        folderId: drive_folder_id,
+        folderUrl: drive_folder_id ? `https://drive.google.com/drive/folders/${drive_folder_id}` : null,
+        drawingsFolderId: drive_drawings_folder_id,
       })
     }
 
