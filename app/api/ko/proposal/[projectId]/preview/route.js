@@ -7,7 +7,7 @@
  */
 
 import { NextResponse } from 'next/server'
-import { readSheetValues } from '@/lib/google-sheets'
+import { readSheetValues, getFirstSheetName } from '@/lib/google-sheets'
 import { runQuery } from '@/lib/bigquery'
 
 /**
@@ -69,7 +69,8 @@ export async function GET(request, { params }) {
     // 2. Read takeoff sheet data (headers + all data rows)
     // After item_id addition, column layout is:
     // A: item_id, B: Unit Cost, C: R, D: IN, E: TYPE, F: Scope, G+: Locations, then Total Meas, Total Cost, Row Type
-    const sheetData = await readSheetValues(spreadsheetId, 'Sheet1!A1:Z100')
+    const sheetName = await getFirstSheetName(spreadsheetId)
+    const sheetData = await readSheetValues(spreadsheetId, `'${sheetName}'!A1:Z100`)
 
     if (!sheetData || sheetData.length < 2) {
       return NextResponse.json({
