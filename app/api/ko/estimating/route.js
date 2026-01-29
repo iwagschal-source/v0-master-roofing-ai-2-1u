@@ -1,104 +1,76 @@
 /**
  * Estimating Center API
  *
- * Endpoints for the Estimating Center workspace.
- * Returns project data from BigQuery for estimators.
+ * Returns project data from project_folders table (the source of truth).
+ * Projects are created in Project Folders, viewed/worked in Estimating Center.
  */
 
 import { NextResponse } from 'next/server'
 import { runQuery } from '@/lib/bigquery'
 
-const BQ_DATASET = 'mr_staging'
-const BQ_TABLE = 'estimating_projects'
-
-/**
- * Ensure the estimating_projects table exists
- */
-async function ensureTable() {
-  const createTableSQL = `
-    CREATE TABLE IF NOT EXISTS \`master-roofing-intelligence.${BQ_DATASET}.${BQ_TABLE}\` (
-      project_id STRING NOT NULL,
-      project_name STRING NOT NULL,
-      gc_name STRING,
-      address STRING,
-      due_date DATE,
-      priority STRING,
-      assigned_to STRING,
-      estimate_status STRING,
-      proposal_total FLOAT64,
-      takeoff_total FLOAT64,
-      has_takeoff BOOL,
-      has_proposal BOOL,
-      created_at TIMESTAMP,
-      updated_at TIMESTAMP
-    )
-  `
-  try {
-    await runQuery(createTableSQL)
-  } catch (err) {
-    if (!err.message?.includes('Already Exists')) {
-      console.warn('Table creation warning:', err.message)
-    }
-  }
-}
-
 /**
  * GET /api/ko/estimating
- * Returns list of projects for estimating center from BigQuery
+ * Returns list of projects for estimating center from project_folders
  *
  * Query params:
- * - search: Filter by project name or GC name
- * - status: Filter by estimate status
- * - assigned_to: Filter by estimator
+ * - search: Filter by project name or company name
+ * - status: Filter by status
  */
 export async function GET(request) {
   const { searchParams } = new URL(request.url)
   const search = searchParams.get('search')?.toLowerCase()
   const status = searchParams.get('status')
-  const assignedTo = searchParams.get('assigned_to')
 
   try {
-    await ensureTable()
-
     let query = `
-      SELECT *
-      FROM \`master-roofing-intelligence.${BQ_DATASET}.${BQ_TABLE}\`
+      SELECT
+        pf.id as project_id,
+        pf.project_name,
+        c.company_name as gc_name,
+        pf.address,
+        pf.city,
+        pf.state,
+        pf.zip,
+        pf.status as estimate_status,
+        pf.notes,
+        pf.takeoff_spreadsheet_id,
+        pf.drive_folder_id,
+        pf.created_at,
+        pf.updated_at
+      FROM \`master-roofing-intelligence.mr_main.project_folders\` pf
+      LEFT JOIN \`master-roofing-intelligence.mr_main.contacts_companies\` c
+        ON pf.company_id = c.id
       WHERE 1=1
     `
     const params = {}
 
     if (search) {
-      query += ` AND (LOWER(project_name) LIKE @search OR LOWER(gc_name) LIKE @search)`
+      query += ` AND (LOWER(pf.project_name) LIKE @search OR LOWER(c.company_name) LIKE @search)`
       params.search = `%${search}%`
     }
 
     if (status && status !== 'all') {
-      query += ` AND estimate_status = @status`
+      query += ` AND pf.status = @status`
       params.status = status
     }
 
-    if (assignedTo) {
-      query += ` AND assigned_to = @assignedTo`
-      params.assignedTo = assignedTo
-    }
+    query += ` ORDER BY pf.updated_at DESC LIMIT 100`
 
-    query += ` ORDER BY updated_at DESC LIMIT 100`
-
-    const rows = await runQuery(query, params)
+    const rows = await runQuery(query, params, { location: 'US' })
 
     const projects = (rows || []).map(row => ({
       project_id: row.project_id,
       project_name: row.project_name,
-      gc_name: row.gc_name,
-      address: row.address,
-      due_date: row.due_date?.value || row.due_date,
-      priority: row.priority,
-      assigned_to: row.assigned_to,
-      estimate_status: row.estimate_status,
-      proposal_total: row.proposal_total,
-      takeoff_total: row.takeoff_total,
-      has_takeoff: row.has_takeoff,
-      has_proposal: row.has_proposal,
+      gc_name: row.gc_name || 'Unknown',
+      address: [row.address, row.city, row.state, row.zip].filter(Boolean).join(', ') || null,
+      due_date: null, // Not in project_folders yet
+      priority: 'normal', // Default
+      assigned_to: null, // Not in project_folders yet
+      estimate_status: row.estimate_status || 'draft',
+      proposal_total: null, // Calculated from takeoff
+      takeoff_total: null,
+      has_takeoff: !!row.takeoff_spreadsheet_id,
+      has_proposal: false,
       created_at: row.created_at?.value || row.created_at,
       updated_at: row.updated_at?.value || row.updated_at
     }))
@@ -106,11 +78,11 @@ export async function GET(request) {
     return NextResponse.json({
       projects,
       total: projects.length,
-      source: 'bigquery'
+      source: 'project_folders'
     })
 
   } catch (err) {
-    console.error('Error fetching projects from BigQuery:', err)
+    console.error('Error fetching projects:', err)
     return NextResponse.json(
       { error: 'Failed to fetch projects: ' + err.message },
       { status: 500 }
@@ -120,12 +92,12 @@ export async function GET(request) {
 
 /**
  * PUT /api/ko/estimating
- * Update project status or assignment in BigQuery
+ * Update project status in project_folders
  */
 export async function PUT(request) {
   try {
     const body = await request.json()
-    const { project_id, estimate_status, assigned_to } = body
+    const { project_id, estimate_status } = body
 
     if (!project_id) {
       return NextResponse.json(
@@ -134,35 +106,26 @@ export async function PUT(request) {
       )
     }
 
-    await ensureTable()
-
     const setClauses = ['updated_at = CURRENT_TIMESTAMP()']
     const params = { project_id }
 
     if (estimate_status !== undefined) {
-      setClauses.push('estimate_status = @estimate_status')
+      setClauses.push('status = @estimate_status')
       params.estimate_status = estimate_status
     }
 
-    if (assigned_to !== undefined) {
-      setClauses.push('assigned_to = @assigned_to')
-      params.assigned_to = assigned_to
-    }
-
     const updateQuery = `
-      UPDATE \`master-roofing-intelligence.${BQ_DATASET}.${BQ_TABLE}\`
+      UPDATE \`master-roofing-intelligence.mr_main.project_folders\`
       SET ${setClauses.join(', ')}
-      WHERE project_id = @project_id
+      WHERE id = @project_id
     `
 
-    await runQuery(updateQuery, params)
+    await runQuery(updateQuery, params, { location: 'US' })
 
     return NextResponse.json({
       success: true,
       project_id,
-      estimate_status,
-      assigned_to,
-      source: 'bigquery'
+      estimate_status
     })
 
   } catch (err) {
