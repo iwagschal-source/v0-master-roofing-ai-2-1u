@@ -50,6 +50,10 @@ export function TakeoffProposalPreview({ projectId, onClose, onGeneratePdf }) {
   // Section collapse state
   const [collapsedSections, setCollapsedSections] = useState({})
 
+  // Generate state
+  const [generating, setGenerating] = useState(false)
+  const [generateResult, setGenerateResult] = useState(null)
+
   // Load preview data
   useEffect(() => {
     if (projectId) {
@@ -137,13 +141,71 @@ export function TakeoffProposalPreview({ projectId, onClose, onGeneratePdf }) {
     return sectionsSum + standalonesSum
   }
 
-  // Handle generate PDF
-  const handleGeneratePdf = () => {
-    if (onGeneratePdf) {
-      onGeneratePdf({
-        ...previewData,
-        editedDescriptions
+  // Handle generate document
+  const handleGenerateDocument = async () => {
+    setGenerating(true)
+    setGenerateResult(null)
+
+    try {
+      const res = await fetch(`/api/ko/proposal/${projectId}/generate`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ editedDescriptions })
       })
+
+      if (!res.ok) {
+        const errData = await res.json()
+        throw new Error(errData.error || 'Failed to generate document')
+      }
+
+      // Get the file as a blob and trigger download
+      const blob = await res.blob()
+      const contentDisposition = res.headers.get('Content-Disposition')
+      const driveFileId = res.headers.get('X-Drive-File-Id')
+      const driveFileUrl = res.headers.get('X-Drive-File-Url')
+
+      // Extract filename from header or generate one
+      let filename = 'Proposal.docx'
+      if (contentDisposition) {
+        const match = contentDisposition.match(/filename="?([^"]+)"?/)
+        if (match) filename = match[1]
+      }
+
+      // Create download link
+      const url = window.URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = filename
+      document.body.appendChild(a)
+      a.click()
+      window.URL.revokeObjectURL(url)
+      document.body.removeChild(a)
+
+      setGenerateResult({
+        success: true,
+        message: 'Document generated and downloaded!',
+        driveFileId,
+        driveFileUrl
+      })
+
+      // Also call the callback if provided
+      if (onGeneratePdf) {
+        onGeneratePdf({
+          ...previewData,
+          editedDescriptions,
+          driveFileId,
+          driveFileUrl
+        })
+      }
+
+    } catch (err) {
+      console.error('Generate error:', err)
+      setGenerateResult({
+        success: false,
+        message: err.message
+      })
+    } finally {
+      setGenerating(false)
     }
   }
 
@@ -212,20 +274,50 @@ export function TakeoffProposalPreview({ projectId, onClose, onGeneratePdf }) {
         </div>
 
         <div className="flex items-center gap-3">
+          {generateResult && (
+            <div className={cn(
+              "flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm",
+              generateResult.success
+                ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300"
+                : "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300"
+            )}>
+              {generateResult.success ? (
+                <Check className="w-4 h-4" />
+              ) : (
+                <AlertCircle className="w-4 h-4" />
+              )}
+              {generateResult.message}
+              {generateResult.driveFileUrl && (
+                <a
+                  href={generateResult.driveFileUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="underline ml-1"
+                >
+                  View in Drive
+                </a>
+              )}
+            </div>
+          )}
           <button
             onClick={loadPreviewData}
-            className="flex items-center gap-2 px-4 py-2 bg-secondary text-foreground rounded-lg hover:bg-secondary/80"
+            disabled={generating}
+            className="flex items-center gap-2 px-4 py-2 bg-secondary text-foreground rounded-lg hover:bg-secondary/80 disabled:opacity-50"
           >
-            <RefreshCw className="w-4 h-4" />
+            <RefreshCw className={cn("w-4 h-4", generating && "animate-spin")} />
             Refresh
           </button>
           <button
-            onClick={handleGeneratePdf}
-            disabled={!onGeneratePdf}
+            onClick={handleGenerateDocument}
+            disabled={generating}
             className="flex items-center gap-2 px-5 py-2.5 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            <Download className="w-4 h-4" />
-            Generate PDF
+            {generating ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : (
+              <Download className="w-4 h-4" />
+            )}
+            {generating ? 'Generating...' : 'Generate Document'}
           </button>
         </div>
       </div>

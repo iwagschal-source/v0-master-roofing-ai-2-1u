@@ -1036,15 +1036,18 @@ export function EstimatingCenterScreen({ onSelectProject, onBack }) {
         />
       )}
 
-      {/* Proposal Preview Modal (Step 8.C.10) */}
+      {/* Proposal Preview Modal (Step 8.C.10 + 8.D) */}
       {showProposalPreview && selectedProject && (
         <TakeoffProposalPreview
           projectId={selectedProject.project_id}
           onClose={() => setShowProposalPreview(false)}
           onGeneratePdf={(data) => {
-            console.log('Generate PDF with data:', data)
-            // TODO: Wire to PDF generation in step 8.D
-            alert('PDF generation will be implemented in step 8.D')
+            console.log('Document generated:', data)
+            // Document was generated and downloaded
+            // If saved to Drive, data includes driveFileId and driveFileUrl
+            if (data.driveFileUrl) {
+              console.log('Saved to Drive:', data.driveFileUrl)
+            }
           }}
         />
       )}
