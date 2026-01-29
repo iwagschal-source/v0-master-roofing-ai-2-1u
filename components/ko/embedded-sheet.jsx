@@ -1,7 +1,6 @@
 "use client"
 
-import { useState } from "react"
-import { Loader2, ExternalLink, RefreshCw } from "lucide-react"
+import { ExternalLink, FileSpreadsheet } from "lucide-react"
 
 // Map tab names to Google Sheets GIDs (configure after sheet is created)
 const DEFAULT_TAB_GIDS = {
@@ -12,16 +11,19 @@ const DEFAULT_TAB_GIDS = {
   Proposal: "456789012",
 }
 
+/**
+ * EmbeddedSheet - Opens Google Sheet in new tab
+ *
+ * Note: Google Sheets blocks iframe embedding via CSP (frame-ancestors).
+ * This component displays a prominent button to open the sheet in a new tab instead.
+ */
 export function EmbeddedSheet({
   sheetId,
   tab = "Systems",
   tabGids = DEFAULT_TAB_GIDS,
-  height = 500,
+  height = 300,
   className = ""
 }) {
-  const [isLoading, setIsLoading] = useState(true)
-  const [hasError, setHasError] = useState(false)
-
   if (!sheetId) {
     return (
       <div className={`w-full bg-card border border-border rounded-lg flex items-center justify-center ${className}`} style={{ height }}>
@@ -47,112 +49,36 @@ export function EmbeddedSheet({
   // Get the GID for the selected tab
   const gid = tabGids[tab] || "0"
 
-  // Construct the embed URL
-  // Options: embedded=true, rm=minimal (removes chrome), widget=true
-  const embedUrl = `https://docs.google.com/spreadsheets/d/${sheetId}/edit?usp=sharing&embedded=true&rm=minimal&gid=${gid}`
-
   // Direct link for opening in new tab
   const directUrl = `https://docs.google.com/spreadsheets/d/${sheetId}/edit#gid=${gid}`
 
-  const handleLoad = () => {
-    setIsLoading(false)
-    setHasError(false)
-  }
-
-  const handleError = () => {
-    setIsLoading(false)
-    setHasError(true)
-  }
-
-  const handleRefresh = () => {
-    setIsLoading(true)
-    setHasError(false)
-    // Force iframe refresh by updating key
-    const iframe = document.querySelector(`iframe[data-sheet-id="${sheetId}"]`)
-    if (iframe) {
-      iframe.src = iframe.src
-    }
-  }
-
   return (
-    <div className={`w-full bg-card border border-border rounded-lg overflow-hidden relative ${className}`} style={{ height }}>
-      {/* Loading State */}
-      {isLoading && (
-        <div className="absolute inset-0 bg-card flex items-center justify-center z-10">
-          <div className="flex flex-col items-center gap-3">
-            <Loader2 className="w-8 h-8 animate-spin text-foreground-secondary" />
-            <span className="text-foreground-tertiary text-sm">Loading spreadsheet...</span>
-          </div>
+    <div className={`w-full bg-card border border-border rounded-lg flex items-center justify-center ${className}`} style={{ height }}>
+      <div className="text-center p-8">
+        {/* Google Sheets Icon */}
+        <div className="w-20 h-20 rounded-2xl bg-green-500/10 flex items-center justify-center mx-auto mb-4">
+          <FileSpreadsheet className="w-10 h-10 text-green-500" />
         </div>
-      )}
 
-      {/* Error State */}
-      {hasError && (
-        <div className="absolute inset-0 bg-card flex items-center justify-center z-10">
-          <div className="text-center p-8">
-            <div className="w-16 h-16 rounded-2xl bg-red-500/10 flex items-center justify-center mx-auto mb-4">
-              <svg className="w-8 h-8 text-red-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <circle cx="12" cy="12" r="10" />
-                <line x1="12" y1="8" x2="12" y2="12" />
-                <line x1="12" y1="16" x2="12.01" y2="16" />
-              </svg>
-            </div>
-            <h3 className="text-foreground font-medium mb-1">Failed to Load Sheet</h3>
-            <p className="text-foreground-tertiary text-sm mb-4">
-              The spreadsheet could not be loaded. Check permissions.
-            </p>
-            <div className="flex items-center justify-center gap-3">
-              <button
-                onClick={handleRefresh}
-                className="flex items-center gap-2 px-4 py-2 rounded-lg bg-secondary text-foreground-secondary hover:text-foreground transition-colors text-sm"
-              >
-                <RefreshCw className="w-4 h-4" />
-                Retry
-              </button>
-              <a
-                href={directUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 transition-colors text-sm"
-              >
-                <ExternalLink className="w-4 h-4" />
-                Open in Sheets
-              </a>
-            </div>
-          </div>
-        </div>
-      )}
+        <h3 className="text-foreground font-medium mb-2">Takeoff Spreadsheet</h3>
+        <p className="text-foreground-tertiary text-sm mb-6 max-w-sm">
+          View and edit the takeoff data in Google Sheets. Changes sync automatically.
+        </p>
 
-      {/* Toolbar */}
-      <div className="absolute top-2 right-2 z-20 flex items-center gap-1">
-        <button
-          onClick={handleRefresh}
-          className="p-2 rounded-lg bg-card/80 backdrop-blur-sm border border-border/50 text-foreground-secondary hover:text-foreground transition-colors"
-          title="Refresh"
-        >
-          <RefreshCw className="w-4 h-4" />
-        </button>
         <a
           href={directUrl}
           target="_blank"
           rel="noopener noreferrer"
-          className="p-2 rounded-lg bg-card/80 backdrop-blur-sm border border-border/50 text-foreground-secondary hover:text-foreground transition-colors"
-          title="Open in Google Sheets"
+          className="inline-flex items-center gap-2 px-6 py-3 rounded-lg bg-green-600 text-white hover:bg-green-700 transition-colors text-sm font-medium"
         >
           <ExternalLink className="w-4 h-4" />
+          Open in Google Sheets
         </a>
-      </div>
 
-      {/* Iframe */}
-      <iframe
-        data-sheet-id={sheetId}
-        src={embedUrl}
-        className="w-full h-full border-0"
-        onLoad={handleLoad}
-        onError={handleError}
-        allow="clipboard-read; clipboard-write"
-        sandbox="allow-scripts allow-same-origin allow-popups allow-forms"
-      />
+        <p className="text-foreground-tertiary text-xs mt-4">
+          Opens in a new tab
+        </p>
+      </div>
     </div>
   )
 }
