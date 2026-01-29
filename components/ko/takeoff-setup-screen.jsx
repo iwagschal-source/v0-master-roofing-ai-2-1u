@@ -28,7 +28,8 @@ const STEPS = [
   { id: 'columns', label: 'Location Columns', icon: MapPin },
   { id: 'items', label: 'Line Items', icon: List },
   { id: 'rates', label: 'Rates', icon: DollarSign },
-  { id: 'generate', label: 'Generate BTX', icon: Wrench }
+  { id: 'generate', label: 'Generate BTX', icon: Wrench },
+  { id: 'sheet', label: 'Create Sheet', icon: FileSpreadsheet }
 ]
 
 /**
@@ -63,6 +64,13 @@ export function TakeoffSetupScreen({
   const [downloadingBtx, setDownloadingBtx] = useState(false)
   const [btxGenerated, setBtxGenerated] = useState(false)
   const [error, setError] = useState(null)
+
+  // Sheet creation state (Step 5)
+  const [creatingSheet, setCreatingSheet] = useState(false)
+  const [sheetCreated, setSheetCreated] = useState(false)
+  const [spreadsheetId, setSpreadsheetId] = useState(null)
+  const [spreadsheetUrl, setSpreadsheetUrl] = useState(null)
+  const [embedUrl, setEmbedUrl] = useState(null)
 
   // Library data
   const [libraryItems, setLibraryItems] = useState([])
@@ -163,51 +171,26 @@ export function TakeoffSetupScreen({
     }
   }
 
-  // Generate takeoff and complete
+  // Complete wizard and return to Estimating Center
   const handleComplete = async () => {
-    // First save config
-    const saved = await saveConfig()
-    if (!saved) return
+    // Save config one more time
+    await saveConfig().catch(err => {
+      console.warn('Final config save failed:', err.message)
+    })
 
-    setGenerating(true)
-    setError(null)
-
-    try {
-      // Generate takeoff from config
-      const res = await fetch(`/api/ko/takeoff/${projectId}/generate`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          columns,
-          selectedItems,
-          rateOverrides,
-          gcName
-        })
+    // Call completion callback with all data including spreadsheet
+    if (onComplete) {
+      onComplete({
+        columns,
+        selectedItems,
+        rateOverrides,
+        gcName,
+        spreadsheetId,
+        spreadsheetUrl,
+        embedUrl,
+        btxGenerated,
+        sheetCreated
       })
-
-      if (!res.ok) {
-        const data = await res.json()
-        throw new Error(data.error || 'Failed to generate takeoff')
-      }
-
-      const result = await res.json()
-
-      // Call completion callback
-      if (onComplete) {
-        onComplete({
-          columns,
-          selectedItems,
-          rateOverrides,
-          gcName,
-          generated: result
-        })
-      }
-
-    } catch (err) {
-      console.error('Generate error:', err)
-      setError('Failed to generate takeoff: ' + err.message)
-    } finally {
-      setGenerating(false)
     }
   }
 
@@ -354,6 +337,8 @@ export function TakeoffSetupScreen({
         return renderRatesStep()
       case 3:
         return renderGenerateStep()
+      case 4:
+        return renderCreateSheetStep()
       default:
         return null
     }
@@ -642,6 +627,156 @@ export function TakeoffSetupScreen({
     )
   }
 
+  // Create takeoff sheet
+  const createTakeoffSheet = async () => {
+    setCreatingSheet(true)
+    setError(null)
+
+    try {
+      const res = await fetch('/api/ko/takeoff/create', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          project_id: projectId,
+          project_name: projectName,
+          columns,
+          lineItems: selectedItems.map(item => {
+            const libraryItem = libraryItems.find(i => i.scope_code === item.scope_code)
+            return {
+              scope_code: item.scope_code,
+              scope_name: libraryItem?.scope_name || item.scope_code,
+              variants: item.variants
+            }
+          })
+        })
+      })
+
+      if (!res.ok) {
+        const errData = await res.json()
+        throw new Error(errData.error || 'Failed to create takeoff sheet')
+      }
+
+      const data = await res.json()
+      setSpreadsheetId(data.spreadsheetId)
+      setSpreadsheetUrl(data.spreadsheetUrl)
+      setEmbedUrl(data.embedUrl)
+      setSheetCreated(true)
+
+    } catch (err) {
+      console.error('Create sheet error:', err)
+      setError('Failed to create takeoff sheet: ' + err.message)
+    } finally {
+      setCreatingSheet(false)
+    }
+  }
+
+  // Step 5: Create Takeoff Sheet
+  const renderCreateSheetStep = () => {
+    return (
+      <div className="p-6">
+        <div className="mb-6">
+          <h2 className="text-lg font-semibold mb-2">Create Takeoff Sheet</h2>
+          <p className="text-sm text-muted-foreground">
+            Create a Google Sheets workbook with your configured locations and line items.
+            The sheet will be linked to this project for tracking.
+          </p>
+        </div>
+
+        {!sheetCreated ? (
+          // Pre-creation state
+          <div className="bg-muted/30 rounded-lg p-8 text-center">
+            <div className="w-20 h-20 rounded-2xl bg-green-500/10 flex items-center justify-center mx-auto mb-6">
+              <FileSpreadsheet className="w-10 h-10 text-green-600" />
+            </div>
+
+            <h3 className="text-xl font-semibold mb-2">Ready to Create</h3>
+            <p className="text-muted-foreground mb-6 max-w-md mx-auto">
+              This will create a new Google Sheets workbook with {columns.length} location columns
+              and {selectedItems.length} line items.
+            </p>
+
+            <button
+              onClick={createTakeoffSheet}
+              disabled={creatingSheet}
+              className="flex items-center gap-3 px-8 py-4 bg-green-600 text-white rounded-xl text-lg font-medium hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors mx-auto"
+            >
+              {creatingSheet ? (
+                <Loader2 className="w-6 h-6 animate-spin" />
+              ) : (
+                <FileSpreadsheet className="w-6 h-6" />
+              )}
+              {creatingSheet ? 'Creating Sheet...' : 'Create Takeoff Sheet'}
+            </button>
+
+            <div className="mt-6 p-4 bg-blue-500/10 border border-blue-500/30 rounded-lg text-left max-w-md mx-auto">
+              <p className="text-sm text-blue-700 dark:text-blue-300">
+                <strong>What happens:</strong>
+              </p>
+              <ul className="text-sm text-blue-600 dark:text-blue-400 mt-2 space-y-1">
+                <li>• A new spreadsheet is created from the MR template</li>
+                <li>• Location columns are configured</li>
+                <li>• Line items are added as rows</li>
+                <li>• Sheet is linked to this project in the database</li>
+              </ul>
+            </div>
+          </div>
+        ) : (
+          // Post-creation state - show embedded sheet
+          <div className="space-y-6">
+            <div className="flex items-center gap-3 p-4 bg-green-500/10 border border-green-500/30 rounded-lg">
+              <Check className="w-6 h-6 text-green-600" />
+              <div>
+                <p className="font-medium text-green-700 dark:text-green-300">
+                  Takeoff sheet created successfully!
+                </p>
+                <p className="text-sm text-green-600 dark:text-green-400">
+                  The sheet is now linked to this project.
+                </p>
+              </div>
+            </div>
+
+            {/* Embedded Sheet Preview */}
+            <div className="border border-border rounded-lg overflow-hidden">
+              <div className="flex items-center justify-between px-4 py-2 bg-muted/50 border-b border-border">
+                <span className="text-sm font-medium">Takeoff Sheet Preview</span>
+                <a
+                  href={spreadsheetUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-1 text-sm text-primary hover:underline"
+                >
+                  Open in Google Sheets
+                  <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
+                    <polyline points="15 3 21 3 21 9" />
+                    <line x1="10" y1="14" x2="21" y2="3" />
+                  </svg>
+                </a>
+              </div>
+              <iframe
+                src={embedUrl}
+                className="w-full border-0"
+                style={{ height: '400px' }}
+                allow="clipboard-read; clipboard-write"
+                sandbox="allow-scripts allow-same-origin allow-popups allow-forms"
+              />
+            </div>
+
+            <div className="p-4 bg-orange-500/10 border border-orange-500/30 rounded-lg">
+              <h4 className="font-medium text-orange-700 dark:text-orange-300 mb-2">Next Steps</h4>
+              <ol className="text-sm text-orange-600 dark:text-orange-400 space-y-1">
+                <li>1. Import the BTX file into Bluebeam (from Step 4)</li>
+                <li>2. Mark up your PDF plans using the imported tools</li>
+                <li>3. Export CSV from Bluebeam markups</li>
+                <li>4. Upload CSV to auto-fill quantities in this sheet</li>
+              </ol>
+            </div>
+          </div>
+        )}
+      </div>
+    )
+  }
+
   // Loading state
   if (loading) {
     return (
@@ -763,15 +898,11 @@ export function TakeoffSetupScreen({
           ) : (
             <button
               onClick={handleComplete}
-              disabled={generating || !btxGenerated}
+              disabled={!sheetCreated}
               className="flex items-center gap-2 px-6 py-2.5 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {generating ? (
-                <Loader2 className="w-4 h-4 animate-spin" />
-              ) : (
-                <Check className="w-4 h-4" />
-              )}
-              {generating ? 'Finishing...' : 'Finish Setup'}
+              <Check className="w-4 h-4" />
+              {sheetCreated ? 'Finish & View Sheet' : 'Create Sheet First'}
             </button>
           )}
         </div>

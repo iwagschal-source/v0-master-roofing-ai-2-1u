@@ -67,6 +67,11 @@ export function EstimatingCenterScreen({ onSelectProject, onBack }) {
   // Preview state
   const [previewDoc, setPreviewDoc] = useState(null)
 
+  // Embedded takeoff sheet state (Step 8.B.6)
+  const [embeddedSheetId, setEmbeddedSheetId] = useState(null)
+  const [embeddedSheetUrl, setEmbeddedSheetUrl] = useState(null)
+  const [showEmbeddedSheet, setShowEmbeddedSheet] = useState(false)
+
   // Folder agent chat state
   const [chatMessages, setChatMessages] = useState([])
   const [chatInput, setChatInput] = useState("")
@@ -114,9 +119,30 @@ export function EstimatingCenterScreen({ onSelectProject, onBack }) {
       setChatMessages([])
       setChatInput("")
       setPreviewDoc(null)
+      setShowEmbeddedSheet(false)
+      setEmbeddedSheetId(null)
+      setEmbeddedSheetUrl(null)
       loadFolderData(selectedProject.project_id)
+      // Check if project has an existing takeoff spreadsheet
+      checkExistingTakeoffSheet(selectedProject.project_id)
     }
   }, [selectedProject?.project_id])
+
+  // Check for existing takeoff spreadsheet
+  const checkExistingTakeoffSheet = async (projectId) => {
+    try {
+      const res = await fetch(`/api/ko/takeoff/create?project_id=${projectId}`)
+      if (res.ok) {
+        const data = await res.json()
+        if (data.exists && data.spreadsheetId) {
+          setEmbeddedSheetId(data.spreadsheetId)
+          setEmbeddedSheetUrl(data.embedUrl)
+        }
+      }
+    } catch (err) {
+      console.warn('Failed to check takeoff sheet:', err)
+    }
+  }
 
   // Scroll chat to bottom
   useEffect(() => {
@@ -551,11 +577,22 @@ export function EstimatingCenterScreen({ onSelectProject, onBack }) {
                     Bluebeam
                   </button>
                   <button
-                    onClick={() => setShowTakeoffSheet(true)}
-                    className="flex items-center gap-1.5 px-3 py-1.5 bg-secondary hover:bg-secondary/80 rounded-lg text-sm"
+                    onClick={() => {
+                      if (embeddedSheetId) {
+                        setShowEmbeddedSheet(true)
+                      } else {
+                        setShowTakeoffSheet(true)
+                      }
+                    }}
+                    className={cn(
+                      "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm",
+                      embeddedSheetId
+                        ? "bg-green-600 text-white hover:bg-green-700"
+                        : "bg-secondary hover:bg-secondary/80"
+                    )}
                   >
                     <FileSpreadsheet className="w-4 h-4" />
-                    Takeoff
+                    {embeddedSheetId ? 'View Takeoff' : 'Takeoff'}
                   </button>
                   <button
                     onClick={() => setPreviewDoc({ type: 'proposal', name: 'Proposal' })}
@@ -896,19 +933,86 @@ export function EstimatingCenterScreen({ onSelectProject, onBack }) {
           onClose={() => setShowTakeoffSetup(false)}
           onComplete={(config) => {
             setShowTakeoffSetup(false)
-            // Open the takeoff sheet to view results
-            setShowTakeoffSheet(true)
+            // If a spreadsheet was created, show it embedded
+            if (config.spreadsheetId) {
+              setEmbeddedSheetId(config.spreadsheetId)
+              setEmbeddedSheetUrl(config.embedUrl || `https://docs.google.com/spreadsheets/d/${config.spreadsheetId}/edit?embedded=true&rm=minimal`)
+              setShowEmbeddedSheet(true)
+            } else {
+              // Fallback to old takeoff sheet
+              setShowTakeoffSheet(true)
+            }
           }}
         />
       )}
 
-      {/* Takeoff Sheet Modal */}
+      {/* Takeoff Sheet Modal (Legacy) */}
       {showTakeoffSheet && selectedProject && (
-        <TakeoffSpreadsheet
-          projectId={selectedProject.project_id}
-          projectName={selectedProject.project_name}
-          onClose={() => setShowTakeoffSheet(false)}
-        />
+        <div className="fixed inset-0 z-50 bg-background/95 flex flex-col">
+          <div className="flex items-center justify-between px-4 py-3 border-b border-border bg-card">
+            <h2 className="font-semibold">{selectedProject.project_name} - Takeoff</h2>
+            <button
+              onClick={() => setShowTakeoffSheet(false)}
+              className="p-2 hover:bg-muted rounded-lg"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
+          <div className="flex-1 overflow-auto">
+            <TakeoffSpreadsheet
+              projectId={selectedProject.project_id}
+              projectName={selectedProject.project_name}
+              onClose={() => setShowTakeoffSheet(false)}
+              onSave={(data) => console.log('Takeoff saved:', data)}
+            />
+          </div>
+        </div>
+      )}
+
+      {/* Embedded Google Sheet Modal (Step 8.B.6) */}
+      {showEmbeddedSheet && embeddedSheetId && (
+        <div className="fixed inset-0 z-50 bg-background/95 flex flex-col">
+          <div className="flex items-center justify-between px-4 py-3 border-b border-border bg-card">
+            <div className="flex items-center gap-3">
+              <div className="w-8 h-8 rounded-lg bg-green-500/10 flex items-center justify-center">
+                <FileSpreadsheet className="w-4 h-4 text-green-600" />
+              </div>
+              <div>
+                <h2 className="font-semibold">{selectedProject?.project_name} - Takeoff Sheet</h2>
+                <p className="text-xs text-muted-foreground">Google Sheets</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <a
+                href={`https://docs.google.com/spreadsheets/d/${embeddedSheetId}/edit`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-secondary hover:bg-secondary/80 rounded-lg text-sm"
+              >
+                <ExternalLink className="w-4 h-4" />
+                Open in Sheets
+              </a>
+              <button
+                onClick={() => {
+                  setShowEmbeddedSheet(false)
+                  setEmbeddedSheetId(null)
+                  setEmbeddedSheetUrl(null)
+                }}
+                className="p-2 hover:bg-muted rounded-lg"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+          </div>
+          <div className="flex-1 relative">
+            <iframe
+              src={embeddedSheetUrl}
+              className="absolute inset-0 w-full h-full border-0"
+              allow="clipboard-read; clipboard-write"
+              sandbox="allow-scripts allow-same-origin allow-popups allow-forms"
+            />
+          </div>
+        </div>
       )}
 
       {/* Upload Modal */}
