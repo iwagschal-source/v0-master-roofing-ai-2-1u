@@ -39,6 +39,7 @@ import {
 } from "lucide-react"
 import { TakeoffSpreadsheet } from "./takeoff-spreadsheet"
 import { TakeoffSetupScreen } from "./takeoff-setup-screen"
+import { TakeoffProposalPreview } from "./takeoff-proposal-preview"
 import { cn } from "@/lib/utils"
 
 const STATUS_CONFIG = {
@@ -63,6 +64,7 @@ export function EstimatingCenterScreen({ onSelectProject, onBack }) {
   const [showTakeoffSheet, setShowTakeoffSheet] = useState(false)
   const [showUploadModal, setShowUploadModal] = useState(false)
   const [showTakeoffSetup, setShowTakeoffSetup] = useState(false)
+  const [showProposalPreview, setShowProposalPreview] = useState(false)
 
   // Preview state
   const [previewDoc, setPreviewDoc] = useState(null)
@@ -595,8 +597,15 @@ export function EstimatingCenterScreen({ onSelectProject, onBack }) {
                     {embeddedSheetId ? 'View Takeoff' : 'Takeoff'}
                   </button>
                   <button
-                    onClick={() => setPreviewDoc({ type: 'proposal', name: 'Proposal' })}
-                    className="flex items-center gap-1.5 px-3 py-1.5 bg-primary text-primary-foreground hover:bg-primary/90 rounded-lg text-sm"
+                    onClick={() => setShowProposalPreview(true)}
+                    disabled={!embeddedSheetId}
+                    className={cn(
+                      "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm",
+                      embeddedSheetId
+                        ? "bg-primary text-primary-foreground hover:bg-primary/90"
+                        : "bg-muted text-muted-foreground cursor-not-allowed"
+                    )}
+                    title={embeddedSheetId ? "Preview proposal from takeoff" : "Create a takeoff sheet first"}
                   >
                     <FileText className="w-4 h-4" />
                     Proposal
@@ -1023,6 +1032,19 @@ export function EstimatingCenterScreen({ onSelectProject, onBack }) {
           onSuccess={() => {
             setShowUploadModal(false)
             setShowTakeoffSheet(true)
+          }}
+        />
+      )}
+
+      {/* Proposal Preview Modal (Step 8.C.10) */}
+      {showProposalPreview && selectedProject && (
+        <TakeoffProposalPreview
+          projectId={selectedProject.project_id}
+          onClose={() => setShowProposalPreview(false)}
+          onGeneratePdf={(data) => {
+            console.log('Generate PDF with data:', data)
+            // TODO: Wire to PDF generation in step 8.D
+            alert('PDF generation will be implemented in step 8.D')
           }}
         />
       )}
