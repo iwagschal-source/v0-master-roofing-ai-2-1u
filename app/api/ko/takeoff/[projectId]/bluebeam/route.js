@@ -273,29 +273,16 @@ export async function POST(request, { params }) {
     // Try deterministic parsing first if not forced to legacy
     if (!force_legacy) {
       try {
-        // Fetch project config
-        const configRes = await fetchWithSSL(
-          `${BACKEND_URL}/v1/takeoff/${projectId}/config`,
-          { signal: AbortSignal.timeout(5000) }
-        )
-
+        // Fetch project config from local API (no external backend)
         let config = null
-        if (configRes.ok) {
-          const configData = await configRes.json()
-          config = configData.config || configData
-        }
-
-        // If no backend config, try BigQuery fallback
-        if (!config) {
-          const localConfigRes = await fetch(
-            new URL(`/api/ko/takeoff/${projectId}/config`, request.url).toString(),
-            { headers: { 'Accept': 'application/json' } }
-          )
-          if (localConfigRes.ok) {
-            const localConfigData = await localConfigRes.json()
-            if (localConfigData.exists) {
-              config = localConfigData.config
-            }
+        const localConfigRes = await fetch(
+          new URL(`/api/ko/takeoff/${projectId}/config`, request.url).toString(),
+          { headers: { 'Accept': 'application/json' } }
+        )
+        if (localConfigRes.ok) {
+          const localConfigData = await localConfigRes.json()
+          if (localConfigData.exists) {
+            config = localConfigData.config
           }
         }
 
