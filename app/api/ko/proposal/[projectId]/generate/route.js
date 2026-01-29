@@ -124,7 +124,7 @@ async function getProposalPreviewData(projectId, request) {
         c.company_name as gc_name
        FROM \`master-roofing-intelligence.mr_main.project_folders\` pf
        LEFT JOIN \`master-roofing-intelligence.mr_main.contacts_companies\` c
-         ON pf.gc_contact_id = c.id
+         ON pf.contact_id = c.id
        WHERE pf.id = @projectId`,
       { projectId },
       { location: 'US' }
