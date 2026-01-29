@@ -64,7 +64,9 @@ export async function POST(request, { params }) {
     const doc = new Docxtemplater(zip, {
       paragraphLoop: true,
       linebreaks: true,
-      delimiters: { start: '{', end: '}' }
+      delimiters: { start: '{', end: '}' },
+      // Don't throw on undefined variables - replace with empty string
+      nullGetter: () => '',
     })
 
     // 4. Render the template with data
