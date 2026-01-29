@@ -1,17 +1,56 @@
 /**
- * BTX Generation API - Calls backend that actually works
+ * BTX Generation API - Local implementation
+ * Generates Bluebeam Tool Chest files without external backend
  */
 
 import { NextResponse } from 'next/server'
-import https from 'https'
+import JSZip from 'jszip'
 
-const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8000'
+/**
+ * Generate BTX XML content for tools
+ */
+function generateBtxXml(tools, projectName) {
+  const toolsXml = tools.map((tool, idx) => `
+    <Tool id="${idx + 1}">
+      <Name>${escapeXml(tool.name)}</Name>
+      <Subject>${escapeXml(tool.itemCode)}</Subject>
+      <Label>${escapeXml(tool.location)}</Label>
+      <Type>PolyLength</Type>
+      <Color>#FF0000</Color>
+      <Opacity>0.5</Opacity>
+      <LineWidth>2</LineWidth>
+      <LineStyle>Solid</LineStyle>
+      <FillColor>#FFFF00</FillColor>
+      <FillOpacity>0.3</FillOpacity>
+      <MeasurementType>Area</MeasurementType>
+      <Locked>false</Locked>
+    </Tool>`).join('\n')
 
-const fetchBackend = async (url, options = {}) => {
-  const agent = new https.Agent({ rejectUnauthorized: false })
-  return fetch(url, { ...options, agent })
+  return `<?xml version="1.0" encoding="utf-8"?>
+<ToolChest version="1.0" name="${escapeXml(projectName)} Tools">
+  <Description>Generated takeoff tools for ${escapeXml(projectName)}</Description>
+  <Tools>${toolsXml}
+  </Tools>
+</ToolChest>`
 }
 
+/**
+ * Escape XML special characters
+ */
+function escapeXml(str) {
+  if (!str) return ''
+  return str
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&apos;')
+}
+
+/**
+ * POST /api/ko/takeoff/[projectId]/btx
+ * Generate and download BTX file
+ */
 export async function POST(request, { params }) {
   try {
     const { projectId } = await params
@@ -31,36 +70,39 @@ export async function POST(request, { params }) {
       return NextResponse.json({ error: 'No config. Set up takeoff first.' }, { status: 400 })
     }
 
-    // Build request for backend
-    const items = config.selectedItems.map(item => ({
-      item_id: item.scope_code,
-      display_name: item.scope_name || item.scope_code
-    }))
+    const projectName = body.projectName || projectId
 
-    const locations = config.columns.map(col =>
-      col.mappings?.[0] || col.name.toUpperCase().replace(/[^A-Z0-9]/g, '')
-    )
-
-    // Call backend that actually generates valid BTX
-    const backendRes = await fetchBackend(`${BACKEND_URL}/bluebeam/generate-btx`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        project_name: body.projectName || projectId,
-        selected_items: items.map(i => i.item_id),
-        locations: locations
-      })
-    })
-
-    if (!backendRes.ok) {
-      const err = await backendRes.text()
-      return NextResponse.json({ error: err }, { status: backendRes.status })
+    // Generate tools: one for each item + location combination
+    const tools = []
+    for (const item of config.selectedItems) {
+      for (const col of config.columns) {
+        const locationCode = col.mappings?.[0] || col.name.toUpperCase().replace(/[^A-Z0-9]/g, '')
+        tools.push({
+          name: `${item.scope_code} | ${locationCode}`,
+          itemCode: item.scope_code,
+          location: locationCode,
+          displayName: item.scope_name || item.scope_code
+        })
+      }
     }
 
-    const btxBytes = await backendRes.arrayBuffer()
-    const filename = `${(body.projectName || projectId).replace(/[^a-zA-Z0-9]/g, '_')}_Tools.btx`
+    // Generate BTX XML
+    const btxXml = generateBtxXml(tools, projectName)
 
-    return new NextResponse(btxBytes, {
+    // Create ZIP archive (BTX is a ZIP file)
+    const zip = new JSZip()
+    zip.file('ToolChest.xml', btxXml)
+
+    // Generate ZIP buffer
+    const zipBuffer = await zip.generateAsync({
+      type: 'nodebuffer',
+      compression: 'DEFLATE',
+      compressionOptions: { level: 9 }
+    })
+
+    const filename = `${projectName.replace(/[^a-zA-Z0-9]/g, '_')}_Tools.btx`
+
+    return new NextResponse(zipBuffer, {
       status: 200,
       headers: {
         'Content-Type': 'application/octet-stream',
@@ -74,6 +116,10 @@ export async function POST(request, { params }) {
   }
 }
 
+/**
+ * GET /api/ko/takeoff/[projectId]/btx
+ * Check if BTX can be generated
+ */
 export async function GET(request, { params }) {
   try {
     const { projectId } = await params
