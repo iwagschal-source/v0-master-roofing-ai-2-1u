@@ -81,13 +81,25 @@ export async function POST(request, { params }) {
     })
 
     // 4. Render the template with data
-    doc.render(templateData)
-
-    // 5. Generate the output document
-    const outputBuffer = doc.getZip().generate({
-      type: 'nodebuffer',
-      compression: 'DEFLATE'
-    })
+    let outputBuffer
+    try {
+      doc.render(templateData)
+      // 5. Generate the output document
+      outputBuffer = doc.getZip().generate({
+        type: 'nodebuffer',
+        compression: 'DEFLATE'
+      })
+    } catch (renderErr) {
+      // Template has formatting issues - return JSON data instead
+      console.error('Template render failed:', renderErr.message)
+      return NextResponse.json({
+        success: false,
+        error: 'Template has formatting issues. Returning proposal data as JSON.',
+        templateError: renderErr.message,
+        proposalData: templateData,
+        project: previewData.project
+      }, { status: 200 })
+    }
 
     // 6. Save to Google Drive Proposals folder
     const driveResult = await saveToGoogleDrive(
