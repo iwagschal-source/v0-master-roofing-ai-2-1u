@@ -78,16 +78,27 @@ export async function POST(request) {
     }
 
     // Populate sheet with locations and line items if provided
-    if ((columns && columns.length > 0) || (lineItems && lineItems.length > 0)) {
+    console.log('[takeoff/create] Received data:', {
+      columnsCount: columns?.length || 0,
+      lineItemsCount: lineItems?.length || 0,
+      columnsSample: columns?.slice(0, 2),
+      lineItemsSample: lineItems?.slice(0, 2)
+    })
+
+    if ((columns && columns.length > 0) && (lineItems && lineItems.length > 0)) {
       try {
-        await populateTakeoffSheet(
+        console.log('[takeoff/create] Calling populateTakeoffSheet...')
+        const popResult = await populateTakeoffSheet(
           result.spreadsheetId,
-          columns || [],
-          lineItems || []
+          columns,
+          lineItems
         )
+        console.log('[takeoff/create] populateTakeoffSheet result:', popResult)
       } catch (popErr) {
-        console.warn('Failed to populate sheet (continuing):', popErr.message)
+        console.error('[takeoff/create] Failed to populate sheet:', popErr.message)
       }
+    } else {
+      console.log('[takeoff/create] Skipping populate - missing columns or lineItems')
     }
 
     // Save spreadsheet_id and folder IDs to BigQuery
