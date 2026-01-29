@@ -59,43 +59,31 @@ export async function POST(request, { params }) {
     }
 
     const templateBuffer = await templateResponse.arrayBuffer()
-    const zip = new PizZip(templateBuffer)
 
-    // Custom parser to handle undefined tags gracefully
-    const expressionParser = (tag) => ({
-      get: (scope) => {
-        const value = scope[tag]
-        if (value === undefined || value === null) {
-          return ''
-        }
-        return value
-      }
-    })
-
-    const doc = new Docxtemplater(zip, {
-      paragraphLoop: true,
-      linebreaks: true,
-      delimiters: { start: '{', end: '}' },
-      nullGetter: () => '',
-      parser: expressionParser,
-    })
-
-    // 4. Render the template with data
+    // 4. Try to render template, fall back to JSON if template has issues
     let outputBuffer
     try {
+      const zip = new PizZip(templateBuffer)
+
+      const doc = new Docxtemplater(zip, {
+        paragraphLoop: true,
+        linebreaks: true,
+        delimiters: { start: '{', end: '}' },
+        nullGetter: () => '',
+      })
+
       doc.render(templateData)
-      // 5. Generate the output document
       outputBuffer = doc.getZip().generate({
         type: 'nodebuffer',
         compression: 'DEFLATE'
       })
-    } catch (renderErr) {
+    } catch (templateErr) {
       // Template has formatting issues - return JSON data instead
-      console.error('Template render failed:', renderErr.message)
+      console.error('Template processing failed:', templateErr.message)
       return NextResponse.json({
-        success: false,
-        error: 'Template has formatting issues. Returning proposal data as JSON.',
-        templateError: renderErr.message,
+        success: true,
+        format: 'json',
+        message: 'Template has formatting issues. Proposal data returned as JSON.',
         proposalData: templateData,
         project: previewData.project
       }, { status: 200 })
