@@ -7,7 +7,7 @@
  */
 
 import { NextResponse } from 'next/server'
-import { createProjectTakeoffSheet, populateTakeoffSheet } from '@/lib/google-sheets'
+import { createProjectTakeoffSheet, populateTakeoffSheet, shareSheet } from '@/lib/google-sheets'
 import { runQuery } from '@/lib/bigquery'
 
 /**
@@ -68,6 +68,14 @@ export async function POST(request) {
     // Create new standalone Google Sheet in project folder
     // This also creates the folder structure if it doesn't exist
     const result = await createProjectTakeoffSheet(project_id, project_name, existingFolderId)
+
+    // Share sheet with anyone who has the link (editor access)
+    try {
+      await shareSheet(result.spreadsheetId, 'writer')
+      console.log(`[Sheets] Shared spreadsheet ${result.spreadsheetId} with link`)
+    } catch (shareErr) {
+      console.warn('Failed to share sheet (continuing):', shareErr.message)
+    }
 
     // Populate sheet with locations and line items if provided
     if ((columns && columns.length > 0) || (lineItems && lineItems.length > 0)) {
