@@ -23,18 +23,12 @@
  */
 
 import { NextResponse } from 'next/server'
-import https from 'https'
 import { runQuery } from '@/lib/bigquery'
 
-const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'https://136.111.252.120'
+// FastAPI backend on port 8000 (HTTP)
+const BACKEND_URL = process.env.BACKEND_URL || 'http://136.111.252.120:8000'
 const BQ_PROJECT = 'master-roofing-intelligence'
 const BQ_DATASET = 'ko_estimating'
-
-// Custom fetch that ignores SSL cert errors (for self-signed backend cert)
-const fetchWithSSL = async (url, options = {}) => {
-  const agent = new https.Agent({ rejectUnauthorized: false })
-  return fetch(url, { ...options, agent })
-}
 
 /**
  * GET /api/ko/takeoff/[projectId]/config
@@ -44,7 +38,7 @@ export async function GET(request, { params }) {
   try {
     const { projectId } = await params
 
-    const backendRes = await fetchWithSSL(
+    const backendRes = await fetch(
       `${BACKEND_URL}/v1/takeoff/${projectId}/config`,
       {
         method: 'GET',
@@ -144,7 +138,7 @@ export async function POST(request, { params }) {
 
     // Try backend first
     try {
-      const backendRes = await fetchWithSSL(
+      const backendRes = await fetch(
         `${BACKEND_URL}/v1/takeoff/${projectId}/config`,
         {
           method: 'POST',
@@ -270,7 +264,7 @@ export async function DELETE(request, { params }) {
   try {
     const { projectId } = await params
 
-    const backendRes = await fetchWithSSL(
+    const backendRes = await fetch(
       `${BACKEND_URL}/v1/takeoff/${projectId}/config`,
       {
         method: 'DELETE',
