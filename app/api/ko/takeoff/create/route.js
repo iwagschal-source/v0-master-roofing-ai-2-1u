@@ -77,28 +77,27 @@ export async function POST(request) {
       console.warn('Failed to share sheet (continuing):', shareErr.message)
     }
 
-    // Populate sheet with locations and line items if provided
+    // Populate sheet with project name, locations, and rate overrides
     console.log('[takeoff/create] Received data:', {
+      project_name,
       columnsCount: columns?.length || 0,
       lineItemsCount: lineItems?.length || 0,
       columnsSample: columns?.slice(0, 2),
       lineItemsSample: lineItems?.slice(0, 2)
     })
 
-    if ((columns && columns.length > 0) && (lineItems && lineItems.length > 0)) {
-      try {
-        console.log('[takeoff/create] Calling populateTakeoffSheet...')
-        const popResult = await populateTakeoffSheet(
-          result.spreadsheetId,
-          columns,
-          lineItems
-        )
-        console.log('[takeoff/create] populateTakeoffSheet result:', popResult)
-      } catch (popErr) {
-        console.error('[takeoff/create] Failed to populate sheet:', popErr.message)
-      }
-    } else {
-      console.log('[takeoff/create] Skipping populate - missing columns or lineItems')
+    // Always try to populate - even if just to set project name
+    try {
+      console.log('[takeoff/create] Calling populateTakeoffSheet...')
+      const popResult = await populateTakeoffSheet(
+        result.spreadsheetId,
+        columns || [],
+        lineItems || [],
+        project_name  // Pass project name to set in B2
+      )
+      console.log('[takeoff/create] populateTakeoffSheet result:', popResult)
+    } catch (popErr) {
+      console.error('[takeoff/create] Failed to populate sheet:', popErr.message)
     }
 
     // Save spreadsheet_id and folder IDs to BigQuery

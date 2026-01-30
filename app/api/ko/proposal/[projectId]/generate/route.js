@@ -237,12 +237,22 @@ function transformForTemplate(previewData, editedDescriptions) {
   // Alt line items (empty for now - can be populated from takeoff alternates)
   const altLineItems = []
 
+  // Calculate grand total from line items
+  const grandTotal = lineItems.reduce((sum, item) => {
+    const priceNum = parseFloat((item.price || '0').replace(/[^0-9.-]/g, ''))
+    return sum + (isNaN(priceNum) ? 0 : priceNum)
+  }, 0)
+
   return {
+    project_name: project.name || project.address || 'Project',
     date: formattedDate,
     prepared_for: project.gcName || 'General Contractor',
+    date_drawings: '', // Can be populated from project metadata if available
+    proposal_version: 'Rev 1',
     project_summary: projectSummary,
     line_items: lineItems,
-    alt_line_items: altLineItems
+    alt_line_items: altLineItems,
+    grand_total_bid: formatCurrency(grandTotal)
   }
 }
 
