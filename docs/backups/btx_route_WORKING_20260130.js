@@ -1,0 +1,118 @@
+/**
+ * BTX Generation API - Proxy to Python backend
+ * Generates Bluebeam Tool Chest files using the real Bluebeam BTX format
+ */
+
+import { NextResponse } from 'next/server'
+
+// FastAPI backend on port 8000 (HTTP, not HTTPS)
+const BACKEND_URL = process.env.BTX_BACKEND_URL || 'http://136.111.252.120:8000'
+
+/**
+ * POST /api/ko/takeoff/[projectId]/btx
+ * Generate and download BTX file via Python backend
+ */
+export async function POST(request, { params }) {
+  try {
+    const { projectId } = await params
+    const body = await request.json()
+
+    // Get config
+    let config = body.config
+    if (!config) {
+      const configRes = await fetch(`${request.nextUrl.origin}/api/ko/takeoff/${projectId}/config`)
+      if (configRes.ok) {
+        const data = await configRes.json()
+        config = data.config
+      }
+    }
+
+    if (!config?.selectedItems?.length || !config?.columns?.length) {
+      return NextResponse.json({ error: 'No config. Set up takeoff first.' }, { status: 400 })
+    }
+
+    const projectName = body.projectName || projectId
+
+    // Extract item IDs from selectedItems
+    const selectedItemIds = config.selectedItems.map(item => item.scope_code)
+
+    // Extract location codes from columns
+    const locations = config.columns.map(col =>
+      col.mappings?.[0] || col.name.toUpperCase().replace(/[^A-Z0-9]/g, '')
+    )
+
+    // DEBUG: Log what we're sending
+    console.log('[BTX] Sending to backend:', {
+      project_name: body.projectName || projectId,
+      selected_items: selectedItemIds,
+      locations: locations
+    })
+
+    // Call Python backend to generate real BTX
+    const btxResponse = await fetch(`${BACKEND_URL}/bluebeam/generate-btx`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        project_name: projectName,
+        selected_items: selectedItemIds,
+        locations: locations,
+        use_item_id_as_subject: true
+      }),
+      signal: AbortSignal.timeout(30000)
+    })
+
+    if (!btxResponse.ok) {
+      const errText = await btxResponse.text()
+      console.error('BTX backend error:', errText)
+      return NextResponse.json({ error: 'Backend BTX generation failed: ' + errText }, { status: 500 })
+    }
+
+    // Get the BTX binary content
+    const btxBuffer = await btxResponse.arrayBuffer()
+    console.log('[BTX] Response size:', btxBuffer.byteLength, 'bytes')
+    const filename = `${projectName.replace(/[^a-zA-Z0-9]/g, '_')}_Tools.btx`
+
+    return new NextResponse(btxBuffer, {
+      status: 200,
+      headers: {
+        'Content-Type': 'application/octet-stream',
+        'Content-Disposition': `attachment; filename="${filename}"`
+      }
+    })
+
+  } catch (err) {
+    console.error('BTX error:', err)
+    return NextResponse.json({ error: err.message }, { status: 500 })
+  }
+}
+
+/**
+ * GET /api/ko/takeoff/[projectId]/btx
+ * Check if BTX can be generated
+ */
+export async function GET(request, { params }) {
+  try {
+    const { projectId } = await params
+    const configRes = await fetch(`${request.nextUrl.origin}/api/ko/takeoff/${projectId}/config`)
+
+    if (!configRes.ok) {
+      return NextResponse.json({ ready: false, message: 'No config' })
+    }
+
+    const { config } = await configRes.json()
+    if (!config?.selectedItems?.length || !config?.columns?.length) {
+      return NextResponse.json({ ready: false, message: 'Config incomplete' })
+    }
+
+    const toolCount = config.selectedItems.length * config.columns.length
+    return NextResponse.json({
+      ready: true,
+      toolCount,
+      items: config.selectedItems.length,
+      locations: config.columns.length
+    })
+
+  } catch (err) {
+    return NextResponse.json({ error: err.message }, { status: 500 })
+  }
+}
