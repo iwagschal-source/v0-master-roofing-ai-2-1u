@@ -35,9 +35,9 @@ const BQ_DATASET = 'ko_estimating'
  * Get the current takeoff configuration for a project
  */
 export async function GET(request, { params }) {
-  try {
-    const { projectId } = await params
+  const { projectId } = await params
 
+  try {
     const backendRes = await fetch(
       `${BACKEND_URL}/v1/takeoff/${projectId}/config`,
       {
