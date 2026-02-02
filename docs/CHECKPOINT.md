@@ -10,17 +10,17 @@
 
 ## LAST UPDATE
 - **When:** 2026-02-02
-- **Updated by:** Claude.ai
-- **Session type:** Claude.ai chat with Isaac
+- **Updated by:** Claude Code
+- **Session type:** Bug fix session
 
 ---
 
 ## CURRENT BRANCH
 - **Branch:** `sheet-first` (off `dev`)
 - **Pushed to remote:** ✅ YES
-- **Latest commit:** `f86c0f9` — "feat: populate template Column A with item_ids"
+- **Latest commit:** `bdcd567` — "fix: section-aware location mapping in fillBluebeamDataToSpreadsheet"
 - **PR URL:** https://github.com/iwagschal-source/v0-master-roofing-ai-2-1u/pull/new/sheet-first
-- **Vercel preview:** Should be deploying now (first real commit pushed)
+- **Vercel preview:** Deploying with fix
 
 ---
 
@@ -32,28 +32,39 @@
 ---
 
 ## ACTIVE TASK
-- **Task:** Test CSV import flow with populated template
-- **Why:** Validate that Column A fix actually works before building new endpoints
-- **How:** Use existing `/api/ko/takeoff/{projectId}/bluebeam` endpoint with real CSV
-- **Status:** ✅ COMPLETE (partial success)
+- **Task:** Re-test CSV import with section-aware location mapping fix
+- **Why:** Validate that BALCONIES and EXTERIOR sections now import correctly
+- **How:** Use existing `/api/ko/takeoff/{projectId}/bluebeam` endpoint with test project proj_04ba74eb9f2d409a
+- **Status:** 🔄 READY FOR TESTING
 - **Blockers:** None
 
-### CSV Import Test Results (Session 20d)
+### Previous Test Results (Session 20d) — FIXED
 - **Test project:** proj_04ba74eb9f2d409a ("ite not")
-- **Fresh sheet created:** 1NO0I-cfshuhz1yUzSsWga5sJZpcwSEINbPeqYdy4O7A
-- **Column A populated:** ✅ Confirmed (copied from updated template)
-- **Parse mode:** deterministic (PIPE delimiter working)
-- **Result:** 4 of 6 cells updated
+- **Fresh sheet:** 1NO0I-cfshuhz1yUzSsWga5sJZpcwSEINbPeqYdy4O7A
+- **Result:** 4 of 6 cells updated (ROOFING only)
 
-| Item | Section | Status |
-|------|---------|--------|
-| MR-001VB | ROOFING | ✅ 1500 + 800 |
-| MR-010DRAIN | ROOFING | ✅ 5 |
-| MR-022COPELO | ROOFING | ✅ 250 |
-| MR-033TRAFFIC | BALCONIES | ❌ Location mapping failed |
-| MR-037BRICKWP | EXTERIOR | ❌ Location mapping failed |
+| Item | Section | Previous | After Fix |
+|------|---------|----------|-----------|
+| MR-001VB | ROOFING | ✅ | ✅ |
+| MR-010DRAIN | ROOFING | ✅ | ✅ |
+| MR-022COPELO | ROOFING | ✅ | ✅ |
+| MR-033TRAFFIC | BALCONIES | ❌ | 🔄 Should work now |
+| MR-037BRICKWP | EXTERIOR | ❌ | 🔄 Should work now |
 
-**Conclusion:** Column A fix works. ROOFING section imports correctly. BALCONIES/EXTERIOR sections have location mapping issues (different header rows, different column structure).
+### Fix Applied (Session 20e)
+**Problem:** Single location→column mapping for all sections. Each section has different header rows:
+- ROOFING: row 3, cols G-L
+- BALCONIES: row 45, cols G-L
+- EXTERIOR: row 54, cols G-L
+
+**Solution in `lib/google-sheets.js`:**
+1. Added `TEMPLATE_SECTIONS` and `ITEM_ID_TO_ROW` constants
+2. Function now reads all three header rows from spreadsheet
+3. Builds section-specific location→column mappings
+4. Detects section by row number (4-43=ROOFING, 46-53=BALCONIES, 55-72=EXTERIOR)
+5. Writes values to correct column based on section's header
+
+**Commit:** `bdcd567` — "fix: section-aware location mapping in fillBluebeamDataToSpreadsheet"
 
 ---
 
@@ -70,6 +81,12 @@
    - 16 EXTERIOR items + header (rows 54-72): MR-037BRICKWP through MR-051ADJVERT
    - All 53 cells verified populated
    - Committed and pushed to `sheet-first` branch
+7. ✅ **Fixed section-aware location mapping (Session 20e):**
+   - Root cause: `fillBluebeamDataToSpreadsheet()` used single location mapping for all sections
+   - Fix: Now reads each section's header row (3, 45, 54) for section-specific location→column mapping
+   - Added `TEMPLATE_SECTIONS`, `ITEM_ID_TO_ROW`, `getSectionForRow()`, `buildLocationMapFromHeader()`
+   - Returns detailed match info for debugging
+   - Committed: `bdcd567`
 
 ---
 
@@ -119,3 +136,5 @@
 | 20 | 2026-02-02 | Claude Code | Deployment verification, wizard elimination analysis |
 | 20b | 2026-02-02 | Claude.ai | Architectural decision (sheet-first), branch setup, checkpoint protocol |
 | 20c | 2026-02-02 | Claude Code | Populated template Column A with 53 item_ids, verified, committed |
+| 20d | 2026-02-02 | Claude.ai | CSV import test — 4/6 cells updated, BALCONIES/EXTERIOR mapping issue found |
+| 20e | 2026-02-02 | Claude Code | Fixed section-aware location mapping in fillBluebeamDataToSpreadsheet |
