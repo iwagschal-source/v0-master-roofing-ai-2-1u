@@ -74,6 +74,9 @@ export function EstimatingCenterScreen({ onSelectProject, onBack }) {
   const [embeddedSheetUrl, setEmbeddedSheetUrl] = useState(null)
   const [showEmbeddedSheet, setShowEmbeddedSheet] = useState(false)
 
+  // BTX generation state
+  const [generatingBtx, setGeneratingBtx] = useState(false)
+
   // Folder agent chat state
   const [chatMessages, setChatMessages] = useState([])
   const [chatInput, setChatInput] = useState("")
@@ -395,6 +398,77 @@ export function EstimatingCenterScreen({ onSelectProject, onBack }) {
     }
   }
 
+  // Generate BTX from sheet config
+  const handleGenerateBtx = async () => {
+    if (!selectedProject || generatingBtx) return
+
+    setGeneratingBtx(true)
+    try {
+      // Step 1: Get sheet config (items + locations)
+      const sheetConfigRes = await fetch(`/api/ko/takeoff/${selectedProject.project_id}/sheet-config`)
+      if (!sheetConfigRes.ok) {
+        const err = await sheetConfigRes.json()
+        throw new Error(err.error || 'Failed to read sheet config')
+      }
+      const sheetConfig = await sheetConfigRes.json()
+
+      if (!sheetConfig.selected_items?.length) {
+        throw new Error('No items found in takeoff sheet. Make sure Column A has item_ids.')
+      }
+
+      // Step 2: Transform sheet-config format to btx config format
+      // Combine all location columns from all sections (use ROOFING as primary)
+      const allLocations = [
+        ...(sheetConfig.locations?.ROOFING || []),
+      ]
+
+      const config = {
+        selectedItems: sheetConfig.selected_items.map(item => ({
+          scope_code: item.item_id,
+          scope_name: item.item_id // Could be enhanced to fetch display names
+        })),
+        columns: allLocations.map(loc => ({
+          id: loc.column,
+          name: loc.name,
+          mappings: [loc.normalized || loc.name.toUpperCase()]
+        }))
+      }
+
+      // Step 3: Call BTX endpoint
+      const btxRes = await fetch(`/api/ko/takeoff/${selectedProject.project_id}/btx`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          config,
+          projectName: selectedProject.project_name
+        })
+      })
+
+      if (!btxRes.ok) {
+        const err = await btxRes.json()
+        throw new Error(err.error || 'Failed to generate BTX')
+      }
+
+      // Step 4: Download the BTX file
+      const blob = await btxRes.blob()
+      const filename = `${selectedProject.project_name.replace(/[^a-zA-Z0-9]/g, '_')}_Tools.btx`
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = filename
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      URL.revokeObjectURL(url)
+
+    } catch (err) {
+      console.error('BTX generation error:', err)
+      alert('Failed to generate BTX: ' + err.message)
+    } finally {
+      setGeneratingBtx(false)
+    }
+  }
+
   return (
     <div className="flex h-full bg-background overflow-hidden">
       {/* ============ LEFT PANEL - Project List ============ */}
@@ -610,6 +684,21 @@ export function EstimatingCenterScreen({ onSelectProject, onBack }) {
                     <FileText className="w-4 h-4" />
                     Proposal
                   </button>
+                  {embeddedSheetId && (
+                    <button
+                      onClick={handleGenerateBtx}
+                      disabled={generatingBtx}
+                      className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50 rounded-lg text-sm"
+                      title="Generate Bluebeam Tool Chest (.btx) from sheet items and locations"
+                    >
+                      {generatingBtx ? (
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                      ) : (
+                        <Download className="w-4 h-4" />
+                      )}
+                      {generatingBtx ? 'Generating...' : 'BTX'}
+                    </button>
+                  )}
                 </div>
               </div>
 
