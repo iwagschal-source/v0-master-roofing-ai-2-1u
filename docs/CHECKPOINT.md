@@ -18,7 +18,7 @@
 ## CURRENT BRANCH
 - **Branch:** `sheet-first` (off `dev`)
 - **Pushed to remote:** ✅ YES
-- **Latest commit:** `d936577` — "feat: add /api/ko/takeoff/[projectId]/sheet-config endpoint"
+- **Latest commit:** `b403769` — "feat: add Generate BTX button to Estimating Center UI"
 - **PR URL:** https://github.com/iwagschal-source/v0-master-roofing-ai-2-1u/pull/new/sheet-first
 - **Vercel preview:** Deploying with fix
 
@@ -82,6 +82,11 @@
    - Returns: selected_items (51 items from Column A), locations (from section headers G-L)
    - Tested: 32 ROOFING + 4 BALCONIES + 15 EXTERIOR items correctly parsed
    - Committed: `d936577`
+9. ✅ **Added "Generate BTX" button to Estimating Center UI (Session 20e):**
+   - Button appears when project has takeoff sheet (embeddedSheetId exists)
+   - Calls sheet-config → transforms to btx format → downloads BTX file
+   - Location: `components/ko/estimating-center-screen.jsx`
+   - Committed: `b403769`
 
 ---
 
@@ -91,7 +96,7 @@
 3. **Execute item_master SQL** in BigQuery (58 rows, 19 columns) — SQL already drafted
 4. **Execute location_master SQL** in BigQuery (21 rows, 8 columns) — SQL already drafted
 5. ~~**Create sheet-reading endpoint** (`/api/ko/takeoff/{projectId}/sheet-config`)~~ ✅ DONE (Session 20e)
-6. **Add "Generate BTX" button** to Estimating Center UI — ~50 lines ← NEXT
+6. ~~**Add "Generate BTX" button** to Estimating Center UI~~ ✅ DONE (Session 20e)
 7. **Test end-to-end:** template → BTX generation → CSV import → proposal
 8. **Delete wizard code** (~2,079 lines) — ONLY after e2e test passes
 9. **Merge `sheet-first` → `dev` → `main`** — ONLY after Isaac approves
