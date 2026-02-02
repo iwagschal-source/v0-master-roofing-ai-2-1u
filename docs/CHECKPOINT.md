@@ -32,37 +32,27 @@
 ---
 
 ## ACTIVE TASK
-- **Task:** Re-test CSV import with section-aware location mapping fix
-- **Why:** Validate that BALCONIES and EXTERIOR sections now import correctly
-- **How:** Use existing `/api/ko/takeoff/{projectId}/bluebeam` endpoint with test project proj_04ba74eb9f2d409a
-- **Status:** 🔄 READY FOR TESTING
-- **Blockers:** None
+- **Task:** CSV import with section-aware location mapping
+- **Status:** ✅ COMPLETE — All sections now import correctly
+- **Test project:** proj_04ba74eb9f2d409a
+- **Test sheet:** 1NO0I-cfshuhz1yUzSsWga5sJZpcwSEINbPeqYdy4O7A
 
-### Previous Test Results (Session 20d) — FIXED
-- **Test project:** proj_04ba74eb9f2d409a ("ite not")
-- **Fresh sheet:** 1NO0I-cfshuhz1yUzSsWga5sJZpcwSEINbPeqYdy4O7A
-- **Result:** 4 of 6 cells updated (ROOFING only)
-
-| Item | Section | Previous | After Fix |
-|------|---------|----------|-----------|
-| MR-001VB | ROOFING | ✅ | ✅ |
-| MR-010DRAIN | ROOFING | ✅ | ✅ |
-| MR-022COPELO | ROOFING | ✅ | ✅ |
-| MR-033TRAFFIC | BALCONIES | ❌ | 🔄 Should work now |
-| MR-037BRICKWP | EXTERIOR | ❌ | 🔄 Should work now |
+### Test Results (Session 20e) — ALL PASS
+| Item | Section | Row | Col | Status |
+|------|---------|-----|-----|--------|
+| MR-001VB | ROOFING | 4 | G | ✅ |
+| MR-010DRAIN | ROOFING | 15 | K | ✅ |
+| MR-022COPELO | ROOFING | 29 | H | ✅ |
+| MR-033TRAFFIC | **BALCONIES** | 46 | G | ✅ **FIXED** |
+| MR-037BRICKWP | **EXTERIOR** | 55 | G | ✅ **FIXED** |
 
 ### Fix Applied (Session 20e)
-**Problem:** Single location→column mapping for all sections. Each section has different header rows:
-- ROOFING: row 3, cols G-L
-- BALCONIES: row 45, cols G-L
-- EXTERIOR: row 54, cols G-L
+**Problem:** Single location→column mapping for all sections.
 
-**Solution in `lib/google-sheets.js`:**
-1. Added `TEMPLATE_SECTIONS` and `ITEM_ID_TO_ROW` constants
-2. Function now reads all three header rows from spreadsheet
-3. Builds section-specific location→column mappings
-4. Detects section by row number (4-43=ROOFING, 46-53=BALCONIES, 55-72=EXTERIOR)
-5. Writes values to correct column based on section's header
+**Solution:** Function now reads each section's header row dynamically:
+- ROOFING: row 3 → `{1ST FLOOR: G, 2ND FLOOR: H, ..., MAIN ROOF: K, STAIR BULKHEAD: L}`
+- BALCONIES: row 45 → `{1ST FLOOR BALCONIES: G, 2ND FLOOR BALCONIES: H, ...}`
+- EXTERIOR: row 54 → `{FRONT / ----ELEVATION: G, REAR / ---ELEVATION: H, ...}`
 
 **Commit:** `bdcd567` — "fix: section-aware location mapping in fillBluebeamDataToSpreadsheet"
 
