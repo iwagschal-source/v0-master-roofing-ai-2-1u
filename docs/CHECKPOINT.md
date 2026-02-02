@@ -18,7 +18,7 @@
 ## CURRENT BRANCH
 - **Branch:** `sheet-first` (off `dev`)
 - **Pushed to remote:** ✅ YES
-- **Latest commit:** `bdcd567` — "fix: section-aware location mapping in fillBluebeamDataToSpreadsheet"
+- **Latest commit:** `d936577` — "feat: add /api/ko/takeoff/[projectId]/sheet-config endpoint"
 - **PR URL:** https://github.com/iwagschal-source/v0-master-roofing-ai-2-1u/pull/new/sheet-first
 - **Vercel preview:** Deploying with fix
 
@@ -77,16 +77,21 @@
    - Added `TEMPLATE_SECTIONS`, `ITEM_ID_TO_ROW`, `getSectionForRow()`, `buildLocationMapFromHeader()`
    - Returns detailed match info for debugging
    - Committed: `bdcd567`
+8. ✅ **Created `/api/ko/takeoff/[projectId]/sheet-config` endpoint (Session 20e):**
+   - Reads takeoff config directly from Google Sheet (not wizard/backend config)
+   - Returns: selected_items (51 items from Column A), locations (from section headers G-L)
+   - Tested: 32 ROOFING + 4 BALCONIES + 15 EXTERIOR items correctly parsed
+   - Committed: `d936577`
 
 ---
 
 ## TASK QUEUE (ORDERED)
 1. ~~**Populate Column A** in master template with item_ids~~ ✅ DONE
-2. **Test CSV import flow** — validate Column A fix works ← NEXT
+2. ~~**Test CSV import flow** — validate section mapping fix~~ ✅ DONE (Session 20e)
 3. **Execute item_master SQL** in BigQuery (58 rows, 19 columns) — SQL already drafted
 4. **Execute location_master SQL** in BigQuery (21 rows, 8 columns) — SQL already drafted
-5. **Create sheet-reading endpoint** (`/api/ko/takeoff/{projectId}/sheet-config`) — ~100 lines
-6. **Add "Generate BTX" button** to Estimating Center UI — ~50 lines
+5. ~~**Create sheet-reading endpoint** (`/api/ko/takeoff/{projectId}/sheet-config`)~~ ✅ DONE (Session 20e)
+6. **Add "Generate BTX" button** to Estimating Center UI — ~50 lines ← NEXT
 7. **Test end-to-end:** template → BTX generation → CSV import → proposal
 8. **Delete wizard code** (~2,079 lines) — ONLY after e2e test passes
 9. **Merge `sheet-first` → `dev` → `main`** — ONLY after Isaac approves
