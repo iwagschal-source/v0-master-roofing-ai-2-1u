@@ -35,8 +35,25 @@
 - **Task:** Test CSV import flow with populated template
 - **Why:** Validate that Column A fix actually works before building new endpoints
 - **How:** Use existing `/api/ko/takeoff/{projectId}/bluebeam` endpoint with real CSV
-- **Status:** NOT STARTED
+- **Status:** ✅ COMPLETE (partial success)
 - **Blockers:** None
+
+### CSV Import Test Results (Session 20d)
+- **Test project:** proj_04ba74eb9f2d409a ("ite not")
+- **Fresh sheet created:** 1NO0I-cfshuhz1yUzSsWga5sJZpcwSEINbPeqYdy4O7A
+- **Column A populated:** ✅ Confirmed (copied from updated template)
+- **Parse mode:** deterministic (PIPE delimiter working)
+- **Result:** 4 of 6 cells updated
+
+| Item | Section | Status |
+|------|---------|--------|
+| MR-001VB | ROOFING | ✅ 1500 + 800 |
+| MR-010DRAIN | ROOFING | ✅ 5 |
+| MR-022COPELO | ROOFING | ✅ 250 |
+| MR-033TRAFFIC | BALCONIES | ❌ Location mapping failed |
+| MR-037BRICKWP | EXTERIOR | ❌ Location mapping failed |
+
+**Conclusion:** Column A fix works. ROOFING section imports correctly. BALCONIES/EXTERIOR sections have location mapping issues (different header rows, different column structure).
 
 ---
 
