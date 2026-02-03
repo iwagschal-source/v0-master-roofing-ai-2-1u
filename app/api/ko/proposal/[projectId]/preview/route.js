@@ -281,6 +281,19 @@ function parseRowTypes(rows) {
           rowNumber: row.rowNumber
         })
       }
+    } else if (rowType === 'BUNDLE_TOTAL') {
+      // Bundle total - creates a section with items above it
+      if (currentItems.length > 0 || row.totalCost > 0) {
+        const sectionName = (row.scope || '').replace(/BUNDLE\s*TOTAL\s*-?\s*/i, '').trim() || `Bundle ${sections.length + 1}`
+        sections.push({
+          title: `WORK DETAILS FOR ${sectionName}`,
+          sectionType: sectionName,
+          items: [...currentItems],
+          subtotal: row.totalCost,
+          rowNumber: row.rowNumber
+        })
+      }
+      currentItems = []
     } else if (rowType === 'SECTION_TOTAL') {
       // Section total
       sectionTotals.push({
@@ -391,6 +404,44 @@ function buildDescription(item, descriptions) {
   text = text.replace(/\{[A-Z_]+\}/g, '[TBD]')
 
   return text
+}
+
+/**
+ * Auto-detect row type from Column O formula patterns
+ *
+ * Rules:
+ * - =B{n}*N{n} → ITEM (unit cost × measurements)
+ * - =SUM(O{x}:O{y}) → BUNDLE_TOTAL
+ * - Scope contains "BUNDLE TOTAL" → BUNDLE_TOTAL (backup)
+ * - =O{a}+O{b}+... (5+ refs) → SECTION_TOTAL
+ */
+function detectRowTypeFromFormula(formula, scopeValue, itemId, rowNumber) {
+  const f = (formula || '').trim()
+  const scope = (scopeValue || '').toUpperCase()
+
+  // Rule 1: =B{n}*N{n} → ITEM
+  if (/^=B(\d+)\*N\1$/i.test(f)) {
+    return 'ITEM'
+  }
+
+  // Rule 2: =SUM(O{x}:O{y}) → BUNDLE_TOTAL
+  if (/^=SUM\(O\d+:O\d+\)$/i.test(f)) {
+    return 'BUNDLE_TOTAL'
+  }
+
+  // Rule 3: Scope contains "BUNDLE TOTAL" → BUNDLE_TOTAL
+  if (/BUNDLE\s*TOTAL/i.test(scope)) {
+    return 'BUNDLE_TOTAL'
+  }
+
+  // Rule 4: Count O references - 5+ means SECTION_TOTAL
+  const oRefs = f.match(/O\d+/gi) || []
+  if (oRefs.length >= 5) {
+    return 'SECTION_TOTAL'
+  }
+
+  // Default: ITEM if has itemId, else UNKNOWN
+  return itemId ? 'ITEM' : 'UNKNOWN'
 }
 
 /**
