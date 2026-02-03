@@ -9,18 +9,17 @@
 # ============================================
 
 ## LAST UPDATE
-- **When:** 2026-02-02
+- **When:** 2026-02-03
 - **Updated by:** Claude Code
-- **Session type:** Bug fix session
+- **Session type:** BTX location bug investigation
 
 ---
 
 ## CURRENT BRANCH
-- **Branch:** `sheet-first` (off `dev`)
+- **Branch:** `main` (merged from sheet-first)
 - **Pushed to remote:** ✅ YES
-- **Latest commit:** `b403769` — "feat: add Generate BTX button to Estimating Center UI"
-- **PR URL:** https://github.com/iwagschal-source/v0-master-roofing-ai-2-1u/pull/new/sheet-first
-- **Vercel preview:** Deploying with fix
+- **Latest commit:** `6c13a41` — "fix: remove location normalization - use raw names with spaces"
+- **Backup tag:** `working-btx-2026-02-02` at commit `bd73385`
 
 ---
 
@@ -31,9 +30,47 @@
 
 ---
 
-## ACTIVE TASK
+## ACTIVE TASK — BTX LOCATION BUG (BLOCKING)
+- **Task:** Fix location matching between BTX/CSV and Sheet
+- **Status:** 🔴 BLOCKED — Need to verify Python backend contract
+- **Test project:** proj_56c795199df84c8e (Monday Again)
+- **Test sheet:** 1MmF_trhCwHzEuSt9hcL1YgG2SaY3a1svndIUvl4IP3w
+
+### Bug Analysis (Session 20g)
+**Symptom:** CSV has `5TH FLOOR` but import fails to match.
+
+**Root cause identified:**
+- `btx/route.js:41` sends normalized locations (strips spaces): `5THFLOOR`
+- Python backend generates BTX tools with normalized names
+- CSV export has normalized: `MR-001VB | 5THFLOOR`
+- Sheet header has spaces: `5th Floor`
+- Mismatch causes 0 cells updated
+
+### Files with normalization pattern
+```
+grep -rn "replace(/[^A-Z0-9]/g" --include="*.js"
+```
+| File | Line | Usage |
+|------|------|-------|
+| lib/google-sheets.js | 612 | FALLBACK - OK, keep |
+| lib/google-sheets.js | 717 | FALLBACK - OK, keep |
+| btx/route.js | 41 | PRIMARY - sends to backend |
+| bluebeam/route.js | 93 | PRIMARY - builds locationMap |
+
+### ⚠️ DO NOT FIX UNTIL VERIFIED
+The Python BTX backend may EXPECT normalized format.
+Must check backend contract before changing frontend.
+
+### Files to check in next session
+- `/home/iwagschal/aeyecorp/app/bluebeam/btx_generator.py` on VM
+- `/home/iwagschal/aeyecorp/app/bluebeam/api.py` on VM
+- What format does `generate_btx_with_locations()` expect?
+
+---
+
+## PREVIOUS ACTIVE TASK (COMPLETE)
 - **Task:** CSV import with section-aware location mapping
-- **Status:** ✅ COMPLETE — All sections now import correctly
+- **Status:** ✅ COMPLETE
 - **Test project:** proj_04ba74eb9f2d409a
 - **Test sheet:** 1NO0I-cfshuhz1yUzSsWga5sJZpcwSEINbPeqYdy4O7A
 
