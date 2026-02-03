@@ -2,12 +2,12 @@
  * Proposal Preview API (Step 8.C.10)
  *
  * Reads takeoff sheet and returns structured data for proposal preview.
- * Uses Row Type column to determine bundled vs standalone items.
+ * Auto-detects row types from Column O formulas (bundles use =SUM()).
  * Fetches descriptions from BigQuery and replaces placeholders.
  */
 
 import { NextResponse } from 'next/server'
-import { readSheetValues, getFirstSheetName } from '@/lib/google-sheets'
+import { readSheetValues, readSheetFormulas, getFirstSheetName } from '@/lib/google-sheets'
 import { runQuery } from '@/lib/bigquery'
 
 /**
@@ -67,10 +67,12 @@ export async function GET(request, { params }) {
     }
 
     // 2. Read takeoff sheet data (headers + all data rows)
-    // After item_id addition, column layout is:
-    // A: item_id, B: Unit Cost, C: R, D: IN, E: TYPE, F: Scope, G+: Locations, then Total Meas, Total Cost, Row Type
+    // Also read formulas to auto-detect row types from Column O
     const sheetName = await getFirstSheetName(spreadsheetId)
-    const sheetData = await readSheetValues(spreadsheetId, `'${sheetName}'!A1:Z100`)
+    const [sheetData, sheetFormulas] = await Promise.all([
+      readSheetValues(spreadsheetId, `'${sheetName}'!A1:Z100`),
+      readSheetFormulas(spreadsheetId, `'${sheetName}'!A1:Z100`)
+    ])
 
     if (!sheetData || sheetData.length < 2) {
       return NextResponse.json({
@@ -86,21 +88,31 @@ export async function GET(request, { params }) {
     const headers = sheetData[0].map(h => (h || '').toString().toLowerCase().trim())
     const columnMap = findColumnIndices(headers)
 
-    // 4. Parse rows into structured data
-    const rows = sheetData.slice(1).map((row, idx) => ({
-      rowNumber: idx + 2, // 1-based, accounting for header
-      itemId: getCellValue(row, columnMap.itemId),
-      unitCost: parseFloat(getCellValue(row, columnMap.unitCost)) || 0,
-      rValue: getCellValue(row, columnMap.rValue),
-      thickness: getCellValue(row, columnMap.thickness),
-      materialType: getCellValue(row, columnMap.materialType),
-      scope: getCellValue(row, columnMap.scope),
-      totalMeasurements: parseFloat(getCellValue(row, columnMap.totalMeasurements)) || 0,
-      totalCost: parseFloat(getCellValue(row, columnMap.totalCost)) || 0,
-      rowType: getCellValue(row, columnMap.rowType),
-      // Location columns (dynamic)
-      locations: extractLocations(row, columnMap)
-    }))
+    // 4. Parse rows into structured data with auto-detected row types
+    const rows = sheetData.slice(1).map((row, idx) => {
+      const formulaRow = sheetFormulas[idx + 1] || []
+      const totalCostFormula = getCellValue(formulaRow, columnMap.totalCost)
+      const scopeValue = getCellValue(row, columnMap.scope)
+      const itemId = getCellValue(row, columnMap.itemId)
+
+      // Auto-detect row type from formula patterns
+      const autoRowType = detectRowTypeFromFormula(totalCostFormula, scopeValue, itemId, idx + 2)
+
+      return {
+        rowNumber: idx + 2, // 1-based, accounting for header
+        itemId,
+        unitCost: parseFloat(getCellValue(row, columnMap.unitCost)) || 0,
+        rValue: getCellValue(row, columnMap.rValue),
+        thickness: getCellValue(row, columnMap.thickness),
+        materialType: getCellValue(row, columnMap.materialType),
+        scope: scopeValue,
+        totalMeasurements: parseFloat(getCellValue(row, columnMap.totalMeasurements)) || 0,
+        totalCost: parseFloat(getCellValue(row, columnMap.totalCost)) || 0,
+        rowType: autoRowType, // Use auto-detected type
+        formula: totalCostFormula, // Include for debugging
+        locations: extractLocations(row, columnMap)
+      }
+    })
 
     // 5. Parse row types to build sections
     const { sections, standaloneItems, sectionTotals, grandTotal } = parseRowTypes(rows)
