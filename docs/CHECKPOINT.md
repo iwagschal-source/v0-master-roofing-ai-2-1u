@@ -11,14 +11,14 @@
 ## LAST UPDATE
 - **When:** 2026-02-03
 - **Updated by:** Claude Code
-- **Session type:** Session 22 - CSV import 100% working
+- **Session type:** Session 22 - CSV import fixed, proposal analysis complete
 
 ---
 
 ## CURRENT BRANCH
 - **Branch:** `main`
 - **Pushed to remote:** ✅ YES
-- **Latest commit:** `debd84d` — "fix: prioritize exact 'measurement' column for CSV import"
+- **Latest commit:** `e3cc41a` — "docs: update CHECKPOINT.md - CSV import 100% working"
 - **Backup tag:** `working-100-percent-2026-02-03`
 
 ---
@@ -31,31 +31,38 @@
 
 ---
 
-## SESSION 22 COMPLETE — 2026-02-03
+## SESSION 22 — 2026-02-03
 
-### CSV IMPORT NOW 100% WORKING
-- **Test:** Tuesday 2 project with 3 items (MR-001VB, MR-010DRAIN, MR-022COPELO)
-- **Result:** items_parsed: 3, cells_updated: 3 ✅
-
-### BUG FOUND & FIXED
-- **Root cause:** CSV parsing used `findIndex` which found "Length" column before "Measurement"
-- **Problem:** COUNT items (like drains) have Length=0, so they were skipped
+### PART 1: CSV IMPORT FIX ✅
+- **Bug:** CSV parsing found "Length" column before "Measurement"
+- **Impact:** COUNT items (drains) have Length=0, were skipped
 - **Fix:** Prioritize exact match on "measurement" column (commit `debd84d`)
-- **Verification:** Tested via production API — all 3 items now import correctly
+- **Result:** 3/3 items now import correctly
 
-### Tags Created This Session
-- `working-csv-import-2026-02-03` — Before debugging (2/3 items working)
-- `working-100-percent-2026-02-03` — After fix (3/3 items working)
+### PART 2: PROPOSAL GENERATION ANALYSIS ✅
+- **Finding:** Proposal preview relies on `Row Type` column that DOESN'T EXIST in template
+- **Solution:** Auto-detect row types from Column O formulas
+- **Documentation:** Created `docs/PROPOSAL_ROW_DETECTION.md`
 
-### WORKING STATE
-- Tag: `working-100-percent-2026-02-03` (commit `debd84d`)
-- CSV import handles ALL measurement types: length, area, count
-- Canonical tables: `item_master` (58 rows), `location_master` (21 rows)
+### Formula Patterns Discovered
+| Pattern | Row Type |
+|---------|----------|
+| `=B{n}*N{n}` | ITEM |
+| `=SUM(O{x}:O{y})` | BUNDLE_TOTAL |
+| Column C contains "BUNDLE TOTAL" | BUNDLE_TOTAL (backup) |
+| 5+ O cell references | SECTION_TOTAL |
+
+### BigQuery Tables Status
+| Table | Rows | Notes |
+|-------|------|-------|
+| `item_master` | 58 | Canonical items, has bluebeam_pattern |
+| `item_description_mapping` | 58 | Descriptions, 23 have paragraph_description |
+| `location_master` | 21 | Canonical locations |
 
 ### NEXT SESSION TODO
-1. Document the complete sheet-first workflow
-2. Consider deleting wizard code after full validation
-3. Test with larger project (more items, multiple sections)
+1. **Implement auto-detection** — Use Column O formulas to detect row types
+2. **Consolidate tables** — Merge `item_description_mapping` into `item_master`
+3. **Test proposal generation** — End-to-end with Tuesday 2 project
 
 ### TEST COMMAND FOR NEXT SESSION
 ```bash
