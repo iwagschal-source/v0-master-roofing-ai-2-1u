@@ -11,15 +11,15 @@
 ## LAST UPDATE
 - **When:** 2026-02-03
 - **Updated by:** Claude Code
-- **Session type:** Session 21 - CSV import fix deployed
+- **Session type:** Session 22 - CSV import 100% working
 
 ---
 
 ## CURRENT BRANCH
 - **Branch:** `main`
 - **Pushed to remote:** ✅ YES
-- **Latest commit:** `616df16` — "fix: switch CSV import from /config to /sheet-config"
-- **Backup tag:** `working-btx-2026-02-02` at commit `bd73385`
+- **Latest commit:** `debd84d` — "fix: prioritize exact 'measurement' column for CSV import"
+- **Backup tag:** `working-100-percent-2026-02-03`
 
 ---
 
@@ -27,32 +27,35 @@
 - **Going sheet-first.** Wizard will be eliminated.
 - **Do NOT delete wizard code yet** — build new stuff first, prove it works, then remove.
 - ~~Column A population unblocks everything — it's the critical path.~~ **DONE**
+- ~~CSV import fixes~~ **DONE** — All item types work (length, area, count)
 
 ---
 
-## SESSION 21 COMPLETE — 2026-02-03
+## SESSION 22 COMPLETE — 2026-02-03
 
-### MAJOR FIX DEPLOYED
-- CSV import now uses `/sheet-config` instead of `/config`
-- **Root cause:** Old `/config` had empty `selectedItems[]`, all items were skipped
-- **Fix:** commit `616df16` — switched to `/sheet-config` which reads Column A (51 items)
-- **Result:** "items_parsed: 3, cells_updated: 2" — IT WORKS
+### CSV IMPORT NOW 100% WORKING
+- **Test:** Tuesday 2 project with 3 items (MR-001VB, MR-010DRAIN, MR-022COPELO)
+- **Result:** items_parsed: 3, cells_updated: 3 ✅
+
+### BUG FOUND & FIXED
+- **Root cause:** CSV parsing used `findIndex` which found "Length" column before "Measurement"
+- **Problem:** COUNT items (like drains) have Length=0, so they were skipped
+- **Fix:** Prioritize exact match on "measurement" column (commit `debd84d`)
+- **Verification:** Tested via production API — all 3 items now import correctly
+
+### Tags Created This Session
+- `working-csv-import-2026-02-03` — Before debugging (2/3 items working)
+- `working-100-percent-2026-02-03` — After fix (3/3 items working)
 
 ### WORKING STATE
-- Tag: `working-btx-2026-02-02` (commit `bd73385`)
-- Current main: `616df16` (with CSV import fix)
-- Canonical tables created: `item_master` (58 rows), `location_master` (21 rows)
-
-### Python Backend Contract (Verified)
-- `btx_generator.py` does NOT normalize locations
-- Passes through whatever string it receives: `f"{item_id} | {location}"`
-- Location normalization was frontend-only issue (already fixed in prior commits)
+- Tag: `working-100-percent-2026-02-03` (commit `debd84d`)
+- CSV import handles ALL measurement types: length, area, count
+- Canonical tables: `item_master` (58 rows), `location_master` (21 rows)
 
 ### NEXT SESSION TODO
-1. Full analysis of Monday project: compare BTX vs CSV vs Sheet
-2. Understand why 1 of 4 items didn't update (likely missing column in sheet)
-3. Document the complete sheet-first workflow
-4. Consider deleting wizard code after full validation
+1. Document the complete sheet-first workflow
+2. Consider deleting wizard code after full validation
+3. Test with larger project (more items, multiple sections)
 
 ### TEST COMMAND FOR NEXT SESSION
 ```bash
