@@ -11,14 +11,14 @@
 ## LAST UPDATE
 - **When:** 2026-02-03
 - **Updated by:** Claude Code
-- **Session type:** Session 22 - CSV import fixed, proposal analysis complete
+- **Session type:** Session 22 - Proposal row type auto-detection complete
 
 ---
 
 ## CURRENT BRANCH
 - **Branch:** `main`
 - **Pushed to remote:** ✅ YES
-- **Latest commit:** `e3cc41a` — "docs: update CHECKPOINT.md - CSV import 100% working"
+- **Latest commit:** `50d1b12` — "feat: complete proposal row type auto-detection from Column O formulas"
 - **Backup tag:** `working-100-percent-2026-02-03`
 
 ---
@@ -31,45 +31,55 @@
 
 ---
 
-## SESSION 22 — 2026-02-03
+## SESSION 22 — 2026-02-03 — Proposal Row Type Auto-Detection
 
-### PART 1: CSV IMPORT FIX ✅
-- **Bug:** CSV parsing found "Length" column before "Measurement"
-- **Impact:** COUNT items (drains) have Length=0, were skipped
-- **Fix:** Prioritize exact match on "measurement" column (commit `debd84d`)
-- **Result:** 3/3 items now import correctly
+### COMPLETED ✅
+1. ✅ CSV Import 100% working (all item types: length, area, count)
+2. ✅ Added `detectRowTypeFromFormula()` for auto-detecting row types from Column O formulas
+3. ✅ Detection rules: `=B{n}*N{n}`→ITEM, `=SUM()`→BUNDLE_TOTAL, "BUNDLE TOTAL" in scope→backup
+4. ✅ Updated `parseRowTypes()` to handle BUNDLE_TOTAL and create sections
+5. ✅ Fixed header row detection (row 3, not row 1)
+6. ✅ Preview endpoint returns 13 sections correctly
+7. ✅ Generate endpoint works (POST required)
+8. ✅ Production deployed - version 2026-02-03-v2
 
-### PART 2: PROPOSAL GENERATION ANALYSIS ✅
-- **Finding:** Proposal preview relies on `Row Type` column that DOESN'T EXIST in template
-- **Solution:** Auto-detect row types from Column O formulas
-- **Documentation:** Created `docs/PROPOSAL_ROW_DETECTION.md`
+### Key Commits
+| Commit | Description |
+|--------|-------------|
+| `50d1b12` | feat: complete proposal row type auto-detection from Column O formulas |
+| `c39e159` | debug version (cleaned up) |
+| `8adbc46` | fix: detect header row dynamically |
+| `572b282` | feat: auto-detect row types from Column O formulas |
 
-### Formula Patterns Discovered
-| Pattern | Row Type |
-|---------|----------|
-| `=B{n}*N{n}` | ITEM |
-| `=SUM(O{x}:O{y})` | BUNDLE_TOTAL |
-| Column C contains "BUNDLE TOTAL" | BUNDLE_TOTAL (backup) |
-| 5+ O cell references | SECTION_TOTAL |
+### Detection Rules Implemented
+| Formula Pattern | Row Type | Confidence |
+|-----------------|----------|------------|
+| `=B{n}*N{n}` | ITEM | High |
+| `=SUM(O{x}:O{y})` | BUNDLE_TOTAL | High |
+| Scope contains "BUNDLE TOTAL" | BUNDLE_TOTAL | Backup |
+| 5+ O cell references | SECTION_TOTAL | High |
+| Has item_id, no formula match | ITEM | Default |
 
-### BigQuery Tables Status
-| Table | Rows | Notes |
-|-------|------|-------|
-| `item_master` | 58 | Canonical items, has bluebeam_pattern |
-| `item_description_mapping` | 58 | Descriptions, 23 have paragraph_description |
-| `location_master` | 21 | Canonical locations |
+### Test Project
+- **Tuesday 2:** `proj_4222d7446fbc40c5`
+- **Spreadsheet:** `17SCbPSeoaGC3gEs7Y_mbMbQu4UYUldu0_hk3QsxrPVE`
+- **Result:** 13 sections detected correctly
+
+### Files Modified
+- `app/api/ko/proposal/[projectId]/preview/route.js` — added detectRowTypeFromFormula(), header detection
+- `lib/google-sheets.js` — added readSheetFormulas()
+- `docs/PROPOSAL_ROW_DETECTION.md` — design doc
 
 ### NEXT SESSION TODO
-1. **Implement auto-detection** — Use Column O formulas to detect row types
+1. **Test generated Word document content** — verify template merge works
 2. **Consolidate tables** — Merge `item_description_mapping` into `item_master`
-3. **Test proposal generation** — End-to-end with Tuesday 2 project
+3. **Delete wizard code** — after full validation (~2,079 lines)
 
 ### TEST COMMAND FOR NEXT SESSION
 ```bash
-# Pick up where we left off:
-cat docs/CHECKPOINT.md
-# Test project: proj_56c795199df84c8e (Monday Again)
-# Test the full flow: BTX generation → CSV import → verify sheet
+# Test proposal generation:
+curl -X POST "https://v0-master-roofing-ai-2-1u.vercel.app/api/ko/proposal/proj_4222d7446fbc40c5/generate" \
+  -H "Content-Type: application/json" -d '{}' -o proposal.docx
 ```
 
 ---
@@ -183,3 +193,4 @@ cat docs/CHECKPOINT.md
 | 20d | 2026-02-02 | Claude.ai | CSV import test — 4/6 cells updated, BALCONIES/EXTERIOR mapping issue found |
 | 20e | 2026-02-02 | Claude Code | Fixed section-aware location mapping in fillBluebeamDataToSpreadsheet |
 | 21 | 2026-02-03 | Claude Code | CSV import fix: /config→/sheet-config, canonical tables verified, IT WORKS |
+| 22 | 2026-02-03 | Claude Code | Proposal row type auto-detection from Column O formulas, 13 sections detected |
