@@ -9,16 +9,16 @@
 # ============================================
 
 ## LAST UPDATE
-- **When:** 2026-02-03
+- **When:** 2026-02-03 (late session)
 - **Updated by:** Claude Code
-- **Session type:** Session 22 - Proposal row type auto-detection complete
+- **Session type:** Session 22b - Proposal data flow analysis complete
 
 ---
 
 ## CURRENT BRANCH
 - **Branch:** `main`
 - **Pushed to remote:** ✅ YES
-- **Latest commit:** `50d1b12` — "feat: complete proposal row type auto-detection from Column O formulas"
+- **Latest commit:** `1185b51` — "chore: add debug scripts for proposal data flow analysis"
 - **Backup tag:** `working-100-percent-2026-02-03`
 
 ---
@@ -81,6 +81,57 @@
 curl -X POST "https://v0-master-roofing-ai-2-1u.vercel.app/api/ko/proposal/proj_4222d7446fbc40c5/generate" \
   -H "Content-Type: application/json" -d '{}' -o proposal.docx
 ```
+
+---
+
+## SESSION 22b — 2026-02-03 — Proposal Data Flow Analysis
+
+### COMPLETED ✅
+1. ✅ Fixed currency parsing ($519.79 → 519.79) in preview endpoint
+2. ✅ Traced full data flow: Sheet → API → BigQuery → Template
+3. ✅ Analyzed item_description_mapping table (23/58 have descriptions)
+4. ✅ Identified Word template placeholders
+5. ✅ Created debug scripts for proposal analysis
+
+### Key Commits
+| Commit | Description |
+|--------|-------------|
+| `1185b51` | chore: add debug scripts for proposal data flow analysis |
+| `e4624ce` | fix: parse currency values in proposal preview |
+
+### item_description_mapping Table
+| Column | Purpose |
+|--------|---------|
+| item_id | Links to takeoff (MR-001VB) |
+| paragraph_description | Full proposal text (23 items have this) |
+| bundling_notes | "When bundled..." instructions |
+| description_status | HAS_DESCRIPTION or empty |
+
+### Word Template Placeholders
+```
+{#line_items}
+  {section_title}, {r_value}, {size}, {type}, {areas}, {price}, {description}
+{/line_items}
+{#alt_line_items} ... {/alt_line_items}  ← Currently always empty
+{project_name}, {prepared_for}, {date}, {grand_total_bid}, {project_summary}
+```
+
+### Issues Found (NOT YET FIXED)
+| Issue | Current Behavior | Fix Needed |
+|-------|------------------|------------|
+| sectionType = "1" | Strips "BUNDLE TOTAL - " → "1" | Better naming |
+| subtotal = $0.00 | Uses sheet formula (sums $0 cells) | Calculate from items |
+| descriptions | Falls back to scope name | 35 items need BigQuery entries |
+| alt_line_items | Always empty | No ALT column in template |
+
+### Test Data Note
+Tuesday 2 project is sparse - only 1 item has measurements ($519.79).
+Most rows have $0.00 because no Bluebeam data imported.
+
+### Debug Scripts Added
+- `scripts/show-template-data.js` - Shows exact data passed to docxtemplater
+- `scripts/trace-bundle-total.js` - Traces bundle total calculation
+- `scripts/query-descriptions2.js` - Query item_description_mapping
 
 ---
 
@@ -194,3 +245,4 @@ curl -X POST "https://v0-master-roofing-ai-2-1u.vercel.app/api/ko/proposal/proj_
 | 20e | 2026-02-02 | Claude Code | Fixed section-aware location mapping in fillBluebeamDataToSpreadsheet |
 | 21 | 2026-02-03 | Claude Code | CSV import fix: /config→/sheet-config, canonical tables verified, IT WORKS |
 | 22 | 2026-02-03 | Claude Code | Proposal row type auto-detection from Column O formulas, 13 sections detected |
+| 22b | 2026-02-03 | Claude Code | Proposal data flow analysis, currency fix, debug scripts, issues documented |
