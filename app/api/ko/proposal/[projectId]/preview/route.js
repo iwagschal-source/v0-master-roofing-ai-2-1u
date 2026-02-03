@@ -114,13 +114,13 @@ export async function GET(request, { params }) {
       return {
         rowNumber: actualRowNum,
         itemId,
-        unitCost: parseFloat(getCellValue(row, columnMap.unitCost)) || 0,
+        unitCost: parseCurrency(getCellValue(row, columnMap.unitCost)),
         rValue: getCellValue(row, columnMap.rValue),
         thickness: getCellValue(row, columnMap.thickness),
         materialType: getCellValue(row, columnMap.materialType),
         scope: scopeValue,
         totalMeasurements: parseFloat(getCellValue(row, columnMap.totalMeasurements)) || 0,
-        totalCost: parseFloat(getCellValue(row, columnMap.totalCost)) || 0,
+        totalCost: parseCurrency(getCellValue(row, columnMap.totalCost)),
         rowType: autoRowType, // Use auto-detected type
         formula: totalCostFormula, // Include for debugging
         locations: extractLocations(row, columnMap)
@@ -227,6 +227,17 @@ function findColumnIndices(headers) {
 function getCellValue(row, index) {
   if (index < 0 || index >= row.length) return ''
   return (row[index] || '').toString().trim()
+}
+
+/**
+ * Parse currency string (e.g., "$1,234.56") to number
+ */
+function parseCurrency(value) {
+  if (!value) return 0
+  // Remove $ and commas, then parse
+  const cleaned = value.toString().replace(/[$,]/g, '')
+  const num = parseFloat(cleaned)
+  return isNaN(num) ? 0 : num
 }
 
 /**
