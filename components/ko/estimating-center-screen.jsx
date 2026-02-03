@@ -430,7 +430,7 @@ export function EstimatingCenterScreen({ onSelectProject, onBack }) {
         columns: allLocations.map(loc => ({
           id: loc.column,
           name: loc.name,
-          mappings: [loc.normalized || loc.name.toUpperCase()]
+          mappings: [loc.name.toUpperCase()]  // Use raw name WITH spaces
         }))
       }
 

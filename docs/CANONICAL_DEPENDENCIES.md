@@ -189,6 +189,22 @@ WHERE is_active = TRUE;
 | aliases | ARRAY<STRING> | Alternative names for matching |
 | sort_order | INT64 | Display order |
 
+#### Location Naming Convention (CRITICAL)
+
+**All location names MUST include spaces.** Examples:
+- ✅ `1ST FLOOR` (correct)
+- ❌ `1STFLOOR` (wrong - no normalization)
+- ✅ `MAIN ROOF` (correct)
+- ❌ `MAINROOF` (wrong)
+
+**Why:** The closed-loop BTX → CSV → Sheet import flow requires exact string matching:
+1. Sheet header: `1ST FLOOR`
+2. BTX tool subject: `MR-001VB | 1ST FLOOR`
+3. CSV export: `MR-001VB | 1ST FLOOR`
+4. Import matches: `1ST FLOOR` = `1ST FLOOR` ✅
+
+**DO NOT normalize location names anywhere in the chain.** No `replace(/[^A-Z0-9]/g, '')`.
+
 ### project_folders (Project-to-Sheet Mapping)
 
 | Column | Type | Description |

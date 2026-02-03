@@ -124,6 +124,10 @@ function getSectionForRow(row) {
 /**
  * Parse location names from header row (cols G-L, 6 columns)
  * Returns array of { column, name } for non-empty headers
+ *
+ * IMPORTANT: Returns raw names WITH spaces (e.g., "1ST FLOOR" not "1STFLOOR")
+ * This ensures BTX tool subjects match sheet headers exactly for CSV import.
+ * See docs/CANONICAL_DEPENDENCIES.md for location naming conventions.
  */
 function parseLocationHeader(headerRow) {
   const columns = ['G', 'H', 'I', 'J', 'K', 'L']
@@ -134,8 +138,7 @@ function parseLocationHeader(headerRow) {
     if (name) {
       locations.push({
         column: columns[i],
-        name,
-        normalized: name.toUpperCase().replace(/[^A-Z0-9]/g, '')
+        name  // Raw name with spaces - NO normalization
       })
     }
   }
