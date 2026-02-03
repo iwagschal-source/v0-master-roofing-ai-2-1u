@@ -11,14 +11,14 @@
 ## LAST UPDATE
 - **When:** 2026-02-03
 - **Updated by:** Claude Code
-- **Session type:** BTX location bug investigation
+- **Session type:** Session 21 - CSV import fix deployed
 
 ---
 
 ## CURRENT BRANCH
-- **Branch:** `main` (merged from sheet-first)
+- **Branch:** `main`
 - **Pushed to remote:** ✅ YES
-- **Latest commit:** `6c13a41` — "fix: remove location normalization - use raw names with spaces"
+- **Latest commit:** `616df16` — "fix: switch CSV import from /config to /sheet-config"
 - **Backup tag:** `working-btx-2026-02-02` at commit `bd73385`
 
 ---
@@ -30,41 +30,37 @@
 
 ---
 
-## ACTIVE TASK — BTX LOCATION BUG (BLOCKING)
-- **Task:** Fix location matching between BTX/CSV and Sheet
-- **Status:** 🔴 BLOCKED — Need to verify Python backend contract
-- **Test project:** proj_56c795199df84c8e (Monday Again)
-- **Test sheet:** 1MmF_trhCwHzEuSt9hcL1YgG2SaY3a1svndIUvl4IP3w
+## SESSION 21 COMPLETE — 2026-02-03
 
-### Bug Analysis (Session 20g)
-**Symptom:** CSV has `5TH FLOOR` but import fails to match.
+### MAJOR FIX DEPLOYED
+- CSV import now uses `/sheet-config` instead of `/config`
+- **Root cause:** Old `/config` had empty `selectedItems[]`, all items were skipped
+- **Fix:** commit `616df16` — switched to `/sheet-config` which reads Column A (51 items)
+- **Result:** "items_parsed: 3, cells_updated: 2" — IT WORKS
 
-**Root cause identified:**
-- `btx/route.js:41` sends normalized locations (strips spaces): `5THFLOOR`
-- Python backend generates BTX tools with normalized names
-- CSV export has normalized: `MR-001VB | 5THFLOOR`
-- Sheet header has spaces: `5th Floor`
-- Mismatch causes 0 cells updated
+### WORKING STATE
+- Tag: `working-btx-2026-02-02` (commit `bd73385`)
+- Current main: `616df16` (with CSV import fix)
+- Canonical tables created: `item_master` (58 rows), `location_master` (21 rows)
 
-### Files with normalization pattern
+### Python Backend Contract (Verified)
+- `btx_generator.py` does NOT normalize locations
+- Passes through whatever string it receives: `f"{item_id} | {location}"`
+- Location normalization was frontend-only issue (already fixed in prior commits)
+
+### NEXT SESSION TODO
+1. Full analysis of Monday project: compare BTX vs CSV vs Sheet
+2. Understand why 1 of 4 items didn't update (likely missing column in sheet)
+3. Document the complete sheet-first workflow
+4. Consider deleting wizard code after full validation
+
+### TEST COMMAND FOR NEXT SESSION
+```bash
+# Pick up where we left off:
+cat docs/CHECKPOINT.md
+# Test project: proj_56c795199df84c8e (Monday Again)
+# Test the full flow: BTX generation → CSV import → verify sheet
 ```
-grep -rn "replace(/[^A-Z0-9]/g" --include="*.js"
-```
-| File | Line | Usage |
-|------|------|-------|
-| lib/google-sheets.js | 612 | FALLBACK - OK, keep |
-| lib/google-sheets.js | 717 | FALLBACK - OK, keep |
-| btx/route.js | 41 | PRIMARY - sends to backend |
-| bluebeam/route.js | 93 | PRIMARY - builds locationMap |
-
-### ⚠️ DO NOT FIX UNTIL VERIFIED
-The Python BTX backend may EXPECT normalized format.
-Must check backend contract before changing frontend.
-
-### Files to check in next session
-- `/home/iwagschal/aeyecorp/app/bluebeam/btx_generator.py` on VM
-- `/home/iwagschal/aeyecorp/app/bluebeam/api.py` on VM
-- What format does `generate_btx_with_locations()` expect?
 
 ---
 
@@ -145,10 +141,10 @@ Must check backend contract before changing frontend.
 ### If you're Claude Code starting fresh:
 1. Read this file first
 2. Read `docs/SESSION_STATE.md` for full architectural context
-3. You're on branch `sheet-first`
-4. Current task is in ACTIVE TASK section above
-5. Do NOT touch `main` or `dev` branches
-6. Do NOT delete wizard code until told to
+3. You're on branch `main`
+4. CSV import is working — test with Monday Again project
+5. Do NOT delete wizard code until told to
+6. Canonical tables: `item_master` (58 rows), `location_master` (21 rows)
 
 ### If you're Claude.ai starting fresh:
 1. Read this file first
@@ -159,10 +155,11 @@ Must check backend contract before changing frontend.
 
 ### Critical references:
 - Living state doc: `docs/SESSION_STATE.md`
+- Canonical dependencies: `docs/CANONICAL_DEPENDENCIES.md`
 - Template ID: `1n0p_EWMwQSqhvBmjXJdy-QH5B7KlRXP5kDhn3Tdhfk4`
 - BigQuery dataset: `master-roofing-intelligence.mr_main`
 - Repo: `~/v0-master-roofing-ai-2-1u`
-- Git branch: `sheet-first`
+- Git branch: `main`
 
 ---
 
@@ -175,3 +172,4 @@ Must check backend contract before changing frontend.
 | 20c | 2026-02-02 | Claude Code | Populated template Column A with 53 item_ids, verified, committed |
 | 20d | 2026-02-02 | Claude.ai | CSV import test — 4/6 cells updated, BALCONIES/EXTERIOR mapping issue found |
 | 20e | 2026-02-02 | Claude Code | Fixed section-aware location mapping in fillBluebeamDataToSpreadsheet |
+| 21 | 2026-02-03 | Claude Code | CSV import fix: /config→/sheet-config, canonical tables verified, IT WORKS |
