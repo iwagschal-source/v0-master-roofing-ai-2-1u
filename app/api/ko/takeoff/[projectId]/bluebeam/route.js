@@ -273,23 +273,38 @@ export async function POST(request, { params }) {
     // Try deterministic parsing first if not forced to legacy
     if (!force_legacy) {
       try {
-        // Fetch project config from local API (no external backend)
+        // Fetch sheet-config (reads actual sheet state, not wizard config)
         let config = null
-        const localConfigRes = await fetch(
-          new URL(`/api/ko/takeoff/${projectId}/config`, request.url).toString(),
+        const sheetConfigRes = await fetch(
+          new URL(`/api/ko/takeoff/${projectId}/sheet-config`, request.url).toString(),
           { headers: { 'Accept': 'application/json' } }
         )
-        if (localConfigRes.ok) {
-          const localConfigData = await localConfigRes.json()
-          if (localConfigData.exists) {
-            config = localConfigData.config
+        if (sheetConfigRes.ok) {
+          const sheetData = await sheetConfigRes.json()
+          if (sheetData.exists && sheetData.selected_items && sheetData.locations) {
+            // Transform sheet-config format to expected config format
+            const allLocations = [
+              ...(sheetData.locations.ROOFING || []),
+              ...(sheetData.locations.BALCONIES || []),
+              ...(sheetData.locations.EXTERIOR || [])
+            ]
+            config = {
+              columns: allLocations.map(loc => ({
+                id: loc.column,
+                name: loc.name,
+                mappings: [loc.name.toUpperCase()]  // Use raw name with spaces
+              })),
+              selectedItems: sheetData.selected_items.map(item => ({
+                scope_code: item.item_id
+              }))
+            }
           }
         }
 
         // Check if CSV has PIPE delimiter format
         const hasPipeDelimiter = csv_content.includes(' | ')
 
-        if (config && config.columns && config.selectedItems && hasPipeDelimiter) {
+        if (config && config.columns && config.selectedItems && config.selectedItems.length > 0 && hasPipeDelimiter) {
           // Use deterministic parsing
           const result = parseDeterministicCSV(csv_content, config)
 
