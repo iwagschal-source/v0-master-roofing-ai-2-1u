@@ -189,6 +189,23 @@ WHERE is_active = TRUE;
 | aliases | ARRAY<STRING> | Alternative names for matching |
 | sort_order | INT64 | Display order |
 
+### project_folders (Project-to-Sheet Mapping)
+
+| Column | Type | Description |
+|--------|------|-------------|
+| id | STRING | Project ID (proj_xxx) |
+| project_name | STRING | Human-readable project name |
+| takeoff_spreadsheet_id | STRING | Google Sheet ID for this project's takeoff |
+| drive_folder_id | STRING | Google Drive folder for project files |
+| contact_id | STRING | FK to contacts_companies |
+
+**Used by:**
+- `sheet-config` endpoint - looks up spreadsheet ID for a project
+- `proposal/preview` endpoint - gets project metadata
+- Estimating Center UI - determines if project has takeoff
+
+**Note:** This is the **source of truth** for which spreadsheet belongs to which project. The `takeoff_spreadsheet_id` column links a project to its standalone Google Sheet takeoff.
+
 ---
 
 ## Quick Reference: Where Data Lives
@@ -197,6 +214,7 @@ WHERE is_active = TRUE;
 |-----------|-----------------|---------|
 | Item definitions | `item_master` | mr_main |
 | Location definitions | `location_master` | mr_main |
+| Project-to-sheet mapping | `project_folders.takeoff_spreadsheet_id` | mr_main |
 | Project takeoff data | Google Sheet | per-project |
 | Project metadata | `project_folders` | mr_main |
 | System options | `v_takeoff_template_with_systems` | mr_agent |
