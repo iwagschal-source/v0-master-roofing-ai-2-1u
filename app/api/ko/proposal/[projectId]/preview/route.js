@@ -157,7 +157,13 @@ export async function GET(request, { params }) {
         grandTotal
       },
       columnMap, // Include for debugging
-      rowCount: rows.length
+      rowCount: rows.length,
+      debug: {
+        headerRowIdx,
+        headerRow: sheetData[headerRowIdx]?.slice(0, 5),
+        firstDataRow: sheetData[headerRowIdx + 1]?.slice(0, 5),
+        version: '2026-02-03-v2'
+      }
     })
 
   } catch (err) {
