@@ -37,7 +37,7 @@ export async function GET(request, { params }) {
 
     try {
       const bqResult = await runQuery(
-        `SELECT takeoff_spreadsheet_id, name
+        `SELECT takeoff_spreadsheet_id, project_name
          FROM \`master-roofing-intelligence.mr_main.project_folders\`
          WHERE id = @projectId`,
         { projectId },
@@ -45,7 +45,7 @@ export async function GET(request, { params }) {
       )
       if (bqResult.length > 0) {
         spreadsheetId = bqResult[0].takeoff_spreadsheet_id
-        projectName = bqResult[0].name
+        projectName = bqResult[0].project_name
       }
     } catch (bqErr) {
       console.warn('[sheet-config] BigQuery lookup failed:', bqErr.message)
