@@ -84,22 +84,35 @@ export async function GET(request, { params }) {
       })
     }
 
-    // 3. Parse sheet structure - find column indices dynamically
-    const headers = sheetData[0].map(h => (h || '').toString().toLowerCase().trim())
+    // 3. Find header row dynamically (template has headers in row 3, not row 1)
+    let headerRowIdx = 0
+    for (let i = 0; i < Math.min(sheetData.length, 10); i++) {
+      const row = sheetData[i] || []
+      const rowText = row.join(' ').toLowerCase()
+      if (rowText.includes('item_id') || rowText.includes('scope') && rowText.includes('cost')) {
+        headerRowIdx = i
+        break
+      }
+    }
+
+    const headers = sheetData[headerRowIdx].map(h => (h || '').toString().toLowerCase().trim())
     const columnMap = findColumnIndices(headers)
 
     // 4. Parse rows into structured data with auto-detected row types
-    const rows = sheetData.slice(1).map((row, idx) => {
-      const formulaRow = sheetFormulas[idx + 1] || []
+    // Skip rows before and including header row
+    const dataStartIdx = headerRowIdx + 1
+    const rows = sheetData.slice(dataStartIdx).map((row, idx) => {
+      const actualRowNum = dataStartIdx + idx + 1 // 1-based sheet row number
+      const formulaRow = sheetFormulas[dataStartIdx + idx] || []
       const totalCostFormula = getCellValue(formulaRow, columnMap.totalCost)
       const scopeValue = getCellValue(row, columnMap.scope)
       const itemId = getCellValue(row, columnMap.itemId)
 
       // Auto-detect row type from formula patterns
-      const autoRowType = detectRowTypeFromFormula(totalCostFormula, scopeValue, itemId, idx + 2)
+      const autoRowType = detectRowTypeFromFormula(totalCostFormula, scopeValue, itemId, actualRowNum)
 
       return {
-        rowNumber: idx + 2, // 1-based, accounting for header
+        rowNumber: actualRowNum,
         itemId,
         unitCost: parseFloat(getCellValue(row, columnMap.unitCost)) || 0,
         rValue: getCellValue(row, columnMap.rValue),
