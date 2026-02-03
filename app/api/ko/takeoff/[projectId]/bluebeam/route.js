@@ -81,7 +81,13 @@ function parseDeterministicCSV(csvContent, config) {
   // Parse header
   const header = parseCSVLine(lines[0]).map(h => h.toLowerCase().trim())
   const subjectIdx = header.findIndex(h => h.includes('subject') || h.includes('layer') || h.includes('label'))
-  const measurementIdx = header.findIndex(h => h.includes('measurement') || h.includes('area') || h.includes('length') || h.includes('count'))
+  // Prioritize exact 'measurement' column - it always has the correct value regardless of item type
+  // (Length/Area/Count columns only have values for their specific measurement types)
+  let measurementIdx = header.findIndex(h => h === 'measurement')
+  if (measurementIdx === -1) {
+    // Fallback to partial matches if no exact 'measurement' column
+    measurementIdx = header.findIndex(h => h.includes('measurement') || h.includes('area') || h.includes('length') || h.includes('count'))
+  }
 
   if (subjectIdx === -1) {
     return { items: [], mode: 'deterministic', error: 'No Subject column found' }
