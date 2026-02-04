@@ -307,13 +307,15 @@ function parseRowTypes(rows) {
       }
     } else if (rowType === 'BUNDLE_TOTAL') {
       // Bundle total - creates a section with items above it
-      if (currentItems.length > 0 || row.totalCost > 0) {
+      // Calculate subtotal from items (not sheet formula which may sum $0 cells)
+      const calculatedSubtotal = currentItems.reduce((sum, item) => sum + (item.totalCost || 0), 0)
+      if (currentItems.length > 0 || calculatedSubtotal > 0) {
         const sectionName = (row.scope || '').replace(/BUNDLE\s*TOTAL\s*-?\s*/i, '').trim() || `Bundle ${sections.length + 1}`
         sections.push({
           title: `WORK DETAILS FOR ${sectionName}`,
           sectionType: sectionName,
           items: [...currentItems],
-          subtotal: row.totalCost,
+          subtotal: calculatedSubtotal,
           rowNumber: row.rowNumber
         })
       }
