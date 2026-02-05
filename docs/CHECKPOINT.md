@@ -9,17 +9,54 @@
 # ============================================
 
 ## LAST UPDATE
-- **When:** 2026-02-03 (late session)
+- **When:** 2026-02-05
 - **Updated by:** Claude Code
-- **Session type:** Session 22b - Proposal data flow analysis complete
+- **Session type:** Session 23 - Proposal section titles fix
 
 ---
 
 ## CURRENT BRANCH
 - **Branch:** `main`
 - **Pushed to remote:** ✅ YES
-- **Latest commit:** `1185b51` — "chore: add debug scripts for proposal data flow analysis"
+- **Latest commit:** `c1d6075` — "fix: use main item's scope_name for section titles in proposals"
 - **Backup tag:** `working-100-percent-2026-02-03`
+
+---
+
+## SESSION 23 — 2026-02-05 — Proposal Section Titles Fix
+
+### COMPLETED ✅
+1. ✅ Verified actual `item_description_mapping` schema via BigQuery
+2. ✅ Fixed `fetchDescriptions()` - removed non-existent `bullet_points`, added `scope_name`, `display_name`, `section`, `row_type`
+3. ✅ Added `findMainItem()` to identify item with `paragraph_description` in each bundle
+4. ✅ Section titles now use main item's `scope_name` instead of "WORK DETAILS FOR 1"
+5. ✅ Section descriptions now use main item's `paragraph_description`
+6. ✅ Generate endpoint uses `mainItemId` to get specs from correct item
+
+### Key Commits
+| Commit | Description |
+|--------|-------------|
+| `c1d6075` | fix: use main item's scope_name for section titles in proposals |
+
+### Actual item_description_mapping Schema (Verified)
+```
+item_id, display_name, scope_name, section, uom, default_rate,
+has_r_value, has_material_type, row_type, description_status,
+paragraph_description, bundling_notes
+```
+**Note:** `bullet_points` does NOT exist (was in old code)
+
+### Before/After
+| Field | Before | After |
+|-------|--------|-------|
+| title | "WORK DETAILS FOR 1" | "Roofing - Builtup - 2 ply Scope" |
+| sectionDescription | null | Full paragraph from BigQuery |
+| mainItemId | (none) | "MR-003BU2PLY" |
+
+### Stats
+- 58 total items in mapping table
+- 23 items have `paragraph_description` (main items)
+- 35 items without descriptions (components)
 
 ---
 
