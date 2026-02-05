@@ -293,11 +293,32 @@ function buildSectionDescription(section, editedDescriptions) {
 
 /**
  * Format areas from section items
+ * Shows location names where measurements exist (e.g., "1st Floor, Main Roof: 74.79 SF")
  */
 function formatAreas(items) {
   if (!items || items.length === 0) return ''
 
+  // Collect all locations with measurements across items
+  const locationTotals = {}
+  for (const item of items) {
+    if (item.locations) {
+      for (const [locName, value] of Object.entries(item.locations)) {
+        // Skip col_ prefixed keys (old format) - use actual names
+        if (!locName.startsWith('col_')) {
+          locationTotals[locName] = (locationTotals[locName] || 0) + (value || 0)
+        }
+      }
+    }
+  }
+
+  const locationNames = Object.keys(locationTotals).filter(k => locationTotals[k] > 0)
   const totalSF = items.reduce((sum, item) => sum + (item.totalMeasurements || 0), 0)
+
+  if (locationNames.length > 0) {
+    // Show location names with total
+    return `${locationNames.join(', ')}: ${totalSF.toLocaleString()} SF`
+  }
+
   return totalSF > 0 ? `${totalSF.toLocaleString()} SF` : ''
 }
 

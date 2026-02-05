@@ -96,7 +96,19 @@ export async function GET(request, { params }) {
     }
 
     const headers = sheetData[headerRowIdx].map(h => (h || '').toString().toLowerCase().trim())
+    const rawHeaders = sheetData[headerRowIdx] // Keep original case for location names
     const columnMap = findColumnIndices(headers)
+
+    // Build location header map: {col_6: "1st Floor", col_7: "2nd Floor", ...}
+    const locationHeaders = {}
+    if (columnMap.locationStart >= 0 && columnMap.locationEnd >= 0) {
+      for (let i = columnMap.locationStart; i <= columnMap.locationEnd; i++) {
+        const headerName = (rawHeaders[i] || '').toString().trim()
+        if (headerName) {
+          locationHeaders[`col_${i}`] = headerName
+        }
+      }
+    }
 
     // 4. Parse rows into structured data with auto-detected row types
     // Skip rows before and including header row
@@ -123,7 +135,7 @@ export async function GET(request, { params }) {
         totalCost: parseCurrency(getCellValue(row, columnMap.totalCost)),
         rowType: autoRowType, // Use auto-detected type
         formula: totalCostFormula, // Include for debugging
-        locations: extractLocations(row, columnMap)
+        locations: extractLocations(row, columnMap, locationHeaders)
       }
     })
 
@@ -177,6 +189,7 @@ export async function GET(request, { params }) {
         grandTotal
       },
       columnMap,
+      locationHeaders, // Maps col indices to header names
       rowCount: rows.length
     })
 
@@ -261,16 +274,18 @@ function parseCurrency(value) {
 }
 
 /**
- * Extract location values from row
+ * Extract location values from row with header names
  */
-function extractLocations(row, columnMap) {
+function extractLocations(row, columnMap, locationHeaders = {}) {
   const locations = {}
   if (columnMap.locationStart < 0 || columnMap.locationEnd < 0) return locations
 
   for (let i = columnMap.locationStart; i <= columnMap.locationEnd && i < row.length; i++) {
     const value = parseFloat(row[i]) || 0
     if (value > 0) {
-      locations[`col_${i}`] = value
+      const key = `col_${i}`
+      const headerName = locationHeaders[key] || key
+      locations[headerName] = value
     }
   }
   return locations
