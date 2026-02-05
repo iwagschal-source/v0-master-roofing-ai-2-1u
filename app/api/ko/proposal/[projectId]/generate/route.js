@@ -205,12 +205,18 @@ function transformForTemplate(previewData, editedDescriptions) {
   const lineItems = []
 
   for (const section of sections || []) {
+    // Find the main item (the one with paragraph_description) for specs
+    // Fall back to first item if no main item identified
+    const mainItem = section.mainItemId
+      ? section.items?.find(i => i.itemId === section.mainItemId)
+      : section.items?.[0]
+
     // Add section as a line item
     lineItems.push({
-      section_title: section.sectionType || section.title.replace('WORK DETAILS FOR ', ''),
-      r_value: section.items?.[0]?.rValue || '',
-      size: section.items?.[0]?.thickness || '',
-      type: section.items?.[0]?.materialType || '',
+      section_title: section.title || section.sectionType || 'Work Section',
+      r_value: mainItem?.rValue || '',
+      size: mainItem?.thickness || '',
+      type: mainItem?.materialType || '',
       price: formatCurrency(section.subtotal),
       areas: formatAreas(section.items),
       description: buildSectionDescription(section, editedDescriptions)
@@ -258,19 +264,31 @@ function transformForTemplate(previewData, editedDescriptions) {
 
 /**
  * Build section description from items
+ * Prefers the main item's sectionDescription (from paragraph_description)
  */
 function buildSectionDescription(section, editedDescriptions) {
-  const descriptions = []
+  // Check for edited description first
+  const editKey = `section-${section.title}`
+  if (editedDescriptions[editKey]) {
+    return editedDescriptions[editKey]
+  }
 
+  // Use the section's main item description if available
+  if (section.sectionDescription) {
+    return section.sectionDescription
+  }
+
+  // Fall back to joining all item descriptions
+  const descriptions = []
   for (const item of section.items || []) {
     const descKey = `section-${section.title}-item-${item.rowNumber}`
     const desc = editedDescriptions[descKey] || item.description
-    if (desc) {
+    if (desc && desc !== item.name && desc !== item.itemId && desc !== 'No description') {
       descriptions.push(desc)
     }
   }
 
-  return descriptions.join('\n\n') || `Installation of ${section.sectionType || 'roofing system'} as specified.`
+  return descriptions.join('\n\n') || `Installation of ${section.title || section.sectionType || 'roofing system'} as specified.`
 }
 
 /**

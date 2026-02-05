@@ -135,13 +135,33 @@ export async function GET(request, { params }) {
     const descriptions = await fetchDescriptions(itemIds)
 
     // 7. Build final preview data with descriptions and placeholder replacement
-    const enrichedSections = sections.map(section => ({
-      ...section,
-      items: section.items.map(item => ({
-        ...item,
-        description: buildDescription(item, descriptions)
-      }))
-    }))
+    // For each section, find the "main item" (one with paragraph_description) for title/description
+    const enrichedSections = sections.map(section => {
+      // Find the main item in this section (first item with a paragraph_description)
+      const mainItem = findMainItem(section.items, descriptions)
+
+      // Build section title from main item or fall back to current logic
+      const sectionTitle = mainItem
+        ? (descriptions[mainItem.itemId]?.scopeName || descriptions[mainItem.itemId]?.displayName || section.sectionType)
+        : section.sectionType
+
+      // Build section description from main item's paragraph_description
+      const sectionDescription = mainItem
+        ? buildDescription(mainItem, descriptions)
+        : null
+
+      return {
+        ...section,
+        title: sectionTitle,
+        sectionType: sectionTitle,
+        sectionDescription, // The paragraph_description of the main item
+        mainItemId: mainItem?.itemId || null,
+        items: section.items.map(item => ({
+          ...item,
+          description: buildDescription(item, descriptions)
+        }))
+      }
+    })
 
     const enrichedStandalones = standaloneItems.map(item => ({
       ...item,
@@ -365,6 +385,7 @@ function parseRowTypes(rows) {
 
 /**
  * Fetch descriptions from BigQuery item_description_mapping table
+ * Returns paragraph_description, scope_name, display_name for main item identification
  */
 async function fetchDescriptions(itemIds) {
   if (itemIds.length === 0) return {}
@@ -374,7 +395,10 @@ async function fetchDescriptions(itemIds) {
       `SELECT
         item_id,
         paragraph_description,
-        bullet_points
+        scope_name,
+        display_name,
+        section,
+        row_type
        FROM \`master-roofing-intelligence.mr_main.item_description_mapping\`
        WHERE item_id IN UNNEST(@itemIds)`,
       { itemIds },
@@ -385,7 +409,11 @@ async function fetchDescriptions(itemIds) {
     for (const row of result) {
       descMap[row.item_id] = {
         paragraph: row.paragraph_description || '',
-        bullets: row.bullet_points || ''
+        scopeName: row.scope_name || '',
+        displayName: row.display_name || '',
+        section: row.section || '',
+        rowType: row.row_type || '',
+        hasDescription: !!row.paragraph_description
       }
     }
     return descMap
@@ -394,6 +422,25 @@ async function fetchDescriptions(itemIds) {
     // Return empty - will use scope name as fallback
     return {}
   }
+}
+
+/**
+ * Find the "main item" in a section - the item that has a paragraph_description
+ * This item defines the system being installed (e.g., the roofing system, not its components)
+ */
+function findMainItem(items, descriptions) {
+  if (!items || items.length === 0) return null
+
+  // Find the first item that has a paragraph_description in the descriptions map
+  for (const item of items) {
+    const desc = descriptions[item.itemId]
+    if (desc && desc.hasDescription) {
+      return item
+    }
+  }
+
+  // If no item has a description, return the first item as fallback
+  return items[0] || null
 }
 
 /**
