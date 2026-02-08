@@ -20,6 +20,7 @@
 
 | Tag | Commit | Description |
 |-----|--------|-------------|
+| `v1.1-session-24` | `13c8bd0` | 7 bug fixes: bundling, locations, standalone detection, generate areas — Session 24 complete |
 | `v1.0-working-flow` | `b0aea8a` | BTX generation, CSV import, proposal generation — Session 23 complete |
 
 ## Feature Branch Naming
