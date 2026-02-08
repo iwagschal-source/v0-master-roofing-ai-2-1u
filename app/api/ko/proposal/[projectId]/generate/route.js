@@ -4,6 +4,10 @@
  * Generates a proposal document by merging takeoff data into the Word template.
  * Saves the generated document to the project's Proposals folder in Google Drive.
  * Returns the document for download.
+ *
+ * SESSION 24 FIXES:
+ * - FIX 1: Standalone items now show location names (e.g., "1st Floor") not just "186.7 SF"
+ * - FIX 2: Project summary includes standalone item scopes, not just bundle section titles
  */
 
 import { NextResponse } from 'next/server'
@@ -223,7 +227,7 @@ function transformForTemplate(previewData, editedDescriptions) {
     })
   }
 
-  // Add standalone items
+  // [FIX 1] Add standalone items with location names, not just measurements
   for (const item of standaloneItems || []) {
     const descKey = `standalone-${item.rowNumber}`
     lineItems.push({
@@ -232,7 +236,7 @@ function transformForTemplate(previewData, editedDescriptions) {
       size: item.thickness || '',
       type: item.materialType || '',
       price: formatCurrency(item.totalCost),
-      areas: item.totalMeasurements ? `${item.totalMeasurements.toLocaleString()} SF` : '',
+      areas: formatStandaloneAreas(item),
       description: editedDescriptions[descKey] || item.description || ''
     })
   }
@@ -292,7 +296,7 @@ function buildSectionDescription(section, editedDescriptions) {
 }
 
 /**
- * Format areas from section items
+ * Format areas from section items (for bundles)
  * Shows only location names where measurements exist (e.g., "1st Floor, Main Roof")
  */
 function formatAreas(items) {
@@ -316,15 +320,43 @@ function formatAreas(items) {
 }
 
 /**
- * Build project summary text
+ * [FIX 1] Format areas for standalone items
+ * Shows location names where measurements exist, just like bundles.
+ * e.g., "1st Floor" instead of "186.7 SF"
+ */
+function formatStandaloneAreas(item) {
+  if (!item.locations || Object.keys(item.locations).length === 0) return ''
+
+  const locationNames = []
+  for (const [locName, value] of Object.entries(item.locations)) {
+    if (!locName.startsWith('col_') && value > 0) {
+      locationNames.push(locName)
+    }
+  }
+
+  return locationNames.length > 0 ? locationNames.join(', ') : ''
+}
+
+/**
+ * [FIX 2] Build project summary text
+ * Includes both bundle section titles AND standalone item names
  */
 function buildProjectSummary(previewData) {
   const { project, sections, standaloneItems } = previewData
 
   const scopeTypes = []
+
+  // Add bundle section titles
   for (const section of sections || []) {
     if (section.sectionType) {
       scopeTypes.push(section.sectionType)
+    }
+  }
+
+  // Add standalone item names
+  for (const item of standaloneItems || []) {
+    if (item.name) {
+      scopeTypes.push(item.name)
     }
   }
 
