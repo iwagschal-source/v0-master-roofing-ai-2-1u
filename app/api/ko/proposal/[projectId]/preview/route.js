@@ -4,6 +4,13 @@
  * Reads takeoff sheet and returns structured data for proposal preview.
  * Auto-detects row types from Column O formulas (bundles use =SUM()).
  * Fetches descriptions from BigQuery and replaces placeholders.
+ *
+ * SESSION 24 FIXES:
+ * - FIX 1: locationStart now skips R/IN/TYPE columns (uses materialType index)
+ * - FIX 2: Bundle membership determined by SUM formula range, not row proximity
+ * - FIX 3: $0 bundles with no measurements are excluded from proposal
+ * - FIX 4: Section header rows (item_id = "item_id") are skipped
+ * - FIX 5: Items not referenced by any SUM formula are detected as STANDALONE
  */
 
 import { NextResponse } from 'next/server'
@@ -139,11 +146,32 @@ export async function GET(request, { params }) {
       }
     })
 
-    // 5. Parse row types to build sections
-    const { sections, standaloneItems, sectionTotals, grandTotal } = parseRowTypes(rows)
+    // 4b. [FIX 2 & 5] Parse SUM formula ranges to determine bundle membership
+    // Build a map of which sheet rows are referenced by which BUNDLE_TOTAL
+    const bundleRanges = parseBundleRanges(rows)
+
+    // Mark items not in any bundle range as STANDALONE
+    for (const row of rows) {
+      if (row.rowType === 'ITEM') {
+        const isInBundle = bundleRanges.some(
+          range => row.rowNumber >= range.startRow && row.rowNumber <= range.endRow
+        )
+        if (!isInBundle) {
+          row.rowType = 'STANDALONE'
+        }
+      }
+    }
+
+    // 5. Parse row types to build sections using formula-based bundle ranges
+    const { sections, standaloneItems, sectionTotals, grandTotal } = parseRowTypes(rows, bundleRanges)
 
     // 6. Fetch descriptions from BigQuery for all item_ids
-    const itemIds = [...new Set(rows.filter(r => r.itemId).map(r => r.itemId))]
+    // [FIX 4] Filter out header row artifacts like "item_id"
+    const itemIds = [...new Set(
+      rows
+        .filter(r => r.itemId && !isHeaderRowArtifact(r.itemId))
+        .map(r => r.itemId)
+    )]
     const descriptions = await fetchDescriptions(itemIds)
 
     // 7. Build final preview data with descriptions and placeholder replacement
@@ -205,6 +233,9 @@ export async function GET(request, { params }) {
 /**
  * Find column indices from header row
  * Handles the shifted layout after item_id was added
+ *
+ * [FIX 1] Location columns start AFTER materialType (TYPE column),
+ * not after Scope. R, IN, TYPE are metadata columns, not locations.
  */
 function findColumnIndices(headers) {
   const map = {
@@ -244,10 +275,13 @@ function findColumnIndices(headers) {
     }
   })
 
-  // Determine location columns (between scope and total measurements)
-  // Locations are typically named columns like "Main Roof", "1st Floor", etc.
-  if (map.scope >= 0 && map.totalMeasurements > map.scope) {
-    map.locationStart = map.scope + 1
+  // [FIX 1] Determine location columns: start AFTER the last metadata column
+  // (R, IN, TYPE), not after Scope. The order is:
+  // A=item_id, B=unit_cost, C=scope, D=R, E=IN, F=TYPE, G+=locations, N=total_meas, O=total_cost
+  // Location columns are between TYPE and Total Measurements
+  const metadataEnd = Math.max(map.materialType, map.thickness, map.rValue, map.scope)
+  if (metadataEnd >= 0 && map.totalMeasurements > metadataEnd) {
+    map.locationStart = metadataEnd + 1
     map.locationEnd = map.totalMeasurements - 1
   }
 
@@ -292,83 +326,138 @@ function extractLocations(row, columnMap, locationHeaders = {}) {
 }
 
 /**
+ * [FIX 4] Check if an itemId is actually a header row artifact
+ * Section headers like row 45 (Balconies) and row 54 (Exterior) repeat
+ * "item_id" in column A — these are not real items.
+ */
+function isHeaderRowArtifact(itemId) {
+  if (!itemId) return false
+  const normalized = itemId.toLowerCase().trim()
+  return normalized === 'item_id' || normalized === 'item id' || normalized === 'itemid'
+}
+
+/**
+ * [FIX 2] Parse SUM formula ranges from BUNDLE_TOTAL rows
+ *
+ * For each BUNDLE_TOTAL row, extract the row range from the SUM formula.
+ * e.g., =SUM(O5:O8) means the bundle includes sheet rows 5-8.
+ *
+ * Returns array of { bundleRow, startRow, endRow }
+ */
+function parseBundleRanges(rows) {
+  const ranges = []
+
+  for (const row of rows) {
+    if (row.rowType !== 'BUNDLE_TOTAL') continue
+
+    const formula = (row.formula || '').trim()
+
+    // Parse =SUM(O{x}:O{y}) to extract start and end rows
+    const sumMatch = formula.match(/^=SUM\(O(\d+):O(\d+)\)$/i)
+    if (sumMatch) {
+      ranges.push({
+        bundleRow: row.rowNumber,
+        startRow: parseInt(sumMatch[1]),
+        endRow: parseInt(sumMatch[2])
+      })
+    } else {
+      // Backup: if detected via scope text "BUNDLE TOTAL" but no SUM formula,
+      // we cannot determine range — skip this bundle (it won't group items)
+      // Items before it will become standalone since they won't match any range
+      console.warn(`Bundle at row ${row.rowNumber} has no parseable SUM formula: "${formula}"`)
+    }
+  }
+
+  return ranges
+}
+
+/**
  * Parse row types to build sections, standalone items, and totals
  *
+ * [FIX 2] Uses bundleRanges (from SUM formulas) to determine which items
+ * belong to which bundle, instead of grouping by row proximity.
+ *
+ * [FIX 3] Skips bundles where all items have zero measurements AND zero cost.
+ *
+ * [FIX 4] Skips header row artifacts.
+ *
  * Row Types:
- * - ITEM: Regular line item, bundled into nearest SUBTOTAL above
- * - SUBTOTAL:* (e.g., SUBTOTAL:ROOFING): Creates a section with items above it
- * - STANDALONE: Individual line item on proposal
+ * - ITEM: Regular line item, belongs to a bundle (determined by SUM range)
+ * - STANDALONE: Item not referenced by any SUM formula
+ * - BUNDLE_TOTAL: Creates a section from its SUM range members
  * - SECTION_TOTAL: Section subtotal
  * - GRAND_TOTAL: Final total
  */
-function parseRowTypes(rows) {
+function parseRowTypes(rows, bundleRanges) {
   const sections = []
   const standaloneItems = []
   const sectionTotals = []
   let grandTotal = 0
 
-  let currentItems = []
+  // Build a lookup of rows by their sheet row number
+  const rowByNumber = {}
+  for (const row of rows) {
+    rowByNumber[row.rowNumber] = row
+  }
+
+  // Track which BUNDLE_TOTAL rows we've already processed
+  const processedBundles = new Set()
 
   for (const row of rows) {
     const rowType = (row.rowType || '').toUpperCase()
 
-    if (rowType.startsWith('SUBTOTAL:')) {
-      // This is a section header - bundle all items collected so far
-      const sectionName = rowType.replace('SUBTOTAL:', '').trim()
-      if (currentItems.length > 0 || row.totalCost > 0) {
-        sections.push({
-          title: `WORK DETAILS FOR ${sectionName}`,
-          sectionType: sectionName,
-          items: [...currentItems],
-          subtotal: row.totalCost,
-          rowNumber: row.rowNumber
-        })
+    // [FIX 4] Skip header row artifacts
+    if (isHeaderRowArtifact(row.itemId)) {
+      continue
+    }
+
+    if (rowType === 'BUNDLE_TOTAL') {
+      // [FIX 2] Find the bundle range for this BUNDLE_TOTAL
+      const range = bundleRanges.find(r => r.bundleRow === row.rowNumber)
+
+      if (range) {
+        // Collect items within the SUM formula range
+        const bundleItems = []
+        for (let r = range.startRow; r <= range.endRow; r++) {
+          const item = rowByNumber[r]
+          if (item && item.itemId && !isHeaderRowArtifact(item.itemId)) {
+            bundleItems.push({
+              itemId: item.itemId,
+              name: item.scope,
+              rValue: item.rValue,
+              thickness: item.thickness,
+              materialType: item.materialType,
+              unitCost: item.unitCost,
+              totalCost: item.totalCost,
+              totalMeasurements: item.totalMeasurements,
+              locations: item.locations,
+              rowNumber: item.rowNumber
+            })
+          }
+        }
+
+        // [FIX 3] Only include bundle if it has items with measurements OR cost
+        const hasData = bundleItems.some(item => item.totalMeasurements > 0 || item.totalCost > 0)
+        if (bundleItems.length > 0 && hasData) {
+          const calculatedSubtotal = bundleItems.reduce((sum, item) => sum + (item.totalCost || 0), 0)
+          const sectionName = (row.scope || '').replace(/BUNDLE\s*T?OTAL\s*-?\s*/i, '').trim() || `Bundle ${sections.length + 1}`
+          sections.push({
+            title: sectionName,
+            sectionType: sectionName,
+            items: bundleItems,
+            subtotal: calculatedSubtotal,
+            rowNumber: row.rowNumber
+          })
+        }
+        processedBundles.add(row.rowNumber)
       }
-      currentItems = []
+      // If no range found (no parseable SUM), skip — items remain standalone
+
     } else if (rowType === 'STANDALONE') {
-      // Standalone item - gets its own line on proposal
-      if (row.scope || row.totalCost > 0) {
+      // [FIX 5] Standalone items — not in any bundle
+      // Only include if they have measurements or cost
+      if (row.totalMeasurements > 0 || row.totalCost > 0) {
         standaloneItems.push({
-          itemId: row.itemId,
-          name: row.scope,
-          rValue: row.rValue,
-          thickness: row.thickness,
-          materialType: row.materialType,
-          totalCost: row.totalCost,
-          totalMeasurements: row.totalMeasurements,
-          locations: row.locations,
-          rowNumber: row.rowNumber
-        })
-      }
-    } else if (rowType === 'BUNDLE_TOTAL') {
-      // Bundle total - creates a section with items above it
-      // Calculate subtotal from items (not sheet formula which may sum $0 cells)
-      const calculatedSubtotal = currentItems.reduce((sum, item) => sum + (item.totalCost || 0), 0)
-      if (currentItems.length > 0 || calculatedSubtotal > 0) {
-        const sectionName = (row.scope || '').replace(/BUNDLE\s*TOTAL\s*-?\s*/i, '').trim() || `Bundle ${sections.length + 1}`
-        sections.push({
-          title: `WORK DETAILS FOR ${sectionName}`,
-          sectionType: sectionName,
-          items: [...currentItems],
-          subtotal: calculatedSubtotal,
-          rowNumber: row.rowNumber
-        })
-      }
-      currentItems = []
-    } else if (rowType === 'SECTION_TOTAL') {
-      // Section total
-      sectionTotals.push({
-        name: row.scope || 'Section Total',
-        amount: row.totalCost,
-        rowNumber: row.rowNumber
-      })
-    } else if (rowType === 'GRAND_TOTAL') {
-      // Grand total
-      grandTotal = row.totalCost
-    } else if (rowType === 'ITEM' || !rowType) {
-      // Regular item - collect for next subtotal
-      if (row.scope || row.itemId) {
-        currentItems.push({
           itemId: row.itemId,
           name: row.scope,
           rValue: row.rValue,
@@ -381,18 +470,18 @@ function parseRowTypes(rows) {
           rowNumber: row.rowNumber
         })
       }
-    }
-  }
 
-  // Handle any remaining items (if no final SUBTOTAL)
-  if (currentItems.length > 0) {
-    sections.push({
-      title: 'ADDITIONAL ITEMS',
-      sectionType: 'OTHER',
-      items: currentItems,
-      subtotal: currentItems.reduce((sum, item) => sum + (item.totalCost || 0), 0),
-      rowNumber: -1
-    })
+    } else if (rowType === 'SECTION_TOTAL') {
+      sectionTotals.push({
+        name: row.scope || 'Section Total',
+        amount: row.totalCost,
+        rowNumber: row.rowNumber
+      })
+
+    } else if (rowType === 'GRAND_TOTAL') {
+      grandTotal = row.totalCost
+    }
+    // ITEM rows are handled via bundle ranges above — no need to collect them here
   }
 
   return { sections, standaloneItems, sectionTotals, grandTotal }
@@ -507,6 +596,11 @@ function detectRowTypeFromFormula(formula, scopeValue, itemId, rowNumber) {
   const f = (formula || '').trim()
   const scope = (scopeValue || '').toUpperCase()
 
+  // [FIX 4] Skip header row artifacts
+  if (isHeaderRowArtifact(itemId)) {
+    return 'HEADER'
+  }
+
   // Rule 1: =B{n}*N{n} → ITEM
   if (/^=B(\d+)\*N\1$/i.test(f)) {
     return 'ITEM'
@@ -518,7 +612,7 @@ function detectRowTypeFromFormula(formula, scopeValue, itemId, rowNumber) {
   }
 
   // Rule 3: Scope contains "BUNDLE TOTAL" → BUNDLE_TOTAL
-  if (/BUNDLE\s*TOTAL/i.test(scope)) {
+  if (/BUNDLE\s*T?OTAL/i.test(scope)) {
     return 'BUNDLE_TOTAL'
   }
 
@@ -528,7 +622,16 @@ function detectRowTypeFromFormula(formula, scopeValue, itemId, rowNumber) {
     return 'SECTION_TOTAL'
   }
 
+  // Rule 5: Scope contains "TOTAL COST FOR ALL" → SECTION_TOTAL or GRAND_TOTAL
+  if (/TOTAL COST FOR ALL/i.test(scope)) {
+    if (/ALL WORK LISTED/i.test(scope)) {
+      return 'GRAND_TOTAL'
+    }
+    return 'SECTION_TOTAL'
+  }
+
   // Default: ITEM if has itemId, else UNKNOWN
+  // Note: ITEM may be reclassified to STANDALONE after bundle range analysis
   return itemId ? 'ITEM' : 'UNKNOWN'
 }
 
