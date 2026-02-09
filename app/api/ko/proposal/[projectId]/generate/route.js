@@ -275,7 +275,8 @@ function transformForTemplate(previewData, editedDescriptions) {
     base_bid_total: formatCurrency(baseBidTotal),
     add_alt_total: formatCurrency(addAltTotal),
     add_alt_toatl: formatCurrency(addAltTotal), // Match template typo
-    grand_total_bid: formatCurrency(grandTotal)
+    grand_total_bid: formatCurrency(grandTotal),
+    has_alternates: altLineItems.length > 0
   }
 }
 
