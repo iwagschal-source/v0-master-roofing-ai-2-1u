@@ -142,7 +142,8 @@ export async function GET(request, { params }) {
         totalCost: parseCurrency(getCellValue(row, columnMap.totalCost)),
         rowType: autoRowType, // Use auto-detected type
         formula: totalCostFormula, // Include for debugging
-        locations: extractLocations(row, columnMap, locationHeaders)
+        locations: extractLocations(row, columnMap, locationHeaders),
+        bidType: getCellValue(row, columnMap.bidType) || 'BASE'
       }
     })
 
@@ -196,6 +197,7 @@ export async function GET(request, { params }) {
         sectionType: sectionTitle,
         sectionDescription, // The paragraph_description of the main item
         mainItemId: mainItem?.itemId || null,
+        bidType: section.bidType || 'BASE',
         items: section.items.map(item => ({
           ...item,
           description: buildDescription(item, descriptions)
@@ -205,7 +207,8 @@ export async function GET(request, { params }) {
 
     const enrichedStandalones = standaloneItems.map(item => ({
       ...item,
-      description: buildDescription(item, descriptions)
+      description: buildDescription(item, descriptions),
+      bidType: item.bidType || 'BASE'
     }))
 
     return NextResponse.json({
@@ -249,7 +252,8 @@ function findColumnIndices(headers) {
     totalCost: -1,
     rowType: -1,
     locationStart: -1,
-    locationEnd: -1
+    locationEnd: -1,
+    bidType: -1
   }
 
   headers.forEach((h, idx) => {
@@ -272,6 +276,8 @@ function findColumnIndices(headers) {
       map.totalCost = idx
     } else if (header.includes('row') && header.includes('type')) {
       map.rowType = idx
+    } else if (header.includes('bid') && header.includes('type')) {
+      map.bidType = idx
     }
   })
 
@@ -446,7 +452,8 @@ function parseRowTypes(rows, bundleRanges) {
             sectionType: sectionName,
             items: bundleItems,
             subtotal: calculatedSubtotal,
-            rowNumber: row.rowNumber
+            rowNumber: row.rowNumber,
+            bidType: row.bidType || 'BASE'
           })
         }
         processedBundles.add(row.rowNumber)
@@ -467,7 +474,8 @@ function parseRowTypes(rows, bundleRanges) {
           totalCost: row.totalCost,
           totalMeasurements: row.totalMeasurements,
           locations: row.locations,
-          rowNumber: row.rowNumber
+          rowNumber: row.rowNumber,
+          bidType: row.bidType || 'BASE'
         })
       }
 

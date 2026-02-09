@@ -193,6 +193,11 @@ async function getProposalPreviewData(projectId, request) {
 
 /**
  * Transform preview data for docxtemplater
+ *
+ * SESSION 24 v2:
+ * - Splits items into line_items (BASE) and alt_line_items (ALT) by bidType
+ * - Calculates base_bid_total and add_alt_total separately
+ * - Drops r_value, size, type from line items (moved into descriptions)
  */
 function transformForTemplate(previewData, editedDescriptions) {
   const { project, sections, standaloneItems, totals } = previewData
@@ -205,63 +210,71 @@ function transformForTemplate(previewData, editedDescriptions) {
     day: 'numeric'
   })
 
-  // Build line items from sections
-  const lineItems = []
+  // Build ALL line items first, then split by bidType
+  const allItems = []
 
   for (const section of sections || []) {
-    // Find the main item (the one with paragraph_description) for specs
-    // Fall back to first item if no main item identified
     const mainItem = section.mainItemId
       ? section.items?.find(i => i.itemId === section.mainItemId)
       : section.items?.[0]
 
-    // Add section as a line item
-    lineItems.push({
+    allItems.push({
       section_title: section.title || section.sectionType || 'Work Section',
-      r_value: mainItem?.rValue || '',
-      size: mainItem?.thickness || '',
-      type: mainItem?.materialType || '',
       price: formatCurrency(section.subtotal),
       areas: formatAreas(section.items),
-      description: buildSectionDescription(section, editedDescriptions)
+      description: buildSectionDescription(section, editedDescriptions),
+      bidType: (section.bidType || 'BASE').toUpperCase(),
+      _numericPrice: section.subtotal || 0
     })
   }
 
-  // [FIX 1] Add standalone items with location names, not just measurements
   for (const item of standaloneItems || []) {
     const descKey = `standalone-${item.rowNumber}`
-    lineItems.push({
+    allItems.push({
       section_title: item.name || item.itemId || 'Additional Item',
-      r_value: item.rValue || '',
-      size: item.thickness || '',
-      type: item.materialType || '',
       price: formatCurrency(item.totalCost),
       areas: formatStandaloneAreas(item),
-      description: editedDescriptions[descKey] || item.description || ''
+      description: editedDescriptions[descKey] || item.description || '',
+      bidType: (item.bidType || 'BASE').toUpperCase(),
+      _numericPrice: item.totalCost || 0
     })
   }
+
+  // Split by bid type
+  const lineItems = allItems
+    .filter(item => item.bidType !== 'ALT')
+    .map(({ bidType, _numericPrice, ...rest }) => rest)
+
+  const altLineItems = allItems
+    .filter(item => item.bidType === 'ALT')
+    .map(({ bidType, _numericPrice, ...rest }) => rest)
+
+  // Calculate totals
+  const baseBidTotal = allItems
+    .filter(item => item.bidType !== 'ALT')
+    .reduce((sum, item) => sum + item._numericPrice, 0)
+
+  const addAltTotal = allItems
+    .filter(item => item.bidType === 'ALT')
+    .reduce((sum, item) => sum + item._numericPrice, 0)
+
+  const grandTotal = baseBidTotal + addAltTotal
 
   // Build project summary
   const projectSummary = buildProjectSummary(previewData)
-
-  // Alt line items (empty for now - can be populated from takeoff alternates)
-  const altLineItems = []
-
-  // Calculate grand total from line items
-  const grandTotal = lineItems.reduce((sum, item) => {
-    const priceNum = parseFloat((item.price || '0').replace(/[^0-9.-]/g, ''))
-    return sum + (isNaN(priceNum) ? 0 : priceNum)
-  }, 0)
 
   return {
     project_name: project.name || project.address || 'Project',
     date: formattedDate,
     prepared_for: project.gcName || 'General Contractor',
-    date_drawings: '', // Can be populated from project metadata if available
+    date_drawings: '',
     proposal_version: 'Rev 1',
     project_summary: projectSummary,
     line_items: lineItems,
     alt_line_items: altLineItems,
+    base_bid_total: formatCurrency(baseBidTotal),
+    add_alt_total: formatCurrency(addAltTotal),
+    add_alt_toatl: formatCurrency(addAltTotal), // Match template typo
     grand_total_bid: formatCurrency(grandTotal)
   }
 }
