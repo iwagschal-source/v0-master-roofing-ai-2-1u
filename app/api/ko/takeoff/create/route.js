@@ -7,7 +7,7 @@
  */
 
 import { NextResponse } from 'next/server'
-import { createProjectTakeoffSheet, populateTakeoffSheet, shareSheet } from '@/lib/google-sheets'
+import { createProjectTakeoffSheet, shareSheet } from '@/lib/google-sheets'
 import { runQuery } from '@/lib/bigquery'
 
 /**
@@ -85,20 +85,6 @@ export async function POST(request) {
       columnsSample: columns?.slice(0, 2),
       lineItemsSample: lineItems?.slice(0, 2)
     })
-
-    // Always try to populate - even if just to set project name
-    try {
-      console.log('[takeoff/create] Calling populateTakeoffSheet...')
-      const popResult = await populateTakeoffSheet(
-        result.spreadsheetId,
-        columns || [],
-        lineItems || [],
-        project_name  // Pass project name to set in B2
-      )
-      console.log('[takeoff/create] populateTakeoffSheet result:', popResult)
-    } catch (popErr) {
-      console.error('[takeoff/create] Failed to populate sheet:', popErr.message)
-    }
 
     // Save spreadsheet_id and folder IDs to BigQuery
     try {

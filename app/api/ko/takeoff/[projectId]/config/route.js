@@ -297,11 +297,11 @@ export async function DELETE(request, { params }) {
 function getDefaultConfig() {
   return {
     columns: [
-      { id: 'C', name: 'Main Roof', mappings: ['ROOF', 'MR', 'MAIN'] },
-      { id: 'D', name: '1st Floor', mappings: ['FL-1', '1ST', 'GROUND'] },
-      { id: 'E', name: '2nd Floor', mappings: ['FL-2', '2ND'] },
-      { id: 'F', name: 'Front', mappings: ['FRONT', 'NORTH'] },
-      { id: 'G', name: 'Rear', mappings: ['REAR', 'SOUTH'] },
+      { id: 'G', name: 'Main Roof', mappings: ['ROOF', 'MR', 'MAIN'] },
+      { id: 'H', name: '1st Floor', mappings: ['FL-1', '1ST', 'GROUND'] },
+      { id: 'I', name: '2nd Floor', mappings: ['FL-2', '2ND'] },
+      { id: 'J', name: 'Front', mappings: ['FRONT', 'NORTH'] },
+      { id: 'K', name: 'Rear', mappings: ['REAR', 'SOUTH'] },
     ],
     selectedItems: [],
     rateOverrides: {},
