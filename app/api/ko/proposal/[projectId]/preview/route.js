@@ -106,46 +106,70 @@ export async function GET(request, { params }) {
     const rawHeaders = sheetData[headerRowIdx] // Keep original case for location names
     const columnMap = findColumnIndices(headers)
 
-    // Build location header map: {col_6: "1st Floor", col_7: "2nd Floor", ...}
-    const locationHeaders = {}
-    if (columnMap.locationStart >= 0 && columnMap.locationEnd >= 0) {
-      for (let i = columnMap.locationStart; i <= columnMap.locationEnd; i++) {
-        const headerName = (rawHeaders[i] || '').toString().trim()
-        if (headerName) {
-          locationHeaders[`col_${i}`] = headerName
-        }
+    // 3b. Find ALL section header rows (Roofing, Balconies, Exterior, etc.)
+    // Each section can have different location names in the same columns (G-M).
+    const sectionHeaders = []
+    // First section header is the main header row
+    sectionHeaders.push({
+      rowIndex: headerRowIdx,
+      sheetRow: headerRowIdx + 1, // 1-based
+      locationHeaders: buildLocationHeaders(rawHeaders, columnMap)
+    })
+    // Scan remaining rows for additional section headers
+    for (let i = headerRowIdx + 1; i < sheetData.length; i++) {
+      if (isSectionHeaderRow(sheetData[i], columnMap)) {
+        sectionHeaders.push({
+          rowIndex: i,
+          sheetRow: i + 1, // 1-based
+          locationHeaders: buildLocationHeaders(sheetData[i], columnMap)
+        })
       }
     }
 
+    // Build a Set of section header row indices for skipping during data parsing
+    const sectionHeaderIndices = new Set(sectionHeaders.map(sh => sh.rowIndex))
+
     // 4. Parse rows into structured data with auto-detected row types
-    // Skip rows before and including header row
+    // Skip rows before and including header row, and skip section header rows
     const dataStartIdx = headerRowIdx + 1
-    const rows = sheetData.slice(dataStartIdx).map((row, idx) => {
-      const actualRowNum = dataStartIdx + idx + 1 // 1-based sheet row number
-      const formulaRow = sheetFormulas[dataStartIdx + idx] || []
-      const totalCostFormula = getCellValue(formulaRow, columnMap.totalCost)
-      const scopeValue = getCellValue(row, columnMap.scope)
-      const itemId = getCellValue(row, columnMap.itemId)
+    const rows = sheetData.slice(dataStartIdx)
+      .map((row, idx) => {
+        const sheetIdx = dataStartIdx + idx
+        const actualRowNum = sheetIdx + 1 // 1-based sheet row number
 
-      // Auto-detect row type from formula patterns
-      const autoRowType = detectRowTypeFromFormula(totalCostFormula, scopeValue, itemId, actualRowNum)
+        // Skip section header rows — they are not data
+        if (sectionHeaderIndices.has(sheetIdx)) {
+          return null
+        }
 
-      return {
-        rowNumber: actualRowNum,
-        itemId,
-        unitCost: parseCurrency(getCellValue(row, columnMap.unitCost)),
-        rValue: getCellValue(row, columnMap.rValue),
-        thickness: getCellValue(row, columnMap.thickness),
-        materialType: getCellValue(row, columnMap.materialType),
-        scope: scopeValue,
-        totalMeasurements: parseFloat(getCellValue(row, columnMap.totalMeasurements)) || 0,
-        totalCost: parseCurrency(getCellValue(row, columnMap.totalCost)),
-        rowType: autoRowType, // Use auto-detected type
-        formula: totalCostFormula, // Include for debugging
-        locations: extractLocations(row, columnMap, locationHeaders),
-        bidType: getCellValue(row, columnMap.bidType) || 'BASE'
-      }
-    })
+        const formulaRow = sheetFormulas[sheetIdx] || []
+        const totalCostFormula = getCellValue(formulaRow, columnMap.totalCost)
+        const scopeValue = getCellValue(row, columnMap.scope)
+        const itemId = getCellValue(row, columnMap.itemId)
+
+        // Auto-detect row type from formula patterns
+        const autoRowType = detectRowTypeFromFormula(totalCostFormula, scopeValue, itemId, actualRowNum)
+
+        // Get the correct location headers for this row's section
+        const locHeaders = getLocationHeadersForRow(actualRowNum, sectionHeaders)
+
+        return {
+          rowNumber: actualRowNum,
+          itemId,
+          unitCost: parseCurrency(getCellValue(row, columnMap.unitCost)),
+          rValue: getCellValue(row, columnMap.rValue),
+          thickness: getCellValue(row, columnMap.thickness),
+          materialType: getCellValue(row, columnMap.materialType),
+          scope: scopeValue,
+          totalMeasurements: parseFloat(getCellValue(row, columnMap.totalMeasurements)) || 0,
+          totalCost: parseCurrency(getCellValue(row, columnMap.totalCost)),
+          rowType: autoRowType, // Use auto-detected type
+          formula: totalCostFormula, // Include for debugging
+          locations: extractLocations(row, columnMap, locHeaders),
+          bidType: getCellValue(row, columnMap.bidType) || 'BASE'
+        }
+      })
+      .filter(Boolean) // Remove nulls (skipped section header rows)
 
     // 4b. [FIX 2 & 5] Parse SUM formula ranges to determine bundle membership
     // Build a map of which sheet rows are referenced by which BUNDLE_TOTAL
@@ -220,7 +244,7 @@ export async function GET(request, { params }) {
         grandTotal
       },
       columnMap,
-      locationHeaders, // Maps col indices to header names
+      sectionHeaders: sectionHeaders.map(sh => ({ sheetRow: sh.sheetRow, locationHeaders: sh.locationHeaders })),
       rowCount: rows.length
     })
 
@@ -329,6 +353,51 @@ function extractLocations(row, columnMap, locationHeaders = {}) {
     }
   }
   return locations
+}
+
+/**
+ * Build location headers map from a header row: {col_6: "1st Floor", col_7: "2nd Floor", ...}
+ */
+function buildLocationHeaders(rawRow, columnMap) {
+  const locationHeaders = {}
+  if (columnMap.locationStart < 0 || columnMap.locationEnd < 0) return locationHeaders
+
+  for (let i = columnMap.locationStart; i <= columnMap.locationEnd; i++) {
+    const headerName = (rawRow[i] || '').toString().trim()
+    if (headerName) {
+      locationHeaders[`col_${i}`] = headerName
+    }
+  }
+  return locationHeaders
+}
+
+/**
+ * Detect if a row is a section header row (e.g., Balconies, Exterior sections).
+ * These rows repeat header text like "item_id", "scope", "unit cost" in the expected columns.
+ */
+function isSectionHeaderRow(row, columnMap) {
+  if (!row) return false
+  const itemIdVal = (getCellValue(row, columnMap.itemId) || '').toLowerCase()
+  const scopeVal = (getCellValue(row, columnMap.scope) || '').toLowerCase()
+  // A section header has "item_id" in the item_id column AND a header-like word in the scope column
+  return (itemIdVal === 'item_id' || itemIdVal === 'item id' || itemIdVal === 'itemid') &&
+    (scopeVal.includes('scope') || scopeVal.includes('description') || scopeVal.includes('item'))
+}
+
+/**
+ * Get the correct locationHeaders for a given row number.
+ * Returns the headers from the nearest section header ABOVE that row.
+ */
+function getLocationHeadersForRow(rowNumber, sectionHeaders) {
+  let best = sectionHeaders[0]
+  for (const sh of sectionHeaders) {
+    if (sh.sheetRow <= rowNumber) {
+      best = sh
+    } else {
+      break
+    }
+  }
+  return best ? best.locationHeaders : {}
 }
 
 /**
