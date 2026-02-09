@@ -34,3 +34,37 @@
 - app/api/ko/proposal/[projectId]/preview/route.js — proposal data logic
 - app/api/ko/proposal/[projectId]/generate/route.js — Word doc generation
 - BTX generation file — location TBD, must study before editing
+
+## Code Cleanup Required
+
+These are dead code and outdated references discovered during the takeoff sheet creation audit. None of these are blocking current work, but they must be cleaned up to prevent confusion.
+
+### 1. populateTakeoffSheet() — DEAD CODE
+- **File:** lib/google-sheets.js (line 805-853)
+- **Problem:** Writes to "Sheet1" tab with locations starting at Col C. Live template uses tab named DATE with locations at Col G+. This function is called in takeoff/create/route.js:92 but effectively does nothing after the template copy.
+- **Action:** Remove the call from takeoff/create/route.js and deprecate or delete the function.
+
+### 2. generate/route.js local fallback — WRONG LAYOUT
+- **File:** app/api/ko/takeoff/[projectId]/generate/route.js (lines 197-236)
+- **Problem:** Local fallback generates Rate=A, Scope=B, Locations=C+ which doesn't match the live 16-column template (item_id=A, Unit Cost=B, Scope=C, R=D, IN=E, TYPE=F, Locations=G+). If Python backend is down, generated data would be laid out incorrectly.
+- **Action:** Either fix to match live layout or remove the fallback entirely.
+
+### 3. create-takeoff-template.js — OUTDATED SCRIPT
+- **File:** scripts/create-takeoff-template.js
+- **Problem:** Defines 13 columns (A-M) with Unit Cost at A. Live template has 15-16 columns with item_id at A. Script does not create R, IN, TYPE columns.
+- **Action:** Either update to match reality or delete. The live Google Sheet template (1n0p_EWMwQSqhvBmjXJdy-QH5B7KlRXP5kDhn3Tdhfk4) is the source of truth.
+
+### 4. create-exact-takeoff-template.js + excel-template-exact.json — OUTDATED
+- **File:** scripts/create-exact-takeoff-template.js, data/excel-template-exact.json
+- **Problem:** JSON defines 12 columns (A-L) with Unit Cost at A. Does not include item_id, R, IN, TYPE columns.
+- **Action:** Same as #3 — update or delete.
+
+### 5. getDefaultConfig() — WRONG COLUMN IDs
+- **File:** app/api/ko/takeoff/[projectId]/config/route.js (lines 297-310)
+- **Problem:** Default columns start at C (Main Roof=C, 1st Floor=D). Live template has locations starting at G. If this default is ever used, BTX tools would map to wrong columns.
+- **Action:** Update default column IDs to match live template layout (locations at G+).
+
+### 6. populate-template-item-ids.js — ONE-TIME SCRIPT
+- **File:** scripts/populate-template-item-ids.js
+- **Problem:** Not broken, but this was a one-time migration script that wrote item_ids to the template. Should be archived, not in active scripts.
+- **Action:** Move to scripts/archive/ or add a header comment marking it as one-time use.
