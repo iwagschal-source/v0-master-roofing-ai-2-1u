@@ -68,3 +68,26 @@ These are dead code and outdated references discovered during the takeoff sheet 
 - **File:** scripts/populate-template-item-ids.js
 - **Problem:** Not broken, but this was a one-time migration script that wrote item_ids to the template. Should be archived, not in active scripts.
 - **Action:** Move to scripts/archive/ or add a header comment marking it as one-time use.
+
+## Next: Bid Type + Template V2
+
+### Google Sheet Template Updated ✅
+BID TYPE column added to template `1n0p_EWMwQSqhvBmjXJdy-QH5B7KlRXP5kDhn3Tdhfk4` (column P, after Total Cost).
+
+**Current template layout (row 3):**
+A=item_id, B=Unit Cost, C=Scope, D=R, E=IN, F=TYPE, G-M=Locations, N=Total Measurements, O=Total Cost, **P=BID TYPE**, Q=Comments
+
+**BID TYPE dropdown rules (BASE / ALT):**
+- **Bundle total rows** (11 rows: 9, 14, 18, 28, 32, 35, 39, 42, 58, 62, 67) — have dropdown, default "BASE"
+- **Standalone item rows** (14 rows: 4, 5, 15, 36, 43, 46, 47, 48, 50, 68, 69, 70, 71, 72) — have dropdown, default "BASE"
+- **Bundled item rows** (37 rows) — no dropdown, inherit bid type from their bundle total row
+
+Script used: `scripts/fix-bid-type-column.js`
+
+### Next Step: Code Changes
+Apply code changes on `feature/bid-type-and-template-v2` branch.
+
+**Files to change:**
+- `app/api/ko/proposal/[projectId]/preview/route.js` — read BID TYPE from column P, include in structured data
+- `app/api/ko/proposal/[projectId]/generate/route.js` — use bid type to split base bid vs alternates in Word doc
+- `public/templates/Proposal_Template_v1_FIXED.docx` — add alternates section to Word template
