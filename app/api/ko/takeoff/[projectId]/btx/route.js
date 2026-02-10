@@ -36,19 +36,61 @@ export async function POST(request, { params }) {
     // Extract item IDs from selectedItems
     const selectedItemIds = config.selectedItems.map(item => item.scope_code)
 
+    // Per-floor mode: separate BTX per location, returned as zip
+    if (body.perFloor) {
+      const locationsWithNames = config.columns.map(col => ({
+        code: col.mappings?.[0] || col.name.toUpperCase().replace(/[^A-Z0-9]/g, ''),
+        name: col.name
+      }))
+
+      console.log('[BTX] Per-floor mode:', {
+        project_name: projectName,
+        selected_items: selectedItemIds,
+        locations: locationsWithNames
+      })
+
+      const perFloorRes = await fetch(`${BACKEND_URL}/bluebeam/generate-btx-per-floor`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          project_name: projectName,
+          selected_items: selectedItemIds,
+          locations: locationsWithNames
+        }),
+        signal: AbortSignal.timeout(30000)
+      })
+
+      if (!perFloorRes.ok) {
+        const errText = await perFloorRes.text()
+        console.error('BTX per-floor backend error:', errText)
+        return NextResponse.json({ error: 'Per-floor BTX generation failed: ' + errText }, { status: 500 })
+      }
+
+      const zipBuffer = await perFloorRes.arrayBuffer()
+      console.log('[BTX] Per-floor zip size:', zipBuffer.byteLength, 'bytes')
+      const filename = `${projectName.replace(/[^a-zA-Z0-9]/g, '_')}_tools.zip`
+
+      return new NextResponse(zipBuffer, {
+        status: 200,
+        headers: {
+          'Content-Type': 'application/zip',
+          'Content-Disposition': `attachment; filename="${filename}"`
+        }
+      })
+    }
+
+    // Flat mode: single BTX with all item x location tools
     // Extract location codes from columns
     const locations = config.columns.map(col =>
       col.mappings?.[0] || col.name.toUpperCase().replace(/[^A-Z0-9]/g, '')
     )
 
-    // DEBUG: Log what we're sending
     console.log('[BTX] Sending to backend:', {
-      project_name: body.projectName || projectId,
+      project_name: projectName,
       selected_items: selectedItemIds,
       locations: locations
     })
 
-    // Call Python backend to generate real BTX
     const btxResponse = await fetch(`${BACKEND_URL}/bluebeam/generate-btx`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
