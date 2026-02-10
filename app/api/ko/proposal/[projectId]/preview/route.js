@@ -105,6 +105,8 @@ export async function GET(request, { params }) {
     const headers = sheetData[headerRowIdx].map(h => (h || '').toString().toLowerCase().trim())
     const rawHeaders = sheetData[headerRowIdx] // Keep original case for location names
     const columnMap = findColumnIndices(headers)
+    const tcLetter = columnMap.totalCost >= 0 ? indexToLetter(columnMap.totalCost) : 'O'
+    const tmLetter = columnMap.totalMeasurements >= 0 ? indexToLetter(columnMap.totalMeasurements) : 'N'
 
     // 3b. Find ALL section header rows (Roofing, Balconies, Exterior, etc.)
     // Each section can have different location names in the same columns (G-M).
@@ -148,7 +150,7 @@ export async function GET(request, { params }) {
         const itemId = getCellValue(row, columnMap.itemId)
 
         // Auto-detect row type from formula patterns
-        const autoRowType = detectRowTypeFromFormula(totalCostFormula, scopeValue, itemId, actualRowNum)
+        const autoRowType = detectRowTypeFromFormula(totalCostFormula, scopeValue, itemId, actualRowNum, tcLetter, tmLetter)
 
         // Get the correct location headers for this row's section
         const locHeaders = getLocationHeadersForRow(actualRowNum, sectionHeaders)
@@ -173,7 +175,7 @@ export async function GET(request, { params }) {
 
     // 4b. [FIX 2 & 5] Parse SUM formula ranges to determine bundle membership
     // Build a map of which sheet rows are referenced by which BUNDLE_TOTAL
-    const bundleRanges = parseBundleRanges(rows)
+    const bundleRanges = parseBundleRanges(rows, tcLetter)
 
     // Mark items not in any bundle range as STANDALONE
     for (const row of rows) {
@@ -319,6 +321,19 @@ function findColumnIndices(headers) {
 }
 
 /**
+ * Convert a 0-based column index to a column letter (0→A, 1→B, 6→G, 25→Z, 26→AA)
+ */
+function indexToLetter(index) {
+  let letter = ''
+  let i = index
+  while (i >= 0) {
+    letter = String.fromCharCode((i % 26) + 65) + letter
+    i = Math.floor(i / 26) - 1
+  }
+  return letter
+}
+
+/**
  * Safely get cell value from row
  */
 function getCellValue(row, index) {
@@ -417,9 +432,10 @@ function isHeaderRowArtifact(itemId) {
  * For each BUNDLE_TOTAL row, extract the row range from the SUM formula.
  * e.g., =SUM(O5:O8) means the bundle includes sheet rows 5-8.
  *
+ * @param {string} tcLetter - Total Cost column letter (e.g., 'O' or 'L')
  * Returns array of { bundleRow, startRow, endRow }
  */
-function parseBundleRanges(rows) {
+function parseBundleRanges(rows, tcLetter) {
   const ranges = []
 
   for (const row of rows) {
@@ -427,8 +443,8 @@ function parseBundleRanges(rows) {
 
     const formula = (row.formula || '').trim()
 
-    // Parse =SUM(O{x}:O{y}) to extract start and end rows
-    const sumMatch = formula.match(/^=SUM\(O(\d+):O(\d+)\)$/i)
+    // Parse =SUM({tcLetter}{x}:{tcLetter}{y}) to extract start and end rows
+    const sumMatch = formula.match(new RegExp(`^=SUM\\(${tcLetter}(\\d+):${tcLetter}(\\d+)\\)$`, 'i'))
     if (sumMatch) {
       ranges.push({
         bundleRow: row.rowNumber,
@@ -661,15 +677,18 @@ function buildDescription(item, descriptions) {
 }
 
 /**
- * Auto-detect row type from Column O formula patterns
+ * Auto-detect row type from Total Cost formula patterns
  *
  * Rules:
- * - =B{n}*N{n} → ITEM (unit cost × measurements)
- * - =SUM(O{x}:O{y}) → BUNDLE_TOTAL
+ * - =B{n}*{tmLetter}{n} → ITEM (unit cost × measurements)
+ * - =SUM({tcLetter}{x}:{tcLetter}{y}) → BUNDLE_TOTAL
  * - Scope contains "BUNDLE TOTAL" → BUNDLE_TOTAL (backup)
- * - =O{a}+O{b}+... (5+ refs) → SECTION_TOTAL
+ * - ={tcLetter}{a}+{tcLetter}{b}+... (5+ refs) → SECTION_TOTAL
+ *
+ * @param {string} tcLetter - Total Cost column letter (e.g., 'O' or 'L')
+ * @param {string} tmLetter - Total Measurements column letter (e.g., 'N' or 'K')
  */
-function detectRowTypeFromFormula(formula, scopeValue, itemId, rowNumber) {
+function detectRowTypeFromFormula(formula, scopeValue, itemId, rowNumber, tcLetter, tmLetter) {
   const f = (formula || '').trim()
   const scope = (scopeValue || '').toUpperCase()
 
@@ -678,13 +697,13 @@ function detectRowTypeFromFormula(formula, scopeValue, itemId, rowNumber) {
     return 'HEADER'
   }
 
-  // Rule 1: =B{n}*N{n} → ITEM
-  if (/^=B(\d+)\*N\1$/i.test(f)) {
+  // Rule 1: =B{n}*{tmLetter}{n} → ITEM
+  if (new RegExp(`^=B(\\d+)\\*${tmLetter}\\1$`, 'i').test(f)) {
     return 'ITEM'
   }
 
-  // Rule 2: =SUM(O{x}:O{y}) → BUNDLE_TOTAL
-  if (/^=SUM\(O\d+:O\d+\)$/i.test(f)) {
+  // Rule 2: =SUM({tcLetter}{x}:{tcLetter}{y}) → BUNDLE_TOTAL
+  if (new RegExp(`^=SUM\\(${tcLetter}\\d+:${tcLetter}\\d+\\)$`, 'i').test(f)) {
     return 'BUNDLE_TOTAL'
   }
 
@@ -693,9 +712,9 @@ function detectRowTypeFromFormula(formula, scopeValue, itemId, rowNumber) {
     return 'BUNDLE_TOTAL'
   }
 
-  // Rule 4: Count O references - 5+ means SECTION_TOTAL
-  const oRefs = f.match(/O\d+/gi) || []
-  if (oRefs.length >= 5) {
+  // Rule 4: Count totalCost column references - 5+ means SECTION_TOTAL
+  const tcRefs = f.match(new RegExp(`${tcLetter}\\d+`, 'gi')) || []
+  if (tcRefs.length >= 5) {
     return 'SECTION_TOTAL'
   }
 
