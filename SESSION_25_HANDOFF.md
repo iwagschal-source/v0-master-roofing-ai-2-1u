@@ -32,9 +32,11 @@ Completed conditional alternates display, section-aware location headers, and fu
 5. Fixed `getDefaultConfig()` column IDs: C-G → G-K (match live template)
 6. Moved populate-template-item-ids.js to scripts/archive/
 
+## v1.8 COMPLETE — All BTX Dynamic Column Fixes Deployed
+
 ## Current State
 - **Branch:** main
-- **Latest commit:** c5fc46f
+- **Latest commit:** eba7498
 - **Tag:** v1.8-dynamic-rows
 - **Production:** https://v0-master-roofing-ai-2-1u.vercel.app
 
@@ -216,6 +218,33 @@ Replaced all hardcoded row references (3/45/54) with dynamic section header scan
 - SUNDAY V5 (single section): ROOFING @ row 3, 26 items, 7 locations — PASS
 - Monday 09 (multi-section): ROOFING @ row 3, BALCONIES @ row 45, EXTERIOR @ row 54, 51 items — PASS
 - Monday Night (multi-section): same 3 sections, 51 items, Bluebeam 7/7 cells updated — PASS
+
+---
+
+## NEXT: Per-Floor BTX Generation (not started)
+
+### Context
+- BTX generation is on Python backend at `136.111.252.120:/home/iwagschal/aeyecorp/app/bluebeam/btx_generator.py`
+- FastAPI app: `/home/iwagschal/aeyecorp/app/bluebeam/api.py` — router at `/bluebeam`
+- Current method: `generate_btx_with_locations()` creates one flat BTX with all item×location tools
+- New method needed: `generate_btx_per_floor()` — groups tools by location, returns separate BTX per floor
+- Next.js route at `app/api/ko/takeoff/[projectId]/btx/route.js` proxies to Python backend at `http://136.111.252.120:8000/bluebeam/generate-btx`
+- Base template: `Teju Tool Set.btx` in `/home/iwagschal/aeyecorp/app/bluebeam/data/` — one tool per item type with pre-configured colors/measurement types
+- Subject format: `"MR-003BU2PLY | FL1"` (pipe-delimited item_code | location)
+- Three existing generation methods:
+  - `generate_btx()` — no locations, legacy
+  - `generate_btx_with_locations()` — flat list of item×location tools (used by Next.js route)
+  - `generate_btx_with_display_names()` — uses display_name instead of item_id (template config system)
+- BTX XML structure: `BluebeamRevuToolSet` → `ToolChestItem` elements → `Raw` field (zlib-compressed PDF annotation with `/Subj` and `/T`)
+- SSH: `ssh -i ~/.ssh/google_compute_engine 136.111.252.120`
+
+### Plan
+1. Add `generate_btx_per_floor()` to `btx_generator.py` (new method, don't modify existing)
+2. Add new FastAPI endpoint `/bluebeam/generate-btx-per-floor` in `api.py`
+3. Returns zip of multiple BTX files (one per floor/location)
+4. Update Next.js route to call new endpoint
+5. Estimator sees separate collapsible tool sets per floor in Bluebeam Tool Chest
+6. Experiment branch: `experiment/btx-per-floor`
 
 ---
 
