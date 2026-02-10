@@ -139,8 +139,48 @@ When an estimator deletes unused location columns from the Google Sheet (e.g., r
 2. After Phase 2: Import a Bluebeam CSV into SUNDAY V3 — verify data lands in location columns, not in Total Measurements/Total Cost
 3. After Phase 3: Delete rows from a test sheet — verify section totals don't break to #REF!
 
-### No Code Changes Have Been Made Yet
-Session 26 was purely diagnostic. The only new file is `scripts/dump-template-formulas.js` (read-only diagnostic script). No branches created, no code modified, no deployments.
+### Session 27: All 8 Bugs Fixed (v1.6-btx-dynamic-columns)
+- **Branch:** fix/btx-dynamic-columns (merged to main)
+- **Tag:** v1.6-btx-dynamic-columns
+- **Deployed:** Production verified
+- **Commits:**
+  - `5f8c899` — feat: add discoverSheetLayout() utility for dynamic column discovery
+  - `a0c05a6` — feat: dynamic column letters in formula detection (bugs 1-4)
+  - `b8ebe7f` — feat: replace hardcoded parseLocationHeader with discoverSheetLayout (bug 8)
+  - `a0a1887` — feat: fix Bluebeam import — dynamic headers, widen scan range, remove fallback (bugs 5-7)
+- **Test results:**
+  - SUNDAY V5 (clean template): totalCost=14(O), totalMeas=13(N) — PASS
+  - Monday 09 (multi-section): totalCost=14(O), totalMeas=13(N), 3 section headers — PASS
+  - SUNDAY V3 (shifted columns): totalCost=11(L), totalMeas=10(K) — PASS (was broken before)
+- **Remaining TODOs:** Rows 3/45/54 hardcoded in sheet-config and google-sheets.js — needs dynamic section header detection
+
+---
+
+## BTX Import Bug — Diagnosed, Not Yet Fixed
+
+All 8 hardcoded column bugs are fixed (v1.6). But a NEW issue found during testing:
+
+**Project:** Monday Night (proj_0d4693d93c8a460c, sheet 1djXNuk7wtm4T6aS2pji6eiJNPOND-JK1EETfZ5c-2jU)
+**Symptom:** "Imported 7 items, updated 4 cells" — 3 items failed to write
+**Root cause:** fillBluebeamDataToSpreadsheet() builds location maps per section. Exterior items (MR-042OPNPNLLF, MR-043EIFS, MR-047DRIPCAP) had Roofing location names (MAIN ROOF, 2ND FLOOR, ELEV. BULKHEAD) because the estimator measured exterior scope on roofing floor areas. The per-section map for Exterior doesn't contain "MAIN ROOF" — only "Front / ----Elevation" etc.
+
+**Fix needed:** The location map must merge ALL section headers into one combined map, since Bluebeam CSV doesn't indicate which section an item belongs to. The column letter is the same (G-L) across all sections, so "2ND FLOOR" = column H regardless of section.
+
+**Investigation needed:** Show how locationMap is currently built in fillBluebeamDataToSpreadsheet() — does it merge all 3 maps or keep them separate? Lines ~776-781. Currently it keeps them separate (`sectionLocationMaps.ROOFING`, `.BALCONIES`, `.EXTERIOR`) and picks the map based on which section the item's row falls in (line ~829: `const locationMap = sectionLocationMaps[section]`). The fix: when section-specific lookup fails, fall back to trying ALL section maps.
+
+**Monday Night sheet headers:**
+- ROOFING (row 3): G=1st Floor, H=2nd Floor, I=3rd Floor, J=5th Floor, K=Main Roof, L=Elev. Bulkhead
+- BALCONIES (row 45): G=1st floor Balconies, H=2nd floor Balconies, ...
+- EXTERIOR (row 54): G=Front / ----Elevation, H=Rear / ---Elevation, ...
+
+**Monday Night CSV items:**
+- MR-002PITCH | ELEV. BULKHEAD (650.73 sf) — Roofing item, Roofing location -> MATCH
+- MR-002PITCH | MAIN ROOF (483.31 sf) — Roofing item, Roofing location -> MATCH
+- MR-002PITCH | 5TH FLOOR (619.51 sf) — Roofing item, Roofing location -> MATCH
+- MR-032RECESSWP | 5TH FLOOR (579.85 sf) — Roofing item, Roofing location -> MATCH
+- MR-043EIFS | 2ND FLOOR (1058.30 sf) — Exterior item, Roofing location -> NO_COLUMN_MAPPING
+- MR-042OPNPNLLF | MAIN ROOF (91.53 lf) — Exterior item, Roofing location -> NO_COLUMN_MAPPING
+- MR-047DRIPCAP | ELEV. BULKHEAD (96.59 lf) — Exterior item, Roofing location -> NO_COLUMN_MAPPING
 
 ---
 
