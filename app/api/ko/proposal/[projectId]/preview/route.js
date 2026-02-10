@@ -233,6 +233,7 @@ export async function GET(request, { params }) {
 
     const enrichedStandalones = standaloneItems.map(item => ({
       ...item,
+      name: descriptions[item.itemId]?.systemHeading || item.name,
       description: buildDescription(item, descriptions, 'standalone'),
       bidType: item.bidType || 'BASE'
     }))
