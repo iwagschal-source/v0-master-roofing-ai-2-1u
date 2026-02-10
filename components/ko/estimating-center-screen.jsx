@@ -451,7 +451,9 @@ export function EstimatingCenterScreen({ onSelectProject, onBack }) {
 
       // Step 4: Download the BTX file
       const blob = await btxRes.blob()
-      const filename = `${selectedProject.project_name.replace(/[^a-zA-Z0-9]/g, '_')}_Tools.btx`
+      const safeName = selectedProject.project_name.replace(/[^a-zA-Z0-9]/g, '_')
+      const isZip = btxRes.headers.get('Content-Type')?.includes('application/zip')
+      const filename = isZip ? `${safeName}_tools.zip` : `${safeName}_Tools.btx`
       const url = URL.createObjectURL(blob)
       const a = document.createElement('a')
       a.href = url

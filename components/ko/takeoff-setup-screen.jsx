@@ -306,12 +306,14 @@ export function TakeoffSetupScreen({
         throw new Error(errData.error || 'Failed to generate BTX')
       }
 
-      // Get the BTX content and download
+      // Get the content and download
       const blob = await res.blob()
       const url = window.URL.createObjectURL(blob)
       const a = document.createElement('a')
       a.href = url
-      a.download = `${(projectName || projectId).replace(/[^a-zA-Z0-9]/g, '_')}_Takeoff.btx`
+      const safeName = (projectName || projectId).replace(/[^a-zA-Z0-9]/g, '_')
+      const isZip = res.headers.get('Content-Type')?.includes('application/zip')
+      a.download = isZip ? `${safeName}_tools.zip` : `${safeName}_Takeoff.btx`
       document.body.appendChild(a)
       a.click()
       window.URL.revokeObjectURL(url)
