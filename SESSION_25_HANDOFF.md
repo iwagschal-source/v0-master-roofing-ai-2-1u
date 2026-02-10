@@ -221,30 +221,42 @@ Replaced all hardcoded row references (3/45/54) with dynamic section header scan
 
 ---
 
-## NEXT: Per-Floor BTX Generation (not started)
+## v1.9 COMPLETE — Per-Floor BTX Generation
 
-### Context
-- BTX generation is on Python backend at `136.111.252.120:/home/iwagschal/aeyecorp/app/bluebeam/btx_generator.py`
-- FastAPI app: `/home/iwagschal/aeyecorp/app/bluebeam/api.py` — router at `/bluebeam`
-- Current method: `generate_btx_with_locations()` creates one flat BTX with all item×location tools
-- New method needed: `generate_btx_per_floor()` — groups tools by location, returns separate BTX per floor
-- Next.js route at `app/api/ko/takeoff/[projectId]/btx/route.js` proxies to Python backend at `http://136.111.252.120:8000/bluebeam/generate-btx`
-- Base template: `Teju Tool Set.btx` in `/home/iwagschal/aeyecorp/app/bluebeam/data/` — one tool per item type with pre-configured colors/measurement types
-- Subject format: `"MR-003BU2PLY | FL1"` (pipe-delimited item_code | location)
-- Three existing generation methods:
-  - `generate_btx()` — no locations, legacy
-  - `generate_btx_with_locations()` — flat list of item×location tools (used by Next.js route)
-  - `generate_btx_with_display_names()` — uses display_name instead of item_id (template config system)
-- BTX XML structure: `BluebeamRevuToolSet` → `ToolChestItem` elements → `Raw` field (zlib-compressed PDF annotation with `/Subj` and `/T`)
-- SSH: `ssh -i ~/.ssh/google_compute_engine 136.111.252.120`
+### Summary
+Estimators now receive a zip of separate BTX files (one per floor/location) instead of a single flat BTX. Each BTX loads as a collapsible tool set in Bluebeam's Tool Chest, making it easy to work floor-by-floor.
 
-### Plan
-1. Add `generate_btx_per_floor()` to `btx_generator.py` (new method, don't modify existing)
-2. Add new FastAPI endpoint `/bluebeam/generate-btx-per-floor` in `api.py`
-3. Returns zip of multiple BTX files (one per floor/location)
-4. Update Next.js route to call new endpoint
-5. Estimator sees separate collapsible tool sets per floor in Bluebeam Tool Chest
-6. Experiment branch: `experiment/btx-per-floor`
+### Changes
+
+**Python backend** (`136.111.252.120:/home/iwagschal/aeyecorp/app/bluebeam/`):
+- **`btx_generator.py`** — Added `generate_btx_per_floor()` method (line 361). Takes `locations: List[Dict[str, str]]` with `code` and `name` keys. Outer loop per location, inner loop per item. Returns `Dict[str, bytes]` mapping filename → BTX bytes. Existing methods untouched.
+- **`api.py`** — Added `LocationInfo` and `GeneratePerFloorBTXRequest` models (line 48). Added `POST /bluebeam/generate-btx-per-floor` endpoint (line 204). Zips all BTX files with `zipfile.ZIP_DEFLATED`, returns as `application/zip`.
+
+**Next.js route** (`app/api/ko/takeoff/[projectId]/btx/route.js`):
+- Per-floor is now the default path — always calls `/bluebeam/generate-btx-per-floor`
+- Sends locations as `[{code: "FL1", name: "1st Floor"}, ...]` using `col.mappings[0]` for code and `col.name` for display name
+- Returns `Content-Type: application/zip`
+- Legacy flat single-BTX path commented out but preserved
+
+**Frontend filename fix** (`components/ko/`):
+- **`takeoff-setup-screen.jsx:309`** — Checks `res.headers.get('Content-Type')` to choose `.zip` or `.btx` extension
+- **`estimating-center-screen.jsx:453`** — Same fix for estimating center download
+- Bug was: both files hardcoded `.btx` extension via `a.download`, ignoring Content-Disposition header. Bluebeam tried to load a zip as XML → "error loading toolset"
+
+### Test results
+- Monday Night (proj_0d4693d93c8a460c): 42 items, 6 locations → zip with 6 BTX files, 39 tools each (234 total)
+- Sample subject: `MR-003BU2PLY | 1STFLOOR` in `1st Floor.btx`
+- Zip size: ~246 KB
+
+### Commits
+- `7c22842` — feat: per-floor BTX generation — separate tool sets per location (experiment branch)
+- `bf12c25` — fix: download filename respects Content-Type (.zip for per-floor, .btx for flat)
+- `02c76e1` — feat: per-floor BTX as default
+
+### Rollback
+- Tag `v1.9-per-floor-btx` on commit `02c76e1`
+- Previous working state: `v1.8-dynamic-rows`
+- Python backend: existing `generate_btx_with_locations()` and `/bluebeam/generate-btx` endpoint still work — uncomment flat path in route.js to revert
 
 ---
 
