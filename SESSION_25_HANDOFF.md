@@ -34,12 +34,13 @@ Completed conditional alternates display, section-aware location headers, and fu
 
 ## Current State
 - **Branch:** main
-- **Latest commit:** 3a00862
-- **Tag:** v1.7-cross-section-fix
+- **Latest commit:** c5fc46f
+- **Tag:** v1.8-dynamic-rows
 - **Production:** https://v0-master-roofing-ai-2-1u.vercel.app
 
 ## Rollback Points
-- v1.7-cross-section-fix (current)
+- v1.8-dynamic-rows (current)
+- v1.7-cross-section-fix
 - v1.6-btx-dynamic-columns
 - v1.5-code-cleanup
 - v1.4-section-location-headers
@@ -154,7 +155,7 @@ When an estimator deletes unused location columns from the Google Sheet (e.g., r
   - SUNDAY V5 (clean template): totalCost=14(O), totalMeas=13(N) — PASS
   - Monday 09 (multi-section): totalCost=14(O), totalMeas=13(N), 3 section headers — PASS
   - SUNDAY V3 (shifted columns): totalCost=11(L), totalMeas=10(K) — PASS (was broken before)
-- **Remaining TODOs:** Rows 3/45/54 hardcoded in sheet-config and google-sheets.js — needs dynamic section header detection
+- **Remaining TODOs:** ~~Rows 3/45/54 hardcoded in sheet-config and google-sheets.js~~ — DONE in v1.8
 
 ---
 
@@ -184,6 +185,37 @@ All 8 hardcoded column bugs fixed (v1.6). Cross-section location bug fixed (v1.7
 - MR-043EIFS | 2ND FLOOR (1058.30 sf) — Exterior item, Roofing location -> NO_COLUMN_MAPPING
 - MR-042OPNPNLLF | MAIN ROOF (91.53 lf) — Exterior item, Roofing location -> NO_COLUMN_MAPPING
 - MR-047DRIPCAP | ELEV. BULKHEAD (96.59 lf) — Exterior item, Roofing location -> NO_COLUMN_MAPPING
+
+---
+
+## Dynamic Section Header Detection — v1.8-dynamic-rows
+
+Replaced all hardcoded row references (3/45/54) with dynamic section header scanning in both files.
+
+### Changes
+- **`lib/google-sheets.js`** — `fillBluebeamDataToSpreadsheet()`:
+  - Replaced 2 API calls (batchGet 3 headers + column A) with 1 call (`A1:Z200`)
+  - Scans all rows for section headers: column A starts with "item_id" + scope-like text in another column
+  - `getSectionForRow()` replaced with `buildGetSectionForRow()` factory using discovered boundaries
+  - Merged location map built from all discovered sections (cross-section fallback preserved)
+- **`sheet-config/route.js`**:
+  - Replaced 4 API calls (column A + 3 headers) with 1 call (`A1:Z200`)
+  - Same section detection pattern; `sections` response built from discovered data
+  - Removed hardcoded `SECTIONS` constant and static `getSectionForRow()`
+
+### Key fix during testing
+- Template column A says `"item_id (NEW)"`, not `"item_id"` — exact-match `===` missed it
+- Changed to `startsWith('item_id')` to handle suffixed variants
+
+### Commits
+- `c171eb9` — feat: dynamic section header detection (initial)
+- `6c26e7a` — fix: startsWith for "item_id (NEW)"
+- `c5fc46f` — remove debug logging
+
+### Test results
+- SUNDAY V5 (single section): ROOFING @ row 3, 26 items, 7 locations — PASS
+- Monday 09 (multi-section): ROOFING @ row 3, BALCONIES @ row 45, EXTERIOR @ row 54, 51 items — PASS
+- Monday Night (multi-section): same 3 sections, 51 items, Bluebeam 7/7 cells updated — PASS
 
 ---
 
