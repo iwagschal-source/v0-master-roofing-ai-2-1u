@@ -63,7 +63,7 @@ export async function GET(request, { params }) {
     for (let i = 0; i < allRows.length; i++) {
       const row = allRows[i]
       const colA = (row?.[0] || '').toString().trim().toLowerCase()
-      if (colA === 'item_id' || colA === 'item id' || colA === 'itemid') {
+      if (colA.startsWith('item_id') || colA.startsWith('item id') || colA === 'itemid') {
         const hasScope = row.some((cell, idx) => idx > 0 &&
           /scope|description|item/i.test((cell || '').toString()))
         if (hasScope) {
