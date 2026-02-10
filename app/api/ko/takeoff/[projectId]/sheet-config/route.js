@@ -13,7 +13,7 @@
  */
 
 import { NextResponse } from 'next/server'
-import { readSheetValues } from '@/lib/google-sheets'
+import { readSheetValues, discoverSheetLayout } from '@/lib/google-sheets'
 import { runQuery } from '@/lib/bigquery'
 
 // Section definitions matching lib/google-sheets.js
@@ -63,10 +63,11 @@ export async function GET(request, { params }) {
     // Step 2: Read Column A (item_ids) - rows 4-72
     const colAValues = await readSheetValues(spreadsheetId, `'${sheetName}'!A4:A72`)
 
-    // Step 3: Read header rows for each section (cols G-L)
-    const roofingHeader = await readSheetValues(spreadsheetId, `'${sheetName}'!G3:L3`)
-    const balconiesHeader = await readSheetValues(spreadsheetId, `'${sheetName}'!G45:L45`)
-    const exteriorHeader = await readSheetValues(spreadsheetId, `'${sheetName}'!G54:L54`)
+    // Step 3: Read full header rows for each section (dynamic column detection)
+    // TODO: Rows 45/54 are hardcoded — should detect section headers dynamically like preview/route.js does
+    const roofingHeader = await readSheetValues(spreadsheetId, `'${sheetName}'!A3:Z3`)
+    const balconiesHeader = await readSheetValues(spreadsheetId, `'${sheetName}'!A45:Z45`)
+    const exteriorHeader = await readSheetValues(spreadsheetId, `'${sheetName}'!A54:Z54`)
 
     // Step 4: Parse selected items from Column A
     const selectedItems = []
@@ -83,11 +84,11 @@ export async function GET(request, { params }) {
       }
     }
 
-    // Step 5: Parse locations from header rows
+    // Step 5: Discover layout and extract locations from header rows
     const locations = {
-      ROOFING: parseLocationHeader(roofingHeader[0] || []),
-      BALCONIES: parseLocationHeader(balconiesHeader[0] || []),
-      EXTERIOR: parseLocationHeader(exteriorHeader[0] || [])
+      ROOFING: discoverSheetLayout(roofingHeader[0] || []).locationColumns.map(lc => ({ column: lc.letter, name: lc.name })),
+      BALCONIES: discoverSheetLayout(balconiesHeader[0] || []).locationColumns.map(lc => ({ column: lc.letter, name: lc.name })),
+      EXTERIOR: discoverSheetLayout(exteriorHeader[0] || []).locationColumns.map(lc => ({ column: lc.letter, name: lc.name }))
     }
 
     return NextResponse.json({
@@ -121,27 +122,5 @@ function getSectionForRow(row) {
   return null
 }
 
-/**
- * Parse location names from header row (cols G-L, 6 columns)
- * Returns array of { column, name } for non-empty headers
- *
- * IMPORTANT: Returns raw names WITH spaces (e.g., "1ST FLOOR" not "1STFLOOR")
- * This ensures BTX tool subjects match sheet headers exactly for CSV import.
- * See docs/CANONICAL_DEPENDENCIES.md for location naming conventions.
- */
-function parseLocationHeader(headerRow) {
-  const columns = ['G', 'H', 'I', 'J', 'K', 'L']
-  const locations = []
-
-  for (let i = 0; i < columns.length; i++) {
-    const name = headerRow[i]?.toString().trim()
-    if (name) {
-      locations.push({
-        column: columns[i],
-        name  // Raw name with spaces - NO normalization
-      })
-    }
-  }
-
-  return locations
-}
+// parseLocationHeader() removed — replaced by discoverSheetLayout() from lib/google-sheets.js
+// Location names preserve raw spaces (e.g., "1ST FLOOR" not "1STFLOOR") via discoverSheetLayout.
