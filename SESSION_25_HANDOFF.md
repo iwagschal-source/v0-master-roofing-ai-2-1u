@@ -34,12 +34,14 @@ Completed conditional alternates display, section-aware location headers, and fu
 
 ## Current State
 - **Branch:** main
-- **Latest commit:** f8da675
-- **Tag:** v1.5-code-cleanup
+- **Latest commit:** 3a00862
+- **Tag:** v1.7-cross-section-fix
 - **Production:** https://v0-master-roofing-ai-2-1u.vercel.app
 
 ## Rollback Points
-- v1.5-code-cleanup (current)
+- v1.7-cross-section-fix (current)
+- v1.6-btx-dynamic-columns
+- v1.5-code-cleanup
 - v1.4-section-location-headers
 - v1.3-conditional-alternates
 - v1.2-bid-type-template-v2
@@ -156,17 +158,18 @@ When an estimator deletes unused location columns from the Google Sheet (e.g., r
 
 ---
 
-## BTX Import Bug — Diagnosed, Not Yet Fixed
+## BTX Import Bug — FIXED (v1.7-cross-section-fix)
 
-All 8 hardcoded column bugs are fixed (v1.6). But a NEW issue found during testing:
+All 8 hardcoded column bugs fixed (v1.6). Cross-section location bug fixed (v1.7):
 
 **Project:** Monday Night (proj_0d4693d93c8a460c, sheet 1djXNuk7wtm4T6aS2pji6eiJNPOND-JK1EETfZ5c-2jU)
 **Symptom:** "Imported 7 items, updated 4 cells" — 3 items failed to write
 **Root cause:** fillBluebeamDataToSpreadsheet() builds location maps per section. Exterior items (MR-042OPNPNLLF, MR-043EIFS, MR-047DRIPCAP) had Roofing location names (MAIN ROOF, 2ND FLOOR, ELEV. BULKHEAD) because the estimator measured exterior scope on roofing floor areas. The per-section map for Exterior doesn't contain "MAIN ROOF" — only "Front / ----Elevation" etc.
 
-**Fix needed:** The location map must merge ALL section headers into one combined map, since Bluebeam CSV doesn't indicate which section an item belongs to. The column letter is the same (G-L) across all sections, so "2ND FLOOR" = column H regardless of section.
-
-**Investigation needed:** Show how locationMap is currently built in fillBluebeamDataToSpreadsheet() — does it merge all 3 maps or keep them separate? Lines ~776-781. Currently it keeps them separate (`sectionLocationMaps.ROOFING`, `.BALCONIES`, `.EXTERIOR`) and picks the map based on which section the item's row falls in (line ~829: `const locationMap = sectionLocationMaps[section]`). The fix: when section-specific lookup fails, fall back to trying ALL section maps.
+**Fix applied (v1.7):** After building the 3 per-section location maps, a `mergedLocationMap` combines all location names → column letters. Lookup tries the section-specific map first, then falls back to the merged map. Since all sections use the same physical columns (G-L), there's no column letter conflict.
+- **File:** `lib/google-sheets.js:784-792` (merged map), `:844` and `:849` (fallback lookups)
+- **Commit:** 3a00862
+- **Verified:** Monday Night — 7 items parsed, 7 cells updated (was 4 before fix)
 
 **Monday Night sheet headers:**
 - ROOFING (row 3): G=1st Floor, H=2nd Floor, I=3rd Floor, J=5th Floor, K=Main Roof, L=Elev. Bulkhead
