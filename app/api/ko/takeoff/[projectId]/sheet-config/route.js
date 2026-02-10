@@ -5,7 +5,7 @@
  *
  * Returns:
  * - selected_items: item_ids from Column A (non-empty rows only)
- * - locations: location names from section header rows (cols G-L)
+ * - locations: location names from dynamically detected section header rows
  * - project_name: from BigQuery project_folders table
  *
  * This endpoint reads the actual sheet state, unlike /config which reads
@@ -16,12 +16,7 @@ import { NextResponse } from 'next/server'
 import { readSheetValues, discoverSheetLayout } from '@/lib/google-sheets'
 import { runQuery } from '@/lib/bigquery'
 
-// Section definitions matching lib/google-sheets.js
-const SECTIONS = {
-  ROOFING: { headerRow: 3, startRow: 4, endRow: 43, name: 'Roofing' },
-  BALCONIES: { headerRow: 45, startRow: 46, endRow: 53, name: 'Balconies' },
-  EXTERIOR: { headerRow: 54, startRow: 55, endRow: 72, name: 'Exterior' }
-}
+const SECTION_NAMES = ['ROOFING', 'BALCONIES', 'EXTERIOR']
 
 /**
  * GET /api/ko/takeoff/[projectId]/sheet-config
@@ -60,21 +55,52 @@ export async function GET(request, { params }) {
 
     const sheetName = 'DATE'
 
-    // Step 2: Read Column A (item_ids) - rows 4-72
-    const colAValues = await readSheetValues(spreadsheetId, `'${sheetName}'!A4:A72`)
+    // Step 2: Read entire sheet area for dynamic section detection
+    const allRows = await readSheetValues(spreadsheetId, `'${sheetName}'!A1:Z200`)
 
-    // Step 3: Read full header rows for each section (dynamic column detection)
-    // TODO: Rows 45/54 are hardcoded — should detect section headers dynamically like preview/route.js does
-    const roofingHeader = await readSheetValues(spreadsheetId, `'${sheetName}'!A3:Z3`)
-    const balconiesHeader = await readSheetValues(spreadsheetId, `'${sheetName}'!A45:Z45`)
-    const exteriorHeader = await readSheetValues(spreadsheetId, `'${sheetName}'!A54:Z54`)
+    // Step 3: Scan for section header rows (same pattern as preview/route.js isSectionHeaderRow)
+    const sectionHeaders = []
+    for (let i = 0; i < allRows.length; i++) {
+      const row = allRows[i]
+      const colA = (row?.[0] || '').toString().trim().toLowerCase()
+      if (colA === 'item_id' || colA === 'item id' || colA === 'itemid') {
+        const hasScope = row.some((cell, idx) => idx > 0 &&
+          /scope|description|item/i.test((cell || '').toString()))
+        if (hasScope) {
+          const sheetRow = i + 1 // Convert 0-based index to 1-based row number
+          const name = SECTION_NAMES[sectionHeaders.length] || `SECTION_${sectionHeaders.length}`
+          sectionHeaders.push({ name, headerRow: sheetRow, rowIndex: i })
+        }
+      }
+    }
 
-    // Step 4: Parse selected items from Column A
+    if (sectionHeaders.length === 0) {
+      sectionHeaders.push({ name: 'ROOFING', headerRow: 3, rowIndex: 2 })
+    }
+
+    console.log('[sheet-config] Discovered section headers:',
+      sectionHeaders.map(s => `${s.name} @ row ${s.headerRow}`).join(', '))
+
+    // Step 4: Build dynamic getSectionForRow from discovered boundaries
+    function getSectionForRow(row) {
+      for (let i = 0; i < sectionHeaders.length; i++) {
+        const startRow = sectionHeaders[i].headerRow + 1
+        const endRow = i + 1 < sectionHeaders.length
+          ? sectionHeaders[i + 1].headerRow - 2
+          : 200
+        if (row >= startRow && row <= endRow) return sectionHeaders[i].name
+      }
+      return null
+    }
+
+    // Step 5: Parse selected items from Column A (skip header rows)
+    const headerRowIndices = new Set(sectionHeaders.map(s => s.rowIndex))
     const selectedItems = []
-    for (let i = 0; i < colAValues.length; i++) {
-      const itemId = colAValues[i]?.[0]?.toString().trim()
+    for (let i = 0; i < allRows.length; i++) {
+      if (headerRowIndices.has(i)) continue
+      const itemId = allRows[i]?.[0]?.toString().trim()
       if (itemId && itemId.startsWith('MR-')) {
-        const row = i + 4 // Row 4 is index 0
+        const row = i + 1 // 1-based row number
         const section = getSectionForRow(row)
         selectedItems.push({
           item_id: itemId,
@@ -84,11 +110,26 @@ export async function GET(request, { params }) {
       }
     }
 
-    // Step 5: Discover layout and extract locations from header rows
-    const locations = {
-      ROOFING: discoverSheetLayout(roofingHeader[0] || []).locationColumns.map(lc => ({ column: lc.letter, name: lc.name })),
-      BALCONIES: discoverSheetLayout(balconiesHeader[0] || []).locationColumns.map(lc => ({ column: lc.letter, name: lc.name })),
-      EXTERIOR: discoverSheetLayout(exteriorHeader[0] || []).locationColumns.map(lc => ({ column: lc.letter, name: lc.name }))
+    // Step 6: Extract locations from discovered section header rows
+    const locations = {}
+    for (const sh of sectionHeaders) {
+      locations[sh.name] = discoverSheetLayout(allRows[sh.rowIndex] || [])
+        .locationColumns.map(lc => ({ column: lc.letter, name: lc.name }))
+    }
+
+    // Step 7: Build sections object from discovered data
+    const sections = {}
+    for (let i = 0; i < sectionHeaders.length; i++) {
+      const sh = sectionHeaders[i]
+      const endRow = i + 1 < sectionHeaders.length
+        ? sectionHeaders[i + 1].headerRow - 2
+        : allRows.length
+      sections[sh.name] = {
+        headerRow: sh.headerRow,
+        startRow: sh.headerRow + 1,
+        endRow,
+        name: sh.name.charAt(0) + sh.name.slice(1).toLowerCase()
+      }
     }
 
     return NextResponse.json({
@@ -99,7 +140,7 @@ export async function GET(request, { params }) {
       spreadsheet_url: `https://docs.google.com/spreadsheets/d/${spreadsheetId}/edit`,
       selected_items: selectedItems,
       locations,
-      sections: SECTIONS,
+      sections,
       item_count: selectedItems.length
     })
 
@@ -111,16 +152,3 @@ export async function GET(request, { params }) {
     )
   }
 }
-
-/**
- * Determine which section a row belongs to
- */
-function getSectionForRow(row) {
-  if (row >= 4 && row <= 43) return 'ROOFING'
-  if (row >= 46 && row <= 53) return 'BALCONIES'
-  if (row >= 55 && row <= 72) return 'EXTERIOR'
-  return null
-}
-
-// parseLocationHeader() removed — replaced by discoverSheetLayout() from lib/google-sheets.js
-// Location names preserve raw spaces (e.g., "1ST FLOOR" not "1STFLOOR") via discoverSheetLayout.
