@@ -78,9 +78,6 @@ export async function GET(request, { params }) {
       sectionHeaders.push({ name: 'ROOFING', headerRow: 3, rowIndex: 2 })
     }
 
-    console.log('[sheet-config] Discovered section headers:',
-      sectionHeaders.map(s => `${s.name} @ row ${s.headerRow}`).join(', '))
-
     // Step 4: Build dynamic getSectionForRow from discovered boundaries
     function getSectionForRow(row) {
       for (let i = 0; i < sectionHeaders.length; i++) {
