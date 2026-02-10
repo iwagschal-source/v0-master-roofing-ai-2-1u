@@ -209,19 +209,19 @@ export async function GET(request, { params }) {
 
       // Build section title from main item or fall back to current logic
       const sectionTitle = mainItem
-        ? (descriptions[mainItem.itemId]?.scopeName || descriptions[mainItem.itemId]?.displayName || section.sectionType)
+        ? (descriptions[mainItem.itemId]?.systemHeading || descriptions[mainItem.itemId]?.scopeName || descriptions[mainItem.itemId]?.displayName || section.sectionType)
         : section.sectionType
 
-      // Build section description from main item's paragraph_description
+      // Build section description: system paragraph + bundle fragments composed together
       const sectionDescription = mainItem
-        ? buildDescription(mainItem, descriptions)
+        ? buildDescription(mainItem, descriptions, 'system', section.items)
         : null
 
       return {
         ...section,
         title: sectionTitle,
         sectionType: sectionTitle,
-        sectionDescription, // The paragraph_description of the main item
+        sectionDescription,
         mainItemId: mainItem?.itemId || null,
         bidType: section.bidType || 'BASE',
         items: section.items.map(item => ({
@@ -233,7 +233,7 @@ export async function GET(request, { params }) {
 
     const enrichedStandalones = standaloneItems.map(item => ({
       ...item,
-      description: buildDescription(item, descriptions),
+      description: buildDescription(item, descriptions, 'standalone'),
       bidType: item.bidType || 'BASE'
     }))
 
@@ -595,7 +595,14 @@ async function fetchDescriptions(itemIds) {
         scope_name,
         display_name,
         section,
-        row_type
+        row_type,
+        is_system,
+        can_bundle,
+        can_standalone,
+        system_heading,
+        bundle_fragment,
+        standalone_description,
+        fragment_sort_order
        FROM \`master-roofing-intelligence.mr_main.item_description_mapping\`
        WHERE item_id IN UNNEST(@itemIds)`,
       { itemIds },
@@ -610,7 +617,14 @@ async function fetchDescriptions(itemIds) {
         displayName: row.display_name || '',
         section: row.section || '',
         rowType: row.row_type || '',
-        hasDescription: !!row.paragraph_description
+        hasDescription: !!row.paragraph_description,
+        isSystem: row.is_system || false,
+        canBundle: row.can_bundle || false,
+        canStandalone: row.can_standalone || false,
+        systemHeading: row.system_heading || null,
+        bundleFragment: row.bundle_fragment || null,
+        standaloneDescription: row.standalone_description || null,
+        fragmentSortOrder: row.fragment_sort_order || 999
       }
     }
     return descMap
@@ -622,56 +636,86 @@ async function fetchDescriptions(itemIds) {
 }
 
 /**
- * Find the "main item" in a section - the item that has a paragraph_description
- * This item defines the system being installed (e.g., the roofing system, not its components)
+ * Find the "main item" in a section - the system item that defines the bundle
+ * Primary: item where is_system === true
+ * Fallback: first item with paragraph_description, then first item
  */
 function findMainItem(items, descriptions) {
   if (!items || items.length === 0) return null
 
-  // Find the first item that has a paragraph_description in the descriptions map
-  for (const item of items) {
+  // First: find item where isSystem === true
+  const systemItem = items.find(item => {
     const desc = descriptions[item.itemId]
-    if (desc && desc.hasDescription) {
-      return item
-    }
-  }
+    return desc && desc.isSystem === true
+  })
+  if (systemItem) return systemItem
 
-  // If no item has a description, return the first item as fallback
-  return items[0] || null
+  // Fallback: first item with hasDescription
+  const descItem = items.find(item => {
+    const desc = descriptions[item.itemId]
+    return desc && desc.hasDescription
+  })
+  return descItem || items[0] || null
 }
 
 /**
  * Build description for an item, replacing placeholders
+ *
+ * Modes:
+ * - 'system': Composes system paragraph + bundle_fragment from siblings (for bundle sections)
+ * - 'standalone': Uses standalone_description, falls back to paragraph, then name
+ * - default: Uses paragraph_description only
+ *
  * Placeholders: {R_VALUE}, {THICKNESS}, {TYPE}
  */
-function buildDescription(item, descriptions) {
+function buildDescription(item, descriptions, mode = 'system', bundleItems = []) {
   const desc = descriptions[item.itemId]
+  if (!desc) return item.name || ''
 
-  if (!desc || !desc.paragraph) {
-    // Fallback to scope name if no description found
-    return item.name || item.itemId || 'No description'
+  let text = ''
+
+  if (mode === 'standalone') {
+    // Use standalone_description, fall back to paragraph, then name
+    text = desc.standaloneDescription || desc.paragraph || item.name || ''
+  } else if (mode === 'system') {
+    // Start with system's paragraph_description
+    text = desc.paragraph || ''
+
+    // Walk bundle siblings, collect fragments ordered by fragmentSortOrder
+    const fragments = []
+    for (const bundleItem of bundleItems) {
+      if (bundleItem.itemId === item.itemId) continue // skip the system item itself
+      const siblingDesc = descriptions[bundleItem.itemId]
+      if (siblingDesc && siblingDesc.bundleFragment) {
+        fragments.push({
+          text: siblingDesc.bundleFragment,
+          order: siblingDesc.fragmentSortOrder || 999
+        })
+      }
+    }
+    fragments.sort((a, b) => a.order - b.order)
+
+    // Append fragments to paragraph
+    for (const frag of fragments) {
+      text += ' ' + frag.text
+    }
+  } else {
+    text = desc.paragraph || item.name || ''
   }
 
-  let text = desc.paragraph
-
-  // Replace placeholders with actual values from the takeoff
-  if (item.rValue) {
-    text = text.replace(/\{R_VALUE\}/g, item.rValue)
-    text = text.replace(/\{r_value\}/gi, item.rValue)
-  }
-  if (item.thickness) {
-    text = text.replace(/\{THICKNESS\}/g, item.thickness)
-    text = text.replace(/\{thickness\}/gi, item.thickness)
-  }
+  // Replace placeholders with values from sheet columns
+  if (item.rValue) text = text.replace(/\{R_VALUE\}/gi, item.rValue)
+  if (item.thickness) text = text.replace(/\{THICKNESS\}/gi, item.thickness)
   if (item.materialType) {
-    text = text.replace(/\{TYPE\}/g, item.materialType)
-    text = text.replace(/\{type\}/gi, item.materialType)
-    text = text.replace(/\{MATERIAL_TYPE\}/g, item.materialType)
-    text = text.replace(/\{material_type\}/gi, item.materialType)
+    text = text.replace(/\{TYPE\}/gi, item.materialType)
+    text = text.replace(/\{MATERIAL_TYPE\}/gi, item.materialType)
   }
 
-  // Clean up any remaining unfilled placeholders
-  text = text.replace(/\{[A-Z_]+\}/g, '[TBD]')
+  // Clean unfilled placeholders
+  text = text.replace(/\{R_VALUE\}/gi, '[TBD]')
+  text = text.replace(/\{THICKNESS\}/gi, '[TBD]')
+  text = text.replace(/\{TYPE\}/gi, '[TBD]')
+  text = text.replace(/\{MATERIAL_TYPE\}/gi, '[TBD]')
 
   return text
 }
