@@ -36,7 +36,7 @@ export async function GET(request) {
         COALESCE(has_thickness, false) as has_thickness,
         COALESCE(has_material_type, false) as has_material_type,
         notes
-      FROM \`master-roofing-intelligence.mr_agent.lib_takeoff_template\`
+      FROM \`master-roofing-intelligence.mr_main.lib_takeoff_template\`
       ORDER BY sort_order, section, scope_name
     `
 
@@ -54,7 +54,7 @@ export async function GET(request) {
             avg_unit_cost,
             project_count,
             confidence_level
-          FROM \`master-roofing-intelligence.mr_agent.v_estimator_rate_card\`
+          FROM \`master-roofing-intelligence.mr_main.estimator_rate_card\`
           WHERE gc_name = @gcName
         `
         const ratesRows = await runQuery(ratesQuery, { gcName })
