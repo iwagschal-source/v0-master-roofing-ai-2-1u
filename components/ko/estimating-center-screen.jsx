@@ -417,10 +417,8 @@ export function EstimatingCenterScreen({ onSelectProject, onBack }) {
       }
 
       // Step 2: Transform sheet-config format to btx config format
-      // Combine all location columns from all sections (use ROOFING as primary)
-      const allLocations = [
-        ...(sheetConfig.locations?.ROOFING || []),
-      ]
+      // Combine all location columns from all sections
+      const allLocations = Object.values(sheetConfig.locations || {}).flat()
 
       const config = {
         selectedItems: sheetConfig.selected_items.map(item => ({

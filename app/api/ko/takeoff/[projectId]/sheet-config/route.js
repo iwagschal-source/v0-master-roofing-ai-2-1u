@@ -16,7 +16,17 @@ import { NextResponse } from 'next/server'
 import { readSheetValues, discoverSheetLayout } from '@/lib/google-sheets'
 import { runQuery } from '@/lib/bigquery'
 
-const SECTION_NAMES = ['ROOFING', 'BALCONIES', 'EXTERIOR']
+/**
+ * Determine section name from the first item_id found in a section's data rows.
+ */
+function detectSectionFromItemId(itemId) {
+  const id = itemId.toUpperCase()
+  if (id === 'MR-032RECESSWP' || id === 'MR-FIRE-LIQ' || id === 'MR-THORO') return 'WATERPROOFING'
+  if (/^MR-0[0-2]\d/.test(id) || id === 'MR-030GREEN' || id === 'MR-031FLASHGRN') return 'ROOFING'
+  if (/^MR-03[3-6]/.test(id)) return 'BALCONIES'
+  if (/^MR-0[3-5]\d/.test(id) || /^MR-05[01]/.test(id)) return 'EXTERIOR'
+  return 'ROOFING'
+}
 
 /**
  * GET /api/ko/takeoff/[projectId]/sheet-config
@@ -68,8 +78,7 @@ export async function GET(request, { params }) {
           /scope|description|item/i.test((cell || '').toString()))
         if (hasScope) {
           const sheetRow = i + 1 // Convert 0-based index to 1-based row number
-          const name = SECTION_NAMES[sectionHeaders.length] || `SECTION_${sectionHeaders.length}`
-          sectionHeaders.push({ name, headerRow: sheetRow, rowIndex: i })
+          sectionHeaders.push({ name: null, headerRow: sheetRow, rowIndex: i })
         }
       }
     }
@@ -78,12 +87,29 @@ export async function GET(request, { params }) {
       sectionHeaders.push({ name: 'ROOFING', headerRow: 3, rowIndex: 2 })
     }
 
+    // Determine section names from first item_id in each section's data rows
+    for (let s = 0; s < sectionHeaders.length; s++) {
+      if (sectionHeaders[s].name) continue // already named (fallback case)
+      const startIdx = sectionHeaders[s].rowIndex + 1
+      const endIdx = s + 1 < sectionHeaders.length ? sectionHeaders[s + 1].rowIndex : allRows.length
+      for (let i = startIdx; i < endIdx; i++) {
+        const itemId = (allRows[i]?.[0] || '').toString().trim()
+        if (itemId.startsWith('MR-')) {
+          sectionHeaders[s].name = detectSectionFromItemId(itemId)
+          break
+        }
+      }
+      if (!sectionHeaders[s].name) {
+        sectionHeaders[s].name = `SECTION_${s}`
+      }
+    }
+
     // Step 4: Build dynamic getSectionForRow from discovered boundaries
     function getSectionForRow(row) {
       for (let i = 0; i < sectionHeaders.length; i++) {
         const startRow = sectionHeaders[i].headerRow + 1
         const endRow = i + 1 < sectionHeaders.length
-          ? sectionHeaders[i + 1].headerRow - 2
+          ? sectionHeaders[i + 1].headerRow - 1
           : 200
         if (row >= startRow && row <= endRow) return sectionHeaders[i].name
       }
@@ -119,7 +145,7 @@ export async function GET(request, { params }) {
     for (let i = 0; i < sectionHeaders.length; i++) {
       const sh = sectionHeaders[i]
       const endRow = i + 1 < sectionHeaders.length
-        ? sectionHeaders[i + 1].headerRow - 2
+        ? sectionHeaders[i + 1].headerRow - 1
         : allRows.length
       sections[sh.name] = {
         headerRow: sh.headerRow,

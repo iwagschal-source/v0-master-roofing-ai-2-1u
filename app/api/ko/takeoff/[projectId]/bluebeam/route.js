@@ -289,11 +289,7 @@ export async function POST(request, { params }) {
           const sheetData = await sheetConfigRes.json()
           if (sheetData.exists && sheetData.selected_items && sheetData.locations) {
             // Transform sheet-config format to expected config format
-            const allLocations = [
-              ...(sheetData.locations.ROOFING || []),
-              ...(sheetData.locations.BALCONIES || []),
-              ...(sheetData.locations.EXTERIOR || [])
-            ]
+            const allLocations = Object.values(sheetData.locations || {}).flat()
             config = {
               columns: allLocations.map(loc => ({
                 id: loc.column,
