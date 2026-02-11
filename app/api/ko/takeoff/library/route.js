@@ -170,7 +170,10 @@ function getFallbackTemplate() {
     { scope_code: 'MR-029FLASHPAV', section: 'Roofing', scope_name: 'Edge @ Pavers', default_unit_cost: 24.0, uom: 'LF', sort_order: 29 },
     { scope_code: 'MR-030GREEN', section: 'Roofing', scope_name: 'Green Roof', default_unit_cost: 48.0, uom: 'SF', sort_order: 30 },
     { scope_code: 'MR-031FLASHGRN', section: 'Roofing', scope_name: 'Edge @ Green', default_unit_cost: 24.0, uom: 'LF', sort_order: 31 },
-    { scope_code: 'MR-032RECESSWP', section: 'Roofing', scope_name: 'Recessed Floor WP', default_unit_cost: 32.0, uom: 'SF', sort_order: 32 },
+    // WATERPROOFING SECTION
+    { scope_code: 'MR-032RECESSWP', section: 'Waterproofing', scope_name: 'Recessed Floor WP', default_unit_cost: 32.0, uom: 'SF', sort_order: 33 },
+    { scope_code: 'MR-FIRE-LIQ', section: 'Waterproofing', scope_name: 'Firestone Liquid WP', default_unit_cost: null, uom: 'SF', sort_order: 34 },
+    { scope_code: 'MR-THORO', section: 'Waterproofing', scope_name: 'Thorocoat', default_unit_cost: null, uom: 'SF', sort_order: 35 },
     // INSULATION SECTION
     { scope_code: 'MR-INS-BATT', section: 'Insulation', scope_name: 'Batt Insulation', default_unit_cost: 2.5, uom: 'SF', sort_order: 40, has_r_value: true, has_thickness: true, has_material_type: true },
     { scope_code: 'MR-INS-RIGID', section: 'Insulation', scope_name: 'Rigid Insulation', default_unit_cost: 3.25, uom: 'SF', sort_order: 41, has_r_value: true, has_thickness: true },
