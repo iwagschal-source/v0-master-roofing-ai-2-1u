@@ -112,10 +112,7 @@ v0-master-roofing-ai-2-1u/
 │   ├── gcs-storage.js                # Google Cloud Storage
 │   ├── project-storage.js            # Project CRUD (GCS-backed)
 │   ├── google-token.js               # Token management
-│   ├── generate-proposal-docx.js     # DOCX generation
 │   ├── generate-proposal-pdf.js      # PDF generation
-│   ├── proposal-systems.js           # Roofing system definitions
-│   ├── takeoff-to-proposal.js        # Takeoff → proposal conversion
 │   ├── chat-logger.js                # Chat audit logging (BigQuery)
 │   ├── chat-storage.js               # Chat localStorage persistence
 │   └── api/                          # Frontend API client
@@ -138,7 +135,6 @@ v0-master-roofing-ai-2-1u/
 │   └── use-agent-status.js          # Agent status polling
 │
 ├── data/                             # Static data
-│   ├── scope-items.js                # Item library (100+ items)
 │   ├── agent-data.js                 # Fallback agent definitions
 │   └── rfp-import.csv               # Sample RFP data
 │
@@ -528,7 +524,7 @@ page.jsx
 | **Core Layout** | `navigation-rail`, `top-header`, `ko-stage`, `mobile-menu-toggle` |
 | **Dashboard** | `home-screen`, `sales-dashboard`, `phase-tracker` |
 | **Estimating** | `estimating-center-screen`, `takeoff-setup-screen`, `takeoff-spreadsheet`, `embedded-sheet`, `variant-selector`, `line-item-selector` |
-| **Proposals** | `proposal-preview-screen`, `proposal-document`, `proposal-template`, `proposal-template-v2`, `proposal-pdf-download`, `proposal-docx-download`, `takeoff-proposal-preview` |
+| **Proposals** | `proposal-preview-screen`, `proposal-document`, `proposal-template`, `proposal-template-v2`, `proposal-pdf-download`, `takeoff-proposal-preview` |
 | **Projects** | `project-folders-screen`, `project-folder`, `project-folder-detail`, `project-folder-light`, `project-card`, `project-detail-screen`, `create-project-modal` |
 | **AI Agents** | `agent-dashboard-screen`, `agent-detail-screen`, `agent-card`, `agent-grid`, `agent-network-map-screen`, `add-agent-screen`, `clone-agent-modal`, `agent-model-icon`, `model-arena-dashboard` |
 | **Chat** | `chat-screen`, `chat-shell`, `chat-message`, `message-input`, `conversation-pane`, `conversation-list`, `mini-ko-chat`, `streaming-response`, `thinking-indicator`, `reasoning-indicator`, `source-viewer` |
@@ -751,10 +747,7 @@ All chat exchanges are logged to BigQuery (`ko_audit.agent_chat_history`) with:
 | `lib/project-storage.js` | ~6KB | GCS-backed project CRUD | `loadProjects`, `saveProjects`, `addProject`, `importProjectsFromCSV` |
 | `lib/gcs-storage.js` | ~4KB | GCS raw storage | `readJSON`, `writeJSON`, `deleteObject` |
 | `lib/google-token.js` | ~4KB | Token management | `getValidGoogleToken`, `refreshAccessToken`, `makeGoogleApiRequest` |
-| `lib/generate-proposal-docx.js` | ~10KB | DOCX generation | docxtemplater + PizZip merge |
 | `lib/generate-proposal-pdf.js` | ~8KB | PDF generation | jsPDF rendering |
-| `lib/proposal-systems.js` | ~15KB | System definitions | 50+ roofing system configs |
-| `lib/takeoff-to-proposal.js` | ~6KB | Data conversion | Takeoff → proposal line items |
 | `lib/chat-logger.js` | ~5KB | Audit logging | `logChatExchange`, `updateMessageScores` |
 | `lib/chat-storage.js` | ~4KB | LocalStorage chat | `getConversations`, `addMessage` |
 
@@ -1017,15 +1010,19 @@ git push origin feature/[name]    # Push branch
 
 ## 18. CRITICAL AUDIT FINDINGS (Session 30)
 
-### Dead Code — Confirmed Safe to Delete (~1,600 lines)
-| File | Lines | Evidence | Safe to Delete |
-|------|-------|----------|---------------|
-| lib/proposal-systems.js | ~677 | Zero active imports. Only imported by takeoff-to-proposal.js which is also dead | YES |
-| lib/takeoff-to-proposal.js | ~465 | Zero active imports anywhere in codebase | YES |
-| data/scope-items.js | ~400 | Zero active imports. Superseded by BigQuery item_description_mapping | YES |
-| lib/generate-proposal-docx.js | ~100 | Only used by standalone /proposal-generator page (demo) | YES (with page) |
-| TEMPLATE_SECTIONS constant (google-sheets.js:671) | ~15 | Dynamic scanning via discoverSheetLayout() used instead | YES |
-| ITEM_ID_TO_ROW constant (google-sheets.js:680) | ~40 | Dynamic Column A scanning used instead | YES |
+### Dead Code — Status (Session 32)
+| File | Lines | Status |
+|------|-------|--------|
+| lib/proposal-systems.js | ~677 | **DELETED** (Session 32) |
+| lib/takeoff-to-proposal.js | ~465 | **DELETED** (Session 32) |
+| data/scope-items.js | ~400 | **DELETED** (Session 32) |
+| lib/generate-proposal-docx.js | ~100 | **DELETED** (Session 32, with proposal-docx-download.jsx + app/proposal-generator/) |
+| components/ko/proposal-docx-download.jsx | ~100 | **DELETED** (Session 32) |
+| app/proposal-generator/ | ~200 | **DELETED** (Session 32) |
+| TEMPLATE_SECTIONS constant | ~15 | **DELETED** (Session 32) |
+| ITEM_ID_TO_ROW constant | ~40 | **DELETED** (Session 32) |
+| detectSectionFromItemId duplication | — | **CONSOLIDATED** to lib/google-sheets.js (Session 32) |
+| Commented-out flat BTX code | ~40 | **DELETED** from btx/route.js (Session 32) |
 | Wizard Steps 1-3 data flow | — | Config saved to Python backend but NEVER written to sheet | Dead logic |
 | ko_estimating.takeoff_configs table | — | Zero live source references. Config fully on Python backend | Dead table |
 
