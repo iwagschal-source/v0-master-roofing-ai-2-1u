@@ -32,7 +32,7 @@ export async function POST(request, { params }) {
   try {
     const { projectId } = await params
     const body = await request.json().catch(() => ({}))
-    const { editedDescriptions = {} } = body
+    const { editedDescriptions = {}, sheet } = body
 
     if (!projectId) {
       return NextResponse.json(
@@ -42,7 +42,7 @@ export async function POST(request, { params }) {
     }
 
     // 1. Get preview data (reuse the preview endpoint logic)
-    const previewData = await getProposalPreviewData(projectId, request)
+    const previewData = await getProposalPreviewData(projectId, request, sheet)
 
     if (!previewData) {
       return NextResponse.json(
@@ -138,7 +138,7 @@ export async function POST(request, { params }) {
 /**
  * Get proposal preview data (similar to preview endpoint)
  */
-async function getProposalPreviewData(projectId, request) {
+async function getProposalPreviewData(projectId, request, sheet = null) {
   try {
     // Get project info
     const projectResult = await runQuery(
@@ -168,6 +168,7 @@ async function getProposalPreviewData(projectId, request) {
 
     // Get preview from internal API call
     const previewUrl = new URL(`/api/ko/proposal/${projectId}/preview`, request.url)
+    if (sheet) previewUrl.searchParams.set('sheet', sheet)
     const previewRes = await fetch(previewUrl, {
       method: 'GET',
       headers: { 'Content-Type': 'application/json' }
