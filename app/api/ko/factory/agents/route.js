@@ -8,7 +8,7 @@ process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0'
 import { NextResponse } from 'next/server'
 import { agents as staticAgents } from '@/data/agent-data'
 
-const BACKEND_URL = 'https://136.111.252.120'
+const BACKEND_URL = process.env.PYTHON_BACKEND_URL || 'https://136.111.252.120'
 
 // Static agents that should always be included (not in backend)
 const STATIC_AGENT_IDS = ['AGT-TRAIN-001']

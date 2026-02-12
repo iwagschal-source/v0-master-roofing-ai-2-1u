@@ -29,9 +29,10 @@ const getWsVoiceUrl = () => {
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
     return `${protocol}//${window.location.host}/ws/voice`;
   }
-  return 'wss://136.111.252.120/ws/voice';
+  const base = (process.env.NEXT_PUBLIC_PYTHON_BACKEND_URL || 'https://136.111.252.120').replace('https://', 'wss://').replace('http://', 'ws://');
+  return `${base}/ws/voice`;
 };
-const WS_VOICE_URL = typeof window !== 'undefined' ? getWsVoiceUrl() : 'wss://136.111.252.120/ws/voice';
+const WS_VOICE_URL = typeof window !== 'undefined' ? getWsVoiceUrl() : `${(process.env.NEXT_PUBLIC_PYTHON_BACKEND_URL || 'https://136.111.252.120').replace('https://', 'wss://').replace('http://', 'ws://')}/ws/voice`;
 
 interface Phase {
   name: string;

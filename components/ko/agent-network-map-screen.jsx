@@ -17,6 +17,9 @@ import {
 import { agents, statusConfig, connectionTypes, getAllConnections, getBottlenecks } from "@/data/agent-data"
 import { AgentModelIcon, StatusDot, QueueIndicator } from "./agent-model-icon"
 
+const BACKEND_URL = process.env.NEXT_PUBLIC_PYTHON_BACKEND_URL || "https://136.111.252.120"
+const WS_BACKEND_URL = BACKEND_URL.replace("https://", "wss://").replace("http://", "ws://")
+
 // Minimum spacing between nodes (node diameter + generous padding for readability)
 const MIN_NODE_SPACING = 180
 
@@ -431,7 +434,7 @@ export function AgentNetworkMapScreen({ onBack, onSelectAgent }) {
     const agentList = liveAgents || agents
     try {
       const action = networkPaused ? 'resume' : 'pause'
-      const res = await fetch(`https://136.111.252.120/v1/network/${action}`, {
+      const res = await fetch(`${BACKEND_URL}/v1/network/${action}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' }
       })
@@ -464,7 +467,7 @@ export function AgentNetworkMapScreen({ onBack, onSelectAgent }) {
     const action = isPaused ? 'resume' : 'pause'
 
     try {
-      const res = await fetch(`https://136.111.252.120/v1/agents/${agentId}/${action}`, {
+      const res = await fetch(`${BACKEND_URL}/v1/agents/${agentId}/${action}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' }
       })
@@ -642,7 +645,7 @@ export function AgentNetworkMapScreen({ onBack, onSelectAgent }) {
   useEffect(() => {
     const connectWebSocket = () => {
       try {
-        const ws = new WebSocket('wss://136.111.252.120/ws/network')
+        const ws = new WebSocket(`${WS_BACKEND_URL}/ws/network`)
         wsRef.current = ws
 
         ws.onopen = () => {

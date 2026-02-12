@@ -665,6 +665,10 @@ export function EstimatingCenterScreen({ onSelectProject, onBack }) {
                   <button
                     onClick={() => {
                       if (embeddedSheetId) {
+                        // Restore URL from stored ID if it was cleared on close
+                        if (!embeddedSheetUrl) {
+                          setEmbeddedSheetUrl(`https://docs.google.com/spreadsheets/d/${embeddedSheetId}/edit?embedded=true&rm=minimal`)
+                        }
                         setShowEmbeddedSheet(true)
                       } else {
                         setShowTakeoffSheet(true)
@@ -1103,7 +1107,7 @@ export function EstimatingCenterScreen({ onSelectProject, onBack }) {
               <button
                 onClick={() => {
                   setShowEmbeddedSheet(false)
-                  setEmbeddedSheetId(null)
+                  // Keep embeddedSheetId so reopen is instant (no re-fetch needed)
                   setEmbeddedSheetUrl(null)
                 }}
                 className="p-2 hover:bg-muted rounded-lg"
@@ -1131,7 +1135,14 @@ export function EstimatingCenterScreen({ onSelectProject, onBack }) {
           onClose={() => setShowUploadModal(false)}
           onSuccess={() => {
             setShowUploadModal(false)
-            setShowTakeoffSheet(true)
+            if (embeddedSheetId) {
+              if (!embeddedSheetUrl) {
+                setEmbeddedSheetUrl(`https://docs.google.com/spreadsheets/d/${embeddedSheetId}/edit?embedded=true&rm=minimal`)
+              }
+              setShowEmbeddedSheet(true)
+            } else {
+              setShowTakeoffSheet(true)
+            }
           }}
         />
       )}
@@ -1269,7 +1280,11 @@ function UploadModal({ project, sheetName, onClose, onSuccess }) {
       if (res.ok && data.success) {
         setResult({
           success: true,
-          message: `Imported ${data.items_parsed} items, updated ${data.cells_updated} cells`
+          message: `Imported ${data.items_parsed} items, updated ${data.cells_updated} cells`,
+          matchedItems: data.matchedItems || [],
+          unmatchedItems: data.unmatchedItems || [],
+          errors: data.errors || [],
+          cellsPopulated: data.cellsPopulated || 0
         })
       } else {
         setResult({
@@ -1306,14 +1321,62 @@ function UploadModal({ project, sheetName, onClose, onSuccess }) {
                   <AlertCircle className="w-5 h-5 text-red-500" />
                 )}
                 <span className={result.success ? 'text-green-500' : 'text-red-500'}>
-                  {result.success ? 'Success!' : 'Error'}
+                  {result.success ? 'Import Complete' : 'Error'}
                 </span>
               </div>
-              <p className="text-sm text-muted-foreground">{result.message}</p>
+              <p className="text-sm text-muted-foreground mb-3">{result.message}</p>
+
+              {/* Matched items */}
+              {result.matchedItems?.length > 0 && (
+                <div className="mb-3">
+                  <p className="text-xs font-medium text-green-500 mb-1">Matched ({result.matchedItems.length})</p>
+                  <div className="max-h-32 overflow-auto space-y-0.5">
+                    {result.matchedItems.map((item, i) => (
+                      <div key={i} className="text-xs text-muted-foreground flex justify-between">
+                        <span>{item.item_id} @ {item.location}</span>
+                        <span>{item.quantity} → {item.cell}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Unmatched items */}
+              {result.unmatchedItems?.length > 0 && (
+                <div className="mb-3">
+                  <p className="text-xs font-medium text-yellow-500 mb-1">Unmatched ({result.unmatchedItems.length})</p>
+                  <div className="max-h-32 overflow-auto space-y-0.5">
+                    {result.unmatchedItems.map((item, i) => (
+                      <div key={i} className="text-xs text-muted-foreground">
+                        <span>{item.raw_name} (qty: {item.quantity})</span>
+                        <span className="block text-xs text-yellow-500/70">{item.reason}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Errors */}
+              {result.errors?.length > 0 && (
+                <div className="mb-3">
+                  <p className="text-xs font-medium text-red-500 mb-1">Warnings</p>
+                  {result.errors.map((err, i) => (
+                    <p key={i} className="text-xs text-red-500/70">{err.message}</p>
+                  ))}
+                </div>
+              )}
+
+              {/* Cells populated summary */}
+              {result.cellsPopulated > 0 && (
+                <p className="text-xs text-muted-foreground border-t border-border pt-2">
+                  {result.cellsPopulated} cells populated in sheet
+                </p>
+              )}
+
               {result.success && (
                 <button
                   onClick={onSuccess}
-                  className="mt-4 w-full py-2 bg-primary text-primary-foreground rounded-lg text-sm"
+                  className="mt-3 w-full py-2 bg-primary text-primary-foreground rounded-lg text-sm"
                 >
                   View Takeoff Sheet
                 </button>

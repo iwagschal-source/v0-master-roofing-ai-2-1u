@@ -15,7 +15,7 @@ import https from 'https'
 import { fillBluebeamDataToTab, fillBluebeamDataToSpreadsheet, getTakeoffTab, createTakeoffTab } from '@/lib/google-sheets'
 import { runQuery } from '@/lib/bigquery'
 
-const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'https://136.111.252.120'
+const BACKEND_URL = process.env.PYTHON_BACKEND_URL || 'https://136.111.252.120'
 
 // Custom fetch that ignores SSL cert errors
 const fetchWithSSL = async (url, options = {}) => {
@@ -391,6 +391,16 @@ export async function POST(request, { params }) {
       result = await fillBluebeamDataToTab(tabInfo.tabName, items)
     }
 
+    // Categorize details for import summary
+    const details = result.details || []
+    const matchedItems = details.filter(d => d.status === 'MATCHED' || d.status === 'MATCHED_NORMALIZED')
+    const unmatchedItems = details.filter(d => d.status === 'NO_ROW_MAPPING' || d.status === 'NO_COLUMN_MAPPING' || d.status === 'ROW_NOT_IN_SECTION')
+    const errors = []
+
+    if (parseStats?.skipped > 0) {
+      errors.push({ message: `${parseStats.skipped} rows skipped (item code not in config)` })
+    }
+
     return NextResponse.json({
       success: true,
       items_parsed: items.length,
@@ -398,7 +408,22 @@ export async function POST(request, { params }) {
       spreadsheet_id: spreadsheetId,
       storage,
       parse_mode: parseMode,
-      parse_stats: parseStats
+      parse_stats: parseStats,
+      matchedItems: matchedItems.map(d => ({
+        item_id: d.code,
+        location: d.floor,
+        quantity: d.quantity,
+        cell: d.col ? `${d.col}${d.row}` : null
+      })),
+      unmatchedItems: unmatchedItems.map(d => ({
+        raw_name: d.code,
+        reason: d.status === 'NO_ROW_MAPPING' ? 'Item not found in sheet'
+          : d.status === 'NO_COLUMN_MAPPING' ? `Location "${d.floor}" not found (available: ${(d.availableLocations || []).join(', ')})`
+          : 'Row not in any section',
+        quantity: d.quantity
+      })),
+      errors,
+      cellsPopulated: result.updated
     })
 
   } catch (err) {

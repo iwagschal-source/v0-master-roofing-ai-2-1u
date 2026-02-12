@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server"
 
 // Backend API URL
-const BACKEND_URL = process.env.BACKEND_URL || "https://136.111.252.120"
+const BACKEND_URL = process.env.PYTHON_BACKEND_URL || 'https://136.111.252.120'
 
 /**
  * POST /api/ko/estimator-chat
