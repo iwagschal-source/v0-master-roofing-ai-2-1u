@@ -418,10 +418,10 @@ project_folders (existing, column added Session 31)
 | Route | Method | Purpose |
 |-------|--------|---------|
 | `/` | GET/PUT | Get/update takeoff sheet info |
-| `/sheet-config` | GET | Read actual Google Sheet layout dynamically |
+| `/sheet-config` | GET | Read actual Google Sheet layout dynamically. Accepts `?sheet=` param (Session 33) |
 | `/config` | GET/POST | Read/write wizard-generated config |
 | `/btx` | GET | Generate per-floor BTX zip (calls Python backend) |
-| `/bluebeam` | POST | Import Bluebeam CSV into sheet |
+| `/bluebeam` | POST | Import Bluebeam CSV into sheet. Accepts `sheet_name` in body (Session 33) |
 | `/generate` | POST | Generate proposal from takeoff |
 | `/imports` | GET/POST | List/create takeoff imports |
 | `/sync/[importId]` | POST | Sync import with sheet |
@@ -433,8 +433,8 @@ project_folders (existing, column added Session 31)
 
 | Route | Method | Purpose |
 |-------|--------|---------|
-| `/preview` | GET | Extract + preview proposal data from sheet |
-| `/generate` | POST | Generate DOCX from sheet data |
+| `/preview` | GET | Extract + preview proposal data from sheet. Accepts `?sheet=` param (Session 33) |
+| `/generate` | POST | Generate DOCX from sheet data. Accepts `sheet` in body (Session 33) |
 
 ### Project Management
 
@@ -598,6 +598,7 @@ The system detects sheet structure at runtime:
 5. **Row types** — Detected from formulas: `=B4*N4` → ITEM, `=SUM(O6:O8)` → BUNDLE_TOTAL, etc.
 
 Key functions:
+- `getActiveSheetName()` in `lib/google-sheets.js` — Returns first tab that isn't "Setup" or "Library"; fallback "DATE" (Session 33)
 - `discoverSheetLayout()` in `lib/google-sheets.js` — Returns sections, location maps, column indices
 - `findColumnIndices()` in `preview/route.js` — Finds totalMeas/totalCost positions
 - `isSectionHeaderRow()` in `preview/route.js` — Detects section boundary rows
@@ -741,7 +742,7 @@ All chat exchanges are logged to BigQuery (`ko_audit.agent_chat_history`) with:
 
 | File | Size | Purpose | Critical Functions |
 |------|------|---------|-------------------|
-| `lib/google-sheets.js` | 45KB | Google Sheets API | `getAccessToken`, `copyTemplateSheet`, `fillBluebeamDataToSpreadsheet`, `discoverSheetLayout`, `readSheetValues`, `batchUpdateSheet` |
+| `lib/google-sheets.js` | 45KB | Google Sheets API | `getAccessToken`, `getActiveSheetName`, `copyTemplateSheet`, `fillBluebeamDataToSpreadsheet`, `discoverSheetLayout`, `readSheetValues`, `batchUpdateSheet` |
 | `lib/bigquery.js` | ~8KB | BigQuery client | `runQuery`, `getAverageRates`, `getRateForItem` |
 | `lib/auth.ts` | ~3KB | NextAuth config | `authOptions`, domain check, admin check |
 | `lib/project-storage.js` | ~6KB | GCS-backed project CRUD | `loadProjects`, `saveProjects`, `addProject`, `importProjectsFromCSV` |
@@ -1032,8 +1033,8 @@ git push origin feature/[name]    # Push branch
 - ✅ Column C dropdowns: 3 types × 4 sections from Library FILTER formulas (AF-AQ), strict:false
 - ✅ Project creation: Drive folder structure + template copy + Library refresh + project name write
 - ✅ Sheet-first BTX generation: reads live sheet via sheet-config, proxies to Python backend, returns per-floor zip
-- ✅ Bluebeam CSV import: deterministic (pipe-delimited) + fuzzy (27 regex) parsing → writes to DATE tab
-- ✅ Proposal preview: dynamic section/row detection from formulas, 3-mode description composition from BigQuery
+- ✅ Bluebeam CSV import: deterministic (pipe-delimited) + fuzzy (27 regex) parsing → writes to active takeoff tab (version-aware, Session 33)
+- ✅ Proposal preview: dynamic section/row detection from formulas, 3-mode description composition from BigQuery (version-aware, Session 33)
 - ✅ Proposal DOCX generation: Docxtemplater + Drive upload to Proposals subfolder
 - ✅ Bid type: BASE/ALT split detected in preview, separate sections in DOCX
 - ✅ 87 items in item_description_mapping (13 columns queried by preview)
@@ -1047,13 +1048,14 @@ git push origin feature/[name]    # Push branch
 4. **populate-library-tab.mjs clears FILTER formulas** — clears Library tab then rewrites, but formulas in AF-AQ can be lost if script interrupted
 5. **[TBD] placeholders in proposals** — when sheet R/IN/TYPE columns are empty, descriptions show [TBD] instead of graceful handling
 
-### Hardcoded "DATE" Tab References (Exactly 3 Source Files)
-| File | Line | Code |
-|------|------|------|
-| lib/google-sheets.js | 575 | `'DATE'!A2` (post-copy project name write) |
-| lib/google-sheets.js | 901 | `const sheetName = 'DATE'` (fillBluebeamDataToSpreadsheet) |
-| app/api/ko/takeoff/[projectId]/sheet-config/route.js | 66 | `const sheetName = 'DATE'` |
-Plus ~12 scripts (non-production, debug/template tools)
+### Hardcoded "DATE" Tab References — **RESOLVED** (Session 33)
+All 3 production source files updated to use `getActiveSheetName()`:
+| File | Line | Status |
+|------|------|--------|
+| lib/google-sheets.js | 575 | **FIXED** — uses `getActiveSheetName()` (Session 33) |
+| lib/google-sheets.js | 837 | **FIXED** — accepts `sheetName` param, defaults to `getActiveSheetName()` (Session 33) |
+| app/api/ko/takeoff/[projectId]/sheet-config/route.js | 54 | **FIXED** — accepts `?sheet=` param, defaults to `getActiveSheetName()` (Session 33) |
+Plus ~12 scripts (non-production, debug/template tools) — intentionally unchanged
 
 ### Unwired Infrastructure (Backend Built, No Frontend)
 | Route | Backend Status | Frontend Status |
