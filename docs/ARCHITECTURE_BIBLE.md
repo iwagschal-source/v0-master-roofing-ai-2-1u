@@ -261,7 +261,7 @@ session.user = {
 
 | Dataset | Location | Tables |
 |---------|----------|--------|
-| `mr_main` | US (multi-region) | `item_description_mapping`, `lib_takeoff_template`, `estimator_rate_card`, `v_library_complete`, `project_folders` |
+| `mr_main` | US (multi-region) | `item_description_mapping`, `lib_takeoff_template`, `estimator_rate_card`, `v_library_complete`, `project_folders`, `implementation_tracker`, `project_versions`, `import_history` |
 | `mr_staging` | us-east4 | `takeoff_lines_enriched` (700k+ rows) |
 | `ko_estimating` | US | Estimating module data |
 | `ko_audit` | US | `agent_chat_history`, activity logs |
@@ -341,7 +341,8 @@ item_description_mapping (87 items: 58 original + 29 Cat 2)
 ├── bundle_fragment (component text fragment for bundles)
 ├── standalone_description (full standalone paragraph)
 ├── fragment_sort_order    (1-85, controls fragment ordering)
-└── description_status     (complete | partial | missing)
+├── description_status     (complete | partial | missing)
+└── bluebeam_tool_name    (STRING, added Session 31 — tool name from Python backend)
 
 lib_takeoff_template (per-item specs)
 ├── uom             (SF, LF, EA, etc.)
@@ -353,6 +354,7 @@ lib_takeoff_template (per-item specs)
 
 estimator_rate_card (historical rates by GC)
 ├── gc_name
+├── item_id            (STRING, added Session 31 — maps to item_description_mapping.item_id, 93% backfilled)
 ├── median_unit_cost / avg_unit_cost
 ├── min_rate / max_rate
 ├── project_count
@@ -360,6 +362,30 @@ estimator_rate_card (historical rates by GC)
 
 v_library_complete (view joining all above)
 └── readiness_score (1-6)
+
+implementation_tracker (project plan task tracking, added Session 31)
+├── phase, task_id, description
+├── file_affected, task_type
+├── status             (NOT_STARTED | IN_PROGRESS | DONE | BLOCKED | SKIPPED)
+├── verified, verified_by, verified_at
+├── session_completed, notes, branch
+
+project_versions (takeoff version tracking, added Session 31)
+├── project_id, spreadsheet_id, sheet_name
+├── version_number, created_at, created_by
+├── is_active, status
+├── items_count, locations_count
+├── proposal_file_id, notes
+
+import_history (Bluebeam CSV import tracking, added Session 31)
+├── import_id, project_id, spreadsheet_id, target_sheet
+├── import_type, csv_file_id, csv_filename
+├── imported_at, imported_by
+├── items_matched, items_unmatched, cells_populated
+├── accumulation_mode, status, error_details, notes
+
+project_folders (existing, column added Session 31)
+└── active_version_sheet (STRING — tracks which takeoff version tab is active)
 ```
 
 ### Section Distribution
@@ -1123,3 +1149,19 @@ Placeholder replacement (case-insensitive): {R_VALUE}→col D, {THICKNESS}→col
 | MR-037BRICKWP | MR-BLUESKIN, MR-EXTWP |
 | MR-043EIFS | MR-EIFS-BRICK |
 | MR-PMMA-FLASH | MR-LIQBINDER, MR-LIQFLASH |
+
+---
+
+## 19. Pre-Rebuild Baseline (Session 31)
+
+| Item | Value |
+|------|-------|
+| Baseline commit | `dfd8ba6` (main branch) |
+| Git tag | `v2.0-pre-rebuild` |
+| Template backup | `1Ykh3y_ghNwIcpDEJ0b7w9z8WFCqDkIMDaiRiLfMiL2M` (Drive: Backups/v2.0-pre-rebuild/) |
+| item_description_mapping CSV | `1b8m0CPqKp-W-dFcN15LSDJroZoXDhDZl` (87 rows) |
+| lib_takeoff_template CSV | `1cq3NqU53SYkR52DN-6ijMLHMjxtA-kky` (60 rows) |
+| v_library_complete CSV | `1JcN7JJw8f6Vxfa3eJhlCOotdsCUpjOKz` (86 rows) |
+| Backup folder | `1zBKwmq_E3ww_T1Jo3F_lWwwb8PGC726-` (Drive: Backups/v2.0-pre-rebuild/) |
+| Backup date | 2026-02-12 |
+| Backed up by | Session 31 (Infrastructure + Backup) |
