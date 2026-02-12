@@ -123,3 +123,4 @@ Files to delete (in order):
 - 0C.3 runtime test (GET sheet-config endpoint) was not run — no dev server available. Should be tested before merge.
 - Two remaining dead code items in Bible Section 18 NOT addressed (out of scope): Wizard Steps 1-3 data flow, ko_estimating.takeoff_configs table
 - `/proposal-generator` page route is gone — if anyone bookmarked it, they'll get a 404
+- **IMPORTANT:** After updating `implementation_tracker` in BigQuery, always run `node scripts/sync-tracker-to-sheet.mjs` to push changes to the Google Sheet tracker
