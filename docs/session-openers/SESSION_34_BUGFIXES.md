@@ -114,8 +114,9 @@ Fix: Keep embeddedSheetId in state, only null embeddedSheetUrl. Reopen sets URL 
 
 1. **Update BigQuery tracker** for any tasks completed:
    ```
-   bq query --use_legacy_sql=false "UPDATE \`master-roofing-intelligence.mr_main.implementation_tracker\` SET status='COMPLETE', session_completed='SESSION_NUMBER', branch='BRANCH', verified=true, verified_by='Session N', verified_at=CURRENT_TIMESTAMP() WHERE phase='PHASE'"
+   bq query --use_legacy_sql=false "UPDATE \`master-roofing-intelligence.mr_main.implementation_tracker\` SET status='DONE', session_completed='SESSION_NUMBER', branch='BRANCH', verified=true, verified_by='Session N', verified_at=CURRENT_TIMESTAMP() WHERE phase='PHASE'"
    ```
+   - **IMPORTANT:** Status value is `'DONE'` (all caps) — NOT 'COMPLETE'
    - Project ID is `master-roofing-intelligence` (NOT `master-roofing-ai`)
    - `session_completed` is STRING type — use quotes: `'34'` not `34`
 
