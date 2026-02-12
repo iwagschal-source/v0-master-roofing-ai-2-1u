@@ -14,7 +14,7 @@
  */
 
 import { NextResponse } from 'next/server'
-import { readSheetValues, readSheetFormulas, getFirstSheetName } from '@/lib/google-sheets'
+import { readSheetValues, readSheetFormulas, getActiveSheetName } from '@/lib/google-sheets'
 import { runQuery } from '@/lib/bigquery'
 
 /**
@@ -75,7 +75,9 @@ export async function GET(request, { params }) {
 
     // 2. Read takeoff sheet data (headers + all data rows)
     // Also read formulas to auto-detect row types from Column O
-    const sheetName = await getFirstSheetName(spreadsheetId)
+    // Accept optional ?sheet= param, default to active takeoff tab
+    const { searchParams } = new URL(request.url)
+    const sheetName = searchParams.get('sheet') || await getActiveSheetName(spreadsheetId)
     const [sheetData, sheetFormulas] = await Promise.all([
       readSheetValues(spreadsheetId, `'${sheetName}'!A1:Z100`),
       readSheetFormulas(spreadsheetId, `'${sheetName}'!A1:Z100`)
