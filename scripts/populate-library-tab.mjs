@@ -210,8 +210,8 @@ async function main() {
     console.log(`   Library tab already exists (sheetId: ${existingTab.properties.sheetId})`)
     console.log('   Will clear and repopulate.')
     if (!DRY_RUN) {
-      // Clear existing content
-      await sheetsApi(accessToken, 'POST', '/values/Library!A:AD:clear', {})
+      // Clear existing content (A-AD data + AF-AQ filter formulas)
+      await sheetsApi(accessToken, 'POST', '/values/Library!A:AQ:clear', {})
       console.log('   Cleared existing content')
     }
   } else {
@@ -259,6 +259,40 @@ async function main() {
     { values: allRows }
   )
   console.log(`   Wrote ${allRows.length} rows x ${COLUMNS.length} columns`)
+
+  // 5b. Write FILTER formulas for dropdown source lists (AF-AQ)
+  // 3 types × 4 sections = 12 formulas
+  // Column refs: B=section, C=display_name, I=is_system, J=can_standalone, K=can_bundle
+  console.log('\n5b. Writing FILTER formulas for dropdown source lists...')
+  const SECTIONS = ['ROOFING', 'BALCONIES', 'EXTERIOR', 'WATERPROOFING']
+  const FILTER_HEADERS = [
+    // Systems (AF-AI)
+    ...SECTIONS.map(s => `${s.toLowerCase()}_systems`),
+    // Bundle components (AJ-AM)
+    ...SECTIONS.map(s => `${s.toLowerCase()}_bundle`),
+    // Standalone (AN-AQ)
+    ...SECTIONS.map(s => `${s.toLowerCase()}_standalone`),
+  ]
+  const lastRow = allRows.length
+  const FILTER_FORMULAS = [
+    // Systems: is_system=TRUE for each section (col I)
+    ...SECTIONS.map(s => `=FILTER(C$2:C$${lastRow}, B$2:B$${lastRow}="${s}", I$2:I$${lastRow}="TRUE")`),
+    // Bundle: can_bundle=TRUE for each section (col K)
+    ...SECTIONS.map(s => `=FILTER(C$2:C$${lastRow}, B$2:B$${lastRow}="${s}", K$2:K$${lastRow}="TRUE")`),
+    // Standalone: can_standalone=TRUE for each section (col J)
+    ...SECTIONS.map(s => `=FILTER(C$2:C$${lastRow}, B$2:B$${lastRow}="${s}", J$2:J$${lastRow}="TRUE")`),
+  ]
+
+  if (!DRY_RUN) {
+    await sheetsApi(accessToken, 'PUT',
+      `/values/Library!AF1:AQ2?valueInputOption=USER_ENTERED`,
+      { values: [FILTER_HEADERS, FILTER_FORMULAS] }
+    )
+    console.log(`   Wrote 12 FILTER formulas (3 types × 4 sections) in AF1:AQ2`)
+  } else {
+    console.log('   [DRY RUN] Would write 12 FILTER formulas to AF1:AQ2')
+    console.log('   Headers:', FILTER_HEADERS)
+  }
 
   // 6. Format: bold header, freeze row 1, auto-resize columns
   console.log('\n6. Formatting...')
