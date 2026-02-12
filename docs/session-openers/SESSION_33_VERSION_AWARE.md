@@ -110,9 +110,10 @@ TEST ALL THREE SCENARIOS.
 9. **0D.9** — Grep verification: zero hardcoded "DATE" in production source (only fallback comment in getActiveSheetName).
 10. **0D.10** — Architecture Bible updated (Sections 6, 8, 12, 18). Clean build passes.
 
-**What was NOT done:**
-- No runtime testing against live project (no dev server run). Build-only verification.
-- Branch not merged to main yet.
+**Post-session updates (after HANDOFF written):**
+- Branch merged to main, pushed to origin, deployed to Vercel (production READY)
+- BigQuery tracker updated: all 11 Phase 0D tasks → COMPLETE, session_completed='33'
+- Google Sheet synced via `node scripts/sync-tracker-to-sheet.mjs`
 
 **Grep results (production "DATE" references):**
 ```
@@ -121,8 +122,30 @@ lib/google-sheets.js:348 — fallback return value (intentional)
 ```
 Zero hardcoded usage remains.
 
+**Proposal behavior note:** When a component (e.g. doorpanes) has quantity inside a system bundle but the main system line does NOT have quantity, the proposal renders it under the system heading. This is CORRECT — a component within a system should always show as the system. Not a bug.
+
+---
+
+### MANDATORY: PASS THIS TO EVERY FUTURE SESSION
+
+**Every session MUST do these before closing:**
+
+1. **Update BigQuery tracker** for any tasks completed:
+   ```
+   bq query --use_legacy_sql=false "UPDATE \`master-roofing-intelligence.mr_main.implementation_tracker\` SET status='COMPLETE', session_completed='SESSION_NUMBER', branch='BRANCH', verified=true, verified_by='Session N', verified_at=CURRENT_TIMESTAMP() WHERE phase='PHASE'"
+   ```
+   - Project ID is `master-roofing-intelligence` (NOT `master-roofing-ai`)
+   - `session_completed` is STRING type — use quotes: `'33'` not `33`
+
+2. **Sync tracker to Google Sheet:**
+   ```
+   cd ~/v0-master-roofing-ai-2-1u && node scripts/sync-tracker-to-sheet.mjs
+   ```
+
+3. **Write HANDOFF** in your session opener doc
+
+4. **Include this exact checklist in your HANDOFF** so the next session inherits it
+
 **Next session should:**
-1. Merge `feature/version-aware` to `main`
-2. Runtime test with test project (proj_4222d7446fbc40c5) — verify sheet-config, bluebeam import, proposal preview all work with and without `?sheet=` param
-3. Push to origin and deploy
-4. Begin Phase 1 (MASTER_PLAN_v4.md)
+1. Begin Phase 1 (MASTER_PLAN_v4.md)
+2. Runtime test Phase 0D changes with test project (proj_4222d7446fbc40c5) if not yet done
