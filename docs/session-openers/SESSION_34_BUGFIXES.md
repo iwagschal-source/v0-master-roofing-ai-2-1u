@@ -74,4 +74,56 @@ Fix: Keep embeddedSheetId in state, only null embeddedSheetUrl. Reopen sets URL 
 
 ---
 ### HANDOFF (written by Session 34):
-[Session 34 writes completion status here]
+
+**Status: COMPLETE — All 5 tasks done.**
+
+**Branch:** `feature/bugfixes` (2 commits: 1e7f902, 3023060)
+
+**What was done:**
+1. **0E.1** — Upload success handler now opens embedded sheet (if embeddedSheetId exists) instead of legacy TakeoffSpreadsheet. Falls back to legacy only when no embedded sheet.
+2. **0E.2** — Expanded bluebeam/route.js to return `matchedItems`, `unmatchedItems`, `errors`, `cellsPopulated` from `fillBluebeamDataToSpreadsheet()` details. UploadModal now shows matched items with cell references, unmatched items with reasons, warnings, and cells populated count.
+3. **0E.3** — Embedded sheet close only nulls `embeddedSheetUrl` (not `embeddedSheetId`). "View Takeoff" button rebuilds URL from stored ID for instant reopen.
+4. **0E.4** — Standardized Python backend env var across 52 source files:
+   - Server-side: `process.env.PYTHON_BACKEND_URL || 'https://136.111.252.120'` (42 API route files)
+   - Client-side: `process.env.NEXT_PUBLIC_PYTHON_BACKEND_URL || 'https://136.111.252.120'` (7 components + 3 hooks)
+   - WebSocket URLs derived via `.replace('https://', 'wss://')`
+   - Added both vars to `.env.local` and `.env.example`
+   - `.next/` build artifacts and `docs/backups/` intentionally unchanged
+5. **0E.5** — Architecture Bible updated: Section 4 (Service Map), Section 8 (bugs 1&2 marked FIXED), Section 18 (import summary, env var docs, working items)
+
+**Build status:** Clean build passes. Zero regressions.
+
+**Grep verification:** Zero bare hardcoded `136.111.252.120` in source files (only in fallback strings after env var `||`).
+
+**What's NOT done (out of scope, documented for future sessions):**
+- Bug 3 (CSV import overwrites instead of accumulating) — still open
+- Bug 4 (populate-library-tab.mjs FILTER formulas) — still open
+- Bug 5 ([TBD] placeholders in proposals) — still open
+- Branch NOT merged to main yet — needs Isaac's review
+
+**Next session should:**
+1. Review and merge `feature/bugfixes` to main
+2. Begin Phase 1 (Setup Tab) per MASTER_PLAN_v4.md
+3. Runtime test with proj_4222d7446fbc40c5 (test Bluebeam import → verify import summary shows details)
+
+---
+
+### MANDATORY: PASS THIS TO EVERY FUTURE SESSION
+
+**Every session MUST do these before closing:**
+
+1. **Update BigQuery tracker** for any tasks completed:
+   ```
+   bq query --use_legacy_sql=false "UPDATE \`master-roofing-intelligence.mr_main.implementation_tracker\` SET status='COMPLETE', session_completed='SESSION_NUMBER', branch='BRANCH', verified=true, verified_by='Session N', verified_at=CURRENT_TIMESTAMP() WHERE phase='PHASE'"
+   ```
+   - Project ID is `master-roofing-intelligence` (NOT `master-roofing-ai`)
+   - `session_completed` is STRING type — use quotes: `'34'` not `34`
+
+2. **Sync tracker to Google Sheet:**
+   ```
+   cd ~/v0-master-roofing-ai-2-1u && node scripts/sync-tracker-to-sheet.mjs
+   ```
+
+3. **Write HANDOFF** in your session opener doc
+
+4. **Include this exact checklist in your HANDOFF** so the next session inherits it
