@@ -13,7 +13,7 @@
  */
 
 import { NextResponse } from 'next/server'
-import { readSheetValues, discoverSheetLayout, detectSectionFromItemId } from '@/lib/google-sheets'
+import { readSheetValues, discoverSheetLayout, detectSectionFromItemId, getActiveSheetName } from '@/lib/google-sheets'
 import { runQuery } from '@/lib/bigquery'
 
 /**
@@ -51,7 +51,9 @@ export async function GET(request, { params }) {
       )
     }
 
-    const sheetName = 'DATE'
+    // Accept optional ?sheet= param, default to active takeoff tab
+    const { searchParams } = new URL(request.url)
+    const sheetName = searchParams.get('sheet') || await getActiveSheetName(spreadsheetId)
 
     // Step 2: Read entire sheet area for dynamic section detection
     const allRows = await readSheetValues(spreadsheetId, `'${sheetName}'!A1:Z200`)
@@ -149,6 +151,7 @@ export async function GET(request, { params }) {
       project_name: projectName,
       spreadsheet_id: spreadsheetId,
       spreadsheet_url: `https://docs.google.com/spreadsheets/d/${spreadsheetId}/edit`,
+      sheet_name: sheetName,
       selected_items: selectedItems,
       locations,
       sections,
