@@ -77,6 +77,9 @@ export function EstimatingCenterScreen({ onSelectProject, onBack }) {
   // BTX generation state
   const [generatingBtx, setGeneratingBtx] = useState(false)
 
+  // Version-aware sheet tracking
+  const [currentSheetName, setCurrentSheetName] = useState(null)
+
   // Folder agent chat state
   const [chatMessages, setChatMessages] = useState([])
   const [chatInput, setChatInput] = useState("")
@@ -127,6 +130,7 @@ export function EstimatingCenterScreen({ onSelectProject, onBack }) {
       setShowEmbeddedSheet(false)
       setEmbeddedSheetId(null)
       setEmbeddedSheetUrl(null)
+      setCurrentSheetName(null)
       loadFolderData(selectedProject.project_id)
       // Check if project has an existing takeoff spreadsheet
       checkExistingTakeoffSheet(selectedProject.project_id)
@@ -405,12 +409,18 @@ export function EstimatingCenterScreen({ onSelectProject, onBack }) {
     setGeneratingBtx(true)
     try {
       // Step 1: Get sheet config (items + locations)
-      const sheetConfigRes = await fetch(`/api/ko/takeoff/${selectedProject.project_id}/sheet-config`)
+      const sheetConfigUrl = `/api/ko/takeoff/${selectedProject.project_id}/sheet-config${currentSheetName ? `?sheet=${encodeURIComponent(currentSheetName)}` : ''}`
+      const sheetConfigRes = await fetch(sheetConfigUrl)
       if (!sheetConfigRes.ok) {
         const err = await sheetConfigRes.json()
         throw new Error(err.error || 'Failed to read sheet config')
       }
       const sheetConfig = await sheetConfigRes.json()
+
+      // Capture active sheet name for other API calls
+      if (sheetConfig.sheet_name) {
+        setCurrentSheetName(sheetConfig.sheet_name)
+      }
 
       if (!sheetConfig.selected_items?.length) {
         throw new Error('No items found in takeoff sheet. Make sure Column A has item_ids.')
@@ -1117,6 +1127,7 @@ export function EstimatingCenterScreen({ onSelectProject, onBack }) {
       {showUploadModal && (
         <UploadModal
           project={selectedProject}
+          sheetName={currentSheetName}
           onClose={() => setShowUploadModal(false)}
           onSuccess={() => {
             setShowUploadModal(false)
@@ -1129,6 +1140,7 @@ export function EstimatingCenterScreen({ onSelectProject, onBack }) {
       {showProposalPreview && selectedProject && (
         <TakeoffProposalPreview
           projectId={selectedProject.project_id}
+          sheetName={currentSheetName}
           onClose={() => setShowProposalPreview(false)}
           onGeneratePdf={(data) => {
             console.log('Document generated:', data)
@@ -1229,7 +1241,7 @@ export function EstimatingCenterScreen({ onSelectProject, onBack }) {
 }
 
 // Upload Modal Component
-function UploadModal({ project, onClose, onSuccess }) {
+function UploadModal({ project, sheetName, onClose, onSuccess }) {
   const [uploading, setUploading] = useState(false)
   const [result, setResult] = useState(null)
   const fileInputRef = useRef(null)
@@ -1247,7 +1259,8 @@ function UploadModal({ project, onClose, onSuccess }) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           csv_content: content,
-          tab_name: null
+          tab_name: null,
+          sheet_name: sheetName || undefined
         })
       })
 

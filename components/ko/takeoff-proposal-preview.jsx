@@ -38,7 +38,7 @@ import { cn } from "@/lib/utils"
  * - onClose: Callback when closing
  * - onGeneratePdf: Callback to generate PDF (wired in 8.D)
  */
-export function TakeoffProposalPreview({ projectId, onClose, onGeneratePdf }) {
+export function TakeoffProposalPreview({ projectId, sheetName, onClose, onGeneratePdf }) {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [previewData, setPreviewData] = useState(null)
@@ -66,7 +66,8 @@ export function TakeoffProposalPreview({ projectId, onClose, onGeneratePdf }) {
     setError(null)
 
     try {
-      const res = await fetch(`/api/ko/proposal/${projectId}/preview`)
+      const previewUrl = `/api/ko/proposal/${projectId}/preview${sheetName ? `?sheet=${encodeURIComponent(sheetName)}` : ''}`
+      const res = await fetch(previewUrl)
       const data = await res.json()
 
       if (!res.ok) {
@@ -150,7 +151,7 @@ export function TakeoffProposalPreview({ projectId, onClose, onGeneratePdf }) {
       const res = await fetch(`/api/ko/proposal/${projectId}/generate`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ editedDescriptions })
+        body: JSON.stringify({ editedDescriptions, sheet: sheetName || undefined })
       })
 
       if (!res.ok) {
