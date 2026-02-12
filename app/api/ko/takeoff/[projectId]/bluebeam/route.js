@@ -263,7 +263,7 @@ export async function POST(request, { params }) {
   try {
     const { projectId } = await params
     const body = await request.json()
-    const { csv_content, tab_name, force_legacy } = body
+    const { csv_content, tab_name, force_legacy, sheet_name: requestSheetName } = body
 
     if (!csv_content) {
       return NextResponse.json(
@@ -275,19 +275,27 @@ export async function POST(request, { params }) {
     let items = []
     let parseMode = 'legacy'
     let parseStats = null
+    let resolvedSheetName = requestSheetName || null
 
     // Try deterministic parsing first if not forced to legacy
     if (!force_legacy) {
       try {
         // Fetch sheet-config (reads actual sheet state, not wizard config)
+        // Pass ?sheet= if provided
         let config = null
+        const sheetConfigUrl = new URL(`/api/ko/takeoff/${projectId}/sheet-config`, request.url)
+        if (resolvedSheetName) sheetConfigUrl.searchParams.set('sheet', resolvedSheetName)
         const sheetConfigRes = await fetch(
-          new URL(`/api/ko/takeoff/${projectId}/sheet-config`, request.url).toString(),
+          sheetConfigUrl.toString(),
           { headers: { 'Accept': 'application/json' } }
         )
         if (sheetConfigRes.ok) {
           const sheetData = await sheetConfigRes.json()
           if (sheetData.exists && sheetData.selected_items && sheetData.locations) {
+            // Capture sheet name from sheet-config response
+            if (sheetData.sheet_name && !resolvedSheetName) {
+              resolvedSheetName = sheetData.sheet_name
+            }
             // Transform sheet-config format to expected config format
             const allLocations = Object.values(sheetData.locations || {}).flat()
             config = {
@@ -367,7 +375,7 @@ export async function POST(request, { params }) {
 
     if (spreadsheetId) {
       // Use standalone spreadsheet (new approach)
-      result = await fillBluebeamDataToSpreadsheet(spreadsheetId, items, config)
+      result = await fillBluebeamDataToSpreadsheet(spreadsheetId, items, config, resolvedSheetName)
       storage = 'standalone_spreadsheet'
     } else {
       // Fall back to tab-based approach (legacy)
