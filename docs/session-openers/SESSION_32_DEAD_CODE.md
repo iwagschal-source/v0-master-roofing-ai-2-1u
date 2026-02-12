@@ -85,4 +85,42 @@ Files to delete (in order):
 
 ---
 ### HANDOFF (written by Session 32):
-[Session 32 writes completion status here]
+
+**Status: ALL TASKS COMPLETE**
+
+**Branch:** `feature/cleanup` (8 commits ahead of main)
+**Build:** Passes clean
+**Lines removed:** 2,060 (net -2,044)
+
+#### Completed Tasks:
+- [x] 0B.1: Deleted `lib/proposal-systems.js` (677 lines, zero refs)
+- [x] 0B.2: Deleted `lib/takeoff-to-proposal.js` (465 lines, zero refs)
+- [x] 0B.3: Deleted `data/scope-items.js` (384 lines, zero refs)
+- [x] 0B.4: Deleted `lib/generate-proposal-docx.js` (99 lines)
+- [x] 0B.5: Deleted `components/ko/proposal-docx-download.jsx` (49 lines)
+- [x] 0B.6: Deleted `app/proposal-generator/` (250 lines) — entire page route removed
+- [x] 0B.7: Removed `TEMPLATE_SECTIONS` constant from google-sheets.js
+- [x] 0B.8: Removed `ITEM_ID_TO_ROW` constant from google-sheets.js (64 lines total)
+- [x] 0B.9: Removed commented-out flat BTX code from btx/route.js (41 lines)
+- [x] 0B.10: Final build passes clean
+- [x] 0C.1: Verified `detectSectionFromItemId()` exists in google-sheets.js:813, now exported
+- [x] 0C.2: sheet-config/route.js now imports from google-sheets.js (local copy removed)
+- [x] 0C.3: Build passes (runtime test deferred — no dev server in this session)
+- [x] Architecture Bible updated: Sections 2, 7, 8, 12, 18
+
+#### Commits (oldest first):
+1. `a9017d3` chore: delete lib/proposal-systems.js
+2. `210910f` chore: delete lib/takeoff-to-proposal.js
+3. `2edd2fb` chore: delete data/scope-items.js
+4. `399cb8d` chore: delete proposal DOCX generation chain (3 files)
+5. `e45bfa7` chore: remove TEMPLATE_SECTIONS + ITEM_ID_TO_ROW constants
+6. `700b2d3` chore: remove commented-out flat BTX code
+7. `e37c0dc` refactor: consolidate detectSectionFromItemId
+8. `2148975` docs: update Architecture Bible
+
+#### What Next Session Needs to Know:
+- Branch `feature/cleanup` is ready to merge to main (or squash-merge)
+- 0C.3 runtime test (GET sheet-config endpoint) was not run — no dev server available. Should be tested before merge.
+- Two remaining dead code items in Bible Section 18 NOT addressed (out of scope): Wizard Steps 1-3 data flow, ko_estimating.takeoff_configs table
+- `/proposal-generator` page route is gone — if anyone bookmarked it, they'll get a 404
+- **IMPORTANT:** After updating `implementation_tracker` in BigQuery, always run `node scripts/sync-tracker-to-sheet.mjs` to push changes to the Google Sheet tracker

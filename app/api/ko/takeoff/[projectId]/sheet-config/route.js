@@ -13,20 +13,8 @@
  */
 
 import { NextResponse } from 'next/server'
-import { readSheetValues, discoverSheetLayout } from '@/lib/google-sheets'
+import { readSheetValues, discoverSheetLayout, detectSectionFromItemId } from '@/lib/google-sheets'
 import { runQuery } from '@/lib/bigquery'
-
-/**
- * Determine section name from the first item_id found in a section's data rows.
- */
-function detectSectionFromItemId(itemId) {
-  const id = itemId.toUpperCase()
-  if (id === 'MR-032RECESSWP' || id === 'MR-FIRE-LIQ' || id === 'MR-THORO') return 'WATERPROOFING'
-  if (/^MR-0[0-2]\d/.test(id) || id === 'MR-030GREEN' || id === 'MR-031FLASHGRN') return 'ROOFING'
-  if (/^MR-03[3-6]/.test(id)) return 'BALCONIES'
-  if (/^MR-0[3-5]\d/.test(id) || /^MR-05[01]/.test(id)) return 'EXTERIOR'
-  return 'ROOFING'
-}
 
 /**
  * GET /api/ko/takeoff/[projectId]/sheet-config

@@ -77,47 +77,6 @@ export async function POST(request, { params }) {
       }
     })
 
-    // --- Legacy flat mode: single BTX with all item x location tools ---
-    // const locations = config.columns.map(col =>
-    //   col.mappings?.[0] || col.name.toUpperCase().replace(/[^A-Z0-9]/g, '')
-    // )
-    //
-    // console.log('[BTX] Sending to backend:', {
-    //   project_name: projectName,
-    //   selected_items: selectedItemIds,
-    //   locations: locations
-    // })
-    //
-    // const btxResponse = await fetch(`${BACKEND_URL}/bluebeam/generate-btx`, {
-    //   method: 'POST',
-    //   headers: { 'Content-Type': 'application/json' },
-    //   body: JSON.stringify({
-    //     project_name: projectName,
-    //     selected_items: selectedItemIds,
-    //     locations: locations,
-    //     use_item_id_as_subject: true
-    //   }),
-    //   signal: AbortSignal.timeout(30000)
-    // })
-    //
-    // if (!btxResponse.ok) {
-    //   const errText = await btxResponse.text()
-    //   console.error('BTX backend error:', errText)
-    //   return NextResponse.json({ error: 'Backend BTX generation failed: ' + errText }, { status: 500 })
-    // }
-    //
-    // const btxBuffer = await btxResponse.arrayBuffer()
-    // console.log('[BTX] Response size:', btxBuffer.byteLength, 'bytes')
-    // const filename = `${projectName.replace(/[^a-zA-Z0-9]/g, '_')}_Tools.btx`
-    //
-    // return new NextResponse(btxBuffer, {
-    //   status: 200,
-    //   headers: {
-    //     'Content-Type': 'application/octet-stream',
-    //     'Content-Disposition': `attachment; filename="${filename}"`
-    //   }
-    // })
-
   } catch (err) {
     console.error('BTX error:', err)
     return NextResponse.json({ error: err.message }, { status: 500 })
