@@ -986,3 +986,140 @@ git push origin feature/[name]    # Push branch
 ---
 
 *This document is the single source of truth for the KO Platform architecture. Update it when making structural changes.*
+
+---
+
+## 18. CRITICAL AUDIT FINDINGS (Session 30)
+
+### Dead Code — Confirmed Safe to Delete (~1,600 lines)
+| File | Lines | Evidence | Safe to Delete |
+|------|-------|----------|---------------|
+| lib/proposal-systems.js | ~677 | Zero active imports. Only imported by takeoff-to-proposal.js which is also dead | YES |
+| lib/takeoff-to-proposal.js | ~465 | Zero active imports anywhere in codebase | YES |
+| data/scope-items.js | ~400 | Zero active imports. Superseded by BigQuery item_description_mapping | YES |
+| lib/generate-proposal-docx.js | ~100 | Only used by standalone /proposal-generator page (demo) | YES (with page) |
+| TEMPLATE_SECTIONS constant (google-sheets.js:671) | ~15 | Dynamic scanning via discoverSheetLayout() used instead | YES |
+| ITEM_ID_TO_ROW constant (google-sheets.js:680) | ~40 | Dynamic Column A scanning used instead | YES |
+| Wizard Steps 1-3 data flow | — | Config saved to Python backend but NEVER written to sheet | Dead logic |
+| ko_estimating.takeoff_configs table | — | Zero live source references. Config fully on Python backend | Dead table |
+
+### What's Working in Production Right Now
+- ✅ 4-section template (ROOFING, WATERPROOFING, BALCONIES, EXTERIOR) on main branch
+- ✅ Library tab: 30 columns, 80+ items, auto-refreshed from BigQuery v_library_complete on project creation
+- ✅ Column C dropdowns: 3 types × 4 sections from Library FILTER formulas (AF-AQ), strict:false
+- ✅ Project creation: Drive folder structure + template copy + Library refresh + project name write
+- ✅ Sheet-first BTX generation: reads live sheet via sheet-config, proxies to Python backend, returns per-floor zip
+- ✅ Bluebeam CSV import: deterministic (pipe-delimited) + fuzzy (27 regex) parsing → writes to DATE tab
+- ✅ Proposal preview: dynamic section/row detection from formulas, 3-mode description composition from BigQuery
+- ✅ Proposal DOCX generation: Docxtemplater + Drive upload to Proposals subfolder
+- ✅ Bid type: BASE/ALT split detected in preview, separate sections in DOCX
+- ✅ 87 items in item_description_mapping (13 columns queried by preview)
+- ✅ 48 items with Bluebeam tools on Python backend
+- ✅ Git: clean working tree on main, commit d4f27a1
+
+### Active Bugs (Verified)
+1. **Upload success opens legacy component** — estimating-center-screen.jsx:1121 sets showTakeoffSheet (legacy TakeoffSpreadsheet) instead of showEmbeddedSheet
+2. **Embedded sheet close loses state** — line 1094 nulls embeddedSheetId, requiring re-fetch via checkExistingTakeoffSheet() to reopen
+3. **CSV import overwrites instead of accumulating** — fillBluebeamDataToSpreadsheet() writes new values, doesn't add to existing
+4. **populate-library-tab.mjs clears FILTER formulas** — clears Library tab then rewrites, but formulas in AF-AQ can be lost if script interrupted
+5. **[TBD] placeholders in proposals** — when sheet R/IN/TYPE columns are empty, descriptions show [TBD] instead of graceful handling
+
+### Hardcoded "DATE" Tab References (Exactly 3 Source Files)
+| File | Line | Code |
+|------|------|------|
+| lib/google-sheets.js | 575 | `'DATE'!A2` (post-copy project name write) |
+| lib/google-sheets.js | 901 | `const sheetName = 'DATE'` (fillBluebeamDataToSpreadsheet) |
+| app/api/ko/takeoff/[projectId]/sheet-config/route.js | 66 | `const sheetName = 'DATE'` |
+Plus ~12 scripts (non-production, debug/template tools)
+
+### Unwired Infrastructure (Backend Built, No Frontend)
+| Route | Backend Status | Frontend Status |
+|-------|---------------|----------------|
+| /takeoff/[projectId]/imports | Active (proxies to Python) | ZERO UI references |
+| /takeoff/[projectId]/compare/[importId] | Active (proxies to Python) | ZERO UI references |
+| /takeoff/[projectId]/sync/[importId] | Active (proxies to Python) | ZERO UI references |
+
+### Two Parallel Paths (Must Be Reconciled)
+| Aspect | Wizard Path | Sheet-First Path (Current) |
+|--------|------------|---------------------------|
+| Config source | /config endpoint (Python backend) | Live sheet via /sheet-config |
+| Sheet creation | Template copy only | Template copy + Library refresh |
+| BTX generation | From wizard config | From sheet-config (live sheet) |
+| CSV import | Deterministic (if config exists) | Deterministic or fuzzy |
+| Item selection | Wizard Step 2 UI | Column C dropdowns in sheet |
+| Location setup | Wizard Step 1 UI | Sheet header columns |
+
+The sheet-first path is the active workflow. The wizard path is legacy.
+
+### detectSectionFromItemId() — DUPLICATED
+- Location 1: lib/google-sheets.js:877-888
+- Location 2: app/api/ko/takeoff/[projectId]/sheet-config/route.js:22-29
+- Logic is identical. Should be consolidated to single shared import.
+
+### Template Row Map (55 items across 4 sections)
+
+**ROOFING** — Header row 3, data rows 4-35 (23 items, 6 bundles)
+Row 4: MR-001VB, Row 5: MR-002PITCH, Row 6: MR-003BU2PLY, Row 7: MR-004UO
+Row 8: MR-010DRAIN, Row 9: MR-011DOORSTD, Row 10: MR-017RAIL
+Row 11: MR-018PLUMB, Row 12: MR-019MECH, Row 13: MR-021AC, Row 14: BUNDLE TOTAL
+Row 15: MR-006IRMA, Row 16: MR-007PMMA, Row 17: MR-008PMMA, Row 18: MR-009UOPMMA
+Row 19: MR-011DOORSTD (dup), Row 20: MR-010DRAIN (dup), Row 21: BUNDLE TOTAL
+Rows 22-25: Coping (COPELO, COPEHI, INSUCOPE, TOTAL)
+Rows 26-28: Flashing (FLASHBLDG, FLASHPAR, TOTAL)
+Rows 29-32: Paver/IRMA (OBIRMA, PAVER, FLASHPAV, TOTAL)
+Rows 33-35: Green Roof (GREEN, FLASHGRN, TOTAL)
+
+**WATERPROOFING** — Header row 36, data rows 37-39 (3 standalones, no bundles)
+Row 37: MR-032RECESSWP, Row 38: MR-FIRE-LIQ, Row 39: MR-THORO
+
+**BALCONIES** — Header row 40, data rows 41-45 (4 items, 1 bundle)
+Row 41: MR-033TRAFFIC, Row 42: MR-034DRIP, Row 43: MR-036DOORBAL, Row 44: MR-035LFLASH, Row 45: TOTAL
+
+**EXTERIOR** — Header row 49, data rows 50-67 (18 items, 3 bundles + 5 standalones)
+Rows 50-53: BrickWP bundle (037, 038, 039, TOTAL)
+Rows 54-57: PanelWP bundle (040, 041, 042, TOTAL)
+Rows 58-62: EIFS bundle (043, 044, 045, 046, TOTAL)
+Rows 63-67: Standalones (DRIPCAP, SILL, TIEIN, ADJHORZ, ADJVERT)
+Row 68: Exterior total, Row 70: Grand total
+
+### System Item Flags (12 systems, verified by Isaac)
+| item_id | is_system | can_standalone | can_bundle | Section |
+|---------|-----------|---------------|------------|---------|
+| MR-003BU2PLY | TRUE | TRUE | FALSE | ROOFING |
+| MR-006IRMA | TRUE | TRUE | FALSE | ROOFING |
+| MR-022COPELO | TRUE | TRUE | FALSE | ROOFING |
+| MR-023COPEHI | TRUE | TRUE | FALSE | ROOFING |
+| MR-025FLASHBLDG | TRUE | TRUE | FALSE | ROOFING |
+| MR-027OBIRMA | TRUE | TRUE | FALSE | ROOFING |
+| MR-030GREEN | TRUE | TRUE | FALSE | ROOFING |
+| MR-033TRAFFIC | TRUE | TRUE | TRUE | BALCONIES |
+| MR-037BRICKWP | TRUE | TRUE | FALSE | EXTERIOR |
+| MR-040PANELWP | TRUE | TRUE | FALSE | EXTERIOR |
+| MR-043EIFS | TRUE | TRUE | FALSE | EXTERIOR |
+Rule: Systems CANNOT bundle (can_bundle=FALSE) — only exception is MR-033TRAFFIC.
+
+### Description Composition Detail
+Preview route (preview/route.js) queries 13 columns from item_description_mapping:
+```
+item_id, paragraph_description, scope_name, display_name, section,
+row_type, is_system, can_bundle, can_standalone, system_heading,
+bundle_fragment, standalone_description, fragment_sort_order
+```
+
+buildDescription(item, descriptions, mode, bundleItems):
+- **system mode:** Start with system's paragraph_description → collect all bundle siblings' bundle_fragment sorted by fragment_sort_order → concatenate
+- **standalone mode:** standalone_description → paragraph_description → display_name (first non-empty)
+- **default mode:** paragraph_description → display_name
+
+Placeholder replacement (case-insensitive): {R_VALUE}→col D, {THICKNESS}→col E, {TYPE}/{MATERIAL_TYPE}→col F, unfilled→[TBD]
+
+### Dropdown Variant Items (on parent rows, NOT own rows)
+| Parent | Variants |
+|--------|----------|
+| MR-001VB | MR-TEMPBLUE, MR-TEMPFIRE |
+| MR-006IRMA | MR-IRMA-SBS, MR-IRMA2PLY, MR-SIPLAST, MR-PMMA-IRMA |
+| MR-028PAVER | MR-PAVER-CONC, MR-PAVER-PORC, MR-BALLAST, MR-GRAVEL, MR-TURF |
+| MR-033TRAFFIC | MR-LAVA, MR-SOP-TRAFFIC, MR-MASTERSEAL |
+| MR-037BRICKWP | MR-BLUESKIN, MR-EXTWP |
+| MR-043EIFS | MR-EIFS-BRICK |
+| MR-PMMA-FLASH | MR-LIQBINDER, MR-LIQFLASH |
