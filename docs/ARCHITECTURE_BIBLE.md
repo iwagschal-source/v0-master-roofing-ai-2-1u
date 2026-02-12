@@ -241,7 +241,7 @@ session.user = {
 │                                                              │
 │  ┌──────────────────┐  ┌───────────┐  ┌──────────────────┐  │
 │  │ Python Backend   │  │ Asana API │  │ Google Workspace │  │
-│  │ 136.111.252.120  │  │ (OAuth2)  │  │ (Gmail, Calendar │  │
+│  │ (env var config) │  │ (OAuth2)  │  │ (Gmail, Calendar │  │
 │  │ - BTX generation │  │           │  │  Chat) via user  │  │
 │  │ - Bluebeam tools │  │           │  │  OAuth token     │  │
 │  │ - WebSocket chat │  │           │  │                  │  │
@@ -1039,14 +1039,27 @@ git push origin feature/[name]    # Push branch
 - ✅ Bid type: BASE/ALT split detected in preview, separate sections in DOCX
 - ✅ 87 items in item_description_mapping (13 columns queried by preview)
 - ✅ 48 items with Bluebeam tools on Python backend
-- ✅ Git: clean working tree on main, commit d4f27a1
+- ✅ Import summary: shows matched/unmatched items with reasons, errors, cells populated (Session 34)
+- ✅ Upload success → embedded sheet (not legacy TakeoffSpreadsheet) (Session 34)
+- ✅ Python backend URL: env var standardized across 52 source files (Session 34)
+- ✅ Git: clean working tree on main, commit d4f27a1 (Session 33) → feature/bugfixes (Session 34)
 
 ### Active Bugs (Verified)
-1. **Upload success opens legacy component** — estimating-center-screen.jsx:1121 sets showTakeoffSheet (legacy TakeoffSpreadsheet) instead of showEmbeddedSheet
-2. **Embedded sheet close loses state** — line 1094 nulls embeddedSheetId, requiring re-fetch via checkExistingTakeoffSheet() to reopen
+1. ~~**Upload success opens legacy component**~~ — **FIXED** (Session 34) — onSuccess now opens embedded sheet if embeddedSheetId exists, falls back to legacy only when no embedded sheet
+2. ~~**Embedded sheet close loses state**~~ — **FIXED** (Session 34) — close only nulls embeddedSheetUrl, keeps embeddedSheetId for instant reopen
 3. **CSV import overwrites instead of accumulating** — fillBluebeamDataToSpreadsheet() writes new values, doesn't add to existing
 4. **populate-library-tab.mjs clears FILTER formulas** — clears Library tab then rewrites, but formulas in AF-AQ can be lost if script interrupted
 5. **[TBD] placeholders in proposals** — when sheet R/IN/TYPE columns are empty, descriptions show [TBD] instead of graceful handling
+
+### Import Summary Enhancement (Session 34)
+- bluebeam/route.js now returns: `matchedItems`, `unmatchedItems`, `errors`, `cellsPopulated`
+- UploadModal displays matched/unmatched items with reasons, errors, and cell count
+
+### Python Backend Env Var Standardization (Session 34)
+- **Server-side:** `process.env.PYTHON_BACKEND_URL` (42 API route files)
+- **Client-side:** `process.env.NEXT_PUBLIC_PYTHON_BACKEND_URL` (7 component + 3 hook files)
+- All use `'https://136.111.252.120'` as fallback — set env vars in `.env.local` and `.env.example`
+- WebSocket URLs derived from HTTPS URL via `.replace('https://', 'wss://')`
 
 ### Hardcoded "DATE" Tab References — **RESOLVED** (Session 33)
 All 3 production source files updated to use `getActiveSheetName()`:
