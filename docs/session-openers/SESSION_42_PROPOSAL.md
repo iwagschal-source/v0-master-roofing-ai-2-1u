@@ -41,4 +41,51 @@ Isaac (CEO) relays between you and the lead architect (Claude AI Desktop). You e
 
 ---
 ### HANDOFF:
-[Status]
+
+**Status: PHASE 5 COMPLETE** (all 10 tasks: 5.1-5.10)
+**Branch:** `feature/proposal-v2`
+**Commit:** `f85217a`
+**Build:** Passes
+**BigQuery tracker:** Updated (10 rows → DONE)
+**Google Sheet:** Synced
+
+### What was done:
+1. **5.1** Verified: preview reads version-specific sheet via `?sheet=` param (already done in Phase 0D)
+2. **5.2** Verified: BASE/ALT split correctly separates items in preview and generate
+3. **5.3** Added: drag-to-sort SECTIONS in TakeoffProposalPreview (@dnd-kit/sortable)
+4. **5.4** Added: drag-to-sort ITEMS within each section (nested DndContext per section)
+5. **5.5** Added: `sortOrder` passed from UI → generate route → `applySortOrder()` reorders data
+6. **5.6** Added: version date (sheet name) in proposal template data as `version_date`
+7. **5.7** Updated: proposal naming to `{project}-proposal-{version_date}-{timestamp}.docx`
+8. **5.8** Verified: Drive upload works with version-aware filename
+9. **5.9** Added: version tracker status updated to "Proposal Generated" after DOCX generation
+10. **5.10** Updated: Architecture Bible Sections 5, 10, 17 + dependencies
+
+### Files modified:
+- `components/ko/takeoff-proposal-preview.jsx` — Full rewrite with @dnd-kit drag-to-sort
+- `app/api/ko/proposal/[projectId]/generate/route.js` — sortOrder, version naming, tracker link
+- `docs/ARCHITECTURE_BIBLE.md` — Sections 5, 10, 17 updated
+- `package.json` — @dnd-kit/core, @dnd-kit/sortable, @dnd-kit/utilities added
+
+### Dependencies added:
+- `@dnd-kit/core` ^6.3.1
+- `@dnd-kit/sortable` ^10.0.0
+- `@dnd-kit/utilities` ^3.2.2
+
+### What was NOT touched (parallel safety):
+- No changes to BTX routes or components
+- No changes to Import routes or components
+- No changes to Setup tab or version management
+- No changes to estimating-center-screen.jsx
+
+### Next steps (for future sessions):
+- Merge `feature/proposal-v2` to `main`
+- Phase 6: Add Item Pipeline
+- Phase 7: Bluebeam Tool Manager
+- Phase 10: Wizard cleanup + migration (last)
+
+### MANDATORY END-OF-SESSION CHECKLIST:
+1. ✅ BigQuery tracker updated: Phase 5 → DONE, session_completed='42'
+2. ✅ Google Sheet synced via `node scripts/sync-tracker-to-sheet.mjs`
+3. ✅ HANDOFF written
+4. **Pass this checklist forward** — include in every HANDOFF so the next session knows
