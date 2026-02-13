@@ -80,6 +80,13 @@ export function EstimatingCenterScreen({ onSelectProject, onBack }) {
   // Version-aware sheet tracking
   const [currentSheetName, setCurrentSheetName] = useState(null)
 
+  // Version management state (2C.1)
+  const [versions, setVersions] = useState([])
+  const [versionsLoading, setVersionsLoading] = useState(false)
+  const [selectedVersionTab, setSelectedVersionTab] = useState(null)
+  const [setupTabSheetId, setSetupTabSheetId] = useState(null)
+  const [creatingVersion, setCreatingVersion] = useState(false)
+
   // Folder agent chat state
   const [chatMessages, setChatMessages] = useState([])
   const [chatInput, setChatInput] = useState("")
@@ -131,6 +138,9 @@ export function EstimatingCenterScreen({ onSelectProject, onBack }) {
       setEmbeddedSheetId(null)
       setEmbeddedSheetUrl(null)
       setCurrentSheetName(null)
+      setVersions([])
+      setSelectedVersionTab(null)
+      setSetupTabSheetId(null)
       loadFolderData(selectedProject.project_id)
       // Check if project has an existing takeoff spreadsheet
       checkExistingTakeoffSheet(selectedProject.project_id)
@@ -146,10 +156,83 @@ export function EstimatingCenterScreen({ onSelectProject, onBack }) {
         if (data.exists && data.spreadsheetId) {
           setEmbeddedSheetId(data.spreadsheetId)
           setEmbeddedSheetUrl(data.embedUrl)
+          // Load versions directly after sheet confirmed (2C.1)
+          loadVersions(projectId)
         }
       }
     } catch (err) {
       console.warn('Failed to check takeoff sheet:', err)
+    }
+  }
+
+  // Load version tabs for a project (2C.1)
+  const loadVersions = async (projectId) => {
+    setVersionsLoading(true)
+    try {
+      const res = await fetch(`/api/ko/takeoff/${projectId}/versions`)
+      if (res.ok) {
+        const data = await res.json()
+        setVersions(data.versions || [])
+        if (data.setupTabSheetId != null) {
+          setSetupTabSheetId(data.setupTabSheetId)
+        }
+        // Default to active version tab (2C.2)
+        const activeVersion = (data.versions || []).find(v => v.active)
+        if (activeVersion) {
+          setSelectedVersionTab(activeVersion.sheetName)
+          setCurrentSheetName(activeVersion.sheetName)
+        }
+      }
+    } catch (err) {
+      console.warn('Failed to load versions:', err)
+    } finally {
+      setVersionsLoading(false)
+    }
+  }
+
+  // Handle version tab click — switch embedded sheet to that tab (2C.2)
+  const handleVersionTabClick = (tabName, tabSheetId) => {
+    setSelectedVersionTab(tabName)
+    if (tabName === 'Setup') {
+      setCurrentSheetName(null) // Setup is not a version
+    } else {
+      setCurrentSheetName(tabName)
+    }
+    // Update embedded sheet URL to show the selected tab
+    if (embeddedSheetId && tabSheetId != null) {
+      setEmbeddedSheetUrl(
+        `https://docs.google.com/spreadsheets/d/${embeddedSheetId}/edit?embedded=true&rm=minimal&gid=${tabSheetId}`
+      )
+      setShowEmbeddedSheet(true)
+    }
+  }
+
+  // Create new takeoff version from Setup tab (2C.4)
+  const handleCreateVersion = async () => {
+    if (!selectedProject || creatingVersion) return
+    setCreatingVersion(true)
+    try {
+      const res = await fetch(`/api/ko/takeoff/${selectedProject.project_id}/create-version`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({})
+      })
+      if (!res.ok) {
+        const err = await res.json()
+        throw new Error(err.error || 'Failed to create version')
+      }
+      const data = await res.json()
+      // Reload versions to reflect the new one
+      await loadVersions(selectedProject.project_id)
+      // Switch to the new version tab
+      if (data.sheetName && data.tabSheetId != null) {
+        handleVersionTabClick(data.sheetName, data.tabSheetId)
+      }
+    } catch (err) {
+      console.error('Create version error:', err)
+      alert('Failed to create version: ' + err.message)
+    } finally {
+      setCreatingVersion(false)
     }
   }
 
@@ -715,6 +798,117 @@ export function EstimatingCenterScreen({ onSelectProject, onBack }) {
                   )}
                 </div>
               </div>
+
+              {/* Version Selector Bar (2C.1) — shows below buttons when spreadsheet exists */}
+              {embeddedSheetId && (
+                <div className="flex items-center gap-1.5 mb-4 p-2 bg-muted/30 rounded-lg border border-border overflow-x-auto">
+                  {/* Setup tab button */}
+                  <button
+                    onClick={() => handleVersionTabClick('Setup', setupTabSheetId)}
+                    className={cn(
+                      "flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium whitespace-nowrap transition-colors",
+                      selectedVersionTab === 'Setup'
+                        ? "bg-orange-600 text-white"
+                        : "bg-background hover:bg-muted text-muted-foreground"
+                    )}
+                  >
+                    <Calculator className="w-3 h-3" />
+                    Setup
+                  </button>
+
+                  <div className="w-px h-5 bg-border flex-shrink-0" />
+
+                  {/* Version tabs */}
+                  {versionsLoading ? (
+                    <Loader2 className="w-4 h-4 animate-spin text-muted-foreground mx-2" />
+                  ) : versions.length > 0 ? (
+                    versions.map(v => (
+                      <button
+                        key={v.sheetName}
+                        onClick={() => handleVersionTabClick(v.sheetName, v.tabSheetId)}
+                        disabled={!v.existsAsTab}
+                        className={cn(
+                          "flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium whitespace-nowrap transition-colors",
+                          selectedVersionTab === v.sheetName
+                            ? "bg-primary text-primary-foreground"
+                            : "bg-background hover:bg-muted text-muted-foreground",
+                          !v.existsAsTab && "opacity-40 cursor-not-allowed line-through"
+                        )}
+                      >
+                        {v.active && <span className="w-1.5 h-1.5 rounded-full bg-green-400 flex-shrink-0" />}
+                        {v.sheetName}
+                        {v.status && v.status !== 'In Progress' && (
+                          <span className="text-[10px] opacity-60">({v.status})</span>
+                        )}
+                      </button>
+                    ))
+                  ) : (
+                    <span className="text-xs text-muted-foreground px-2">No versions yet</span>
+                  )}
+
+                  <div className="w-px h-5 bg-border flex-shrink-0" />
+
+                  {/* Create new version */}
+                  <button
+                    onClick={handleCreateVersion}
+                    disabled={creatingVersion}
+                    className="flex items-center gap-1 px-2.5 py-1.5 rounded-md text-xs font-medium bg-background hover:bg-muted text-muted-foreground whitespace-nowrap transition-colors disabled:opacity-50"
+                    title="Create new takeoff version from Setup tab"
+                  >
+                    {creatingVersion ? (
+                      <Loader2 className="w-3 h-3 animate-spin" />
+                    ) : (
+                      <Plus className="w-3 h-3" />
+                    )}
+                    New Version
+                  </button>
+                </div>
+              )}
+
+              {/* Context-Aware Actions (2C.4 + 2C.5) — context-specific buttons below version bar */}
+              {embeddedSheetId && selectedVersionTab && (
+                <div className="flex items-center gap-2 mb-4">
+                  {selectedVersionTab === 'Setup' ? (
+                    <>
+                      <span className="text-xs text-muted-foreground mr-1">Setup actions:</span>
+                      <button
+                        onClick={handleCreateVersion}
+                        disabled={creatingVersion}
+                        className="flex items-center gap-1.5 px-3 py-1.5 bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50 rounded-lg text-xs font-medium"
+                      >
+                        {creatingVersion ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Plus className="w-3.5 h-3.5" />}
+                        Create Takeoff
+                      </button>
+                      <button
+                        onClick={handleGenerateBtx}
+                        disabled={generatingBtx}
+                        className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50 rounded-lg text-xs font-medium"
+                      >
+                        {generatingBtx ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Download className="w-3.5 h-3.5" />}
+                        Download BTX
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      <span className="text-xs text-muted-foreground mr-1">{selectedVersionTab}:</span>
+                      <button
+                        onClick={() => setShowUploadModal(true)}
+                        className="flex items-center gap-1.5 px-3 py-1.5 bg-green-600 text-white hover:bg-green-700 rounded-lg text-xs font-medium"
+                      >
+                        <Upload className="w-3.5 h-3.5" />
+                        Import CSV
+                      </button>
+                      <button
+                        onClick={() => setShowProposalPreview(true)}
+                        className="flex items-center gap-1.5 px-3 py-1.5 bg-primary text-primary-foreground hover:bg-primary/90 rounded-lg text-xs font-medium"
+                      >
+                        <FileText className="w-3.5 h-3.5" />
+                        Proposal
+                      </button>
+                    </>
+                  )}
+                </div>
+              )}
 
               {/* Info Cards Row */}
               <div className="grid grid-cols-4 gap-3 mb-4">

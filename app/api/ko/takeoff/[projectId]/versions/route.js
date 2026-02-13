@@ -56,18 +56,21 @@ export async function GET(request, { params }) {
 
     // Read tracker entries from Setup tab
     const trackerEntries = await readVersionTracker(spreadsheetId)
-    const actualTabNames = new Set(actualTabs.map(t => t.title))
+    const actualTabMap = new Map(actualTabs.map(t => [t.title, t.sheetId]))
+    const setupTabGid = actualTabMap.get('Setup') ?? null
 
-    // Enrich tracker entries with existence check
+    // Enrich tracker entries with existence check + tab gid for embedded sheet navigation
     const versions = trackerEntries.map(entry => ({
       ...entry,
-      existsAsTab: actualTabNames.has(entry.sheetName),
+      existsAsTab: actualTabMap.has(entry.sheetName),
+      tabSheetId: actualTabMap.get(entry.sheetName) ?? null,
     }))
 
     return NextResponse.json({
       success: true,
       versions,
       totalTabs: actualTabs.length,
+      setupTabSheetId: setupTabGid,
     })
   } catch (error) {
     console.error('Error listing versions:', error)
