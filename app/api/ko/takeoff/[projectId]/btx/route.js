@@ -3,10 +3,12 @@
  * Generates Bluebeam Tool Chest files using the real Bluebeam BTX format
  *
  * Phase 3 (BTX v2): Reads item/location toggles from Setup tab via setup-config,
- * instead of sheet-config from the takeoff tab.
+ * instead of sheet-config from the takeoff tab. Saves BTX zip to Drive Markups folder.
  */
 
 import { NextResponse } from 'next/server'
+import { getAccessToken } from '@/lib/google-sheets'
+import { runQuery } from '@/lib/bigquery'
 
 // FastAPI backend on port 8000 (HTTP, not HTTPS)
 const BACKEND_URL = process.env.PYTHON_BACKEND_URL || 'http://136.111.252.120:8000'
@@ -93,11 +95,20 @@ export async function POST(request, { params }) {
     const dateStr = new Date().toISOString().split('T')[0]
     const filename = `${safeName}-tools-${dateStr}.zip`
 
+    // Save to Google Drive Markups folder (non-fatal — download still works if this fails)
+    let driveResult = null
+    try {
+      driveResult = await saveBtxToDrive(projectId, filename, Buffer.from(zipBuffer))
+    } catch (driveErr) {
+      console.warn('[BTX] Drive save failed (non-fatal):', driveErr.message)
+    }
+
     return new NextResponse(zipBuffer, {
       status: 200,
       headers: {
         'Content-Type': 'application/zip',
-        'Content-Disposition': `attachment; filename="${filename}"`
+        'Content-Disposition': `attachment; filename="${filename}"`,
+        ...(driveResult?.webViewLink ? { 'X-Drive-Link': driveResult.webViewLink } : {})
       }
     })
 
@@ -154,5 +165,126 @@ export async function GET(request, { params }) {
 
   } catch (err) {
     return NextResponse.json({ error: err.message }, { status: 500 })
+  }
+}
+
+/**
+ * Save BTX zip to Google Drive project folder → Markups subfolder
+ */
+async function saveBtxToDrive(projectId, filename, zipBuffer) {
+  const accessToken = await getAccessToken()
+
+  // Get Drive folder ID for this project
+  const folderResult = await runQuery(
+    `SELECT drive_folder_id FROM \`master-roofing-intelligence.mr_main.project_folders\`
+     WHERE id = @projectId`,
+    { projectId },
+    { location: 'US' }
+  )
+
+  if (!folderResult.length || !folderResult[0].drive_folder_id) {
+    console.warn('[BTX] No Drive folder found for project, skipping upload')
+    return null
+  }
+
+  const parentFolderId = folderResult[0].drive_folder_id
+
+  // Find or create Markups subfolder
+  const markupsFolderId = await getOrCreateSubfolder(accessToken, parentFolderId, 'Markups')
+  if (!markupsFolderId) {
+    console.warn('[BTX] Could not get/create Markups folder, skipping upload')
+    return null
+  }
+
+  // Multipart upload
+  const boundary = '-------btx-upload-boundary'
+  const metadata = {
+    name: filename,
+    parents: [markupsFolderId],
+    mimeType: 'application/zip'
+  }
+
+  const multipartBody =
+    `--${boundary}\r\n` +
+    'Content-Type: application/json; charset=UTF-8\r\n\r\n' +
+    JSON.stringify(metadata) + '\r\n' +
+    `--${boundary}\r\n` +
+    'Content-Type: application/zip\r\n\r\n'
+
+  const multipartEnd = `\r\n--${boundary}--`
+
+  const bodyBuffer = Buffer.concat([
+    Buffer.from(multipartBody, 'utf-8'),
+    zipBuffer,
+    Buffer.from(multipartEnd, 'utf-8')
+  ])
+
+  const uploadResponse = await fetch(
+    'https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id,webViewLink',
+    {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${accessToken}`,
+        'Content-Type': `multipart/related; boundary=${boundary}`,
+        'Content-Length': bodyBuffer.length.toString()
+      },
+      body: bodyBuffer
+    }
+  )
+
+  if (!uploadResponse.ok) {
+    const error = await uploadResponse.text()
+    console.error('[BTX] Drive upload failed:', error)
+    return null
+  }
+
+  const result = await uploadResponse.json()
+  console.log(`[BTX] Uploaded to Drive: ${filename} (${result.id})`)
+  return { fileId: result.id, webViewLink: result.webViewLink }
+}
+
+/**
+ * Get or create a subfolder within a parent Drive folder
+ */
+async function getOrCreateSubfolder(accessToken, parentFolderId, subfolderName) {
+  try {
+    const searchQuery = `name='${subfolderName}' and '${parentFolderId}' in parents and mimeType='application/vnd.google-apps.folder' and trashed=false`
+    const searchResponse = await fetch(
+      `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(searchQuery)}&fields=files(id,name)`,
+      { headers: { 'Authorization': `Bearer ${accessToken}` } }
+    )
+
+    if (searchResponse.ok) {
+      const data = await searchResponse.json()
+      if (data.files?.length > 0) return data.files[0].id
+    }
+
+    // Create if not found
+    const createResponse = await fetch(
+      'https://www.googleapis.com/drive/v3/files',
+      {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          name: subfolderName,
+          mimeType: 'application/vnd.google-apps.folder',
+          parents: [parentFolderId]
+        })
+      }
+    )
+
+    if (createResponse.ok) {
+      const folder = await createResponse.json()
+      console.log(`[BTX] Created Markups subfolder: ${folder.id}`)
+      return folder.id
+    }
+
+    return null
+  } catch (err) {
+    console.error('[BTX] Failed to get/create subfolder:', err)
+    return null
   }
 }
