@@ -1,1 +1,2 @@
 - [ ] Create systemd service for Python backend (aeyecorp/start.sh on port 8000)
+- [ ] Setup tab location columns should mirror takeoff sheet structure, not hardcoded G-M (design flaw from Phase 1A)
