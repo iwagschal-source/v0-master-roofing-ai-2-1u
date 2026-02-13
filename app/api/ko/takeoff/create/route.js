@@ -69,13 +69,7 @@ export async function POST(request) {
     // This also creates the folder structure if it doesn't exist
     const result = await createProjectTakeoffSheet(project_id, project_name, existingFolderId)
 
-    // Register the initial version tab in Setup tracker
-    try {
-      const { addVersionTrackerEntry } = await import('@/lib/version-management')
-      await addVersionTrackerEntry(result.spreadsheetId, result.versionTabName, 0, 0)
-    } catch (versionErr) {
-      console.warn('[takeoff/create] Non-fatal: Failed to register initial version:', versionErr.message)
-    }
+    // No version tab registered here — first version is created via create-version after Setup config
 
     // Share sheet with anyone who has the link (editor access)
     try {
