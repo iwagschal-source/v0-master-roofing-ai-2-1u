@@ -324,30 +324,47 @@ OAuth2 integration for project/task management syncing.
 ### Item Hierarchy
 
 ```
-item_description_mapping (87 items: 58 original + 29 Cat 2)
-├── item_id         (MR-001 through MR-051, MR-FIRE-*, MR-THORO-*)
-├── section         (ROOFING | BALCONIES | EXTERIOR | WATERPROOFING)
-├── display_name    (user-friendly name)
-├── scope_name      (technical spec name)
-├── row_type        (item | system | header)
-├── is_system       (TRUE = system parent item)
-├── can_bundle      (TRUE = can appear in bundles)
-├── can_standalone  (TRUE = can appear standalone)
-├── system_heading  (paragraph title for system items)
-├── paragraph_description  (full system paragraph, with {R_VALUE}/{THICKNESS}/{TYPE} placeholders)
-├── bundle_fragment (component text fragment for bundles)
+item_description_mapping (27 columns, 87+ items: 58 original + 29 Cat 2 + new via Add Item)
+├── item_id              (MR-001 through MR-051, MR-FIRE-*, MR-THORO-*, MR-{AUTO})
+├── section              (ROOFING | BALCONIES | EXTERIOR | WATERPROOFING)
+├── display_name         (user-friendly name)
+├── scope_name           (technical spec name)
+├── default_rate         (FLOAT64, optional)
+├── uom                  (SF | LF | EA | SY | CF | GAL | LS)
+├── row_type             (item | system | COMPONENT_ROW | STANDALONE_ROW | header)
+├── is_system            (TRUE = system parent item)
+├── can_bundle           (TRUE = can appear in bundles; auto-FALSE for systems)
+├── can_standalone       (TRUE = can appear standalone)
+├── parent_item_id       (STRING, for components — links to parent system)
+├── system_heading       (paragraph title for system items)
+├── paragraph_description (full system paragraph, with {R_VALUE}/{THICKNESS}/{TYPE} placeholders)
+├── bundle_fragment      (component text fragment for bundles)
 ├── standalone_description (full standalone paragraph)
-├── fragment_sort_order    (1-85, controls fragment ordering)
-├── description_status     (complete | partial | missing)
-└── bluebeam_tool_name    (STRING, added Session 31 — tool name from Python backend)
+├── fragment_sort_order  (INT64, controls fragment ordering within system)
+├── bundling_notes       (internal notes about bundling logic)
+├── description_status   (HAS_DESCRIPTION | MISSING — auto-computed)
+├── has_r_value          (BOOL)
+├── has_thickness        (BOOL)
+├── has_material_type    (BOOL)
+├── has_bluebeam_tool    (BOOL — auto-set from bluebeam_tool_name)
+├── has_template_row     (BOOL — legacy, FALSE for new items)
+├── has_scope_mapping    (BOOL — auto-set from scope_name)
+├── has_historical_data  (BOOL — FALSE for new items)
+├── has_rate             (BOOL — FALSE for new items)
+├── historical_project_count (INT64 — 0 for new items)
+└── bluebeam_tool_name   (STRING — tool name from Python backend)
 
-lib_takeoff_template (per-item specs)
-├── uom             (SF, LF, EA, etc.)
-├── default_unit_cost
-├── has_r_value     (TRUE/FALSE)
-├── has_thickness   (TRUE/FALSE)
-├── has_material_type (TRUE/FALSE)
-└── sort_order
+lib_takeoff_template (10 columns, per-item takeoff specs)
+├── item_id              (NOT NULL — FK to item_description_mapping)
+├── section              (STRING)
+├── scope_name           (STRING)
+├── default_unit_cost    (FLOAT64)
+├── uom                  (STRING)
+├── sort_order           (INT64 — auto-incremented on insert)
+├── has_r_value          (BOOL)
+├── has_thickness        (BOOL)
+├── has_material_type    (BOOL)
+└── notes                (STRING)
 
 estimator_rate_card (historical rates by GC)
 ├── gc_name
@@ -357,8 +374,20 @@ estimator_rate_card (historical rates by GC)
 ├── project_count
 └── confidence_level
 
-v_library_complete (view joining all above)
-└── readiness_score (1-6)
+v_library_complete (view: LEFT JOIN idm + lt, 32 columns)
+├── All columns from item_description_mapping
+├── template_unit_cost, template_sort_order, template_has_thickness, template_notes (from lt)
+├── readiness_score (INT64, computed: counts filled required fields, max 6)
+└── readiness_max   (INT64, constant 6)
+
+Add Item Pipeline (Phase 6, Session 43):
+  POST /api/ko/admin/add-item → inserts into both tables above
+  → v_library_complete auto-updates (it's a view)
+  → refreshLibraryTab() writes 31 columns (A-AE) to template spreadsheet
+  → FILTER formulas in AF-AQ auto-recalculate (dropdown validation)
+  → Returns readiness_score + propagation status + manual_steps
+  Form: components/ko/add-item-modal.jsx (wired via BookPlus button in estimating center)
+  Audit: docs/LIBRARY_COLUMN_AUDIT.md (31 data cols + 12 formula cols)
 
 implementation_tracker (project plan task tracking, added Session 31)
 ├── phase, task_id, description
@@ -490,6 +519,8 @@ project_folders (existing, column added Session 31)
 
 | Route | Method | Purpose |
 |-------|--------|---------|
+| `/admin/add-item` | GET | Reference data for Add Item form: `?field=all` (item IDs for duplicate check), `?field=systems` (parent dropdown), `?field=tools` (Bluebeam tools) |
+| `/admin/add-item` | POST | Add new item to library. Inserts into `item_description_mapping` (27 cols) + `lib_takeoff_template` (10 cols). Refreshes Library tab on template via `refreshLibraryTab()`. Returns readiness_score, propagation status, manual_steps. (Phase 6, Session 43) |
 | `/admin/system-config` | POST | System configuration |
 | `/admin/agent-code/[agentId]` | GET | Agent code inspection |
 | `/arena/models` | POST | Model arena testing |
