@@ -41,4 +41,45 @@ Isaac (CEO) relays between you and the lead architect (Claude AI Desktop). You e
 
 ---
 ### HANDOFF:
-[Status]
+
+**Status: COMPLETE (Tasks 3.1-3.5, 3.7 done)**
+**Branch:** `feature/btx-v2` (3 commits ahead of main)
+**Build:** Passes
+
+### What was done:
+
+| Task | Status | Description |
+|------|--------|-------------|
+| 3.1 | DONE | `readSetupConfig()` enhanced: returns location names from section headers, tool names (col P), section membership per item. New API `GET /setup-config` reads Setup tab and returns BTX-compatible data |
+| 3.2 | DONE | Tool name from Setup column P included in setup-config response and passed through to BTX |
+| 3.3 | DONE | Summary dialog shows `{items} × {locations} = {tools}` with location chips, missing-tool warning. User confirms before download |
+| 3.4 | DONE | BTX zip saved to Drive project folder → Markups subfolder (non-fatal if Drive save fails) |
+| 3.5 | DONE | Filename: `{project}-tools-{YYYY-MM-DD}.zip` |
+| 3.6 | SKIPPED | Python backend WATERPROOFING location codes — requires Python server access (out of scope for this session) |
+| 3.7 | DONE | Architecture Bible updated: Sections 6, 9, 12, 17 |
+
+### Files modified:
+- `lib/version-management.js` — Enhanced `readSetupConfig()` (+30 lines)
+- `app/api/ko/takeoff/[projectId]/setup-config/route.js` — NEW (121 lines)
+- `app/api/ko/takeoff/[projectId]/btx/route.js` — Dual-format support + Drive save (+175 lines)
+- `components/ko/estimating-center-screen.jsx` — Setup-config flow + summary dialog (+89 lines)
+- `docs/ARCHITECTURE_BIBLE.md` — Updated sections 6, 9, 12, 17
+
+### Commits:
+1. `0359389` — feat: Phase 3 BTX v2 — Setup-aware BTX generation with summary dialog
+2. `04192c3` — feat: 3.4-3.5 save BTX zip to Drive Markups folder + proper naming
+3. `8c71ca5` — docs: 3.7 update Architecture Bible for BTX v2 (Phase 3)
+
+### Backward compatibility:
+- BTX route still accepts legacy `config` body format (old sheet-config flow)
+- `readSetupConfig()` returns new fields without breaking existing callers (create-version destructures only what it needs)
+- GET /btx tries setup-config first, falls back to legacy /config
+
+### What's NOT done:
+- Task 3.6: Python backend needs WATERPROOFING location codes added. Isaac needs to SSH into 136.111.252.120 and update the FastAPI backend
+- Branch not merged to main yet — needs Isaac's review
+
+### MANDATORY CHECKLIST:
+1. Update BigQuery tracker: `UPDATE master-roofing-intelligence.mr_main.implementation_tracker SET status='DONE', session_completed='40', branch='feature/btx-v2', verified=true, verified_by='Session 40', verified_at=CURRENT_TIMESTAMP() WHERE phase='3' AND task_id IN ('3.1','3.2','3.3','3.4','3.5','3.7')`
+2. Sync to Google Sheet: `node scripts/sync-tracker-to-sheet.mjs`
+3. Pass this checklist forward
