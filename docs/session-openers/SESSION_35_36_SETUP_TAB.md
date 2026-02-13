@@ -128,4 +128,34 @@ Session 36 can proceed directly to:
 4. Pass this checklist forward to next session
 
 ### HANDOFF (written by Session 36):
-[Session 36 writes completion status here]
+
+**Date:** 2026-02-13
+**Branch:** `main` (feature/setup-tab merged via fast-forward)
+**Build:** Clean, deployed to Vercel
+
+#### COMPLETED:
+1. **Fixed Library tab column AE alignment bug**
+   - Root cause: `library_data.json` had 86 items (incl. 6 MR-MISC-*) but sheet was populated from older 80-item export
+   - Fix: re-exported fresh data from BigQuery, reran `populate-library-tab.mjs`
+   - Verified: 0 mismatches — all 47 tool names align with correct item_ids
+
+2. **Merged feature/setup-tab to main** (5 commits, fast-forward)
+   - `lib/google-sheets.js` — bluebeam_tool_name in Library refresh
+   - `scripts/populate-library-tab.mjs` — column AE + clear range fix
+   - `scripts/create-setup-tab.mjs` — NEW: Setup tab creator
+   - `docs/ARCHITECTURE_BIBLE.md` — Sections 5, 7, 13, 17 updated
+
+3. **Pushed to origin/main** — Vercel auto-deploy triggered
+   - New projects now include bluebeam_tool_name (col AE) in Library tab
+   - User verified: coping items show tool names in new projects
+
+#### WHAT NEXT SESSION NEEDS TO DO:
+- Phase 1C: Apps Script Column C auto-populate trigger
+- Phase 1D: Integration with project creation flow (createProjectTakeoffSheet updates for Setup tab)
+- OR Phase 2: Version management
+
+#### MANDATORY CHECKLIST:
+1. BigQuery tracker updated
+2. Google Sheet synced (197 tasks)
+3. HANDOFF written (this section)
+4. Pass this checklist forward to next session

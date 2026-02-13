@@ -4,7 +4,7 @@
 > **Stack:** Next.js 16 + React 19 + Tailwind 4 + Radix UI
 > **Deployed:** Vercel — https://v0-master-roofing-ai-2-1u.vercel.app
 > **Current version:** v2.0-description-composition (main branch)
-> **Last updated:** 2026-02-12
+> **Last updated:** 2026-02-13
 
 ---
 
@@ -571,8 +571,9 @@ Shadcn/ui-based Radix components: `button`, `card`, `input`, `textarea`, `dialog
 
 ```
 Tab 0: Setup (configuration hub — added Session 35)
-Tab 1: DATE (takeoff data — renamed to YYYY-MM-DD on project creation)
+Tab 1: DATE → renamed to YYYY-MM-DD on project creation (Session 37)
 Tab 2: Library (87 items from BigQuery, read-only reference)
+Apps Script: onEdit Column C trigger → auto-populate A, B, N (Session 37)
 ```
 
 ### Setup Tab Layout (Tab 0)
@@ -811,6 +812,9 @@ All chat exchanges are logged to BigQuery (`ko_audit.agent_chat_history`) with:
 **SQL:**
 `setup-proposal-tables.sql` — BigQuery DDL for proposal system tables
 
+**Apps Script (scripts/apps-script/):**
+`Code.gs` — Column C onEdit trigger for auto-populating item_id, unit_cost, UOM from Library tab (Session 37)
+
 ---
 
 ## 14. Deployment & Infrastructure
@@ -943,8 +947,8 @@ git push origin feature/[name]    # Push branch
 ## 17. Workbook Rebuild (In Progress)
 
 **Design doc:** `docs/WORKBOOK_REBUILD_DESIGN.md`
-**Branch:** `feature/setup-tab`
-**Status:** Phase 1A + 1E complete — Setup tab created, Library tab enhanced with tool names
+**Branch:** `main` (feature/setup-tab merged Session 36, feature/apps-script Session 37)
+**Status:** Phase 1A + 1B + 1C + 1D + 1E complete
 
 ### Current Architecture: 3-Tab Workbook
 
@@ -973,19 +977,26 @@ git push origin feature/[name]    # Push branch
 └───────────────────────────────────────────────────────────┘
 ```
 
-### Changes Already Committed (feature/setup-tab — Session 35)
+### Changes Already Committed
 
+**Session 35 (feature/setup-tab):**
 1. `d7a1c53` — 1E: bluebeam_tool_name populated (48 items), v_library_complete view updated, Library tab enhanced (col 31)
 2. `4ec1b8b` — 1A: Setup tab created (index 0) with full row mirror, formulas, dropdowns, conditional formatting
+3. `c0e0c72` — 1B: Version tracker area on Setup tab (rows 72-80)
+
+**Session 37 (feature/apps-script):**
+4. 1C: Apps Script Column C auto-populate trigger (`scripts/apps-script/Code.gs`)
+   - Simple onEdit trigger — fires on manual edits only (NOT on API writes)
+   - Checks for formulas before writing (preserves INDEX+MATCH on Setup tab)
+   - Writes item_id (A), unit_cost (B), UOM (N, Setup only)
+   - Skips Library tab, header/total/bundle rows
+5. 1D: Project creation now renames "DATE" tab → YYYY-MM-DD, writes project name to both Setup and version tab
 
 ### Remaining Work
 
-- Phase 1B: Version tracker area on Setup tab (rows 72+)
-- Phase 1C: Apps Script Column C auto-populate trigger
-- Phase 1D: Integration with project creation flow
 - Phase 2: Setup ↔ Takeoff tab sync (show/hide rows/columns based on toggles)
-- Phase 3: BTX generation reads Setup tab toggle state
 - Phase 2: New version tab creation
+- Phase 3: BTX generation reads Setup tab toggle state
 - Library tab refresh mechanism
 - Migration path for existing single-tab projects
 

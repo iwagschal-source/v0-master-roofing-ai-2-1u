@@ -70,4 +70,64 @@ After Apps Script + creation changes:
 
 ---
 ### HANDOFF (written by Session 37):
-[Session 37 writes completion status here]
+
+**Date:** 2026-02-13
+**Branch:** `feature/apps-script` (from main)
+**Build:** Clean (npm run build passes)
+
+#### COMPLETED:
+
+**Phase 1C: Apps Script Column C Auto-Populate**
+- 1C.1: Apps Script source created at `scripts/apps-script/Code.gs`
+- 1C.2: onEdit trigger detects Column C changes on Setup tab AND any non-Library tab
+- 1C.3: Looks up item in Library tab → populates A (item_id), B (unit_cost), N (UOM, Setup only)
+- 1C.4: Skips header rows (3, 36, 40, 49), total rows (47, 68, 70), bundle total rows (14, 21, 25, 28, 32, 35, 45, 53, 57, 62)
+- 1C.5: Handles clearing Column C → resets A, B, N (skips formula cells)
+- 1C.6: Source version-controlled in `scripts/apps-script/Code.gs`
+- 1C.7: Formulas preserved — checks `getFormula()` before writing (INDEX+MATCH on Setup tab untouched)
+- 1C.8: Works on both Setup and takeoff version tabs (UOM only on Setup where col N = UOM)
+
+**MANUAL STEP REQUIRED:** Paste Code.gs into the template spreadsheet's Apps Script editor:
+1. Open template spreadsheet (1n0p_EWMwQSqhvBmjXJdy-QH5B7KlRXP5kDhn3Tdhfk4)
+2. Extensions > Apps Script
+3. Replace Code.gs contents with `scripts/apps-script/Code.gs`
+4. Save (Ctrl+S)
+5. Future project copies will include the script automatically
+
+**Phase 1D: Project Creation Update**
+- 1D.1: createProjectTakeoffSheet() now creates 3-tab workbook (Setup, YYYY-MM-DD, Library) — template copy already has 3 tabs, code now renames DATE → datestamp
+- 1D.2: First version tab renamed from "DATE" to creation date (e.g., "2026-02-13")
+- 1D.3: Project name written to BOTH Setup!A2 AND version tab A2 (using batchUpdate for efficiency)
+- 1D.4: getActiveSheetName() already skips "Setup" and "Library" (verified, Session 33)
+- 1D.5: Library tab refresh works unchanged with 3-tab workbook (verified via build)
+- 1D.6: Backward compat: getActiveSheetName() returns "DATE" for old projects without Setup/Library tabs
+
+#### KEY DESIGN DECISIONS:
+1. **Simple onEdit trigger (not installable)** — does NOT fire on programmatic Sheets API writes. Safe for Bluebeam import, version creation, Library refresh.
+2. **Formula-aware writes** — checks `getFormula()` before setValue(). On Setup tab where INDEX+MATCH formulas exist, the script skips those cells and lets formulas handle auto-population. On takeoff version tabs where no formulas exist, the script writes values directly.
+3. **UOM only on Setup tab** — Column N is UOM on Setup but Total Measurements on takeoff tabs. Script only writes UOM when sheetName === 'Setup'.
+
+#### KEY FILES MODIFIED:
+- `scripts/apps-script/Code.gs` — NEW: Apps Script source (Phase 1C)
+- `lib/google-sheets.js` — createProjectTakeoffSheet() updated (Phase 1D)
+- `docs/ARCHITECTURE_BIBLE.md` — Sections 8, 13, 17 updated
+
+#### WHAT NEXT SESSION NEEDS TO DO:
+1. **Paste Apps Script into template** (manual step, see above)
+2. **Create a test project** to verify end-to-end:
+   - 3 tabs exist (Setup, YYYY-MM-DD, Library)
+   - Column C dropdown on Setup → A, B, N auto-populate
+   - Column C dropdown on version tab → A, B auto-populate
+   - Proposal preview returns correct data
+   - BTX generation works
+   - Bluebeam CSV import works
+3. **Phase 2: Version Management** (next major feature)
+   - Create takeoff version API
+   - Version selector UI
+   - Context-aware buttons
+
+#### MANDATORY CHECKLIST:
+1. BigQuery tracker: UPDATE to DONE for Phase 1C and 1D tasks
+2. Google Sheet sync: `node scripts/sync-tracker-to-sheet.mjs`
+3. HANDOFF written (this section)
+4. Pass this checklist forward to next session
