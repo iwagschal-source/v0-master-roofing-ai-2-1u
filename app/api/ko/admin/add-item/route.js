@@ -12,6 +12,7 @@
 
 import { NextResponse } from 'next/server'
 import { runQuery } from '@/lib/bigquery'
+import { refreshLibraryTab } from '@/lib/google-sheets'
 
 // Valid values
 const VALID_SECTIONS = ['ROOFING', 'BALCONIES', 'EXTERIOR', 'WATERPROOFING']
@@ -200,10 +201,22 @@ export async function POST(request) {
     )
     const readiness = viewRows[0] || { readiness_score: 0, readiness_max: 6 }
 
+    // --- Refresh Library tab on template spreadsheet (6B.5) ---
+    let libraryRefresh = 'skipped (no template ID)'
+    const templateId = process.env.GOOGLE_SHEET_TEMPLATE_ID
+    if (templateId) {
+      try {
+        const result = await refreshLibraryTab(templateId)
+        libraryRefresh = result.success ? `refreshed (${result.count} items)` : 'failed'
+      } catch (err) {
+        console.warn('[add-item] Library tab refresh failed:', err.message)
+        libraryRefresh = 'failed'
+      }
+    }
+
     // --- Build response ---
     const manualSteps = []
     if (!has_bluebeam_tool) manualSteps.push('Create Bluebeam tool (Tool Manager)')
-    manualSteps.push('Refresh Library tab on template (or wait for next project creation)')
     if (!body.paragraph_description && !body.standalone_description) {
       manualSteps.push('Add description text for proposals')
     }
@@ -219,7 +232,7 @@ export async function POST(request) {
         item_description_mapping: 'inserted',
         lib_takeoff_template: 'inserted',
         v_library_complete: 'auto-updated (view)',
-        library_tab: 'pending refresh',
+        library_tab: libraryRefresh,
       },
       manual_steps: manualSteps,
     })
