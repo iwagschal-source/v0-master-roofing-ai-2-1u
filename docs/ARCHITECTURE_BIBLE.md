@@ -428,7 +428,7 @@ project_folders (existing, column added Session 31)
 | `/sync/[importId]` | POST | Sync import with sheet |
 | `/compare/[importId]` | GET | Compare import versions |
 | `/create-version` | POST | Create new takeoff version tab (copy template, transfer config, hide rows/cols, update tracker) |
-| `/versions` | GET | List versions from Setup tracker, cross-ref actual tabs |
+| `/versions` | GET | List versions from Setup tracker, cross-ref actual tabs. Returns `tabSheetId` (gid) + `setupTabSheetId` for embedded sheet navigation |
 | `/versions` | PUT | Set active version and/or update status |
 | `/versions` | POST | Copy existing version tab |
 | `/versions` | DELETE | Safe delete version tab (?sheet=name&force=bool) |
@@ -999,10 +999,19 @@ git push origin feature/[name]    # Push branch
    - Skips Library tab, header/total/bundle rows
 5. 1D: Project creation now renames "DATE" tab → YYYY-MM-DD, writes project name to both Setup and version tab
 
+**Session 39+ (feature/version-ui-redo):**
+6. 2A: Version creation API — `POST /create-version` copies template tab, transfers Setup config, hides empty rows/cols
+7. 2B: Version tracker operations — `GET/PUT/POST/DELETE /versions` for list, activate, copy, delete
+8. 2C: Version management UI — `estimating-center-screen.jsx`
+   - Version selector bar (below header buttons, visible when embeddedSheetId is truthy)
+   - Tab buttons: Setup + version tabs + New Version, with active indicator (green dot)
+   - Click tab → switches embedded sheet iframe gid to selected tab
+   - Context-aware action bar: Setup tab shows "Create Takeoff" + "Download BTX"; version tab shows "Import CSV" + "Proposal"
+   - `loadVersions()` called inside `checkExistingTakeoffSheet` after `setEmbeddedSheetId` (direct call, not useEffect)
+   - `currentSheetName` passed to BTX, Upload, and Proposal from selected version tab
+
 ### Remaining Work
 
-- Phase 2: Setup ↔ Takeoff tab sync (show/hide rows/columns based on toggles)
-- Phase 2: New version tab creation
 - Phase 3: BTX generation reads Setup tab toggle state
 - Library tab refresh mechanism
 - Migration path for existing single-tab projects
