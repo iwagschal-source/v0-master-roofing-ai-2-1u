@@ -12,7 +12,7 @@
 
 import { NextResponse } from 'next/server'
 import https from 'https'
-import { fillBluebeamDataToTab, fillBluebeamDataToSpreadsheet, getTakeoffTab, createTakeoffTab } from '@/lib/google-sheets'
+import { fillBluebeamDataToTab, fillBluebeamDataToSpreadsheet, getTakeoffTab, createTakeoffTab, getAccessToken } from '@/lib/google-sheets'
 import { runQuery } from '@/lib/bigquery'
 
 const BACKEND_URL = process.env.PYTHON_BACKEND_URL || 'http://136.111.252.120:8000'
@@ -401,6 +401,25 @@ export async function POST(request, { params }) {
       errors.push({ message: `${parseStats.skipped} rows skipped (item code not in config)` })
     }
 
+    // Save CSV to Drive Markups folder (non-fatal)
+    let csvDriveResult = null
+    try {
+      // Get project name for filename
+      const projectResult = await runQuery(
+        `SELECT name, drive_folder_id FROM \`master-roofing-intelligence.mr_main.project_folders\` WHERE id = @projectId`,
+        { projectId },
+        { location: 'US' }
+      )
+      if (projectResult.length > 0 && projectResult[0].drive_folder_id) {
+        const safeName = (projectResult[0].name || projectId).replace(/[^a-zA-Z0-9]/g, '_')
+        const dateStr = new Date().toISOString().split('T')[0]
+        const csvFilename = `${safeName}-bluebeam-${dateStr}.csv`
+        csvDriveResult = await saveCsvToDrive(projectResult[0].drive_folder_id, csvFilename, csv_content)
+      }
+    } catch (driveErr) {
+      console.warn('[Bluebeam] Drive CSV save failed (non-fatal):', driveErr.message)
+    }
+
     return NextResponse.json({
       success: true,
       items_parsed: items.length,
@@ -428,7 +447,8 @@ export async function POST(request, { params }) {
         location: d.floor
       })),
       errors,
-      cellsPopulated: result.updated
+      cellsPopulated: result.updated,
+      csvFile: csvDriveResult ? { fileId: csvDriveResult.fileId, webViewLink: csvDriveResult.webViewLink } : null
     })
 
   } catch (err) {
@@ -437,5 +457,99 @@ export async function POST(request, { params }) {
       { error: 'Failed to import Bluebeam data: ' + err.message },
       { status: 500 }
     )
+  }
+}
+
+/**
+ * Save CSV content to Google Drive project folder → Markups subfolder
+ */
+async function saveCsvToDrive(parentFolderId, filename, csvContent) {
+  const accessToken = await getAccessToken()
+
+  // Find or create Markups subfolder
+  const markupsFolderId = await getOrCreateSubfolder(accessToken, parentFolderId, 'Markups')
+  if (!markupsFolderId) return null
+
+  const boundary = '-------csv-upload-boundary'
+  const metadata = {
+    name: filename,
+    parents: [markupsFolderId],
+    mimeType: 'text/csv'
+  }
+
+  const multipartBody =
+    `--${boundary}\r\n` +
+    'Content-Type: application/json; charset=UTF-8\r\n\r\n' +
+    JSON.stringify(metadata) + '\r\n' +
+    `--${boundary}\r\n` +
+    'Content-Type: text/csv\r\n\r\n' +
+    csvContent + '\r\n' +
+    `--${boundary}--`
+
+  const uploadResponse = await fetch(
+    'https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id,webViewLink',
+    {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${accessToken}`,
+        'Content-Type': `multipart/related; boundary=${boundary}`
+      },
+      body: multipartBody
+    }
+  )
+
+  if (!uploadResponse.ok) {
+    const error = await uploadResponse.text()
+    console.error('[Bluebeam] Drive CSV upload failed:', error)
+    return null
+  }
+
+  const result = await uploadResponse.json()
+  console.log(`[Bluebeam] CSV saved to Drive: ${filename} (${result.id})`)
+  return { fileId: result.id, webViewLink: result.webViewLink }
+}
+
+/**
+ * Get or create a subfolder within a parent Drive folder
+ */
+async function getOrCreateSubfolder(accessToken, parentFolderId, subfolderName) {
+  try {
+    const searchQuery = `name='${subfolderName}' and '${parentFolderId}' in parents and mimeType='application/vnd.google-apps.folder' and trashed=false`
+    const searchResponse = await fetch(
+      `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(searchQuery)}&fields=files(id,name)`,
+      { headers: { 'Authorization': `Bearer ${accessToken}` } }
+    )
+
+    if (searchResponse.ok) {
+      const data = await searchResponse.json()
+      if (data.files?.length > 0) return data.files[0].id
+    }
+
+    const createResponse = await fetch(
+      'https://www.googleapis.com/drive/v3/files',
+      {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          name: subfolderName,
+          mimeType: 'application/vnd.google-apps.folder',
+          parents: [parentFolderId]
+        })
+      }
+    )
+
+    if (createResponse.ok) {
+      const folder = await createResponse.json()
+      console.log(`[Bluebeam] Created ${subfolderName} subfolder: ${folder.id}`)
+      return folder.id
+    }
+
+    return null
+  } catch (err) {
+    console.error(`[Bluebeam] Failed to get/create ${subfolderName}:`, err)
+    return null
   }
 }
