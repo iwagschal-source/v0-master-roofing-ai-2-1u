@@ -115,51 +115,48 @@ export async function POST(request) {
     const has_scope_mapping = !!(scope_name && scope_name.trim())
 
     // --- Insert into item_description_mapping ---
-    const idmQuery = `
-      INSERT INTO \`master-roofing-intelligence.mr_main.item_description_mapping\`
-      (item_id, display_name, scope_name, section, uom, default_rate,
-       has_r_value, has_thickness, has_material_type, row_type, description_status,
-       paragraph_description, bundling_notes, is_system, can_standalone, can_bundle,
-       system_heading, bundle_fragment, standalone_description, fragment_sort_order,
-       has_bluebeam_tool, has_template_row, has_scope_mapping, has_historical_data,
-       has_rate, parent_item_id, historical_project_count, bluebeam_tool_name)
-      VALUES
-      (@item_id, @display_name, @scope_name, @section, @uom, @default_rate,
-       @has_r_value, @has_thickness, @has_material_type, @row_type, @description_status,
-       @paragraph_description, @bundling_notes, @is_system, @can_standalone, @can_bundle,
-       @system_heading, @bundle_fragment, @standalone_description, @fragment_sort_order,
-       @has_bluebeam_tool, FALSE, @has_scope_mapping, FALSE,
-       FALSE, @parent_item_id, 0, @bluebeam_tool_name)
-    `
-
-    const idmParams = {
+    // Build columns/values dynamically to avoid null params (BQ requires explicit types for nulls)
+    const idmFields = {
       item_id,
       display_name,
       scope_name,
       section,
       uom,
-      default_rate: body.default_rate ? parseFloat(body.default_rate) : null,
       has_r_value: body.has_r_value ?? false,
-      has_thickness: body.has_thickness ?? false,
       has_material_type: body.has_material_type ?? false,
       row_type,
       description_status,
-      paragraph_description: body.paragraph_description || null,
-      bundling_notes: body.bundling_notes || null,
       is_system,
       can_standalone,
       can_bundle,
-      system_heading: body.system_heading || null,
-      bundle_fragment: body.bundle_fragment || null,
-      standalone_description: body.standalone_description || null,
-      fragment_sort_order: body.fragment_sort_order ? parseInt(body.fragment_sort_order) : null,
       has_bluebeam_tool,
+      has_template_row: false,
       has_scope_mapping,
-      parent_item_id: body.parent_item_id || null,
-      bluebeam_tool_name: body.bluebeam_tool_name || null,
+      has_historical_data: false,
+      has_rate: false,
+      historical_project_count: 0,
     }
+    // Only include nullable fields if they have values
+    if (body.default_rate) idmFields.default_rate = parseFloat(body.default_rate)
+    if (body.paragraph_description) idmFields.paragraph_description = body.paragraph_description
+    if (body.bundling_notes) idmFields.bundling_notes = body.bundling_notes
+    if (body.system_heading) idmFields.system_heading = body.system_heading
+    if (body.bundle_fragment) idmFields.bundle_fragment = body.bundle_fragment
+    if (body.standalone_description) idmFields.standalone_description = body.standalone_description
+    if (body.fragment_sort_order) idmFields.fragment_sort_order = parseInt(body.fragment_sort_order)
+    if (body.parent_item_id) idmFields.parent_item_id = body.parent_item_id
+    if (body.bluebeam_tool_name) idmFields.bluebeam_tool_name = body.bluebeam_tool_name
 
-    await runQuery(idmQuery, idmParams)
+    const idmCols = Object.keys(idmFields)
+    const idmVals = idmCols.map(c => `@${c}`)
+    const idmQuery = `
+      INSERT INTO \`master-roofing-intelligence.mr_main.item_description_mapping\`
+      (${idmCols.join(', ')})
+      VALUES
+      (${idmVals.join(', ')})
+    `
+
+    await runQuery(idmQuery, idmFields)
     console.log(`[add-item] Inserted ${item_id} into item_description_mapping`)
 
     // --- Insert into lib_takeoff_template ---
@@ -169,29 +166,29 @@ export async function POST(request) {
     )
     const nextSort = (sortRows[0]?.max_sort || 0) + 1
 
-    const ltQuery = `
-      INSERT INTO \`master-roofing-intelligence.mr_main.lib_takeoff_template\`
-      (item_id, section, scope_name, default_unit_cost, uom, sort_order,
-       has_r_value, has_thickness, has_material_type, notes)
-      VALUES
-      (@item_id, @section, @scope_name, @default_unit_cost, @uom, @sort_order,
-       @has_r_value, @has_thickness, @has_material_type, @notes)
-    `
-
-    const ltParams = {
+    const ltFields = {
       item_id,
       section,
       scope_name,
-      default_unit_cost: body.default_unit_cost ? parseFloat(body.default_unit_cost) : null,
       uom,
       sort_order: nextSort,
       has_r_value: body.has_r_value ?? false,
       has_thickness: body.has_thickness ?? false,
       has_material_type: body.has_material_type ?? false,
-      notes: body.notes || null,
     }
+    if (body.default_unit_cost) ltFields.default_unit_cost = parseFloat(body.default_unit_cost)
+    if (body.notes) ltFields.notes = body.notes
 
-    await runQuery(ltQuery, ltParams)
+    const ltCols = Object.keys(ltFields)
+    const ltVals = ltCols.map(c => `@${c}`)
+    const ltQuery = `
+      INSERT INTO \`master-roofing-intelligence.mr_main.lib_takeoff_template\`
+      (${ltCols.join(', ')})
+      VALUES
+      (${ltVals.join(', ')})
+    `
+
+    await runQuery(ltQuery, ltFields)
     console.log(`[add-item] Inserted ${item_id} into lib_takeoff_template`)
 
     // --- Read back from v_library_complete to get readiness_score ---
