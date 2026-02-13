@@ -11,6 +11,7 @@ import {
   hideEmptyRows,
   hideEmptyColumns,
   addVersionTrackerEntry,
+  readVersionTracker,
 } from '@/lib/version-management'
 
 /**
@@ -45,10 +46,12 @@ export async function POST(request, { params }) {
       return NextResponse.json({ error: 'Project has no spreadsheet' }, { status: 400 })
     }
 
-    // 2. Get existing tabs and generate version name
+    // 2. Get existing tabs + tracker history and generate version name (never reuse deleted names)
     const existingTabs = await getSpreadsheetTabs(spreadsheetId)
     const existingNames = existingTabs.map(t => t.title)
-    const versionName = generateVersionName(existingNames)
+    const trackerVersions = await readVersionTracker(spreadsheetId)
+    const trackerNames = trackerVersions.map(v => v.sheetName).filter(Boolean)
+    const versionName = generateVersionName(existingNames, trackerNames)
 
     // 3. Read Setup tab configuration (toggles, config, bid types)
     const setupConfig = await readSetupConfig(spreadsheetId)
