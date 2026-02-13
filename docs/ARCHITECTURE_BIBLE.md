@@ -1058,8 +1058,11 @@ git push origin feature/[name]    # Push branch
 ### Python Backend Env Var Standardization (Session 34)
 - **Server-side:** `process.env.PYTHON_BACKEND_URL` (42 API route files)
 - **Client-side:** `process.env.NEXT_PUBLIC_PYTHON_BACKEND_URL` (7 component + 3 hook files)
-- All use `'https://136.111.252.120'` as fallback — set env vars in `.env.local` and `.env.example`
-- WebSocket URLs derived from HTTPS URL via `.replace('https://', 'wss://')`
+- **CRITICAL: URL must be `http://136.111.252.120:8000`** (port 8000, HTTP, FastAPI direct)
+- **DO NOT use `https://136.111.252.120`** (port 443 = nginx, returns 405 on POST endpoints like BTX)
+- Fallback in all source files: `'http://136.111.252.120:8000'`
+- Both env vars set in `.env.local`, `.env.example`, AND Vercel production dashboard
+- WebSocket URLs derived via `.replace('http://', 'ws://')` (no TLS on port 8000)
 
 ### Hardcoded "DATE" Tab References — **RESOLVED** (Session 33)
 All 3 production source files updated to use `getActiveSheetName()`:
