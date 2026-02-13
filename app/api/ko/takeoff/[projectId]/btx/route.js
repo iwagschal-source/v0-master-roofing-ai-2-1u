@@ -31,6 +31,9 @@ export async function POST(request, { params }) {
     let selectedItemIds = []
     let locationsWithNames = []
 
+    // Per-item location data for filtering (only built from setupConfig)
+    let itemsWithLocations = null
+
     if (body.setupConfig) {
       // New Setup tab format (Phase 3)
       const { items, locations } = body.setupConfig
@@ -43,6 +46,16 @@ export async function POST(request, { params }) {
       locationsWithNames = locations.map(loc => ({
         code: loc.name.toUpperCase().replace(/[^A-Z0-9]/g, ''),
         name: loc.name
+      }))
+
+      // Build per-item location data so the Python backend can filter
+      // each BTX file to only include items that belong to that location
+      itemsWithLocations = items.map(item => ({
+        item_id: item.item_id,
+        locations: (item.locations || []).map(loc => ({
+          code: loc.name.toUpperCase().replace(/[^A-Z0-9]/g, ''),
+          name: loc.name
+        }))
       }))
     } else {
       // Legacy config format (backward compatibility)
@@ -69,17 +82,24 @@ export async function POST(request, { params }) {
     console.log('[BTX] Per-floor mode:', {
       project_name: projectName,
       selected_items: selectedItemIds,
-      locations: locationsWithNames
+      locations: locationsWithNames,
+      items_with_locations: itemsWithLocations ? `${itemsWithLocations.length} items with per-item locations` : 'none (legacy)'
     })
+
+    const requestBody = {
+      project_name: projectName,
+      selected_items: selectedItemIds,
+      locations: locationsWithNames
+    }
+    // Include per-item locations when available (setupConfig path)
+    if (itemsWithLocations) {
+      requestBody.items_with_locations = itemsWithLocations
+    }
 
     const perFloorRes = await fetch(`${BACKEND_URL}/bluebeam/generate-btx-per-floor`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        project_name: projectName,
-        selected_items: selectedItemIds,
-        locations: locationsWithNames
-      }),
+      body: JSON.stringify(requestBody),
       signal: AbortSignal.timeout(30000)
     })
 
