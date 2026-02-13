@@ -54,6 +54,7 @@ const COLUMNS = [
   'has_bluebeam_tool', 'has_template_row', 'has_scope_mapping',
   'has_historical_data', 'has_rate', 'has_r_value', 'has_material_type',
   'has_thickness', 'historical_project_count', 'readiness_score', 'notes',
+  'bluebeam_tool_name',
 ]
 
 // Map from BQ field names to our column names
@@ -210,8 +211,9 @@ async function main() {
     console.log(`   Library tab already exists (sheetId: ${existingTab.properties.sheetId})`)
     console.log('   Will clear and repopulate.')
     if (!DRY_RUN) {
-      // Clear existing content (A-AD data + AF-AQ filter formulas)
-      await sheetsApi(accessToken, 'POST', '/values/Library!A:AQ:clear', {})
+      // Clear data range only (A-AE), NOT the FILTER formulas in AF-AQ
+      // FILTER formulas are rewritten in step 5b — clearing them separately risks loss if interrupted
+      await sheetsApi(accessToken, 'POST', '/values/Library!A:AE:clear', {})
       console.log('   Cleared existing content')
     }
   } else {
@@ -255,7 +257,7 @@ async function main() {
   // 5. Write all data in one batch
   console.log('\n5. Writing data to Library tab...')
   await sheetsApi(accessToken, 'PUT',
-    `/values/Library!A1:AD${allRows.length}?valueInputOption=RAW`,
+    `/values/Library!A1:AE${allRows.length}?valueInputOption=RAW`,
     { values: allRows }
   )
   console.log(`   Wrote ${allRows.length} rows x ${COLUMNS.length} columns`)
