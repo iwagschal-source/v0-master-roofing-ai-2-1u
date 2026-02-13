@@ -544,35 +544,6 @@ page.jsx
 **UI Primitives (`components/ui/`):**
 Shadcn/ui-based Radix components: `button`, `card`, `input`, `textarea`, `dialog`, `select`, `dropdown-menu`, `tabs`, `toast`, `tooltip`, `accordion`, `checkbox`, `switch`, `slider`, `progress`, `scroll-area`, `popover`, `separator`, `avatar`, `badge`, `command` (cmdk), etc.
 
-### Version Management UI (Session 39)
-
-The Estimating Center (`estimating-center-screen.jsx`) includes a context-aware version management toolbar:
-
-```
-┌─────────────────────────────────────────────────────────────┐
-│  [Setup] | [2026-02-13 ★ Draft] [2026-02-14] | [+ New]     │  ← Tab selector
-├─────────────────────────────────────────────────────────────┤
-│  Setup context:  [Create Takeoff] [Download BTX]            │  ← Context buttons
-│  Version context: [Import CSV] [Proposal] [BTX]             │
-└─────────────────────────────────────────────────────────────┘
-```
-
-**State tracked:**
-- `versions[]` — loaded from GET `/api/ko/takeoff/[projectId]/versions`
-- `selectedTab` — `"setup"` or a version sheetName (e.g. `"2026-02-13"`)
-- `currentSheetName` — passed to all API calls (BTX, Import, Proposal)
-
-**Context-aware actions:**
-| Context | Buttons | API calls |
-|---------|---------|-----------|
-| Setup tab | Create Takeoff, Download BTX | POST `/create-version`, GET `/sheet-config` → POST `/btx` |
-| Version tab | Import CSV, Proposal, BTX | POST `/bluebeam`, GET `/preview` → POST `/generate`, POST `/btx` |
-
-**Version operations (via dropdown menu per tab):**
-- Set as Active (PUT `/versions` with `setActive: true`)
-- Copy Version (POST `/versions` with `sourceSheetName`)
-- Delete (DELETE `/versions?sheet=name&force=bool`)
-
 ### Custom Hooks (12)
 
 | Hook | Purpose |
@@ -1028,18 +999,10 @@ git push origin feature/[name]    # Push branch
    - Skips Library tab, header/total/bundle rows
 5. 1D: Project creation now renames "DATE" tab → YYYY-MM-DD, writes project name to both Setup and version tab
 
-**Session 38 (feature/version-mgmt):**
-6. 2A+2B: Version management backend — `lib/version-management.js` (~620 lines, 15 functions), `create-version/route.js`, `versions/route.js` (GET/PUT/POST/DELETE)
-
-**Session 39 (feature/version-mgmt-frontend):**
-7. 2C: Version management frontend — context-aware UI in `estimating-center-screen.jsx`
-   - Version selector tab bar (Setup + date-named versions with active star)
-   - Context-aware action buttons (Setup: Create Takeoff + BTX, Version: Import + Proposal + BTX)
-   - Version dropdown menus: Set Active, Copy, Delete
-   - All actions pass `currentSheetName` to API calls
-
 ### Remaining Work
 
+- Phase 2: Setup ↔ Takeoff tab sync (show/hide rows/columns based on toggles)
+- Phase 2: New version tab creation
 - Phase 3: BTX generation reads Setup tab toggle state
 - Library tab refresh mechanism
 - Migration path for existing single-tab projects
