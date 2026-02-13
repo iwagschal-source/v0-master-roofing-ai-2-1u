@@ -668,6 +668,12 @@ Each BTX file contains XML tool definitions. Tool subjects follow the pattern: `
 
 **Key change (Session 40):** BTX reads Setup tab toggles (columns G-M) to determine which items and locations to include, instead of reading all items from the takeoff tab via sheet-config. Only items with at least one active toggle are included. The summary dialog shows item/location counts and warns about items missing Bluebeam tools.
 
+**Per-item filtering:** Each BTX file only contains items toggled for that specific location. `items_with_locations` sent to Python backend enables per-floor filtering.
+
+**Multi-section support:** Location names are section-specific (column G = "1st Floor" for ROOFING, "Front / Elevation" for EXTERIOR). The `setup-config` endpoint builds locations as a union of all per-item location names across all 4 sections (ROOFING, WATERPROOFING, BALCONIES, EXTERIOR).
+
+**Project creation:** `createProjectTakeoffSheet()` deletes the DATE tab after template copy. New projects start with Setup + Library only. First takeoff version tab is created via `POST /create-version` after estimator configures Setup.
+
 ### CSV Import Flow
 
 ```

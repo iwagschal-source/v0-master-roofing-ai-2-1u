@@ -77,12 +77,15 @@ Isaac (CEO) relays between you and the lead architect (Claude AI Desktop). You e
 
 ### BUGS FOUND IN TESTING:
 1. **BTX generates all items on all floors** — FIXED (commits `189e6de` + `fa50852`). BTX route now sends `items_with_locations` with per-item location lists. Python backend filters items per floor. Verified: each BTX file only contains items toggled for that floor.
-2. **Project creation makes takeoff tab too early** — NOT YET FIXED. Template copy creates Setup+DATE+Library immediately. Takeoff tab should NOT exist until user clicks "Create Takeoff" after configuring Setup. Fix: project creation should only create Setup + Library.
+2. **Project creation makes takeoff tab too early** — FIXED (`49840e6`). `createProjectTakeoffSheet()` now deletes DATE tab after template copy. Project starts with Setup + Library only. First version tab created via create-version.
+3. **BTX missing EXTERIOR/BALCONIES/WATERPROOFING sections** — FIXED (`bb78962`). `setup-config` was building global locations from first section only (ROOFING). Now builds union of all per-item location names across sections. Tested: FRIDAYNOW gets "Rear / Elevation.btx", EFIS gets "Right / Elevation.btx".
 
 ### What's done since handoff:
 - Task 3.6: DONE — WATERPROOFING location codes added to Python backend, server restarted
 - Branch merged to main, pushed to origin
 - Bug #1 FIXED — per-item BTX filtering working (tested end-to-end)
+- Bug #2 FIXED — project creation only creates Setup + Library tabs
+- Bug #3 FIXED — BTX generates tools for all 4 sections (ROOFING, EXTERIOR, BALCONIES, WATERPROOFING)
 
 ### MANDATORY CHECKLIST:
 1. Update BigQuery tracker: `UPDATE master-roofing-intelligence.mr_main.implementation_tracker SET status='DONE', session_completed='40', branch='feature/btx-v2', verified=true, verified_by='Session 40', verified_at=CURRENT_TIMESTAMP() WHERE phase='3' AND task_id IN ('3.1','3.2','3.3','3.4','3.5','3.7')`
