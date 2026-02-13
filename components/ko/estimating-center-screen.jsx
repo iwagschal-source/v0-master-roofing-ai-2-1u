@@ -35,11 +35,13 @@ import {
   User,
   MapPin,
   ArrowRight,
-  Eye
+  Eye,
+  BookPlus
 } from "lucide-react"
 import { TakeoffSpreadsheet } from "./takeoff-spreadsheet"
 import { TakeoffSetupScreen } from "./takeoff-setup-screen"
 import { TakeoffProposalPreview } from "./takeoff-proposal-preview"
+import { AddItemModal } from "./add-item-modal"
 import { cn } from "@/lib/utils"
 
 const STATUS_CONFIG = {
@@ -61,6 +63,7 @@ export function EstimatingCenterScreen({ onSelectProject, onBack }) {
 
   // Modal states
   const [showNewProjectModal, setShowNewProjectModal] = useState(false)
+  const [showAddItemModal, setShowAddItemModal] = useState(false)
   const [showTakeoffSheet, setShowTakeoffSheet] = useState(false)
   const [showUploadModal, setShowUploadModal] = useState(false)
   const [showTakeoffSetup, setShowTakeoffSetup] = useState(false)
@@ -506,6 +509,13 @@ export function EstimatingCenterScreen({ onSelectProject, onBack }) {
                 title="Refresh"
               >
                 <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+              </button>
+              <button
+                onClick={() => setShowAddItemModal(true)}
+                className="p-2 hover:bg-muted rounded-lg transition-colors"
+                title="Add Item to Library"
+              >
+                <BookPlus className="w-4 h-4" />
               </button>
               <button
                 onClick={() => setShowNewProjectModal(true)}
@@ -1163,6 +1173,13 @@ export function EstimatingCenterScreen({ onSelectProject, onBack }) {
           }}
         />
       )}
+
+      {/* Add Item Modal */}
+      <AddItemModal
+        isOpen={showAddItemModal}
+        onClose={() => setShowAddItemModal(false)}
+        onSuccess={(data) => { console.log('Item added:', data) }}
+      />
 
       {/* New Project Modal */}
       {showNewProjectModal && (

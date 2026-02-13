@@ -490,6 +490,7 @@ project_folders (existing, column added Session 31)
 | Route | Method | Purpose |
 |-------|--------|---------|
 | `/admin/system-config` | POST | System configuration |
+| `/admin/add-item` | GET/POST | Add item to library (Session 43) |
 | `/admin/agent-code/[agentId]` | GET | Agent code inspection |
 | `/arena/models` | POST | Model arena testing |
 | `/network/agents` | GET | Agent network topology |
@@ -529,7 +530,7 @@ page.jsx
 |----------|-----------|
 | **Core Layout** | `navigation-rail`, `top-header`, `ko-stage`, `mobile-menu-toggle` |
 | **Dashboard** | `home-screen`, `sales-dashboard`, `phase-tracker` |
-| **Estimating** | `estimating-center-screen`, `takeoff-setup-screen`, `takeoff-spreadsheet`, `embedded-sheet`, `variant-selector`, `line-item-selector` |
+| **Estimating** | `estimating-center-screen`, `takeoff-setup-screen`, `takeoff-spreadsheet`, `embedded-sheet`, `variant-selector`, `line-item-selector`, `add-item-modal` |
 | **Proposals** | `proposal-preview-screen`, `proposal-document`, `proposal-template`, `proposal-template-v2`, `proposal-pdf-download`, `takeoff-proposal-preview` |
 | **Projects** | `project-folders-screen`, `project-folder`, `project-folder-detail`, `project-folder-light`, `project-card`, `project-detail-screen`, `create-project-modal` |
 | **AI Agents** | `agent-dashboard-screen`, `agent-detail-screen`, `agent-card`, `agent-grid`, `agent-network-map-screen`, `add-agent-screen`, `clone-agent-modal`, `agent-model-icon`, `model-arena-dashboard` |
