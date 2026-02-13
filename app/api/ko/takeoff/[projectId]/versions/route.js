@@ -8,6 +8,7 @@ import {
   copyExistingVersion,
   versionHasData,
   deleteVersion,
+  addVersionTrackerEntry,
 } from '@/lib/version-management'
 
 /**
@@ -15,14 +16,14 @@ import {
  */
 async function getSpreadsheetId(projectId) {
   const rows = await runQuery(`
-    SELECT spreadsheet_id
+    SELECT takeoff_spreadsheet_id
     FROM \`master-roofing-intelligence.mr_main.project_folders\`
     WHERE id = @projectId
     LIMIT 1
   `, { projectId })
 
   if (!rows || rows.length === 0) return null
-  return rows[0].spreadsheet_id
+  return rows[0].takeoff_spreadsheet_id
 }
 
 /**
@@ -39,11 +40,22 @@ export async function GET(request, { params }) {
       return NextResponse.json({ error: 'Project not found or has no spreadsheet' }, { status: 404 })
     }
 
-    // Read tracker entries from Setup tab
-    const trackerEntries = await readVersionTracker(spreadsheetId)
-
     // Get actual tabs to cross-reference
     const actualTabs = await getSpreadsheetTabs(spreadsheetId)
+
+    // Check if Setup tab exists (old projects may not have one)
+    const hasSetup = actualTabs.some(t => t.title === 'Setup')
+    if (!hasSetup) {
+      return NextResponse.json({
+        success: true,
+        versions: [],
+        totalTabs: actualTabs.length,
+        noSetupTab: true,
+      })
+    }
+
+    // Read tracker entries from Setup tab
+    const trackerEntries = await readVersionTracker(spreadsheetId)
     const actualTabNames = new Set(actualTabs.map(t => t.title))
 
     // Enrich tracker entries with existence check
@@ -155,6 +167,9 @@ export async function POST(request, { params }) {
     }
 
     const result = await copyExistingVersion(spreadsheetId, sourceSheetName)
+
+    // Add to Setup tab version tracker
+    await addVersionTrackerEntry(spreadsheetId, result.newSheetName, 0, 0)
 
     // Log to BigQuery (non-fatal)
     try {

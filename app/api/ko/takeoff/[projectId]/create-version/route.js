@@ -29,7 +29,7 @@ export async function POST(request, { params }) {
 
     // 1. Get spreadsheetId + projectName from BigQuery
     const rows = await runQuery(`
-      SELECT spreadsheet_id, project_name
+      SELECT takeoff_spreadsheet_id, project_name
       FROM \`master-roofing-intelligence.mr_main.project_folders\`
       WHERE id = @projectId
       LIMIT 1
@@ -39,7 +39,7 @@ export async function POST(request, { params }) {
       return NextResponse.json({ error: 'Project not found' }, { status: 404 })
     }
 
-    const { spreadsheet_id: spreadsheetId, project_name: projectName } = rows[0]
+    const { takeoff_spreadsheet_id: spreadsheetId, project_name: projectName } = rows[0]
 
     if (!spreadsheetId) {
       return NextResponse.json({ error: 'Project has no spreadsheet' }, { status: 400 })
