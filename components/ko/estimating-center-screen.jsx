@@ -197,6 +197,22 @@ export function EstimatingCenterScreen({ onSelectProject, onBack }) {
       setCurrentSheetName(null) // Setup is not a version
     } else {
       setCurrentSheetName(tabName)
+      // Optimistic update: move green dot locally
+      setVersions(prev => prev.map(v => ({
+        ...v,
+        active: v.sheetName === tabName,
+      })))
+      // Persist active version to Setup tab (async, non-blocking)
+      if (selectedProject) {
+        fetch(`/api/ko/takeoff/${selectedProject.project_id}/versions`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ sheetName: tabName, setActive: true }),
+        }).catch(err => {
+          console.warn('Failed to persist active version:', err)
+          loadVersions(selectedProject.project_id) // Rollback on error
+        })
+      }
     }
     // Update embedded sheet URL to show the selected tab
     if (embeddedSheetId && tabSheetId != null) {
@@ -1244,6 +1260,10 @@ export function EstimatingCenterScreen({ onSelectProject, onBack }) {
               setEmbeddedSheetId(config.spreadsheetId)
               setEmbeddedSheetUrl(config.embedUrl || `https://docs.google.com/spreadsheets/d/${config.spreadsheetId}/edit?embedded=true&rm=minimal`)
               setShowEmbeddedSheet(true)
+              // Load versions so version bar appears immediately
+              if (selectedProject) {
+                loadVersions(selectedProject.project_id)
+              }
             } else {
               // Fallback to old takeoff sheet
               setShowTakeoffSheet(true)
@@ -1258,7 +1278,12 @@ export function EstimatingCenterScreen({ onSelectProject, onBack }) {
           <div className="flex items-center justify-between px-4 py-3 border-b border-border bg-card">
             <h2 className="font-semibold">{selectedProject.project_name} - Takeoff</h2>
             <button
-              onClick={() => setShowTakeoffSheet(false)}
+              onClick={() => {
+                setShowTakeoffSheet(false)
+                if (selectedProject) {
+                  checkExistingTakeoffSheet(selectedProject.project_id)
+                }
+              }}
               className="p-2 hover:bg-muted rounded-lg"
             >
               <X className="w-5 h-5" />
@@ -1268,7 +1293,12 @@ export function EstimatingCenterScreen({ onSelectProject, onBack }) {
             <TakeoffSpreadsheet
               projectId={selectedProject.project_id}
               projectName={selectedProject.project_name}
-              onClose={() => setShowTakeoffSheet(false)}
+              onClose={() => {
+                setShowTakeoffSheet(false)
+                if (selectedProject) {
+                  checkExistingTakeoffSheet(selectedProject.project_id)
+                }
+              }}
               onSave={(data) => console.log('Takeoff saved:', data)}
             />
           </div>
