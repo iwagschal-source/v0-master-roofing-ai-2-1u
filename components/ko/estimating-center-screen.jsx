@@ -36,7 +36,8 @@ import {
   MapPin,
   ArrowRight,
   Eye,
-  BookPlus
+  BookPlus,
+  Trash2
 } from "lucide-react"
 import { TakeoffSpreadsheet } from "./takeoff-spreadsheet"
 import { TakeoffSetupScreen } from "./takeoff-setup-screen"
@@ -179,12 +180,14 @@ export function EstimatingCenterScreen({ onSelectProject, onBack }) {
       const res = await fetch(`/api/ko/takeoff/${projectId}/versions`)
       if (res.ok) {
         const data = await res.json()
-        setVersions(data.versions || [])
+        // Filter out ghost entries with empty/blank sheetName (Bug fix: deleted versions leave empty tracker rows)
+        const validVersions = (data.versions || []).filter(v => v.sheetName && v.sheetName.trim() !== '')
+        setVersions(validVersions)
         if (data.setupTabSheetId != null) {
           setSetupTabSheetId(data.setupTabSheetId)
         }
         // Default to active version tab (2C.2)
-        const activeVersion = (data.versions || []).find(v => v.active)
+        const activeVersion = validVersions.find(v => v.active)
         if (activeVersion) {
           setSelectedVersionTab(activeVersion.sheetName)
           setCurrentSheetName(activeVersion.sheetName)
@@ -300,6 +303,61 @@ export function EstimatingCenterScreen({ onSelectProject, onBack }) {
       alert('Failed to create version: ' + err.message)
     } finally {
       setCreatingVersion(false)
+    }
+  }
+
+  // Delete a version tab (Bug fix: auto-select another version after deletion)
+  const handleDeleteVersion = async (sheetName) => {
+    if (!selectedProject || !sheetName) return
+    if (!confirm(`Delete version "${sheetName}"? This cannot be undone.`)) return
+
+    try {
+      const res = await fetch(
+        `/api/ko/takeoff/${selectedProject.project_id}/versions?sheet=${encodeURIComponent(sheetName)}&force=true`,
+        { method: 'DELETE' }
+      )
+      if (!res.ok) {
+        const err = await res.json()
+        throw new Error(err.error || 'Failed to delete version')
+      }
+
+      // Reload versions after deletion
+      await loadVersions(selectedProject.project_id)
+
+      // Auto-select another version if the deleted one was active/selected
+      if (selectedVersionTab === sheetName) {
+        // Use the freshly loaded versions (from state after loadVersions completes)
+        setVersions(prev => {
+          const remaining = prev.filter(v => v.sheetName !== sheetName && v.sheetName && v.sheetName.trim() !== '')
+          if (remaining.length > 0) {
+            // Pick the most recent remaining version (last in the list)
+            const mostRecent = remaining[remaining.length - 1]
+            setSelectedVersionTab(mostRecent.sheetName)
+            setCurrentSheetName(mostRecent.sheetName)
+            // Update embedded sheet URL
+            if (embeddedSheetId && mostRecent.tabSheetId != null) {
+              setEmbeddedSheetUrl(
+                `https://docs.google.com/spreadsheets/d/${embeddedSheetId}/edit?embedded=true&rm=minimal&gid=${mostRecent.tabSheetId}`
+              )
+              setShowEmbeddedSheet(true)
+            }
+          } else {
+            // No versions remain — switch to Setup tab
+            setSelectedVersionTab('Setup')
+            setCurrentSheetName(null)
+            if (embeddedSheetId && setupTabSheetId != null) {
+              setEmbeddedSheetUrl(
+                `https://docs.google.com/spreadsheets/d/${embeddedSheetId}/edit?embedded=true&rm=minimal&gid=${setupTabSheetId}`
+              )
+              setShowEmbeddedSheet(true)
+            }
+          }
+          return remaining
+        })
+      }
+    } catch (err) {
+      console.error('Delete version error:', err)
+      alert('Failed to delete version: ' + err.message)
     }
   }
 
@@ -918,24 +976,37 @@ export function EstimatingCenterScreen({ onSelectProject, onBack }) {
                     <Loader2 className="w-4 h-4 animate-spin text-muted-foreground mx-2" />
                   ) : versions.length > 0 ? (
                     versions.map(v => (
-                      <button
-                        key={v.sheetName}
-                        onClick={() => handleVersionTabClick(v.sheetName, v.tabSheetId)}
-                        disabled={!v.existsAsTab}
-                        className={cn(
-                          "flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium whitespace-nowrap transition-colors",
-                          selectedVersionTab === v.sheetName
-                            ? "bg-primary text-primary-foreground"
-                            : "bg-background hover:bg-muted text-muted-foreground",
-                          !v.existsAsTab && "opacity-40 cursor-not-allowed line-through"
-                        )}
-                      >
-                        {v.active && <span className="w-1.5 h-1.5 rounded-full bg-green-400 flex-shrink-0" />}
-                        {v.sheetName}
-                        {v.status && v.status !== 'In Progress' && (
-                          <span className="text-[10px] opacity-60">({v.status})</span>
-                        )}
-                      </button>
+                      <div key={v.sheetName} className="flex items-center gap-0 group/vtab">
+                        <button
+                          onClick={() => handleVersionTabClick(v.sheetName, v.tabSheetId)}
+                          disabled={!v.existsAsTab}
+                          className={cn(
+                            "flex items-center gap-1.5 px-3 py-1.5 rounded-l-md text-xs font-medium whitespace-nowrap transition-colors",
+                            selectedVersionTab === v.sheetName
+                              ? "bg-primary text-primary-foreground"
+                              : "bg-background hover:bg-muted text-muted-foreground",
+                            !v.existsAsTab && "opacity-40 cursor-not-allowed line-through"
+                          )}
+                        >
+                          {v.active && <span className="w-1.5 h-1.5 rounded-full bg-green-400 flex-shrink-0" />}
+                          {v.sheetName}
+                          {v.status && v.status !== 'In Progress' && (
+                            <span className="text-[10px] opacity-60">({v.status})</span>
+                          )}
+                        </button>
+                        <button
+                          onClick={(e) => { e.stopPropagation(); handleDeleteVersion(v.sheetName) }}
+                          className={cn(
+                            "px-1 py-1.5 rounded-r-md text-xs transition-colors opacity-0 group-hover/vtab:opacity-100",
+                            selectedVersionTab === v.sheetName
+                              ? "bg-primary text-primary-foreground hover:bg-red-600"
+                              : "bg-background hover:bg-red-600 hover:text-white text-muted-foreground"
+                          )}
+                          title={`Delete ${v.sheetName}`}
+                        >
+                          <Trash2 className="w-3 h-3" />
+                        </button>
+                      </div>
                     ))
                   ) : (
                     <span className="text-xs text-muted-foreground px-2">No versions yet</span>
