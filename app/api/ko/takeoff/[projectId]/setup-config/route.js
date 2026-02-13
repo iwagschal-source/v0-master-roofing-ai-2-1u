@@ -53,29 +53,8 @@ export async function GET(request, { params }) {
     // 3. Filter to only items with at least one toggle active
     const activeItems = rows.filter(r => r.hasAnyToggle)
 
-    // 4. Build active location list from section headers
-    // Only include location columns that have at least one toggle across all items
-    const activeLocations = []
-    for (let i = 0; i < locationToggles.length; i++) {
-      if (!locationToggles[i]) continue
-      // Get location name from the first section that has a name for this column
-      // (all sections share the same column indices G-M)
-      let locName = ''
-      for (const sectionName of Object.keys(sectionLocationNames)) {
-        const name = sectionLocationNames[sectionName][i]
-        if (name) {
-          locName = name
-          break
-        }
-      }
-      activeLocations.push({
-        colIndex: i, // 0-based index within G-M range
-        name: locName || `Location ${i + 1}`,
-      })
-    }
-
-    // 5. Build per-item location details for BTX
-    // Each item includes only its toggled locations with proper names from its section
+    // 4. Build per-item location details for BTX
+    // Each item includes only its toggled locations with proper names from its OWN section
     const selectedItems = activeItems.map(item => {
       const itemLocations = []
       for (let i = 0; i < item.toggles.length; i++) {
@@ -96,6 +75,20 @@ export async function GET(request, { params }) {
       }
     })
 
+    // 5. Build global locations as the UNION of all per-item location names
+    // Different sections use different names for the same column (e.g., col 1 = "2nd Floor" for ROOFING, "Rear / Elevation" for EXTERIOR)
+    // We need ALL unique location names so the BTX route generates a file for each
+    const locationMap = new Map() // key = "colIndex:name" to deduplicate
+    for (const item of selectedItems) {
+      for (const loc of item.locations) {
+        const key = `${loc.colIndex}:${loc.name}`
+        if (!locationMap.has(key)) {
+          locationMap.set(key, { colIndex: loc.colIndex, name: loc.name })
+        }
+      }
+    }
+    const activeLocations = Array.from(locationMap.values())
+
     // 6. Count total tools (sum of locations per item)
     const toolCount = selectedItems.reduce((sum, item) => sum + item.locations.length, 0)
 
@@ -108,7 +101,7 @@ export async function GET(request, { params }) {
       locations: activeLocations,
       section_locations: sectionLocationNames,
       items_count: itemsCount,
-      locations_count: locationsCount,
+      locations_count: activeLocations.length,
       tool_count: toolCount,
     })
   } catch (err) {
