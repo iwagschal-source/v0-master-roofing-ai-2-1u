@@ -167,4 +167,25 @@ If compaction hits mid-session, commit what you have. VF-2.1+2.2 can ship indepe
 ---
 
 ### HANDOFF (written by Session VF-2):
-[To be filled at session end]
+**Status:** COMPLETE — All 4 tasks DONE, build passes, tracker synced.
+
+**What was done (1 file, 1 commit: `19bede2`):**
+- VF-2.1: Added `checkExistingTakeoffSheet(selectedProject.project_id)` to TakeoffSpreadsheet modal close button (line ~1281)
+- VF-2.2: Added `checkExistingTakeoffSheet(selectedProject.project_id)` to TakeoffSpreadsheet inner `onClose` prop (line ~1296)
+- VF-2.3: Added `loadVersions(selectedProject.project_id)` to TakeoffSetupScreen `onComplete` after setting sheet state (line ~1263)
+- VF-2.4: Added optimistic `setVersions()` update + async PUT `/versions` + `.catch()` rollback to `handleVersionTabClick` (lines ~200-215)
+
+**What to verify in VF-3:**
+- Close embedded sheet → version bar + BTX button should appear without page refresh (Bugs 1, 3)
+- Click version tabs → green dot moves live, no refresh needed (Bug 7)
+- Page refresh → checkmark in Setup tracker matches green dot in version bar
+
+**No regressions:** `npm run build` passes clean. No existing imports/buttons/state/modals removed. Only additive changes.
+
+**Next:** Session VF-3 — New Version Dialog (Bug 4) in estimating-center-screen.jsx
+
+**MANDATORY END-OF-SESSION CHECKLIST (pass forward):**
+1. Update BigQuery tracker: `UPDATE ... SET status='DONE', session_completed='VF-3' ... WHERE task_id IN ('VF-3.1','VF-3.2','VF-3.3','VF-3.4')`
+2. Sync to Google Sheet: `cd ~/v0-master-roofing-ai-2-1u && node scripts/sync-tracker-to-sheet.mjs`
+3. Write HANDOFF in session opener doc
+4. Pass this checklist forward
