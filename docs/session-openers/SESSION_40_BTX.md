@@ -75,9 +75,13 @@ Isaac (CEO) relays between you and the lead architect (Claude AI Desktop). You e
 - `readSetupConfig()` returns new fields without breaking existing callers (create-version destructures only what it needs)
 - GET /btx tries setup-config first, falls back to legacy /config
 
-### What's NOT done:
-- Task 3.6: Python backend needs WATERPROOFING location codes added. Isaac needs to SSH into 136.111.252.120 and update the FastAPI backend
-- Branch not merged to main yet — needs Isaac's review
+### BUGS FOUND IN TESTING (must fix next session):
+1. **BTX generates all items on all floors** — Python backend gets flat lists, makes every combination. Setup tab has per-item toggles (Drains only on 1st Floor) but BTX route flattens them. Fix: send per-item locations to Python, filter per floor.
+2. **Project creation makes takeoff tab too early** — Template copy creates Setup+DATE+Library immediately. Takeoff tab should NOT exist until user clicks "Create Takeoff" after configuring Setup. Fix: project creation should only create Setup + Library.
+
+### What's done since handoff:
+- Task 3.6: DONE — WATERPROOFING location codes added to Python backend, server restarted
+- Branch merged to main, pushed to origin
 
 ### MANDATORY CHECKLIST:
 1. Update BigQuery tracker: `UPDATE master-roofing-intelligence.mr_main.implementation_tracker SET status='DONE', session_completed='40', branch='feature/btx-v2', verified=true, verified_by='Session 40', verified_at=CURRENT_TIMESTAMP() WHERE phase='3' AND task_id IN ('3.1','3.2','3.3','3.4','3.5','3.7')`
