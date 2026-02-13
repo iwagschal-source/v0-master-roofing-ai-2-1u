@@ -42,7 +42,6 @@ import {
   Settings,
   ChevronDown,
 } from "lucide-react"
-import { TakeoffSpreadsheet } from "./takeoff-spreadsheet"
 import { TakeoffSetupScreen } from "./takeoff-setup-screen"
 import { TakeoffProposalPreview } from "./takeoff-proposal-preview"
 import { cn } from "@/lib/utils"
@@ -66,7 +65,6 @@ export function EstimatingCenterScreen({ onSelectProject, onBack }) {
 
   // Modal states
   const [showNewProjectModal, setShowNewProjectModal] = useState(false)
-  const [showTakeoffSheet, setShowTakeoffSheet] = useState(false)
   const [showUploadModal, setShowUploadModal] = useState(false)
   const [showTakeoffSetup, setShowTakeoffSetup] = useState(false)
   const [showProposalPreview, setShowProposalPreview] = useState(false)
@@ -152,7 +150,7 @@ export function EstimatingCenterScreen({ onSelectProject, onBack }) {
     }
   }, [selectedProject?.project_id])
 
-  // Check for existing takeoff spreadsheet
+  // Check for existing takeoff spreadsheet AND load versions in one flow
   const checkExistingTakeoffSheet = async (projectId) => {
     try {
       const res = await fetch(`/api/ko/takeoff/create?project_id=${projectId}`)
@@ -161,19 +159,14 @@ export function EstimatingCenterScreen({ onSelectProject, onBack }) {
         if (data.exists && data.spreadsheetId) {
           setEmbeddedSheetId(data.spreadsheetId)
           setEmbeddedSheetUrl(data.embedUrl)
+          // Load versions immediately — don't chain through useEffect
+          await loadVersions(projectId)
         }
       }
     } catch (err) {
       console.warn('Failed to check takeoff sheet:', err)
     }
   }
-
-  // Load versions when project has a spreadsheet
-  useEffect(() => {
-    if (selectedProject && embeddedSheetId) {
-      loadVersions(selectedProject.project_id)
-    }
-  }, [selectedProject?.project_id, embeddedSheetId])
 
   // Load version list from API
   const loadVersions = async (projectId) => {
@@ -844,23 +837,14 @@ export function EstimatingCenterScreen({ onSelectProject, onBack }) {
                 </div>
                 <div className="flex items-center gap-2">
                   {!embeddedSheetId ? (
-                    <>
-                      <button
-                        onClick={() => setShowTakeoffSetup(true)}
-                        className="flex items-center gap-1.5 px-3 py-1.5 bg-orange-600 text-white hover:bg-orange-700 rounded-lg text-sm"
-                        title="Configure takeoff structure and generate BTX for Bluebeam"
-                      >
-                        <Calculator className="w-4 h-4" />
-                        Setup
-                      </button>
-                      <button
-                        onClick={() => setShowTakeoffSheet(true)}
-                        className="flex items-center gap-1.5 px-3 py-1.5 bg-secondary hover:bg-secondary/80 rounded-lg text-sm"
-                      >
-                        <FileSpreadsheet className="w-4 h-4" />
-                        Takeoff
-                      </button>
-                    </>
+                    <button
+                      onClick={() => setShowTakeoffSetup(true)}
+                      className="flex items-center gap-1.5 px-3 py-1.5 bg-primary text-primary-foreground hover:bg-primary/90 rounded-lg text-sm"
+                      title="Create takeoff spreadsheet for this project"
+                    >
+                      <Plus className="w-4 h-4" />
+                      Create Sheet
+                    </button>
                   ) : (
                     <button
                       onClick={() => {
@@ -878,7 +862,7 @@ export function EstimatingCenterScreen({ onSelectProject, onBack }) {
                 </div>
               </div>
 
-              {/* Version Selector Bar */}
+              {/* Version Selector Bar — visible whenever project has a spreadsheet */}
               {embeddedSheetId && (
                 <div className="mb-4 bg-muted/30 rounded-lg border border-border p-3">
                   {/* Tab bar: Setup + version tabs */}
@@ -1400,45 +1384,20 @@ export function EstimatingCenterScreen({ onSelectProject, onBack }) {
           projectName={selectedProject.project_name}
           gcName={selectedProject.gc_name}
           onClose={() => setShowTakeoffSetup(false)}
-          onComplete={(config) => {
+          onComplete={async (config) => {
             setShowTakeoffSetup(false)
-            // If a spreadsheet was created, show it embedded
             if (config.spreadsheetId) {
               setEmbeddedSheetId(config.spreadsheetId)
               setEmbeddedSheetUrl(config.embedUrl || `https://docs.google.com/spreadsheets/d/${config.spreadsheetId}/edit?embedded=true&rm=minimal`)
               setShowEmbeddedSheet(true)
-            } else {
-              // Fallback to old takeoff sheet
-              setShowTakeoffSheet(true)
+              // Load versions for the new spreadsheet
+              await loadVersions(selectedProject.project_id)
             }
           }}
         />
       )}
 
-      {/* Takeoff Sheet Modal (Legacy) */}
-      {showTakeoffSheet && selectedProject && (
-        <div className="fixed inset-0 z-50 bg-background/95 flex flex-col">
-          <div className="flex items-center justify-between px-4 py-3 border-b border-border bg-card">
-            <h2 className="font-semibold">{selectedProject.project_name} - Takeoff</h2>
-            <button
-              onClick={() => setShowTakeoffSheet(false)}
-              className="p-2 hover:bg-muted rounded-lg"
-            >
-              <X className="w-5 h-5" />
-            </button>
-          </div>
-          <div className="flex-1 overflow-auto">
-            <TakeoffSpreadsheet
-              projectId={selectedProject.project_id}
-              projectName={selectedProject.project_name}
-              onClose={() => setShowTakeoffSheet(false)}
-              onSave={(data) => console.log('Takeoff saved:', data)}
-            />
-          </div>
-        </div>
-      )}
-
-      {/* Embedded Google Sheet Modal (Step 8.B.6) */}
+      {/* Embedded Google Sheet Modal */}
       {showEmbeddedSheet && embeddedSheetId && (
         <div className="fixed inset-0 z-50 bg-background/95 flex flex-col">
           <div className="flex items-center justify-between px-4 py-3 border-b border-border bg-card">
@@ -1497,8 +1456,6 @@ export function EstimatingCenterScreen({ onSelectProject, onBack }) {
                 setEmbeddedSheetUrl(`https://docs.google.com/spreadsheets/d/${embeddedSheetId}/edit?embedded=true&rm=minimal`)
               }
               setShowEmbeddedSheet(true)
-            } else {
-              setShowTakeoffSheet(true)
             }
           }}
         />
