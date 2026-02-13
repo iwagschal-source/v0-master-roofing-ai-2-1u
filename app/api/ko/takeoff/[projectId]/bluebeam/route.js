@@ -440,11 +440,15 @@ export async function POST(request, { params }) {
       })),
       unmatchedItems: unmatchedItems.map(d => ({
         raw_name: d.code,
+        unmatchType: d.status,
         reason: d.status === 'NO_ROW_MAPPING' ? 'Item not found in sheet'
-          : d.status === 'NO_COLUMN_MAPPING' ? `Location "${d.floor}" not found (available: ${(d.availableLocations || []).join(', ')})`
+          : d.status === 'NO_COLUMN_MAPPING' ? `Location "${d.floor}" not found`
           : 'Row not in any section',
         quantity: d.quantity,
-        location: d.floor
+        location: d.floor,
+        row: d.row || null,
+        section: d.section || null,
+        availableLocations: d.availableLocations || []
       })),
       errors,
       cellsPopulated: result.updated,

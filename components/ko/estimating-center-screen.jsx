@@ -1692,6 +1692,8 @@ export function EstimatingCenterScreen({ onSelectProject, onBack }) {
 function UploadModal({ project, sheetName, onClose, onSuccess }) {
   const [uploading, setUploading] = useState(false)
   const [result, setResult] = useState(null)
+  const [unmatchedAssignments, setUnmatchedAssignments] = useState({})
+  const [reImporting, setReImporting] = useState(false)
   const fileInputRef = useRef(null)
 
   const handleFileUpload = async (event) => {
@@ -1699,6 +1701,7 @@ function UploadModal({ project, sheetName, onClose, onSuccess }) {
     if (!file) return
 
     setUploading(true)
+    setUnmatchedAssignments({})
     try {
       const content = await file.text()
 
@@ -1718,10 +1721,13 @@ function UploadModal({ project, sheetName, onClose, onSuccess }) {
         setResult({
           success: true,
           message: `Imported ${data.items_parsed} items, updated ${data.cells_updated} cells`,
+          accumulated: data.accumulated || false,
+          accumulatedCount: data.accumulatedCount || 0,
           matchedItems: data.matchedItems || [],
           unmatchedItems: data.unmatchedItems || [],
           errors: data.errors || [],
-          cellsPopulated: data.cellsPopulated || 0
+          cellsPopulated: data.cellsPopulated || 0,
+          csvFile: data.csvFile || null
         })
       } else {
         setResult({
@@ -1739,16 +1745,67 @@ function UploadModal({ project, sheetName, onClose, onSuccess }) {
     }
   }
 
+  // Re-import unmatched items with user-assigned locations
+  const handleAcceptSelected = async () => {
+    const assignable = (result?.unmatchedItems || []).filter(
+      (item, i) => item.unmatchType === 'NO_COLUMN_MAPPING' && unmatchedAssignments[i]
+    )
+    if (assignable.length === 0) return
+
+    setReImporting(true)
+    try {
+      // Build CSV content for the reassigned items (pipe-delimited format)
+      const csvLines = ['Subject,Measurement']
+      for (const item of assignable) {
+        const idx = result.unmatchedItems.indexOf(item)
+        const newLocation = unmatchedAssignments[idx]
+        csvLines.push(`"${item.raw_name} | ${newLocation}",${item.quantity}`)
+      }
+
+      const res = await fetch(`/api/ko/takeoff/${project.project_id}/bluebeam`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          csv_content: csvLines.join('\n'),
+          sheet_name: sheetName || undefined
+        })
+      })
+
+      const data = await res.json()
+      if (res.ok && data.success) {
+        // Merge re-import results
+        setResult(prev => ({
+          ...prev,
+          message: `${prev.message} + ${data.cells_updated} reassigned`,
+          matchedItems: [...(prev.matchedItems || []), ...(data.matchedItems || [])],
+          unmatchedItems: (prev.unmatchedItems || []).filter(
+            (_, i) => !unmatchedAssignments[i]
+          ),
+          cellsPopulated: (prev.cellsPopulated || 0) + (data.cellsPopulated || 0)
+        }))
+        setUnmatchedAssignments({})
+      }
+    } catch (err) {
+      console.error('Re-import failed:', err)
+    } finally {
+      setReImporting(false)
+    }
+  }
+
+  const reassignableCount = (result?.unmatchedItems || []).filter(
+    (item, i) => item.unmatchType === 'NO_COLUMN_MAPPING' && unmatchedAssignments[i]
+  ).length
+
   return (
     <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-center justify-center">
-      <div className="bg-card border border-border rounded-xl shadow-xl w-full max-w-md mx-4">
+      <div className="bg-card border border-border rounded-xl shadow-xl w-full max-w-lg mx-4 max-h-[85vh] flex flex-col">
         <div className="flex items-center justify-between p-4 border-b border-border">
           <h2 className="font-semibold">Upload Bluebeam CSV</h2>
           <button onClick={onClose} className="p-1 hover:bg-muted rounded-lg">
             <X className="w-5 h-5" />
           </button>
         </div>
-        <div className="p-6">
+        <div className="p-6 overflow-y-auto">
           {result ? (
             <div className={`p-4 rounded-lg ${result.success ? 'bg-green-500/10 border border-green-500/30' : 'bg-red-500/10 border border-red-500/30'}`}>
               <div className="flex items-center gap-2 mb-2">
@@ -1761,35 +1818,81 @@ function UploadModal({ project, sheetName, onClose, onSuccess }) {
                   {result.success ? 'Import Complete' : 'Error'}
                 </span>
               </div>
-              <p className="text-sm text-muted-foreground mb-3">{result.message}</p>
+              <p className="text-sm text-muted-foreground mb-1">{result.message}</p>
 
-              {/* Matched items */}
+              {/* Accumulation indicator */}
+              {result.accumulated && (
+                <p className="text-xs text-blue-400 mb-3">
+                  {result.accumulatedCount} cell(s) had existing values — quantities were added, not overwritten
+                </p>
+              )}
+
+              {/* Matched items with accumulation details */}
               {result.matchedItems?.length > 0 && (
                 <div className="mb-3">
                   <p className="text-xs font-medium text-green-500 mb-1">Matched ({result.matchedItems.length})</p>
-                  <div className="max-h-32 overflow-auto space-y-0.5">
+                  <div className="max-h-40 overflow-auto space-y-0.5">
                     {result.matchedItems.map((item, i) => (
-                      <div key={i} className="text-xs text-muted-foreground flex justify-between">
-                        <span>{item.item_id} @ {item.location}</span>
-                        <span>{item.quantity} → {item.cell}</span>
+                      <div key={i} className="text-xs text-muted-foreground flex justify-between gap-2">
+                        <span className="truncate">{item.item_id} @ {item.location}</span>
+                        <span className="whitespace-nowrap">
+                          {item.previousValue > 0
+                            ? `${item.previousValue} + ${item.quantity} = ${item.accumulatedTotal}`
+                            : `${item.quantity}`
+                          }
+                          {item.cell && <span className="text-muted-foreground/50 ml-1">[{item.cell}]</span>}
+                        </span>
                       </div>
                     ))}
                   </div>
                 </div>
               )}
 
-              {/* Unmatched items */}
+              {/* Unmatched items with location reassignment */}
               {result.unmatchedItems?.length > 0 && (
                 <div className="mb-3">
                   <p className="text-xs font-medium text-yellow-500 mb-1">Unmatched ({result.unmatchedItems.length})</p>
-                  <div className="max-h-32 overflow-auto space-y-0.5">
+                  <div className="max-h-48 overflow-auto space-y-1.5">
                     {result.unmatchedItems.map((item, i) => (
-                      <div key={i} className="text-xs text-muted-foreground">
-                        <span>{item.raw_name} (qty: {item.quantity})</span>
-                        <span className="block text-xs text-yellow-500/70">{item.reason}</span>
+                      <div key={i} className="text-xs p-2 rounded bg-yellow-500/5 border border-yellow-500/10">
+                        <div className="flex justify-between items-start">
+                          <span className="font-medium">{item.raw_name}</span>
+                          <span className="text-muted-foreground">qty: {item.quantity}</span>
+                        </div>
+                        <p className="text-yellow-500/70 mt-0.5">{item.reason}</p>
+                        {/* Location reassignment dropdown for NO_COLUMN_MAPPING */}
+                        {item.unmatchType === 'NO_COLUMN_MAPPING' && item.availableLocations?.length > 0 && (
+                          <div className="mt-1.5 flex items-center gap-2">
+                            <span className="text-muted-foreground">Assign to:</span>
+                            <select
+                              value={unmatchedAssignments[i] || ''}
+                              onChange={(e) => setUnmatchedAssignments(prev => ({ ...prev, [i]: e.target.value }))}
+                              className="flex-1 bg-background border border-border rounded px-2 py-1 text-xs"
+                            >
+                              <option value="">Skip</option>
+                              {item.availableLocations.map(loc => (
+                                <option key={loc} value={loc}>{loc}</option>
+                              ))}
+                            </select>
+                          </div>
+                        )}
                       </div>
                     ))}
                   </div>
+
+                  {/* Accept Selected button */}
+                  {reassignableCount > 0 && (
+                    <button
+                      onClick={handleAcceptSelected}
+                      disabled={reImporting}
+                      className="mt-2 w-full py-2 bg-yellow-500/20 hover:bg-yellow-500/30 border border-yellow-500/30 text-yellow-500 rounded-lg text-xs font-medium flex items-center justify-center gap-2"
+                    >
+                      {reImporting ? (
+                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      ) : null}
+                      Accept {reassignableCount} Reassigned Item{reassignableCount !== 1 ? 's' : ''}
+                    </button>
+                  )}
                 </div>
               )}
 
@@ -1807,6 +1910,9 @@ function UploadModal({ project, sheetName, onClose, onSuccess }) {
               {result.cellsPopulated > 0 && (
                 <p className="text-xs text-muted-foreground border-t border-border pt-2">
                   {result.cellsPopulated} cells populated in sheet
+                  {result.csvFile && (
+                    <span className="ml-2 text-blue-400">CSV saved to Drive</span>
+                  )}
                 </p>
               )}
 
@@ -1819,7 +1925,7 @@ function UploadModal({ project, sheetName, onClose, onSuccess }) {
                 </button>
               )}
               <button
-                onClick={() => setResult(null)}
+                onClick={() => { setResult(null); setUnmatchedAssignments({}) }}
                 className="mt-2 w-full py-2 bg-muted hover:bg-muted/80 rounded-lg text-sm"
               >
                 Upload Another
@@ -1838,6 +1944,9 @@ function UploadModal({ project, sheetName, onClose, onSuccess }) {
                 )}
                 <p className="text-sm font-medium">
                   {uploading ? 'Processing...' : 'Click to upload CSV'}
+                </p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Values will be added to existing quantities
                 </p>
               </div>
               <input
