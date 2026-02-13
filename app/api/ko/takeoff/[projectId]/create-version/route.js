@@ -52,7 +52,7 @@ export async function POST(request, { params }) {
 
     // 3. Read Setup tab configuration (toggles, config, bid types)
     const setupConfig = await readSetupConfig(spreadsheetId)
-    const { rows: setupRows, locationToggles, itemsCount, locationsCount } = setupConfig
+    const { rows: setupRows, locationToggles, itemsCount, locationsCount, sectionLocationNames } = setupConfig
 
     // 4. Copy DATE tab from template spreadsheet to this project
     const copiedTabId = await copyTemplateTabToProject(spreadsheetId)
@@ -61,7 +61,7 @@ export async function POST(request, { params }) {
     await renameTab(spreadsheetId, copiedTabId, versionName)
 
     // 6. Transfer Setup config to the new version tab
-    await transferSetupToVersion(spreadsheetId, versionName, setupRows, projectName)
+    await transferSetupToVersion(spreadsheetId, versionName, setupRows, projectName, sectionLocationNames)
 
     // 7. Verify Total Cost formulas copied correctly
     let formulaVerification = { checked: false }
