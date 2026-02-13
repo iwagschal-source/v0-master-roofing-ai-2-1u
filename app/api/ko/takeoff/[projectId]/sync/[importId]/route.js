@@ -1,69 +1,48 @@
 /**
  * Sync Import API
  *
- * Sync approved changes from an import to the master takeoff.
+ * Update import status. With accumulation mode, imports write directly to the sheet,
+ * so this route primarily handles status updates and notes.
  */
 
 import { NextResponse } from 'next/server'
-import https from 'https'
-
-const BACKEND_URL = process.env.PYTHON_BACKEND_URL || 'http://136.111.252.120:8000'
-
-const fetchWithSSL = async (url, options = {}) => {
-  const agent = new https.Agent({ rejectUnauthorized: false })
-  return fetch(url, { ...options, agent })
-}
+import { runQuery } from '@/lib/bigquery'
 
 /**
  * POST /api/ko/takeoff/[projectId]/sync/[importId]
- * Sync approved changes to master
+ * Update import status or add notes
  *
  * Body:
- * - approved_changes: Array of approved change keys (e.g., ["D5", "E10"])
+ * - status: New status (e.g., "approved", "rejected", "reverted")
+ * - notes: Optional notes about the sync decision
  */
 export async function POST(request, { params }) {
   try {
     const { projectId, importId } = await params
     const body = await request.json()
-    const { approved_changes } = body
+    const { status, notes } = body
 
-    if (!approved_changes || !Array.isArray(approved_changes)) {
+    if (!status) {
       return NextResponse.json(
-        { error: 'approved_changes array is required' },
+        { error: 'status is required' },
         { status: 400 }
       )
     }
 
-    const backendRes = await fetchWithSSL(
-      `${BACKEND_URL}/v1/takeoff/${projectId}/sync/${importId}`,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ approved_changes }),
-        signal: AbortSignal.timeout(30000)
-      }
+    await runQuery(
+      `UPDATE \`master-roofing-intelligence.mr_main.import_history\`
+       SET status = @status, notes = @notes
+       WHERE project_id = @projectId AND import_id = @importId`,
+      { projectId, importId, status, notes: notes || '' },
+      { location: 'US' }
     )
 
-    if (!backendRes.ok) {
-      const errText = await backendRes.text()
-      let errDetail = errText
-      try {
-        const errJson = JSON.parse(errText)
-        errDetail = errJson.detail || errText
-      } catch {}
-      return NextResponse.json(
-        { error: errDetail },
-        { status: backendRes.status }
-      )
-    }
-
-    const data = await backendRes.json()
-    return NextResponse.json(data)
+    return NextResponse.json({ success: true, import_id: importId, status })
 
   } catch (err) {
     console.error('Sync error:', err)
     return NextResponse.json(
-      { error: 'Failed to sync: ' + err.message },
+      { error: 'Failed to update import: ' + err.message },
       { status: 500 }
     )
   }

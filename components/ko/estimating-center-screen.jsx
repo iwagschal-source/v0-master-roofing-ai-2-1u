@@ -63,6 +63,7 @@ export function EstimatingCenterScreen({ onSelectProject, onBack }) {
   const [showNewProjectModal, setShowNewProjectModal] = useState(false)
   const [showTakeoffSheet, setShowTakeoffSheet] = useState(false)
   const [showUploadModal, setShowUploadModal] = useState(false)
+  const [showImportHistory, setShowImportHistory] = useState(false)
   const [showTakeoffSetup, setShowTakeoffSetup] = useState(false)
   const [showProposalPreview, setShowProposalPreview] = useState(false)
 
@@ -983,6 +984,13 @@ export function EstimatingCenterScreen({ onSelectProject, onBack }) {
                         Import CSV
                       </button>
                       <button
+                        onClick={() => setShowImportHistory(true)}
+                        className="flex items-center gap-1.5 px-3 py-1.5 bg-muted hover:bg-muted/80 border border-border rounded-lg text-xs font-medium"
+                      >
+                        <Clock className="w-3.5 h-3.5" />
+                        History
+                      </button>
+                      <button
                         onClick={() => setShowProposalPreview(true)}
                         className="flex items-center gap-1.5 px-3 py-1.5 bg-primary text-primary-foreground hover:bg-primary/90 rounded-lg text-xs font-medium"
                       >
@@ -1436,6 +1444,14 @@ export function EstimatingCenterScreen({ onSelectProject, onBack }) {
               setShowTakeoffSheet(true)
             }
           }}
+        />
+      )}
+
+      {/* Import History Modal (4C.1) */}
+      {showImportHistory && selectedProject && (
+        <ImportHistoryModal
+          project={selectedProject}
+          onClose={() => setShowImportHistory(false)}
         />
       )}
 
@@ -1957,6 +1973,105 @@ function UploadModal({ project, sheetName, onClose, onSuccess }) {
                 className="hidden"
               />
             </>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function ImportHistoryModal({ project, onClose }) {
+  const [imports, setImports] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(null)
+
+  useEffect(() => {
+    async function loadImports() {
+      try {
+        const res = await fetch(`/api/ko/takeoff/${project.project_id}/imports`)
+        const data = await res.json()
+        if (res.ok) {
+          setImports(data.imports || [])
+        } else {
+          setError(data.error || 'Failed to load')
+        }
+      } catch (err) {
+        setError(err.message)
+      } finally {
+        setLoading(false)
+      }
+    }
+    loadImports()
+  }, [project.project_id])
+
+  return (
+    <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-center justify-center">
+      <div className="bg-card border border-border rounded-xl shadow-xl w-full max-w-lg mx-4 max-h-[80vh] flex flex-col">
+        <div className="flex items-center justify-between p-4 border-b border-border">
+          <h2 className="font-semibold">Import History</h2>
+          <button onClick={onClose} className="p-1 hover:bg-muted rounded-lg">
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+        <div className="p-4 overflow-y-auto flex-1">
+          {loading ? (
+            <div className="flex items-center justify-center py-8">
+              <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+            </div>
+          ) : error ? (
+            <div className="text-center py-8">
+              <AlertCircle className="w-8 h-8 mx-auto mb-2 text-red-500" />
+              <p className="text-sm text-red-500">{error}</p>
+            </div>
+          ) : imports.length === 0 ? (
+            <div className="text-center py-8">
+              <Upload className="w-8 h-8 mx-auto mb-2 text-muted-foreground" />
+              <p className="text-sm text-muted-foreground">No imports yet</p>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {imports.map((imp) => (
+                <div key={imp.import_id} className="p-3 rounded-lg border border-border hover:bg-muted/30 transition-colors">
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-sm font-medium">
+                      {imp.target_sheet || 'Default sheet'}
+                    </span>
+                    <span className={`text-xs px-2 py-0.5 rounded-full ${
+                      imp.status === 'completed' ? 'bg-green-500/10 text-green-500' :
+                      imp.status === 'rejected' ? 'bg-red-500/10 text-red-500' :
+                      'bg-yellow-500/10 text-yellow-500'
+                    }`}>
+                      {imp.status}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                    <span>{new Date(imp.imported_at).toLocaleString()}</span>
+                    <span>{imp.import_type}</span>
+                  </div>
+                  <div className="flex items-center gap-3 mt-1 text-xs">
+                    <span className="text-green-500">{imp.items_matched} matched</span>
+                    {imp.items_unmatched > 0 && (
+                      <span className="text-yellow-500">{imp.items_unmatched} unmatched</span>
+                    )}
+                    <span className="text-muted-foreground">{imp.cells_populated} cells</span>
+                    {imp.accumulation_mode === 'accumulate' && (
+                      <span className="text-blue-400">accumulated</span>
+                    )}
+                  </div>
+                  {imp.csv_file_id && (
+                    <a
+                      href={`https://drive.google.com/file/d/${imp.csv_file_id}/view`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1 mt-1.5 text-xs text-blue-400 hover:text-blue-300"
+                    >
+                      <ExternalLink className="w-3 h-3" />
+                      View CSV in Drive
+                    </a>
+                  )}
+                </div>
+              ))}
+            </div>
           )}
         </div>
       </div>

@@ -420,8 +420,44 @@ export async function POST(request, { params }) {
       console.warn('[Bluebeam] Drive CSV save failed (non-fatal):', driveErr.message)
     }
 
+    // Record import to BigQuery import_history (non-fatal)
+    const importId = `imp_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`
+    try {
+      const safeCsvFilename = csvDriveResult ? (csvDriveResult.filename || '') : ''
+      await runQuery(
+        `INSERT INTO \`master-roofing-intelligence.mr_main.import_history\`
+         (import_id, project_id, spreadsheet_id, target_sheet, import_type, csv_file_id, csv_filename,
+          imported_at, imported_by, items_matched, items_unmatched, cells_populated,
+          accumulation_mode, status, error_details, notes)
+         VALUES (@importId, @projectId, @spreadsheetId, @targetSheet, @importType, @csvFileId, @csvFilename,
+                 CURRENT_TIMESTAMP(), @importedBy, @itemsMatched, @itemsUnmatched, @cellsPopulated,
+                 @accMode, @status, @errorDetails, @notes)`,
+        {
+          importId,
+          projectId,
+          spreadsheetId: spreadsheetId || '',
+          targetSheet: resolvedSheetName || '',
+          importType: parseMode,
+          csvFileId: csvDriveResult?.fileId || '',
+          csvFilename: safeCsvFilename,
+          importedBy: 'system',
+          itemsMatched: matchedItems.length,
+          itemsUnmatched: unmatchedItems.length,
+          cellsPopulated: result.updated,
+          accMode: result.accumulated ? 'accumulate' : 'fresh',
+          status: 'completed',
+          errorDetails: errors.length > 0 ? JSON.stringify(errors) : '',
+          notes: ''
+        },
+        { location: 'US' }
+      )
+    } catch (bqErr) {
+      console.warn('[Bluebeam] Failed to record import to BigQuery (non-fatal):', bqErr.message)
+    }
+
     return NextResponse.json({
       success: true,
+      import_id: importId,
       items_parsed: items.length,
       cells_updated: result.updated,
       spreadsheet_id: spreadsheetId,

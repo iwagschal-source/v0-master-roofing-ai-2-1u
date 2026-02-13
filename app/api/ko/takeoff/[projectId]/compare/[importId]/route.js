@@ -1,52 +1,52 @@
 /**
  * Compare Import API
  *
- * Compare a Bluebeam import against the master takeoff.
+ * Get details of a specific import for comparison view.
  */
 
 import { NextResponse } from 'next/server'
-import https from 'https'
-
-const BACKEND_URL = process.env.PYTHON_BACKEND_URL || 'http://136.111.252.120:8000'
-
-const fetchWithSSL = async (url, options = {}) => {
-  const agent = new https.Agent({ rejectUnauthorized: false })
-  return fetch(url, { ...options, agent })
-}
+import { runQuery } from '@/lib/bigquery'
 
 /**
  * GET /api/ko/takeoff/[projectId]/compare/[importId]
- * Get comparison between import and master
- *
- * Returns changes, keeps, and conflicts for approval UI
+ * Get import details for before/after comparison
  */
 export async function GET(request, { params }) {
   try {
     const { projectId, importId } = await params
 
-    const backendRes = await fetchWithSSL(
-      `${BACKEND_URL}/v1/takeoff/${projectId}/compare/${importId}`,
-      {
-        method: 'GET',
-        signal: AbortSignal.timeout(30000)
-      }
+    const imports = await runQuery(
+      `SELECT import_id, project_id, spreadsheet_id, target_sheet,
+              import_type, csv_file_id, csv_filename,
+              imported_at, imported_by,
+              items_matched, items_unmatched, cells_populated,
+              accumulation_mode, status, error_details, notes
+       FROM \`master-roofing-intelligence.mr_main.import_history\`
+       WHERE project_id = @projectId AND import_id = @importId`,
+      { projectId, importId },
+      { location: 'US' }
     )
 
-    if (!backendRes.ok) {
-      const errText = await backendRes.text()
+    if (imports.length === 0) {
       return NextResponse.json(
-        { error: errText },
-        { status: backendRes.status }
+        { error: 'Import not found' },
+        { status: 404 }
       )
     }
 
-    const data = await backendRes.json()
-    return NextResponse.json(data)
+    const imp = imports[0]
+    return NextResponse.json({
+      import: {
+        ...imp,
+        imported_at: imp.imported_at?.value || imp.imported_at,
+        error_details: imp.error_details ? JSON.parse(imp.error_details) : null
+      }
+    })
 
   } catch (err) {
     console.error('Compare error:', err)
     return NextResponse.json(
-      { error: 'Failed to compare: ' + err.message },
+      { error: 'Failed to get import details: ' + err.message },
       { status: 500 }
     )
   }
