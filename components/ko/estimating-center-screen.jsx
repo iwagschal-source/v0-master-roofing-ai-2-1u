@@ -548,52 +548,62 @@ export function EstimatingCenterScreen({ onSelectProject, onBack }) {
     }
   }
 
-  // Generate BTX from sheet config
+  // BTX summary state for confirmation dialog
+  const [btxSummary, setBtxSummary] = useState(null)
+  const [btxSetupData, setBtxSetupData] = useState(null)
+
+  // Step 1: Read Setup tab config and show summary before downloading
   const handleGenerateBtx = async () => {
     if (!selectedProject || generatingBtx) return
 
     setGeneratingBtx(true)
     try {
-      // Step 1: Get sheet config (items + locations)
-      const sheetConfigUrl = `/api/ko/takeoff/${selectedProject.project_id}/sheet-config${currentSheetName ? `?sheet=${encodeURIComponent(currentSheetName)}` : ''}`
-      const sheetConfigRes = await fetch(sheetConfigUrl)
-      if (!sheetConfigRes.ok) {
-        const err = await sheetConfigRes.json()
-        throw new Error(err.error || 'Failed to read sheet config')
+      // Read Setup tab toggles via setup-config endpoint
+      const setupRes = await fetch(`/api/ko/takeoff/${selectedProject.project_id}/setup-config`)
+      if (!setupRes.ok) {
+        const err = await setupRes.json()
+        throw new Error(err.error || 'Failed to read Setup tab config')
       }
-      const sheetConfig = await sheetConfigRes.json()
+      const setupData = await setupRes.json()
 
-      // Capture active sheet name for other API calls
-      if (sheetConfig.sheet_name) {
-        setCurrentSheetName(sheetConfig.sheet_name)
+      if (!setupData.selected_items?.length) {
+        throw new Error('No items toggled on Setup tab. Toggle locations in columns G-M first.')
       }
 
-      if (!sheetConfig.selected_items?.length) {
-        throw new Error('No items found in takeoff sheet. Make sure Column A has item_ids.')
+      if (!setupData.locations?.length) {
+        throw new Error('No locations active. Toggle at least one location column on the Setup tab.')
       }
 
-      // Step 2: Transform sheet-config format to btx config format
-      // Combine all location columns from all sections
-      const allLocations = Object.values(sheetConfig.locations || {}).flat()
+      // Show summary dialog — user confirms before download
+      setBtxSetupData(setupData)
+      setBtxSummary({
+        items: setupData.items_count,
+        locations: setupData.locations_count,
+        toolCount: setupData.tool_count,
+        locationNames: setupData.locations.map(l => l.name),
+        itemsWithoutTools: setupData.selected_items.filter(i => !i.tool_name).length,
+      })
+      // Don't set generatingBtx false — the dialog handles it
+    } catch (err) {
+      console.error('BTX generation error:', err)
+      alert('Failed to generate BTX: ' + err.message)
+      setGeneratingBtx(false)
+    }
+  }
 
-      const config = {
-        selectedItems: sheetConfig.selected_items.map(item => ({
-          scope_code: item.item_id,
-          scope_name: item.item_id // Could be enhanced to fetch display names
-        })),
-        columns: allLocations.map(loc => ({
-          id: loc.column,
-          name: loc.name,
-          mappings: [loc.name.toUpperCase()]  // Use raw name WITH spaces
-        }))
-      }
+  // Step 2: User confirmed summary — actually generate and download BTX
+  const handleBtxConfirm = async () => {
+    if (!btxSetupData) return
 
-      // Step 3: Call BTX endpoint
+    try {
       const btxRes = await fetch(`/api/ko/takeoff/${selectedProject.project_id}/btx`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          config,
+          setupConfig: {
+            items: btxSetupData.selected_items,
+            locations: btxSetupData.locations,
+          },
           projectName: selectedProject.project_name
         })
       })
@@ -603,11 +613,13 @@ export function EstimatingCenterScreen({ onSelectProject, onBack }) {
         throw new Error(err.error || 'Failed to generate BTX')
       }
 
-      // Step 4: Download the BTX file
+      // Download the BTX zip
       const blob = await btxRes.blob()
+      const contentDisposition = btxRes.headers.get('Content-Disposition')
+      const filenameMatch = contentDisposition?.match(/filename="(.+)"/)
       const safeName = selectedProject.project_name.replace(/[^a-zA-Z0-9]/g, '_')
-      const isZip = btxRes.headers.get('Content-Type')?.includes('application/zip')
-      const filename = isZip ? `${safeName}_tools.zip` : `${safeName}_Tools.btx`
+      const dateStr = new Date().toISOString().split('T')[0]
+      const filename = filenameMatch?.[1] || `${safeName}-tools-${dateStr}.zip`
       const url = URL.createObjectURL(blob)
       const a = document.createElement('a')
       a.href = url
@@ -621,8 +633,17 @@ export function EstimatingCenterScreen({ onSelectProject, onBack }) {
       console.error('BTX generation error:', err)
       alert('Failed to generate BTX: ' + err.message)
     } finally {
+      setBtxSummary(null)
+      setBtxSetupData(null)
       setGeneratingBtx(false)
     }
+  }
+
+  // User cancelled BTX summary dialog
+  const handleBtxCancel = () => {
+    setBtxSummary(null)
+    setBtxSetupData(null)
+    setGeneratingBtx(false)
   }
 
   return (
@@ -1513,6 +1534,66 @@ export function EstimatingCenterScreen({ onSelectProject, onBack }) {
                     <Plus className="w-4 h-4" />
                   )}
                   {creatingVersion ? 'Creating...' : 'Create'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* BTX Summary Dialog (Phase 3 — 3.3) */}
+      {btxSummary && (
+        <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-center justify-center">
+          <div className="bg-card border border-border rounded-xl shadow-xl w-full max-w-sm mx-4">
+            <div className="flex items-center justify-between p-4 border-b border-border">
+              <h2 className="font-semibold">Generate BTX Tools</h2>
+              <button
+                onClick={handleBtxCancel}
+                className="p-1 hover:bg-muted rounded-lg"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="p-5 space-y-4">
+              <div className="text-center space-y-2">
+                <p className="text-3xl font-bold text-primary">{btxSummary.toolCount}</p>
+                <p className="text-sm text-muted-foreground">
+                  {btxSummary.items} items &times; {btxSummary.locations} locations
+                </p>
+              </div>
+
+              <div className="bg-muted/50 rounded-lg p-3 space-y-2">
+                <p className="text-xs font-medium text-muted-foreground uppercase">Locations</p>
+                <div className="flex flex-wrap gap-1.5">
+                  {btxSummary.locationNames.map((name, i) => (
+                    <span key={i} className="px-2 py-0.5 bg-blue-500/20 text-blue-400 rounded text-xs">
+                      {name}
+                    </span>
+                  ))}
+                </div>
+              </div>
+
+              {btxSummary.itemsWithoutTools > 0 && (
+                <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-lg p-3">
+                  <p className="text-xs text-yellow-400">
+                    {btxSummary.itemsWithoutTools} item{btxSummary.itemsWithoutTools > 1 ? 's' : ''} missing Bluebeam tools — will be skipped by Python backend
+                  </p>
+                </div>
+              )}
+
+              <div className="flex gap-2 pt-2">
+                <button
+                  onClick={handleBtxCancel}
+                  className="flex-1 py-2 bg-muted hover:bg-muted/80 rounded-lg text-sm"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleBtxConfirm}
+                  className="flex-1 flex items-center justify-center gap-2 py-2 bg-blue-600 text-white hover:bg-blue-700 rounded-lg text-sm"
+                >
+                  <Download className="w-4 h-4" />
+                  Download BTX
                 </button>
               </div>
             </div>
