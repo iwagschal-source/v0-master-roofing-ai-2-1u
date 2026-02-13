@@ -108,6 +108,7 @@ v0-master-roofing-ai-2-1u/
 ├── lib/                              # Backend libraries
 │   ├── auth.ts                       # NextAuth config
 │   ├── google-sheets.js              # Sheets API (45KB, core file)
+│   ├── version-management.js         # Version tab CRUD (~20KB, Session 38)
 │   ├── bigquery.js                   # BigQuery client
 │   ├── gcs-storage.js                # Google Cloud Storage
 │   ├── project-storage.js            # Project CRUD (GCS-backed)
@@ -426,6 +427,11 @@ project_folders (existing, column added Session 31)
 | `/imports` | GET/POST | List/create takeoff imports |
 | `/sync/[importId]` | POST | Sync import with sheet |
 | `/compare/[importId]` | GET | Compare import versions |
+| `/create-version` | POST | Create new takeoff version tab (copy template, transfer config, hide rows/cols, update tracker) |
+| `/versions` | GET | List versions from Setup tracker, cross-ref actual tabs |
+| `/versions` | PUT | Set active version and/or update status |
+| `/versions` | POST | Copy existing version tab |
+| `/versions` | DELETE | Safe delete version tab (?sheet=name&force=bool) |
 | `/library` | GET | Get library items with GC-specific rates |
 | `/create` | POST | Create new takeoff |
 
@@ -773,6 +779,7 @@ All chat exchanges are logged to BigQuery (`ko_audit.agent_chat_history`) with:
 | File | Size | Purpose | Critical Functions |
 |------|------|---------|-------------------|
 | `lib/google-sheets.js` | 45KB | Google Sheets API | `getAccessToken`, `getActiveSheetName`, `copyTemplateSheet`, `fillBluebeamDataToSpreadsheet`, `discoverSheetLayout`, `readSheetValues`, `batchUpdateSheet` |
+| `lib/version-management.js` | ~20KB | Version tab CRUD | `copyTemplateTabToProject`, `readSetupConfig`, `transferSetupToVersion`, `hideEmptyRows`, `hideEmptyColumns`, `addVersionTrackerEntry`, `setActiveVersion`, `deleteVersion` |
 | `lib/bigquery.js` | ~8KB | BigQuery client | `runQuery`, `getAverageRates`, `getRateForItem` |
 | `lib/auth.ts` | ~3KB | NextAuth config | `authOptions`, domain check, admin check |
 | `lib/project-storage.js` | ~6KB | GCS-backed project CRUD | `loadProjects`, `saveProjects`, `addProject`, `importProjectsFromCSV` |
