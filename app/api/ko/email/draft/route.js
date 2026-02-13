@@ -3,7 +3,7 @@ import { NextResponse } from "next/server"
 // Email Drafter Agent - generates reply drafts based on email context
 // This connects to the backend Email Drafter agent (INT-002)
 
-const BACKEND_URL = process.env.PYTHON_BACKEND_URL || 'https://136.111.252.120'
+const BACKEND_URL = process.env.PYTHON_BACKEND_URL || 'http://136.111.252.120:8000'
 
 export async function POST(request) {
   try {

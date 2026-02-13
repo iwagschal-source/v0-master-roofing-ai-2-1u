@@ -22,7 +22,7 @@ const getWsUrl = () => {
     return process.env.NEXT_PUBLIC_WS_URL;
   }
   // Fallback to env var or hardcoded backend URL
-  const base = (process.env.NEXT_PUBLIC_PYTHON_BACKEND_URL || 'https://136.111.252.120').replace('https://', 'wss://').replace('http://', 'ws://');
+  const base = (process.env.NEXT_PUBLIC_PYTHON_BACKEND_URL || 'http://136.111.252.120:8000').replace('https://', 'wss://').replace('http://', 'ws://');
   return `${base}/ws/chat`;
 };
 const WS_URL = getWsUrl();
@@ -281,7 +281,7 @@ export function useWebSocketChat(): UseWebSocketChatReturn {
 
       ws.onerror = (error) => {
         console.error('[WS] Connection error - this often means SSL certificate was rejected');
-        console.error(`[WS] Try visiting ${process.env.NEXT_PUBLIC_PYTHON_BACKEND_URL || 'https://136.111.252.120'}/health in a new tab and accepting the certificate`);
+        console.error(`[WS] Try visiting ${process.env.NEXT_PUBLIC_PYTHON_BACKEND_URL || 'http://136.111.252.120:8000'}/health in a new tab and accepting the certificate`);
         // Don't set error here - onclose will be called next
       };
 

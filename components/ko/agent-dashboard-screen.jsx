@@ -17,7 +17,7 @@ import { AgentGrid } from "./agent-grid"
 import { StatusDot } from "./agent-model-icon"
 import { useAgentStatus } from "@/hooks/use-agent-status"
 
-const WS_BACKEND_URL = (process.env.NEXT_PUBLIC_PYTHON_BACKEND_URL || "https://136.111.252.120").replace("https://", "wss://").replace("http://", "ws://")
+const WS_BACKEND_URL = (process.env.NEXT_PUBLIC_PYTHON_BACKEND_URL || "http://136.111.252.120:8000").replace("https://", "wss://").replace("http://", "ws://")
 
 export function AgentDashboardScreen({
   agents: passedAgents,

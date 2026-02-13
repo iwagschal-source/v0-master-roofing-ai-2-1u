@@ -10,7 +10,7 @@ import {
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 
-const BACKEND_URL = process.env.NEXT_PUBLIC_PYTHON_BACKEND_URL || "https://136.111.252.120"
+const BACKEND_URL = process.env.NEXT_PUBLIC_PYTHON_BACKEND_URL || "http://136.111.252.120:8000"
 
 // Stat card component
 function StatCard({ title, value, icon: Icon, trend, trendValue, color = "primary", subtitle }) {

@@ -15,7 +15,7 @@ import https from 'https'
 import { fillBluebeamDataToTab, fillBluebeamDataToSpreadsheet, getTakeoffTab, createTakeoffTab } from '@/lib/google-sheets'
 import { runQuery } from '@/lib/bigquery'
 
-const BACKEND_URL = process.env.PYTHON_BACKEND_URL || 'https://136.111.252.120'
+const BACKEND_URL = process.env.PYTHON_BACKEND_URL || 'http://136.111.252.120:8000'
 
 // Custom fetch that ignores SSL cert errors
 const fetchWithSSL = async (url, options = {}) => {

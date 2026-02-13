@@ -16,9 +16,9 @@ const getApiUrl = () => {
   if (typeof window !== 'undefined') {
     return `${window.location.protocol}//${window.location.host}`;
   }
-  return process.env.NEXT_PUBLIC_PYTHON_BACKEND_URL || 'https://136.111.252.120';
+  return process.env.NEXT_PUBLIC_PYTHON_BACKEND_URL || 'http://136.111.252.120:8000';
 };
-const API_URL = typeof window !== 'undefined' ? getApiUrl() : (process.env.NEXT_PUBLIC_PYTHON_BACKEND_URL || 'https://136.111.252.120');
+const API_URL = typeof window !== 'undefined' ? getApiUrl() : (process.env.NEXT_PUBLIC_PYTHON_BACKEND_URL || 'http://136.111.252.120:8000');
 
 interface UseTTSPlaybackReturn {
   isPlaying: boolean;

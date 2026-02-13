@@ -17,7 +17,7 @@ import {
 import { agents, statusConfig, connectionTypes, getAllConnections, getBottlenecks } from "@/data/agent-data"
 import { AgentModelIcon, StatusDot, QueueIndicator } from "./agent-model-icon"
 
-const BACKEND_URL = process.env.NEXT_PUBLIC_PYTHON_BACKEND_URL || "https://136.111.252.120"
+const BACKEND_URL = process.env.NEXT_PUBLIC_PYTHON_BACKEND_URL || "http://136.111.252.120:8000"
 const WS_BACKEND_URL = BACKEND_URL.replace("https://", "wss://").replace("http://", "ws://")
 
 // Minimum spacing between nodes (node diameter + generous padding for readability)

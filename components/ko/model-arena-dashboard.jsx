@@ -200,7 +200,7 @@ export function ModelArenaDashboard({ onBack, agents = [] }) {
   const pingIntervalRef = useRef(null)
 
   // Backend URL
-  const BACKEND_URL = process.env.NEXT_PUBLIC_PYTHON_BACKEND_URL || "https://136.111.252.120"
+  const BACKEND_URL = process.env.NEXT_PUBLIC_PYTHON_BACKEND_URL || "http://136.111.252.120:8000"
   const WS_URL = BACKEND_URL.replace("https://", "wss://").replace("http://", "ws://")
 
   // Load available models on mount

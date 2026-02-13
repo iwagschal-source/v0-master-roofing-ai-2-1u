@@ -7,7 +7,7 @@
 
 import { NextResponse } from 'next/server'
 
-const BACKEND_URL = process.env.PYTHON_BACKEND_URL || 'https://136.111.252.120'
+const BACKEND_URL = process.env.PYTHON_BACKEND_URL || 'http://136.111.252.120:8000'
 
 /**
  * GET /api/ko/proposal/generate
