@@ -409,10 +409,14 @@ export async function POST(request, { params }) {
       storage,
       parse_mode: parseMode,
       parse_stats: parseStats,
+      accumulated: result.accumulated || false,
+      accumulatedCount: result.accumulatedCount || 0,
       matchedItems: matchedItems.map(d => ({
         item_id: d.code,
         location: d.floor,
         quantity: d.quantity,
+        previousValue: d.previousValue || 0,
+        accumulatedTotal: d.accumulatedTotal || d.quantity,
         cell: d.col ? `${d.col}${d.row}` : null
       })),
       unmatchedItems: unmatchedItems.map(d => ({
@@ -420,7 +424,8 @@ export async function POST(request, { params }) {
         reason: d.status === 'NO_ROW_MAPPING' ? 'Item not found in sheet'
           : d.status === 'NO_COLUMN_MAPPING' ? `Location "${d.floor}" not found (available: ${(d.availableLocations || []).join(', ')})`
           : 'Row not in any section',
-        quantity: d.quantity
+        quantity: d.quantity,
+        location: d.floor
       })),
       errors,
       cellsPopulated: result.updated
