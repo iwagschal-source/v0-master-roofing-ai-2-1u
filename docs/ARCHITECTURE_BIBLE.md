@@ -567,7 +567,36 @@ Shadcn/ui-based Radix components: `button`, `card`, `input`, `textarea`, `dialog
 | Takeoff template | `GOOGLE_TAKEOFF_TEMPLATE_ID` (`1n0p_...`) | Per-project takeoff |
 | Projects folder | `KO_PROJECTS_ROOT_FOLDER_ID` (`1Fjo-...`) | Google Drive folder |
 
-### Takeoff Sheet Layout (Current — Single Tab)
+### Template Structure (3-Tab Workbook)
+
+```
+Tab 0: Setup (configuration hub — added Session 35)
+Tab 1: DATE (takeoff data — renamed to YYYY-MM-DD on project creation)
+Tab 2: Library (87 items from BigQuery, read-only reference)
+```
+
+### Setup Tab Layout (Tab 0)
+
+```
+     A          B         C           D    E    F      G-M          N     O         P              Q           R
+┌──────────┬──────────┬───────────┬────┬────┬──────┬──────────┬─────┬─────────┬──────────────┬───────────┬─────────┐
+│ item_id  │ unit_cost│ Scope/Item│ R  │ IN │ TYPE │ Loc Tgls │ UOM │BID TYPE │ Bluebeam Tool│Tool Status│Loc Count│
+│ (formula)│ (formula)│ (dropdown)│    │    │      │ (toggles)│(fml)│(dropdown│ (formula)    │ (formula) │(COUNTA) │
+├──────────┼──────────┼───────────┼────┼────┼──────┼──────────┼─────┼─────────┼──────────────┼───────────┼─────────┤
+│ Mirrors takeoff row layout EXACTLY — same item_ids, same row numbers                                           │
+│ Row 3: ROOFING header    │ Row 36: WATERPROOFING header                                                         │
+│ Row 40: BALCONIES header │ Row 49: EXTERIOR header                                                              │
+└─────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
+```
+
+- Columns A, B, N, P: INDEX+MATCH formulas referencing Library tab
+- Column C: Dropdown validated per section (systems/bundle/standalone from Library FILTER formulas)
+- Columns G-M: Location toggles — conditional formatting: any value → blue fill, white text
+- Column O: BASE/ALTERNATE dropdown — ALTERNATE highlighted orange
+- Column Q: `=IF(P{row}<>"", "✓ Ready", "✗ Missing")`
+- Column R: `=COUNTA(G{row}:M{row})`
+
+### Takeoff Tab Layout (Tab 1)
 
 ```
      A          B         C      D    E    F      G-M        N              O           P
@@ -762,7 +791,7 @@ All chat exchanges are logged to BigQuery (`ko_audit.agent_chat_history`) with:
 `bq-check.mjs`, `bq-check2.mjs`, `bq-check3.mjs`, `bq-check4.mjs`, `full-bq-check.mjs`, `explore-bigquery.js`, `check-bigquery-match.mjs`
 
 **Google Sheets Operations:**
-`search-sheets.mjs`, `read-full-sheet.mjs`, `populate-template.js`, `setup-template-dropdowns.js`, `create-template-sheet.js`, `populate-library-tab.mjs`, `apply-column-c-validation.mjs`
+`search-sheets.mjs`, `read-full-sheet.mjs`, `populate-template.js`, `setup-template-dropdowns.js`, `create-template-sheet.js`, `populate-library-tab.mjs`, `apply-column-c-validation.mjs`, `create-setup-tab.mjs`
 
 **Bluebeam Debugging:**
 `complete-mapping.mjs`, `mapping-analysis.mjs`, `debug-headers.js`, `debug-monday-import.js`, `debug-tuesday2-*.js`
@@ -911,49 +940,52 @@ git push origin feature/[name]    # Push branch
 
 ---
 
-## 17. Workbook Rebuild (Planned)
+## 17. Workbook Rebuild (In Progress)
 
 **Design doc:** `docs/WORKBOOK_REBUILD_DESIGN.md`
-**Branch:** `feature/workbook-rebuild`
-**Status:** In progress — template structure committed, Library tab population working
+**Branch:** `feature/setup-tab`
+**Status:** Phase 1A + 1E complete — Setup tab created, Library tab enhanced with tool names
 
-### Target Architecture: 3-Tab Workbook
+### Current Architecture: 3-Tab Workbook
 
 ```
 ┌───────────────────────────────────────────────────────────┐
-│ Tab 1: Library (read-only)                                │
+│ Tab 0: Setup (configuration hub) — IMPLEMENTED Session 35 │
+│ - Mirrors takeoff row layout exactly                      │
+│ - Columns: item, cost, scope, R/IN/TYPE, 7 location       │
+│   toggles, UOM, bid type, tool name/status, location count │
+│ - INDEX+MATCH from Library for A, B, N, P columns         │
+│ - Dropdown validation on C (scope) and O (bid type)       │
+│ - Conditional formatting: blue toggles, orange ALTERNATE  │
+├───────────────────────────────────────────────────────────┤
+│ Tab 2: Library (read-only) — 31 columns + 12 FILTER fmls  │
 │ - Source: BigQuery v_library_complete + Python Bluebeam   │
-│ - All 87 items with descriptions, rates, readiness scores │
+│ - 86 items with descriptions, rates, readiness scores     │
+│ - Column AE: bluebeam_tool_name (48 items populated)      │
 │ - Refreshable on demand                                   │
 │ - Protected: read-only for estimators                     │
 ├───────────────────────────────────────────────────────────┤
-│ Tab 2: Bluebeam Setup (control center)                    │
-│ - Rows: items from Library (dropdown validated)           │
-│ - Columns: locations set by estimator                     │
-│ - Cells: checkboxes (TRUE/FALSE)                          │
-│ - Drives BTX generation + Takeoff tab visibility          │
-├───────────────────────────────────────────────────────────┤
-│ Tab 3: Takeoff — [DATE] (auto-populated)                  │
-│ - Items/locations from Bluebeam Setup checkboxes          │
-│ - CSV import target                                       │
-│ - Formulas: unit_cost × total_measurements = total_cost   │
-│ - Versioned: new date tab per session                     │
+│ Tab 1: DATE → renamed to YYYY-MM-DD on project creation   │
+│ - Takeoff data: items × locations with quantities          │
+│ - CSV import target                                        │
+│ - Formulas: unit_cost × total_measurements = total_cost    │
+│ - Versioned: new date tab per session (Phase 2)           │
 └───────────────────────────────────────────────────────────┘
 ```
 
-### Changes Already Committed (feature/workbook-rebuild)
+### Changes Already Committed (feature/setup-tab — Session 35)
 
-1. `c11dddd` — 4-section template rebuild: SECTION_NAMES, TEMPLATE_SECTIONS, ITEM_ID_TO_ROW all updated for WATERPROOFING
-2. `77bd92e` — Fallback template + lib_takeoff_template updates for WATERPROOFING
-3. `87259b5` — Post-copy project name write + Library tab BigQuery refresh
-4. `580d336` — Column C dropdowns with INDEX+MATCH auto-populate for item_id and unit_cost
+1. `d7a1c53` — 1E: bluebeam_tool_name populated (48 items), v_library_complete view updated, Library tab enhanced (col 31)
+2. `4ec1b8b` — 1A: Setup tab created (index 0) with full row mirror, formulas, dropdowns, conditional formatting
 
 ### Remaining Work
 
-- Bluebeam Setup tab implementation (checkbox matrix)
-- Setup ↔ Takeoff tab sync (show/hide rows/columns based on checkboxes)
-- BTX generation reads checkbox state
-- New version tab creation (`+` button)
+- Phase 1B: Version tracker area on Setup tab (rows 72+)
+- Phase 1C: Apps Script Column C auto-populate trigger
+- Phase 1D: Integration with project creation flow
+- Phase 2: Setup ↔ Takeoff tab sync (show/hide rows/columns based on toggles)
+- Phase 3: BTX generation reads Setup tab toggle state
+- Phase 2: New version tab creation
 - Library tab refresh mechanism
 - Migration path for existing single-tab projects
 
