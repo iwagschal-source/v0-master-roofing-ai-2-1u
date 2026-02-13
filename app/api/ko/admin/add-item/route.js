@@ -117,14 +117,14 @@ export async function POST(request) {
     const idmQuery = `
       INSERT INTO \`master-roofing-intelligence.mr_main.item_description_mapping\`
       (item_id, display_name, scope_name, section, uom, default_rate,
-       has_r_value, has_material_type, row_type, description_status,
+       has_r_value, has_thickness, has_material_type, row_type, description_status,
        paragraph_description, bundling_notes, is_system, can_standalone, can_bundle,
        system_heading, bundle_fragment, standalone_description, fragment_sort_order,
        has_bluebeam_tool, has_template_row, has_scope_mapping, has_historical_data,
        has_rate, parent_item_id, historical_project_count, bluebeam_tool_name)
       VALUES
       (@item_id, @display_name, @scope_name, @section, @uom, @default_rate,
-       @has_r_value, @has_material_type, @row_type, @description_status,
+       @has_r_value, @has_thickness, @has_material_type, @row_type, @description_status,
        @paragraph_description, @bundling_notes, @is_system, @can_standalone, @can_bundle,
        @system_heading, @bundle_fragment, @standalone_description, @fragment_sort_order,
        @has_bluebeam_tool, FALSE, @has_scope_mapping, FALSE,
@@ -139,6 +139,7 @@ export async function POST(request) {
       uom,
       default_rate: body.default_rate ? parseFloat(body.default_rate) : null,
       has_r_value: body.has_r_value ?? false,
+      has_thickness: body.has_thickness ?? false,
       has_material_type: body.has_material_type ?? false,
       row_type,
       description_status,
