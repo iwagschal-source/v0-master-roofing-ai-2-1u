@@ -35,7 +35,12 @@ import {
   User,
   MapPin,
   ArrowRight,
-  Eye
+  Eye,
+  Star,
+  Copy,
+  Trash2,
+  Settings,
+  ChevronDown,
 } from "lucide-react"
 import { TakeoffSpreadsheet } from "./takeoff-spreadsheet"
 import { TakeoffSetupScreen } from "./takeoff-setup-screen"
@@ -79,6 +84,13 @@ export function EstimatingCenterScreen({ onSelectProject, onBack }) {
 
   // Version-aware sheet tracking
   const [currentSheetName, setCurrentSheetName] = useState(null)
+
+  // Version management state
+  const [versions, setVersions] = useState([])
+  const [loadingVersions, setLoadingVersions] = useState(false)
+  const [creatingVersion, setCreatingVersion] = useState(false)
+  const [selectedTab, setSelectedTab] = useState("setup") // "setup" | version sheetName
+  const [showVersionMenu, setShowVersionMenu] = useState(null) // sheetName of open menu
 
   // Folder agent chat state
   const [chatMessages, setChatMessages] = useState([])
@@ -131,6 +143,9 @@ export function EstimatingCenterScreen({ onSelectProject, onBack }) {
       setEmbeddedSheetId(null)
       setEmbeddedSheetUrl(null)
       setCurrentSheetName(null)
+      setVersions([])
+      setSelectedTab("setup")
+      setShowVersionMenu(null)
       loadFolderData(selectedProject.project_id)
       // Check if project has an existing takeoff spreadsheet
       checkExistingTakeoffSheet(selectedProject.project_id)
@@ -152,6 +167,187 @@ export function EstimatingCenterScreen({ onSelectProject, onBack }) {
       console.warn('Failed to check takeoff sheet:', err)
     }
   }
+
+  // Load versions when project has a spreadsheet
+  useEffect(() => {
+    if (selectedProject && embeddedSheetId) {
+      loadVersions(selectedProject.project_id)
+    }
+  }, [selectedProject?.project_id, embeddedSheetId])
+
+  // Load version list from API
+  const loadVersions = async (projectId) => {
+    setLoadingVersions(true)
+    try {
+      const res = await fetch(`/api/ko/takeoff/${projectId}/versions`)
+      if (res.ok) {
+        const data = await res.json()
+        setVersions(data.versions || [])
+        // If there's an active version, select it
+        const active = (data.versions || []).find(v => v.active)
+        if (active) {
+          setSelectedTab(active.sheetName)
+          setCurrentSheetName(active.sheetName)
+        }
+      }
+    } catch (err) {
+      console.warn('Failed to load versions:', err)
+    } finally {
+      setLoadingVersions(false)
+    }
+  }
+
+  // Create a new takeoff version from Setup tab config
+  const handleCreateVersion = async () => {
+    if (!selectedProject || creatingVersion) return
+    setCreatingVersion(true)
+    try {
+      const res = await fetch(`/api/ko/takeoff/${selectedProject.project_id}/create-version`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({})
+      })
+      if (!res.ok) {
+        const err = await res.json()
+        throw new Error(err.error || 'Failed to create version')
+      }
+      const data = await res.json()
+      // Refresh versions list
+      await loadVersions(selectedProject.project_id)
+      // Select the new version
+      setSelectedTab(data.sheetName)
+      setCurrentSheetName(data.sheetName)
+      // Open embedded sheet on the new tab
+      if (embeddedSheetId) {
+        setEmbeddedSheetUrl(
+          `https://docs.google.com/spreadsheets/d/${embeddedSheetId}/edit?embedded=true&rm=minimal#gid=${data.tabSheetId}`
+        )
+        setShowEmbeddedSheet(true)
+      }
+    } catch (err) {
+      console.error('Create version error:', err)
+      alert('Failed to create version: ' + err.message)
+    } finally {
+      setCreatingVersion(false)
+    }
+  }
+
+  // Set a version as active
+  const handleSetActive = async (sheetName) => {
+    if (!selectedProject) return
+    try {
+      const res = await fetch(`/api/ko/takeoff/${selectedProject.project_id}/versions`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sheetName, setActive: true })
+      })
+      if (res.ok) {
+        await loadVersions(selectedProject.project_id)
+      }
+    } catch (err) {
+      console.warn('Failed to set active version:', err)
+    }
+  }
+
+  // Delete a version
+  const handleDeleteVersion = async (sheetName, force = false) => {
+    if (!selectedProject) return
+    const confirmed = force
+      ? confirm(`Force delete "${sheetName}"? This version has data that will be permanently lost.`)
+      : confirm(`Delete version "${sheetName}"?`)
+    if (!confirmed) return
+
+    try {
+      const res = await fetch(
+        `/api/ko/takeoff/${selectedProject.project_id}/versions?sheet=${encodeURIComponent(sheetName)}&force=${force}`,
+        { method: 'DELETE' }
+      )
+      const data = await res.json()
+      if (res.status === 409 && data.hasData) {
+        // Has data — ask user to force
+        const forceConfirm = confirm(
+          `"${sheetName}" has data. Force delete? This cannot be undone.`
+        )
+        if (forceConfirm) {
+          await handleDeleteVersion(sheetName, true)
+        }
+        return
+      }
+      if (!res.ok) {
+        throw new Error(data.error || 'Failed to delete')
+      }
+      // If we deleted the currently selected tab, go back to Setup
+      if (selectedTab === sheetName) {
+        setSelectedTab("setup")
+        setCurrentSheetName(null)
+      }
+      await loadVersions(selectedProject.project_id)
+      setShowVersionMenu(null)
+    } catch (err) {
+      console.error('Delete version error:', err)
+      alert('Failed to delete: ' + err.message)
+    }
+  }
+
+  // Copy a version
+  const handleCopyVersion = async (sourceSheetName) => {
+    if (!selectedProject) return
+    try {
+      const res = await fetch(`/api/ko/takeoff/${selectedProject.project_id}/versions`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sourceSheetName })
+      })
+      if (!res.ok) {
+        const err = await res.json()
+        throw new Error(err.error || 'Failed to copy version')
+      }
+      const data = await res.json()
+      await loadVersions(selectedProject.project_id)
+      setSelectedTab(data.newSheetName)
+      setCurrentSheetName(data.newSheetName)
+      setShowVersionMenu(null)
+    } catch (err) {
+      console.error('Copy version error:', err)
+      alert('Failed to copy version: ' + err.message)
+    }
+  }
+
+  // Handle selecting a version tab — updates embedded sheet URL and context
+  const handleSelectTab = (tabId) => {
+    setSelectedTab(tabId)
+    setShowVersionMenu(null)
+    if (tabId === "setup") {
+      setCurrentSheetName(null)
+      // Show Setup tab in embedded sheet
+      if (embeddedSheetId) {
+        setEmbeddedSheetUrl(
+          `https://docs.google.com/spreadsheets/d/${embeddedSheetId}/edit?embedded=true&rm=minimal#gid=0`
+        )
+        setShowEmbeddedSheet(true)
+      }
+    } else {
+      setCurrentSheetName(tabId)
+      // Find the tab's gid from versions or just reload
+      if (embeddedSheetId) {
+        // We don't store gid per version, so use sheet name approach
+        // Google Sheets doesn't support #sheet= in embedded mode, but the API calls use sheetName
+        // For the iframe, we just reload with generic URL — user can navigate tabs manually
+        setEmbeddedSheetUrl(
+          `https://docs.google.com/spreadsheets/d/${embeddedSheetId}/edit?embedded=true&rm=minimal`
+        )
+        setShowEmbeddedSheet(true)
+      }
+    }
+  }
+
+  // Close version menu on click outside
+  useEffect(() => {
+    if (!showVersionMenu) return
+    const handler = () => setShowVersionMenu(null)
+    document.addEventListener('click', handler)
+    return () => document.removeEventListener('click', handler)
+  }, [showVersionMenu])
 
   // Scroll chat to bottom
   useEffect(() => {
@@ -647,74 +843,235 @@ export function EstimatingCenterScreen({ onSelectProject, onBack }) {
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
-                  <button
-                    onClick={() => setShowTakeoffSetup(true)}
-                    className="flex items-center gap-1.5 px-3 py-1.5 bg-orange-600 text-white hover:bg-orange-700 rounded-lg text-sm"
-                    title="Configure takeoff structure and generate BTX for Bluebeam"
-                  >
-                    <Calculator className="w-4 h-4" />
-                    Setup
-                  </button>
-                  <button
-                    onClick={() => setShowUploadModal(true)}
-                    className="flex items-center gap-1.5 px-3 py-1.5 bg-green-600 text-white hover:bg-green-700 rounded-lg text-sm"
-                  >
-                    <Upload className="w-4 h-4" />
-                    Bluebeam
-                  </button>
-                  <button
-                    onClick={() => {
-                      if (embeddedSheetId) {
-                        // Restore URL from stored ID if it was cleared on close
+                  {!embeddedSheetId ? (
+                    <>
+                      <button
+                        onClick={() => setShowTakeoffSetup(true)}
+                        className="flex items-center gap-1.5 px-3 py-1.5 bg-orange-600 text-white hover:bg-orange-700 rounded-lg text-sm"
+                        title="Configure takeoff structure and generate BTX for Bluebeam"
+                      >
+                        <Calculator className="w-4 h-4" />
+                        Setup
+                      </button>
+                      <button
+                        onClick={() => setShowTakeoffSheet(true)}
+                        className="flex items-center gap-1.5 px-3 py-1.5 bg-secondary hover:bg-secondary/80 rounded-lg text-sm"
+                      >
+                        <FileSpreadsheet className="w-4 h-4" />
+                        Takeoff
+                      </button>
+                    </>
+                  ) : (
+                    <button
+                      onClick={() => {
                         if (!embeddedSheetUrl) {
                           setEmbeddedSheetUrl(`https://docs.google.com/spreadsheets/d/${embeddedSheetId}/edit?embedded=true&rm=minimal`)
                         }
                         setShowEmbeddedSheet(true)
-                      } else {
-                        setShowTakeoffSheet(true)
-                      }
-                    }}
-                    className={cn(
-                      "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm",
-                      embeddedSheetId
-                        ? "bg-green-600 text-white hover:bg-green-700"
-                        : "bg-secondary hover:bg-secondary/80"
-                    )}
-                  >
-                    <FileSpreadsheet className="w-4 h-4" />
-                    {embeddedSheetId ? 'View Takeoff' : 'Takeoff'}
-                  </button>
-                  <button
-                    onClick={() => setShowProposalPreview(true)}
-                    disabled={!embeddedSheetId}
-                    className={cn(
-                      "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm",
-                      embeddedSheetId
-                        ? "bg-primary text-primary-foreground hover:bg-primary/90"
-                        : "bg-muted text-muted-foreground cursor-not-allowed"
-                    )}
-                    title={embeddedSheetId ? "Preview proposal from takeoff" : "Create a takeoff sheet first"}
-                  >
-                    <FileText className="w-4 h-4" />
-                    Proposal
-                  </button>
-                  {embeddedSheetId && (
-                    <button
-                      onClick={handleGenerateBtx}
-                      disabled={generatingBtx}
-                      className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50 rounded-lg text-sm"
-                      title="Generate Bluebeam Tool Chest (.btx) from sheet items and locations"
+                      }}
+                      className="flex items-center gap-1.5 px-3 py-1.5 bg-green-600 text-white hover:bg-green-700 rounded-lg text-sm"
                     >
-                      {generatingBtx ? (
-                        <Loader2 className="w-4 h-4 animate-spin" />
-                      ) : (
-                        <Download className="w-4 h-4" />
-                      )}
-                      {generatingBtx ? 'Generating...' : 'BTX'}
+                      <FileSpreadsheet className="w-4 h-4" />
+                      View Sheet
                     </button>
                   )}
                 </div>
               </div>
+
+              {/* Version Selector Bar */}
+              {embeddedSheetId && (
+                <div className="mb-4 bg-muted/30 rounded-lg border border-border p-3">
+                  {/* Tab bar: Setup + version tabs */}
+                  <div className="flex items-center gap-1 mb-3 overflow-x-auto">
+                    {/* Setup tab */}
+                    <button
+                      onClick={() => handleSelectTab("setup")}
+                      className={cn(
+                        "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium whitespace-nowrap transition-colors",
+                        selectedTab === "setup"
+                          ? "bg-orange-600 text-white"
+                          : "bg-muted hover:bg-muted/80 text-muted-foreground"
+                      )}
+                    >
+                      <Settings className="w-3.5 h-3.5" />
+                      Setup
+                    </button>
+
+                    {/* Divider */}
+                    <div className="w-px h-6 bg-border mx-1" />
+
+                    {/* Version tabs */}
+                    {loadingVersions ? (
+                      <Loader2 className="w-4 h-4 animate-spin text-muted-foreground ml-2" />
+                    ) : versions.length === 0 ? (
+                      <span className="text-xs text-muted-foreground ml-2">No versions yet</span>
+                    ) : (
+                      versions.map((v) => (
+                        <div key={v.sheetName} className="relative flex items-center">
+                          <button
+                            onClick={() => handleSelectTab(v.sheetName)}
+                            className={cn(
+                              "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium whitespace-nowrap transition-colors",
+                              selectedTab === v.sheetName
+                                ? "bg-primary text-primary-foreground"
+                                : "bg-muted hover:bg-muted/80 text-muted-foreground"
+                            )}
+                          >
+                            {v.active && <Star className="w-3 h-3 fill-current" />}
+                            {v.sheetName}
+                            {v.status && (
+                              <span className={cn(
+                                "text-[10px] px-1 py-0.5 rounded",
+                                v.status === 'Draft' ? "bg-gray-500/20 text-gray-400"
+                                : v.status === 'In Progress' ? "bg-yellow-500/20 text-yellow-400"
+                                : v.status === 'Ready for Proposal' ? "bg-green-500/20 text-green-400"
+                                : v.status === 'Sent to GC' ? "bg-blue-500/20 text-blue-400"
+                                : "bg-muted text-muted-foreground"
+                              )}>
+                                {v.status}
+                              </span>
+                            )}
+                          </button>
+                          {/* Version context menu toggle */}
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              setShowVersionMenu(showVersionMenu === v.sheetName ? null : v.sheetName)
+                            }}
+                            className="ml-0.5 p-1 hover:bg-muted rounded text-muted-foreground"
+                          >
+                            <ChevronDown className="w-3 h-3" />
+                          </button>
+                          {/* Context menu dropdown */}
+                          {showVersionMenu === v.sheetName && (
+                            <div className="absolute top-full left-0 z-20 mt-1 bg-card border border-border rounded-lg shadow-lg py-1 min-w-[160px]">
+                              {!v.active && (
+                                <button
+                                  onClick={() => { handleSetActive(v.sheetName); setShowVersionMenu(null) }}
+                                  className="w-full flex items-center gap-2 px-3 py-1.5 text-sm hover:bg-muted text-left"
+                                >
+                                  <Star className="w-3.5 h-3.5" />
+                                  Set as Active
+                                </button>
+                              )}
+                              <button
+                                onClick={() => handleCopyVersion(v.sheetName)}
+                                className="w-full flex items-center gap-2 px-3 py-1.5 text-sm hover:bg-muted text-left"
+                              >
+                                <Copy className="w-3.5 h-3.5" />
+                                Copy Version
+                              </button>
+                              <button
+                                onClick={() => { handleDeleteVersion(v.sheetName); }}
+                                className="w-full flex items-center gap-2 px-3 py-1.5 text-sm hover:bg-muted text-left text-red-500"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                                Delete
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      ))
+                    )}
+
+                    {/* Divider */}
+                    <div className="w-px h-6 bg-border mx-1" />
+
+                    {/* Create Version button */}
+                    <button
+                      onClick={handleCreateVersion}
+                      disabled={creatingVersion}
+                      className="flex items-center gap-1 px-2.5 py-1.5 bg-primary/10 hover:bg-primary/20 text-primary rounded-lg text-sm font-medium whitespace-nowrap disabled:opacity-50"
+                    >
+                      {creatingVersion ? (
+                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      ) : (
+                        <Plus className="w-3.5 h-3.5" />
+                      )}
+                      {creatingVersion ? 'Creating...' : 'New Version'}
+                    </button>
+                  </div>
+
+                  {/* Context-aware action buttons */}
+                  <div className="flex items-center gap-2">
+                    {selectedTab === "setup" ? (
+                      <>
+                        {/* Setup tab context: Create Takeoff + Download BTX */}
+                        <button
+                          onClick={handleCreateVersion}
+                          disabled={creatingVersion}
+                          className="flex items-center gap-1.5 px-3 py-1.5 bg-orange-600 text-white hover:bg-orange-700 disabled:opacity-50 rounded-lg text-sm"
+                          title="Create a new takeoff version from Setup configuration"
+                        >
+                          {creatingVersion ? (
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                          ) : (
+                            <Calculator className="w-4 h-4" />
+                          )}
+                          {creatingVersion ? 'Creating...' : 'Create Takeoff'}
+                        </button>
+                        <button
+                          onClick={handleGenerateBtx}
+                          disabled={generatingBtx}
+                          className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50 rounded-lg text-sm"
+                          title="Generate Bluebeam Tool Chest (.btx) from Setup items and locations"
+                        >
+                          {generatingBtx ? (
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                          ) : (
+                            <Download className="w-4 h-4" />
+                          )}
+                          {generatingBtx ? 'Generating...' : 'Download BTX'}
+                        </button>
+                      </>
+                    ) : (
+                      <>
+                        {/* Version tab context: Import CSV + Proposal */}
+                        <button
+                          onClick={() => setShowUploadModal(true)}
+                          className="flex items-center gap-1.5 px-3 py-1.5 bg-green-600 text-white hover:bg-green-700 rounded-lg text-sm"
+                          title={`Import Bluebeam CSV into ${selectedTab}`}
+                        >
+                          <Upload className="w-4 h-4" />
+                          Import CSV
+                        </button>
+                        <button
+                          onClick={() => setShowProposalPreview(true)}
+                          className="flex items-center gap-1.5 px-3 py-1.5 bg-primary text-primary-foreground hover:bg-primary/90 rounded-lg text-sm"
+                          title={`Generate proposal from ${selectedTab}`}
+                        >
+                          <FileText className="w-4 h-4" />
+                          Proposal
+                        </button>
+                        <button
+                          onClick={handleGenerateBtx}
+                          disabled={generatingBtx}
+                          className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50 rounded-lg text-sm"
+                          title="Generate BTX from this version's items and locations"
+                        >
+                          {generatingBtx ? (
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                          ) : (
+                            <Download className="w-4 h-4" />
+                          )}
+                          BTX
+                        </button>
+                      </>
+                    )}
+
+                    {/* Common: Open in Google Sheets */}
+                    <a
+                      href={`https://docs.google.com/spreadsheets/d/${embeddedSheetId}/edit`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center gap-1.5 px-3 py-1.5 bg-secondary hover:bg-secondary/80 rounded-lg text-sm ml-auto"
+                    >
+                      <ExternalLink className="w-4 h-4" />
+                      Open in Sheets
+                    </a>
+                  </div>
+                </div>
+              )}
 
               {/* Info Cards Row */}
               <div className="grid grid-cols-4 gap-3 mb-4">
