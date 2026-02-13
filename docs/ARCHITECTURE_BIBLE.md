@@ -423,11 +423,11 @@ project_folders (existing, column added Session 31)
 | `/config` | GET/POST | Read/write wizard-generated config |
 | `/setup-config` | GET | Read Setup tab toggles for BTX: items with active locations, tool names, section membership (Session 40) |
 | `/btx` | GET/POST | GET: check readiness (reads setup-config). POST: generate per-floor BTX zip via Python backend. Accepts `setupConfig` body (Phase 3) or legacy `config`. Saves zip to Drive Markups folder. Filename: `{project}-tools-{date}.zip` (Session 40) |
-| `/bluebeam` | POST | Import Bluebeam CSV into sheet. Accepts `sheet_name` in body (Session 33) |
+| `/bluebeam` | POST | Import Bluebeam CSV into sheet with accumulation. Reads existing values and adds imported quantities. Saves CSV to Drive Markups/. Records to BigQuery import_history. Returns matchedItems with previousValue/accumulatedTotal, unmatchedItems with availableLocations. Accepts `sheet_name` in body. (Session 33, enhanced Session 41) |
 | `/generate` | POST | Generate proposal from takeoff |
-| `/imports` | GET/POST | List/create takeoff imports |
-| `/sync/[importId]` | POST | Sync import with sheet |
-| `/compare/[importId]` | GET | Compare import versions |
+| `/imports` | GET | List past imports from BigQuery import_history (Session 41 — rewritten from Python proxy to BigQuery) |
+| `/sync/[importId]` | POST | Update import status/notes in BigQuery (Session 41 — rewritten from Python proxy) |
+| `/compare/[importId]` | GET | Get specific import details from BigQuery (Session 41 — rewritten from Python proxy) |
 | `/create-version` | POST | Create new takeoff version tab (copy template, transfer config, hide rows/cols, update tracker) |
 | `/versions` | GET | List versions from Setup tracker, cross-ref actual tabs. Returns `tabSheetId` (gid) + `setupTabSheetId` for embedded sheet navigation |
 | `/versions` | PUT | Set active version and/or update status |
@@ -680,13 +680,27 @@ Each BTX file contains XML tool definitions. Tool subjects follow the pattern: `
 Bluebeam CSV export (from markup)
     ↓
 Next.js /bluebeam route (POST)
-    ↓ parse CSV
+    ↓ parse CSV (deterministic or fuzzy)
 Match Subject to item_id + location
     ↓
 fillBluebeamDataToSpreadsheet()
+    ↓ batch-read existing values (Sheets API batchGet)
+    ↓ accumulate: new = existing + imported
     ↓ Sheets API batch update
-Quantities written to correct cells
+Quantities accumulated to correct cells
+    ↓
+Save CSV to Drive → Markups/ subfolder
+    ↓
+Record import to BigQuery import_history
+    ↓
+Return detailed report (matched with accumulation, unmatched with reassignment options)
 ```
+
+**Accumulation (Session 41):** Import no longer overwrites. Reads existing cell values first, adds imported quantities. Each matched item reports `previousValue`, `quantity` (imported), `accumulatedTotal`. UI shows "X + Y = Z" for cells with existing data.
+
+**Unmatched reassignment (Session 41):** Items with `NO_COLUMN_MAPPING` show a location dropdown in the UI. User can assign to an available location and re-import selected items.
+
+**Import history (Session 41):** Each import is recorded to `mr_main.import_history` in BigQuery. Import History panel accessible via "History" button on version tab action bar. Shows timestamps, match counts, accumulation mode, and links to CSV files in Drive.
 
 **Cross-section handling:** A merged location map combines all section location names. If an Exterior item was measured on a Roofing floor name (e.g., "MAIN ROOF"), the merged map catches it because all sections share the same physical columns (G-L).
 
@@ -1032,6 +1046,16 @@ git push origin feature/[name]    # Push branch
    - Frontend: `handleGenerateBtx` reads setup-config → shows summary dialog (items × locations = tools) → user confirms → downloads
    - Filename changed to `{project}-tools-{YYYY-MM-DD}.zip`
 
+**Session 41 (feature/import-v2):**
+10. Phase 4: CSV Import v2 (Accumulation + Staging)
+    - `fillBluebeamDataToSpreadsheet()` now batch-reads existing values and accumulates (new = existing + imported)
+    - Each import recorded to BigQuery `import_history` with match counts, accumulation mode, CSV file ID
+    - Uploaded CSV saved to Drive → Markups/ subfolder ({project}-bluebeam-{date}.csv)
+    - Enhanced UploadModal: shows accumulation details (X + Y = Z), unmatched items with location reassignment dropdowns, "Accept Selected" for re-import
+    - ImportHistoryModal: lists past imports with timestamps, match stats, Drive CSV links
+    - /imports, /compare, /sync routes rewritten from Python proxies to BigQuery-backed
+    - "History" button added to version tab action bar
+
 ### Remaining Work
 
 - Phase 3.6: Python backend — add WATERPROOFING location codes (FL1-FL7, MR, SBH, EBH) — requires Python server access
@@ -1114,7 +1138,7 @@ git push origin feature/[name]    # Push branch
 - ✅ Column C dropdowns: 3 types × 4 sections from Library FILTER formulas (AF-AQ), strict:false
 - ✅ Project creation: Drive folder structure + template copy + Library refresh + project name write
 - ✅ Sheet-first BTX generation: reads live sheet via sheet-config, proxies to Python backend, returns per-floor zip
-- ✅ Bluebeam CSV import: deterministic (pipe-delimited) + fuzzy (27 regex) parsing → writes to active takeoff tab (version-aware, Session 33)
+- ✅ Bluebeam CSV import: deterministic (pipe-delimited) + fuzzy (27 regex) parsing → accumulates to active takeoff tab (version-aware, Session 33; accumulation + Drive save + import history Session 41)
 - ✅ Proposal preview: dynamic section/row detection from formulas, 3-mode description composition from BigQuery (version-aware, Session 33)
 - ✅ Proposal DOCX generation: Docxtemplater + Drive upload to Proposals subfolder
 - ✅ Bid type: BASE/ALT split detected in preview, separate sections in DOCX
@@ -1128,7 +1152,7 @@ git push origin feature/[name]    # Push branch
 ### Active Bugs (Verified)
 1. ~~**Upload success opens legacy component**~~ — **FIXED** (Session 34) — onSuccess now opens embedded sheet if embeddedSheetId exists, falls back to legacy only when no embedded sheet
 2. ~~**Embedded sheet close loses state**~~ — **FIXED** (Session 34) — close only nulls embeddedSheetUrl, keeps embeddedSheetId for instant reopen
-3. **CSV import overwrites instead of accumulating** — fillBluebeamDataToSpreadsheet() writes new values, doesn't add to existing
+3. ~~**CSV import overwrites instead of accumulating**~~ — **FIXED** (Session 41) — fillBluebeamDataToSpreadsheet() now batch-reads existing values and accumulates (new = existing + imported). CSV saved to Drive Markups/. Import recorded to BigQuery import_history.
 4. **populate-library-tab.mjs clears FILTER formulas** — clears Library tab then rewrites, but formulas in AF-AQ can be lost if script interrupted
 5. **[TBD] placeholders in proposals** — when sheet R/IN/TYPE columns are empty, descriptions show [TBD] instead of graceful handling
 
@@ -1154,12 +1178,12 @@ All 3 production source files updated to use `getActiveSheetName()`:
 | app/api/ko/takeoff/[projectId]/sheet-config/route.js | 54 | **FIXED** — accepts `?sheet=` param, defaults to `getActiveSheetName()` (Session 33) |
 Plus ~12 scripts (non-production, debug/template tools) — intentionally unchanged
 
-### Unwired Infrastructure (Backend Built, No Frontend)
+### ~~Unwired Infrastructure~~ — **WIRED** (Session 41)
 | Route | Backend Status | Frontend Status |
 |-------|---------------|----------------|
-| /takeoff/[projectId]/imports | Active (proxies to Python) | ZERO UI references |
-| /takeoff/[projectId]/compare/[importId] | Active (proxies to Python) | ZERO UI references |
-| /takeoff/[projectId]/sync/[importId] | Active (proxies to Python) | ZERO UI references |
+| /takeoff/[projectId]/imports | **Rewritten**: queries BigQuery import_history (Session 41) | **WIRED**: ImportHistoryModal in estimating-center-screen.jsx |
+| /takeoff/[projectId]/compare/[importId] | **Rewritten**: returns import details from BigQuery (Session 41) | Available for future detail view |
+| /takeoff/[projectId]/sync/[importId] | **Rewritten**: updates import status in BigQuery (Session 41) | Available for future approval flow |
 
 ### Two Parallel Paths (Must Be Reconciled)
 | Aspect | Wizard Path | Sheet-First Path (Current) |
