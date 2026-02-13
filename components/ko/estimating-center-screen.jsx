@@ -86,6 +86,9 @@ export function EstimatingCenterScreen({ onSelectProject, onBack }) {
   const [selectedVersionTab, setSelectedVersionTab] = useState(null)
   const [setupTabSheetId, setSetupTabSheetId] = useState(null)
   const [creatingVersion, setCreatingVersion] = useState(false)
+  const [showNewVersionDialog, setShowNewVersionDialog] = useState(false)
+  const [newVersionMode, setNewVersionMode] = useState('duplicate')
+  const [newVersionMakeActive, setNewVersionMakeActive] = useState(true)
 
   // Folder agent chat state
   const [chatMessages, setChatMessages] = useState([])
@@ -223,26 +226,70 @@ export function EstimatingCenterScreen({ onSelectProject, onBack }) {
     }
   }
 
-  // Create new takeoff version from Setup tab (2C.4)
-  const handleCreateVersion = async () => {
+  // Show new version dialog (2C.4 — VF-3.2)
+  const handleCreateVersion = () => {
+    if (!selectedProject || creatingVersion) return
+    setNewVersionMode('duplicate')
+    setNewVersionMakeActive(true)
+    setShowNewVersionDialog(true)
+  }
+
+  // Execute version creation after dialog confirmation (VF-3.3)
+  const handleConfirmCreateVersion = async () => {
     if (!selectedProject || creatingVersion) return
     setCreatingVersion(true)
+    setShowNewVersionDialog(false)
     try {
-      const res = await fetch(`/api/ko/takeoff/${selectedProject.project_id}/create-version`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({})
-      })
-      if (!res.ok) {
-        const err = await res.json()
-        throw new Error(err.error || 'Failed to create version')
+      let sheetName, tabSheetId
+
+      if (newVersionMode === 'duplicate' && currentSheetName) {
+        // Duplicate existing version via POST /versions
+        const res = await fetch(`/api/ko/takeoff/${selectedProject.project_id}/versions`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ sourceSheetName: currentSheetName })
+        })
+        if (!res.ok) {
+          const err = await res.json()
+          throw new Error(err.error || 'Failed to duplicate version')
+        }
+        const data = await res.json()
+        // Normalize response: POST /versions returns newSheetName/newTabSheetId
+        sheetName = data.newSheetName || data.sheetName
+        tabSheetId = data.newTabSheetId ?? data.tabSheetId
+      } else {
+        // Create blank version from template via POST /create-version
+        const res = await fetch(`/api/ko/takeoff/${selectedProject.project_id}/create-version`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({})
+        })
+        if (!res.ok) {
+          const err = await res.json()
+          throw new Error(err.error || 'Failed to create version')
+        }
+        const data = await res.json()
+        sheetName = data.sheetName
+        tabSheetId = data.tabSheetId
       }
-      const data = await res.json()
+
       // Reload versions to reflect the new one
       await loadVersions(selectedProject.project_id)
       // Switch to the new version tab
-      if (data.sheetName && data.tabSheetId != null) {
-        handleVersionTabClick(data.sheetName, data.tabSheetId)
+      if (sheetName && tabSheetId != null) {
+        handleVersionTabClick(sheetName, tabSheetId)
+      }
+
+      // If "make active" unchecked, revert active flag
+      if (!newVersionMakeActive && sheetName && selectedProject) {
+        const activeVersion = versions.find(v => v.active)
+        if (activeVersion) {
+          fetch(`/api/ko/takeoff/${selectedProject.project_id}/versions`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ sheetName: activeVersion.sheetName, setActive: true }),
+          }).catch(err => console.warn('Failed to revert active version:', err))
+        }
       }
     } catch (err) {
       console.error('Create version error:', err)
@@ -1386,6 +1433,91 @@ export function EstimatingCenterScreen({ onSelectProject, onBack }) {
             }
           }}
         />
+      )}
+
+      {/* New Version Dialog (VF-3.4) */}
+      {showNewVersionDialog && (
+        <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-center justify-center">
+          <div className="bg-card border border-border rounded-xl shadow-xl w-full max-w-sm mx-4">
+            <div className="flex items-center justify-between p-4 border-b border-border">
+              <h2 className="font-semibold">New Version</h2>
+              <button
+                onClick={() => setShowNewVersionDialog(false)}
+                className="p-1 hover:bg-muted rounded-lg"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="p-5 space-y-4">
+              {/* Mode selection */}
+              <div className="space-y-2">
+                <p className="text-sm font-medium">Create from:</p>
+                <label className="flex items-center gap-3 p-3 rounded-lg border border-border hover:bg-muted/50 cursor-pointer">
+                  <input
+                    type="radio"
+                    name="versionMode"
+                    checked={newVersionMode === 'duplicate'}
+                    onChange={() => setNewVersionMode('duplicate')}
+                    className="accent-primary"
+                  />
+                  <div>
+                    <p className="text-sm font-medium">Duplicate {currentSheetName || 'current version'}</p>
+                    <p className="text-xs text-muted-foreground">Copy all items, locations, and quantities</p>
+                  </div>
+                </label>
+                <label className="flex items-center gap-3 p-3 rounded-lg border border-border hover:bg-muted/50 cursor-pointer">
+                  <input
+                    type="radio"
+                    name="versionMode"
+                    checked={newVersionMode === 'blank'}
+                    onChange={() => setNewVersionMode('blank')}
+                    className="accent-primary"
+                  />
+                  <div>
+                    <p className="text-sm font-medium">Blank from template</p>
+                    <p className="text-xs text-muted-foreground">Start fresh with items and locations only</p>
+                  </div>
+                </label>
+              </div>
+
+              {/* Make active checkbox */}
+              <label className="flex items-center gap-3 p-3 rounded-lg border border-border hover:bg-muted/50 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={newVersionMakeActive}
+                  onChange={(e) => setNewVersionMakeActive(e.target.checked)}
+                  className="accent-primary"
+                />
+                <div>
+                  <p className="text-sm font-medium">Make this the operational version</p>
+                  <p className="text-xs text-muted-foreground">Sets the green dot and uses this for proposals</p>
+                </div>
+              </label>
+
+              {/* Actions */}
+              <div className="flex gap-2 pt-2">
+                <button
+                  onClick={() => setShowNewVersionDialog(false)}
+                  className="flex-1 py-2 bg-muted hover:bg-muted/80 rounded-lg text-sm"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleConfirmCreateVersion}
+                  disabled={creatingVersion}
+                  className="flex-1 flex items-center justify-center gap-2 py-2 bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50 rounded-lg text-sm"
+                >
+                  {creatingVersion ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <Plus className="w-4 h-4" />
+                  )}
+                  {creatingVersion ? 'Creating...' : 'Create'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* New Project Modal */}
