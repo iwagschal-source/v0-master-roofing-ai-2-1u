@@ -8,11 +8,17 @@
  * SESSION 24 FIXES:
  * - FIX 1: Standalone items now show location names (e.g., "1st Floor") not just "186.7 SF"
  * - FIX 2: Project summary includes standalone item scopes, not just bundle section titles
+ *
+ * SESSION 42 (Phase 5):
+ * - Accepts sortOrder from UI to reorder sections and items in generated DOCX
+ * - Includes version date (sheet name) in proposal metadata
+ * - Proposal naming: {project}-proposal-{version_date}-{timestamp}.docx
  */
 
 import { NextResponse } from 'next/server'
 import { runQuery } from '@/lib/bigquery'
 import { getAccessToken } from '@/lib/google-sheets'
+import { updateVersionStatus } from '@/lib/version-management'
 import Docxtemplater from 'docxtemplater'
 import PizZip from 'pizzip'
 
@@ -23,6 +29,8 @@ import PizZip from 'pizzip'
  *
  * Body (optional):
  * - editedDescriptions: Object mapping item keys to custom descriptions
+ * - sheet: Version sheet name (e.g., "2026-02-13")
+ * - sortOrder: { sections: [{rowNumber, itemOrder: [rowNumbers]}], standalones: [rowNumbers] }
  *
  * Returns:
  * - The generated .docx file for download
@@ -32,7 +40,7 @@ export async function POST(request, { params }) {
   try {
     const { projectId } = await params
     const body = await request.json().catch(() => ({}))
-    const { editedDescriptions = {}, sheet } = body
+    const { editedDescriptions = {}, sheet, sortOrder } = body
 
     if (!projectId) {
       return NextResponse.json(
@@ -51,8 +59,13 @@ export async function POST(request, { params }) {
       )
     }
 
-    // 2. Transform data for docxtemplater
-    const templateData = transformForTemplate(previewData, editedDescriptions)
+    // 2. Apply sort order if provided (reorder sections and items per user's drag-to-sort)
+    if (sortOrder) {
+      applySortOrder(previewData, sortOrder)
+    }
+
+    // 3. Transform data for docxtemplater
+    const templateData = transformForTemplate(previewData, editedDescriptions, sheet)
 
     // 3. Load template from public URL (works on Vercel)
     const templateUrl = new URL('/templates/Proposal_Template_v1_FIXED.docx', request.url)
@@ -97,11 +110,26 @@ export async function POST(request, { params }) {
     const driveResult = await saveToGoogleDrive(
       projectId,
       previewData.project.name,
-      outputBuffer
+      outputBuffer,
+      sheet
     )
 
-    // 7. Return the document for download
-    const filename = `Proposal_${previewData.project.name.replace(/[^a-zA-Z0-9]/g, '_')}_${new Date().toISOString().split('T')[0]}.docx`
+    // 7. Link proposal to version tracker (update status on Setup tab)
+    if (sheet && previewData.project.spreadsheetId) {
+      try {
+        await updateVersionStatus(previewData.project.spreadsheetId, sheet, 'Proposal Generated')
+      } catch (trackerErr) {
+        // Non-fatal — log but don't fail the generation
+        console.warn('[generate] Failed to update version tracker:', trackerErr.message)
+      }
+    }
+
+    // 8. Return the document for download
+    // Naming: {project}-proposal-{version_date}-{timestamp}.docx
+    const projectSlug = (previewData.project.name || 'Project').replace(/[^a-zA-Z0-9]/g, '_')
+    const versionDate = sheet || new Date().toISOString().split('T')[0]
+    const timestamp = Date.now()
+    const filename = `${projectSlug}-proposal-${versionDate}-${timestamp}.docx`
 
     return new NextResponse(outputBuffer, {
       status: 200,
@@ -181,14 +209,82 @@ async function getProposalPreviewData(projectId, request, sheet = null) {
 
     const previewData = await previewRes.json()
 
-    // Add drive_folder_id to project info
+    // Add drive_folder_id and spreadsheetId to project info
     previewData.project.driveFolderId = project.drive_folder_id
+    previewData.project.spreadsheetId = project.takeoff_spreadsheet_id
 
     return previewData
 
   } catch (err) {
     console.error('Failed to get preview data:', err)
     return null
+  }
+}
+
+/**
+ * Apply user's custom sort order to preview data (mutates in place).
+ * sortOrder: { sections: [{rowNumber, itemOrder: [rowNumbers]}], standalones: [rowNumbers] }
+ */
+function applySortOrder(previewData, sortOrder) {
+  if (sortOrder.sections && Array.isArray(sortOrder.sections)) {
+    const sectionMap = {}
+    for (const section of previewData.sections || []) {
+      sectionMap[section.rowNumber] = section
+    }
+
+    const reordered = []
+    for (const entry of sortOrder.sections) {
+      const section = sectionMap[entry.rowNumber]
+      if (!section) continue
+
+      // Reorder items within section
+      if (entry.itemOrder && Array.isArray(entry.itemOrder)) {
+        const itemMap = {}
+        for (const item of section.items || []) {
+          itemMap[item.rowNumber] = item
+        }
+        const reorderedItems = []
+        for (const rowNum of entry.itemOrder) {
+          if (itemMap[rowNum]) reorderedItems.push(itemMap[rowNum])
+        }
+        // Append any items not in the sort order (safety net)
+        for (const item of section.items || []) {
+          if (!entry.itemOrder.includes(item.rowNumber)) {
+            reorderedItems.push(item)
+          }
+        }
+        section.items = reorderedItems
+      }
+
+      reordered.push(section)
+    }
+
+    // Append any sections not in the sort order
+    for (const section of previewData.sections || []) {
+      if (!sortOrder.sections.some(s => s.rowNumber === section.rowNumber)) {
+        reordered.push(section)
+      }
+    }
+
+    previewData.sections = reordered
+  }
+
+  if (sortOrder.standalones && Array.isArray(sortOrder.standalones)) {
+    const standaloneMap = {}
+    for (const item of previewData.standaloneItems || []) {
+      standaloneMap[item.rowNumber] = item
+    }
+    const reordered = []
+    for (const rowNum of sortOrder.standalones) {
+      if (standaloneMap[rowNum]) reordered.push(standaloneMap[rowNum])
+    }
+    // Append any not in sort order
+    for (const item of previewData.standaloneItems || []) {
+      if (!sortOrder.standalones.includes(item.rowNumber)) {
+        reordered.push(item)
+      }
+    }
+    previewData.standaloneItems = reordered
   }
 }
 
@@ -200,16 +296,17 @@ async function getProposalPreviewData(projectId, request, sheet = null) {
  * - Calculates base_bid_total and add_alt_total separately
  * - Drops r_value, size, type from line items (moved into descriptions)
  */
-function transformForTemplate(previewData, editedDescriptions) {
+function transformForTemplate(previewData, editedDescriptions, sheet = null) {
   const { project, sections, standaloneItems, totals } = previewData
 
-  // Format date
+  // Format date — use version date (sheet name) if available, otherwise today
   const today = new Date()
   const formattedDate = today.toLocaleDateString('en-US', {
     year: 'numeric',
     month: 'long',
     day: 'numeric'
   })
+  const versionDate = sheet || today.toISOString().split('T')[0]
 
   // Build ALL line items first, then split by bidType
   const allItems = []
@@ -267,6 +364,7 @@ function transformForTemplate(previewData, editedDescriptions) {
   return {
     project_name: project.name || project.address || 'Project',
     date: formattedDate,
+    version_date: versionDate,
     prepared_for: project.gcName || 'General Contractor',
     date_drawings: '',
     proposal_version: 'Rev 1',
@@ -400,7 +498,7 @@ function formatCurrency(value) {
 /**
  * Save generated document to Google Drive Proposals folder
  */
-async function saveToGoogleDrive(projectId, projectName, docBuffer) {
+async function saveToGoogleDrive(projectId, projectName, docBuffer, sheet = null) {
   try {
     const accessToken = await getAccessToken()
 
@@ -427,8 +525,10 @@ async function saveToGoogleDrive(projectId, projectName, docBuffer) {
       return null
     }
 
-    // Upload the document
-    const filename = `Proposal_${projectName.replace(/[^a-zA-Z0-9]/g, '_')}_${new Date().toISOString().split('T')[0]}.docx`
+    // Upload the document — matches download filename pattern
+    const projectSlug = projectName.replace(/[^a-zA-Z0-9]/g, '_')
+    const versionDate = sheet || new Date().toISOString().split('T')[0]
+    const filename = `${projectSlug}-proposal-${versionDate}-${Date.now()}.docx`
 
     // Use multipart upload for file content
     const boundary = '-------314159265358979323846'

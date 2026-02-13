@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useCallback } from "react"
+import { useState, useEffect, useCallback, useMemo } from "react"
 import {
   X,
   Loader2,
@@ -16,32 +16,104 @@ import {
   Calendar,
   Save,
   Download,
-  RefreshCw
+  RefreshCw,
+  GripVertical
 } from "lucide-react"
 import { cn } from "@/lib/utils"
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors
+} from "@dnd-kit/core"
+import {
+  SortableContext,
+  sortableKeyboardCoordinates,
+  verticalListSortingStrategy,
+  useSortable,
+  arrayMove
+} from "@dnd-kit/sortable"
+import { CSS } from "@dnd-kit/utilities"
 
 /**
- * TakeoffProposalPreview Component (Step 8.C.10)
+ * SortableSection — wraps a section card with drag handle for section-level reordering
+ */
+function SortableSection({ id, children }) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging
+  } = useSortable({ id })
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+    position: 'relative',
+    zIndex: isDragging ? 10 : 'auto'
+  }
+
+  return (
+    <div ref={setNodeRef} style={style}>
+      {children({ dragHandleProps: { ...attributes, ...listeners } })}
+    </div>
+  )
+}
+
+/**
+ * SortableItem — wraps an item row with drag handle for item-level reordering
+ */
+function SortableItem({ id, children }) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging
+  } = useSortable({ id })
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+    position: 'relative',
+    zIndex: isDragging ? 10 : 'auto'
+  }
+
+  return (
+    <div ref={setNodeRef} style={style}>
+      {children({ dragHandleProps: { ...attributes, ...listeners } })}
+    </div>
+  )
+}
+
+/**
+ * TakeoffProposalPreview Component
  *
- * Shows a preview of what will appear on the proposal PDF based on takeoff data.
- * Reads from the takeoff sheet and uses Row Type column to structure the proposal.
- *
- * Displays:
- * - Project info header
- * - Sections (WORK DETAILS FOR...) with bundled items
- * - Standalone items
- * - Section totals and grand total
- * - Editable description fields
+ * Shows a preview of what will appear on the proposal DOCX based on takeoff data.
+ * Supports drag-to-sort for sections and items within sections.
+ * Passes custom sort order to the generate endpoint.
  *
  * Props:
  * - projectId: The project ID
+ * - sheetName: Active version sheet name
  * - onClose: Callback when closing
- * - onGeneratePdf: Callback to generate PDF (wired in 8.D)
+ * - onGeneratePdf: Callback after document generation
  */
 export function TakeoffProposalPreview({ projectId, sheetName, onClose, onGeneratePdf }) {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [previewData, setPreviewData] = useState(null)
+
+  // Ordered arrays — these track the user's custom sort order
+  const [orderedSections, setOrderedSections] = useState([])
+  const [orderedStandalones, setOrderedStandalones] = useState([])
 
   // Editable descriptions state
   const [editedDescriptions, setEditedDescriptions] = useState({})
@@ -53,6 +125,24 @@ export function TakeoffProposalPreview({ projectId, sheetName, onClose, onGenera
   // Generate state
   const [generating, setGenerating] = useState(false)
   const [generateResult, setGenerateResult] = useState(null)
+
+  // DnD sensors with activation constraint to distinguish clicks from drags
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
+  )
+
+  // Stable IDs for sortable sections
+  const sectionIds = useMemo(
+    () => orderedSections.map(s => `section-${s.rowNumber}`),
+    [orderedSections]
+  )
+
+  // Stable IDs for sortable standalone items
+  const standaloneIds = useMemo(
+    () => orderedStandalones.map(s => `standalone-${s.rowNumber}`),
+    [orderedStandalones]
+  )
 
   // Load preview data
   useEffect(() => {
@@ -76,6 +166,10 @@ export function TakeoffProposalPreview({ projectId, sheetName, onClose, onGenera
 
       setPreviewData(data)
 
+      // Initialize ordered arrays from loaded data
+      setOrderedSections(data.sections || [])
+      setOrderedStandalones(data.standaloneItems || [])
+
       // Initialize edited descriptions from loaded data
       const initialEdits = {}
       for (const section of data.sections || []) {
@@ -98,6 +192,49 @@ export function TakeoffProposalPreview({ projectId, sheetName, onClose, onGenera
     } finally {
       setLoading(false)
     }
+  }
+
+  // --- Section-level drag end ---
+  const handleSectionDragEnd = (event) => {
+    const { active, over } = event
+    if (!over || active.id === over.id) return
+
+    setOrderedSections((prev) => {
+      const oldIndex = prev.findIndex(s => `section-${s.rowNumber}` === active.id)
+      const newIndex = prev.findIndex(s => `section-${s.rowNumber}` === over.id)
+      if (oldIndex === -1 || newIndex === -1) return prev
+      return arrayMove(prev, oldIndex, newIndex)
+    })
+  }
+
+  // --- Item-level drag end (within a section) ---
+  const handleItemDragEnd = (sectionRowNumber) => (event) => {
+    const { active, over } = event
+    if (!over || active.id === over.id) return
+
+    setOrderedSections((prev) => {
+      return prev.map(section => {
+        if (section.rowNumber !== sectionRowNumber) return section
+        const items = [...section.items]
+        const oldIndex = items.findIndex(i => `item-${sectionRowNumber}-${i.rowNumber}` === active.id)
+        const newIndex = items.findIndex(i => `item-${sectionRowNumber}-${i.rowNumber}` === over.id)
+        if (oldIndex === -1 || newIndex === -1) return section
+        return { ...section, items: arrayMove(items, oldIndex, newIndex) }
+      })
+    })
+  }
+
+  // --- Standalone item drag end ---
+  const handleStandaloneDragEnd = (event) => {
+    const { active, over } = event
+    if (!over || active.id === over.id) return
+
+    setOrderedStandalones((prev) => {
+      const oldIndex = prev.findIndex(s => `standalone-${s.rowNumber}` === active.id)
+      const newIndex = prev.findIndex(s => `standalone-${s.rowNumber}` === over.id)
+      if (oldIndex === -1 || newIndex === -1) return prev
+      return arrayMove(prev, oldIndex, newIndex)
+    })
   }
 
   // Toggle section collapse
@@ -126,20 +263,23 @@ export function TakeoffProposalPreview({ projectId, sheetName, onClose, onGenera
     }).format(value)
   }
 
-  // Format locations as readable string
-  const formatLocations = (locations) => {
-    if (!locations || Object.keys(locations).length === 0) return ''
-    return Object.entries(locations)
-      .map(([key, value]) => `${value}`)
-      .join(', ')
-  }
-
   // Calculate sections total
   const calculateSectionsTotal = () => {
     if (!previewData) return 0
-    const sectionsSum = (previewData.sections || []).reduce((sum, s) => sum + (s.subtotal || 0), 0)
-    const standalonesSum = (previewData.standaloneItems || []).reduce((sum, i) => sum + (i.totalCost || 0), 0)
+    const sectionsSum = orderedSections.reduce((sum, s) => sum + (s.subtotal || 0), 0)
+    const standalonesSum = orderedStandalones.reduce((sum, i) => sum + (i.totalCost || 0), 0)
     return sectionsSum + standalonesSum
+  }
+
+  // Build the sort order to pass to generate endpoint
+  const buildSortOrder = () => {
+    return {
+      sections: orderedSections.map(s => ({
+        rowNumber: s.rowNumber,
+        itemOrder: s.items.map(i => i.rowNumber)
+      })),
+      standalones: orderedStandalones.map(s => s.rowNumber)
+    }
   }
 
   // Handle generate document
@@ -148,10 +288,15 @@ export function TakeoffProposalPreview({ projectId, sheetName, onClose, onGenera
     setGenerateResult(null)
 
     try {
+      const sortOrder = buildSortOrder()
       const res = await fetch(`/api/ko/proposal/${projectId}/generate`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ editedDescriptions, sheet: sheetName || undefined })
+        body: JSON.stringify({
+          editedDescriptions,
+          sheet: sheetName || undefined,
+          sortOrder
+        })
       })
 
       if (!res.ok) {
@@ -194,6 +339,7 @@ export function TakeoffProposalPreview({ projectId, sheetName, onClose, onGenera
         onGeneratePdf({
           ...previewData,
           editedDescriptions,
+          sortOrder,
           driveFileId,
           driveFileUrl
         })
@@ -250,7 +396,7 @@ export function TakeoffProposalPreview({ projectId, sheetName, onClose, onGenera
     )
   }
 
-  const { project, sections, standaloneItems, totals } = previewData || {}
+  const { project, totals } = previewData || {}
 
   return (
     <div className="fixed inset-0 z-50 bg-background flex flex-col">
@@ -269,7 +415,7 @@ export function TakeoffProposalPreview({ projectId, sheetName, onClose, onGenera
               Proposal Preview
             </h1>
             <p className="text-sm text-muted-foreground">
-              Review and edit descriptions before generating PDF
+              Drag to reorder sections and items. Edit descriptions before generating.
             </p>
           </div>
         </div>
@@ -340,7 +486,7 @@ export function TakeoffProposalPreview({ projectId, sheetName, onClose, onGenera
                   </span>
                   <span className="flex items-center gap-1">
                     <Calendar className="w-4 h-4" />
-                    {project?.date || new Date().toLocaleDateString()}
+                    {sheetName || project?.date || new Date().toLocaleDateString()}
                   </span>
                 </div>
               </div>
@@ -360,125 +506,173 @@ export function TakeoffProposalPreview({ projectId, sheetName, onClose, onGenera
             )}
           </div>
 
-          {/* Sections */}
-          {sections && sections.length > 0 && (
-            <div className="space-y-4 mb-6">
-              {sections.map((section, sectionIdx) => (
-                <div
-                  key={`section-${sectionIdx}`}
-                  className="bg-card border border-border rounded-xl overflow-hidden"
-                >
-                  {/* Section Header */}
-                  <button
-                    onClick={() => toggleSection(section.title)}
-                    className="w-full flex items-center justify-between px-6 py-4 bg-yellow-50 dark:bg-yellow-900/20 border-b border-yellow-200 dark:border-yellow-800 hover:bg-yellow-100 dark:hover:bg-yellow-900/30 transition-colors"
-                  >
-                    <div className="flex items-center gap-3">
-                      {collapsedSections[section.title] ? (
-                        <ChevronRight className="w-5 h-5 text-yellow-600" />
-                      ) : (
-                        <ChevronDown className="w-5 h-5 text-yellow-600" />
-                      )}
-                      <h3 className="font-semibold text-yellow-800 dark:text-yellow-200">
-                        {section.title}
-                      </h3>
-                      <span className="text-sm text-yellow-600 dark:text-yellow-400">
-                        ({section.items?.length || 0} items)
-                      </span>
-                    </div>
-                    <span className="font-semibold text-yellow-800 dark:text-yellow-200">
-                      {formatCurrency(section.subtotal)}
-                    </span>
-                  </button>
+          {/* Sortable Sections */}
+          {orderedSections.length > 0 && (
+            <DndContext
+              sensors={sensors}
+              collisionDetection={closestCenter}
+              onDragEnd={handleSectionDragEnd}
+            >
+              <SortableContext items={sectionIds} strategy={verticalListSortingStrategy}>
+                <div className="space-y-4 mb-6">
+                  {orderedSections.map((section) => {
+                    const sectionId = `section-${section.rowNumber}`
+                    const itemIds = section.items.map(i => `item-${section.rowNumber}-${i.rowNumber}`)
 
-                  {/* Section Items */}
-                  {!collapsedSections[section.title] && section.items && section.items.length > 0 && (
-                    <div className="divide-y divide-border">
-                      {section.items.map((item, itemIdx) => {
-                        const descKey = `section-${section.title}-item-${item.rowNumber}`
-                        const isEditing = editingKey === descKey
-
-                        return (
-                          <div key={`item-${itemIdx}`} className="p-4">
-                            <div className="flex items-start justify-between mb-2">
-                              <div className="flex-1">
-                                <div className="flex items-center gap-2 mb-1 flex-wrap">
-                                  <span className="font-medium text-foreground">
-                                    {item.name || item.itemId}
-                                  </span>
-                                  {item.rValue && (
-                                    <span className="text-xs px-2 py-0.5 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded">
-                                      {item.rValue}
-                                    </span>
-                                  )}
-                                  {item.thickness && (
-                                    <span className="text-xs px-2 py-0.5 bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 rounded">
-                                      {item.thickness}
-                                    </span>
-                                  )}
-                                  {item.materialType && (
-                                    <span className="text-xs px-2 py-0.5 bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300 rounded">
-                                      {item.materialType}
-                                    </span>
-                                  )}
-                                </div>
-                                {item.totalMeasurements > 0 && (
-                                  <p className="text-xs text-muted-foreground">
-                                    {item.totalMeasurements.toLocaleString()} SF
-                                  </p>
-                                )}
-                              </div>
-                              <div className="text-right">
-                                <p className="font-medium">
-                                  {formatCurrency(item.totalCost)}
-                                </p>
-                                {item.unitCost > 0 && (
-                                  <p className="text-xs text-muted-foreground">
-                                    @ {formatCurrency(item.unitCost)}/unit
-                                  </p>
-                                )}
-                              </div>
-                            </div>
-
-                            {/* Editable Description */}
-                            <div className="mt-3">
-                              <div className="flex items-center justify-between mb-1">
-                                <label className="text-xs text-muted-foreground">
-                                  Description (editable)
-                                </label>
-                                <button
-                                  onClick={() => setEditingKey(isEditing ? null : descKey)}
-                                  className="text-xs text-primary hover:underline flex items-center gap-1"
+                    return (
+                      <SortableSection key={sectionId} id={sectionId}>
+                        {({ dragHandleProps }) => (
+                          <div className="bg-card border border-border rounded-xl overflow-hidden">
+                            {/* Section Header with drag handle */}
+                            <div className="w-full flex items-center justify-between px-6 py-4 bg-yellow-50 dark:bg-yellow-900/20 border-b border-yellow-200 dark:border-yellow-800">
+                              <div className="flex items-center gap-2">
+                                <div
+                                  {...dragHandleProps}
+                                  className="cursor-grab active:cursor-grabbing p-1 -ml-2 rounded hover:bg-yellow-200/50 dark:hover:bg-yellow-800/50"
+                                  title="Drag to reorder section"
                                 >
-                                  <Edit3 className="w-3 h-3" />
-                                  {isEditing ? 'Done' : 'Edit'}
+                                  <GripVertical className="w-4 h-4 text-yellow-600/60" />
+                                </div>
+                                <button
+                                  onClick={() => toggleSection(section.title)}
+                                  className="flex items-center gap-2"
+                                >
+                                  {collapsedSections[section.title] ? (
+                                    <ChevronRight className="w-5 h-5 text-yellow-600" />
+                                  ) : (
+                                    <ChevronDown className="w-5 h-5 text-yellow-600" />
+                                  )}
+                                  <h3 className="font-semibold text-yellow-800 dark:text-yellow-200">
+                                    {section.title}
+                                  </h3>
+                                  <span className="text-sm text-yellow-600 dark:text-yellow-400">
+                                    ({section.items?.length || 0} items)
+                                  </span>
                                 </button>
+                                {section.bidType === 'ALT' && (
+                                  <span className="text-xs px-2 py-0.5 bg-orange-200 dark:bg-orange-800 text-orange-800 dark:text-orange-200 rounded font-medium">
+                                    ALT
+                                  </span>
+                                )}
                               </div>
-                              {isEditing ? (
-                                <textarea
-                                  value={editedDescriptions[descKey] || ''}
-                                  onChange={(e) => updateDescription(descKey, e.target.value)}
-                                  className="w-full px-3 py-2 bg-background border border-input rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 min-h-[100px]"
-                                  placeholder="Enter item description..."
-                                />
-                              ) : (
-                                <p className="text-sm text-muted-foreground bg-muted/30 rounded-lg px-3 py-2">
-                                  {editedDescriptions[descKey] || item.description || 'No description'}
-                                </p>
-                              )}
+                              <span className="font-semibold text-yellow-800 dark:text-yellow-200">
+                                {formatCurrency(section.subtotal)}
+                              </span>
                             </div>
+
+                            {/* Sortable Items within section */}
+                            {!collapsedSections[section.title] && section.items && section.items.length > 0 && (
+                              <DndContext
+                                sensors={sensors}
+                                collisionDetection={closestCenter}
+                                onDragEnd={handleItemDragEnd(section.rowNumber)}
+                              >
+                                <SortableContext items={itemIds} strategy={verticalListSortingStrategy}>
+                                  <div className="divide-y divide-border">
+                                    {section.items.map((item) => {
+                                      const itemSortId = `item-${section.rowNumber}-${item.rowNumber}`
+                                      const descKey = `section-${section.title}-item-${item.rowNumber}`
+                                      const isEditing = editingKey === descKey
+
+                                      return (
+                                        <SortableItem key={itemSortId} id={itemSortId}>
+                                          {({ dragHandleProps: itemDragProps }) => (
+                                            <div className="p-4">
+                                              <div className="flex items-start gap-2 mb-2">
+                                                <div
+                                                  {...itemDragProps}
+                                                  className="cursor-grab active:cursor-grabbing p-1 mt-0.5 rounded hover:bg-muted"
+                                                  title="Drag to reorder item"
+                                                >
+                                                  <GripVertical className="w-3.5 h-3.5 text-muted-foreground/40" />
+                                                </div>
+                                                <div className="flex-1">
+                                                  <div className="flex items-center gap-2 mb-1 flex-wrap">
+                                                    <span className="font-medium text-foreground">
+                                                      {item.name || item.itemId}
+                                                    </span>
+                                                    {item.rValue && (
+                                                      <span className="text-xs px-2 py-0.5 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded">
+                                                        {item.rValue}
+                                                      </span>
+                                                    )}
+                                                    {item.thickness && (
+                                                      <span className="text-xs px-2 py-0.5 bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 rounded">
+                                                        {item.thickness}
+                                                      </span>
+                                                    )}
+                                                    {item.materialType && (
+                                                      <span className="text-xs px-2 py-0.5 bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300 rounded">
+                                                        {item.materialType}
+                                                      </span>
+                                                    )}
+                                                  </div>
+                                                  {item.totalMeasurements > 0 && (
+                                                    <p className="text-xs text-muted-foreground">
+                                                      {item.totalMeasurements.toLocaleString()} SF
+                                                    </p>
+                                                  )}
+                                                </div>
+                                                <div className="text-right">
+                                                  <p className="font-medium">
+                                                    {formatCurrency(item.totalCost)}
+                                                  </p>
+                                                  {item.unitCost > 0 && (
+                                                    <p className="text-xs text-muted-foreground">
+                                                      @ {formatCurrency(item.unitCost)}/unit
+                                                    </p>
+                                                  )}
+                                                </div>
+                                              </div>
+
+                                              {/* Editable Description */}
+                                              <div className="mt-3 ml-7">
+                                                <div className="flex items-center justify-between mb-1">
+                                                  <label className="text-xs text-muted-foreground">
+                                                    Description (editable)
+                                                  </label>
+                                                  <button
+                                                    onClick={() => setEditingKey(isEditing ? null : descKey)}
+                                                    className="text-xs text-primary hover:underline flex items-center gap-1"
+                                                  >
+                                                    <Edit3 className="w-3 h-3" />
+                                                    {isEditing ? 'Done' : 'Edit'}
+                                                  </button>
+                                                </div>
+                                                {isEditing ? (
+                                                  <textarea
+                                                    value={editedDescriptions[descKey] || ''}
+                                                    onChange={(e) => updateDescription(descKey, e.target.value)}
+                                                    className="w-full px-3 py-2 bg-background border border-input rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 min-h-[100px]"
+                                                    placeholder="Enter item description..."
+                                                  />
+                                                ) : (
+                                                  <p className="text-sm text-muted-foreground bg-muted/30 rounded-lg px-3 py-2">
+                                                    {editedDescriptions[descKey] || item.description || 'No description'}
+                                                  </p>
+                                                )}
+                                              </div>
+                                            </div>
+                                          )}
+                                        </SortableItem>
+                                      )
+                                    })}
+                                  </div>
+                                </SortableContext>
+                              </DndContext>
+                            )}
                           </div>
-                        )
-                      })}
-                    </div>
-                  )}
+                        )}
+                      </SortableSection>
+                    )
+                  })}
                 </div>
-              ))}
-            </div>
+              </SortableContext>
+            </DndContext>
           )}
 
-          {/* Standalone Items */}
-          {standaloneItems && standaloneItems.length > 0 && (
+          {/* Sortable Standalone Items */}
+          {orderedStandalones.length > 0 && (
             <div className="bg-card border border-border rounded-xl overflow-hidden mb-6">
               <div className="px-6 py-4 bg-orange-50 dark:bg-orange-900/20 border-b border-orange-200 dark:border-orange-800">
                 <h3 className="font-semibold text-orange-800 dark:text-orange-200">
@@ -486,72 +680,92 @@ export function TakeoffProposalPreview({ projectId, sheetName, onClose, onGenera
                 </h3>
               </div>
 
-              <div className="divide-y divide-border">
-                {standaloneItems.map((item, idx) => {
-                  const descKey = `standalone-${item.rowNumber}`
-                  const isEditing = editingKey === descKey
+              <DndContext
+                sensors={sensors}
+                collisionDetection={closestCenter}
+                onDragEnd={handleStandaloneDragEnd}
+              >
+                <SortableContext items={standaloneIds} strategy={verticalListSortingStrategy}>
+                  <div className="divide-y divide-border">
+                    {orderedStandalones.map((item) => {
+                      const standaloneSortId = `standalone-${item.rowNumber}`
+                      const descKey = `standalone-${item.rowNumber}`
+                      const isEditing = editingKey === descKey
 
-                  return (
-                    <div key={`standalone-${idx}`} className="p-4">
-                      <div className="flex items-start justify-between mb-2">
-                        <div className="flex-1">
-                          <div className="flex items-center gap-2 mb-1 flex-wrap">
-                            <span className="font-medium text-foreground">
-                              {item.name || item.itemId}
-                            </span>
-                            {item.rValue && (
-                              <span className="text-xs px-2 py-0.5 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded">
-                                {item.rValue}
-                              </span>
-                            )}
-                            {item.thickness && (
-                              <span className="text-xs px-2 py-0.5 bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 rounded">
-                                {item.thickness}
-                              </span>
-                            )}
-                          </div>
-                          {item.totalMeasurements > 0 && (
-                            <p className="text-xs text-muted-foreground">
-                              {item.totalMeasurements.toLocaleString()} SF
-                            </p>
+                      return (
+                        <SortableItem key={standaloneSortId} id={standaloneSortId}>
+                          {({ dragHandleProps: standaloneDragProps }) => (
+                            <div className="p-4">
+                              <div className="flex items-start gap-2 mb-2">
+                                <div
+                                  {...standaloneDragProps}
+                                  className="cursor-grab active:cursor-grabbing p-1 mt-0.5 rounded hover:bg-muted"
+                                  title="Drag to reorder item"
+                                >
+                                  <GripVertical className="w-3.5 h-3.5 text-muted-foreground/40" />
+                                </div>
+                                <div className="flex-1">
+                                  <div className="flex items-center gap-2 mb-1 flex-wrap">
+                                    <span className="font-medium text-foreground">
+                                      {item.name || item.itemId}
+                                    </span>
+                                    {item.rValue && (
+                                      <span className="text-xs px-2 py-0.5 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded">
+                                        {item.rValue}
+                                      </span>
+                                    )}
+                                    {item.thickness && (
+                                      <span className="text-xs px-2 py-0.5 bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 rounded">
+                                        {item.thickness}
+                                      </span>
+                                    )}
+                                  </div>
+                                  {item.totalMeasurements > 0 && (
+                                    <p className="text-xs text-muted-foreground">
+                                      {item.totalMeasurements.toLocaleString()} SF
+                                    </p>
+                                  )}
+                                </div>
+                                <p className="font-semibold text-orange-600">
+                                  {formatCurrency(item.totalCost)}
+                                </p>
+                              </div>
+
+                              {/* Editable Description */}
+                              <div className="mt-3 ml-7">
+                                <div className="flex items-center justify-between mb-1">
+                                  <label className="text-xs text-muted-foreground">
+                                    Description (editable)
+                                  </label>
+                                  <button
+                                    onClick={() => setEditingKey(isEditing ? null : descKey)}
+                                    className="text-xs text-primary hover:underline flex items-center gap-1"
+                                  >
+                                    <Edit3 className="w-3 h-3" />
+                                    {isEditing ? 'Done' : 'Edit'}
+                                  </button>
+                                </div>
+                                {isEditing ? (
+                                  <textarea
+                                    value={editedDescriptions[descKey] || ''}
+                                    onChange={(e) => updateDescription(descKey, e.target.value)}
+                                    className="w-full px-3 py-2 bg-background border border-input rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 min-h-[100px]"
+                                    placeholder="Enter item description..."
+                                  />
+                                ) : (
+                                  <p className="text-sm text-muted-foreground bg-muted/30 rounded-lg px-3 py-2">
+                                    {editedDescriptions[descKey] || item.description || 'No description'}
+                                  </p>
+                                )}
+                              </div>
+                            </div>
                           )}
-                        </div>
-                        <p className="font-semibold text-orange-600">
-                          {formatCurrency(item.totalCost)}
-                        </p>
-                      </div>
-
-                      {/* Editable Description */}
-                      <div className="mt-3">
-                        <div className="flex items-center justify-between mb-1">
-                          <label className="text-xs text-muted-foreground">
-                            Description (editable)
-                          </label>
-                          <button
-                            onClick={() => setEditingKey(isEditing ? null : descKey)}
-                            className="text-xs text-primary hover:underline flex items-center gap-1"
-                          >
-                            <Edit3 className="w-3 h-3" />
-                            {isEditing ? 'Done' : 'Edit'}
-                          </button>
-                        </div>
-                        {isEditing ? (
-                          <textarea
-                            value={editedDescriptions[descKey] || ''}
-                            onChange={(e) => updateDescription(descKey, e.target.value)}
-                            className="w-full px-3 py-2 bg-background border border-input rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 min-h-[100px]"
-                            placeholder="Enter item description..."
-                          />
-                        ) : (
-                          <p className="text-sm text-muted-foreground bg-muted/30 rounded-lg px-3 py-2">
-                            {editedDescriptions[descKey] || item.description || 'No description'}
-                          </p>
-                        )}
-                      </div>
-                    </div>
-                  )
-                })}
-              </div>
+                        </SortableItem>
+                      )
+                    })}
+                  </div>
+                </SortableContext>
+              </DndContext>
             </div>
           )}
 
@@ -593,15 +807,15 @@ export function TakeoffProposalPreview({ projectId, sheetName, onClose, onGenera
           </div>
 
           {/* Empty State */}
-          {(!sections || sections.length === 0) && (!standaloneItems || standaloneItems.length === 0) && (
+          {orderedSections.length === 0 && orderedStandalones.length === 0 && (
             <div className="text-center py-12">
               <FileText className="w-12 h-12 text-muted-foreground/30 mx-auto mb-4" />
               <h3 className="text-lg font-medium text-muted-foreground mb-2">
                 No Proposal Items Found
               </h3>
               <p className="text-sm text-muted-foreground max-w-md mx-auto">
-                The takeoff sheet doesn't have any items with Row Type set.
-                Add SUBTOTAL:*, STANDALONE, or other row types to your takeoff to see items here.
+                The takeoff sheet doesn't have any items with measurements or cost.
+                Import Bluebeam data or enter quantities in the takeoff sheet.
               </p>
             </div>
           )}
@@ -612,10 +826,11 @@ export function TakeoffProposalPreview({ projectId, sheetName, onClose, onGenera
               About This Preview
             </h4>
             <ul className="text-sm text-blue-700 dark:text-blue-300 space-y-1">
-              <li>• <strong>Yellow sections</strong> (SUBTOTAL:*) bundle items into "Work Details" sections</li>
-              <li>• <strong>Orange items</strong> (STANDALONE) appear as individual line items</li>
-              <li>• Click <strong>Edit</strong> to customize descriptions before generating the PDF</li>
-              <li>• Placeholders like {'{R_VALUE}'} are replaced with values from the takeoff</li>
+              <li>• <strong>Drag handles</strong> (left side) let you reorder sections and items</li>
+              <li>• <strong>Yellow sections</strong> are bundled work items with a system description</li>
+              <li>• <strong>Orange items</strong> are standalone line items</li>
+              <li>• Click <strong>Edit</strong> to customize descriptions before generating</li>
+              <li>• The generated DOCX will use your custom order and edited descriptions</li>
             </ul>
           </div>
         </div>

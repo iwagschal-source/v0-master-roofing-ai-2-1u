@@ -3,7 +3,7 @@
 > **Repo:** `v0-master-roofing-ai-2-1u`
 > **Stack:** Next.js 16 + React 19 + Tailwind 4 + Radix UI
 > **Deployed:** Vercel — https://v0-master-roofing-ai-2-1u.vercel.app
-> **Current version:** v2.0-description-composition (main branch)
+> **Current version:** v2.1-proposal-v2 (feature/proposal-v2 branch)
 > **Last updated:** 2026-02-13
 
 ---
@@ -441,7 +441,7 @@ project_folders (existing, column added Session 31)
 | Route | Method | Purpose |
 |-------|--------|---------|
 | `/preview` | GET | Extract + preview proposal data from sheet. Accepts `?sheet=` param (Session 33) |
-| `/generate` | POST | Generate DOCX from sheet data. Accepts `sheet` in body (Session 33) |
+| `/generate` | POST | Generate DOCX from sheet data. Accepts `sheet`, `editedDescriptions`, `sortOrder` in body. Reorders sections/items per sortOrder. Updates version tracker status to "Proposal Generated". Naming: `{project}-proposal-{version_date}-{timestamp}.docx` (Session 42) |
 
 ### Project Management
 
@@ -714,19 +714,26 @@ Return detailed report (matched with accumulation, unmatched with reassignment o
 GET /preview                          POST /generate
 ┌────────────────────────┐            ┌──────────────────────┐
 │ 1. Read sheet A1:Z200  │            │ 1. Receive preview   │
-│ 2. Find column indices │            │    data + options     │
-│ 3. Detect section hdrs │            │ 2. Fetch descriptions │
-│ 4. Classify row types  │            │    from BigQuery      │
-│    (ITEM, BUNDLE,      │            │ 3. Compose paragraphs │
-│     SECTION_TOTAL,     │            │    (system/standalone) │
-│     STANDALONE)        │            │ 4. Replace placeholders│
-│ 5. Extract quantities  │            │    ({R_VALUE}, etc.)  │
-│ 6. Resolve locations   │            │ 5. Merge into DOCX    │
-│ 7. Return JSON         │            │    template           │
+│ 2. Find column indices │            │    data + sortOrder   │
+│ 3. Detect section hdrs │            │ 2. Apply sort order   │
+│ 4. Classify row types  │            │    (reorder sections  │
+│    (ITEM, BUNDLE,      │            │     and items)        │
+│     SECTION_TOTAL,     │            │ 3. Fetch descriptions │
+│     STANDALONE)        │            │    from BigQuery      │
+│ 5. Extract quantities  │            │ 4. Compose paragraphs │
+│ 6. Resolve locations   │            │    (system/standalone) │
+│ 7. Return JSON         │            │ 5. Replace placeholders│
 └────────────────────────┘            │ 6. Split by bid type  │
                                       │    (BASE vs ALT)      │
-                                      │ 7. Return .docx       │
-                                      └──────────────────────┘
+  UI: TakeoffProposalPreview          │ 7. Merge into DOCX    │
+┌────────────────────────┐            │ 8. Save to Drive      │
+│ • Drag-to-sort sections│            │ 9. Update version     │
+│ • Drag-to-sort items   │            │    tracker status     │
+│ • Edit descriptions    │            │ 10. Return .docx      │
+│ • BASE/ALT badges      │            └──────────────────────┘
+│ • Pass sortOrder to    │
+│   generate endpoint    │
+└────────────────────────┘
 ```
 
 ### Row Type Detection
@@ -754,10 +761,14 @@ Three modes based on item classification:
 **Engine:** docxtemplater + PizZip
 
 Template variables:
-- `{projectName}`, `{gcName}`, `{address}`, `{date}`
-- `{#sections}` loop → `{sectionName}`, `{#items}` loop
+- `{project_name}`, `{prepared_for}`, `{date}`, `{version_date}`
+- `{project_summary}` — auto-generated scope summary
+- `{#line_items}` loop → `{section_title}`, `{price}`, `{areas}`, `{description}`
+- `{#alt_line_items}` loop → same fields for ALT items
 - `{#has_alternates}` conditional → ALT items section
+- `{base_bid_total}`, `{add_alt_total}`, `{grand_total_bid}`
 - `{description}` — composed paragraph text
+- Sections and items respect user's drag-to-sort order (Session 42)
 
 ---
 
@@ -1056,6 +1067,20 @@ git push origin feature/[name]    # Push branch
     - /imports, /compare, /sync routes rewritten from Python proxies to BigQuery-backed
     - "History" button added to version tab action bar
 
+**Session 42 (feature/proposal-v2):**
+11. Phase 5: Proposal v2 (Sortable + Enhanced)
+    - TakeoffProposalPreview: drag-to-sort sections (DndContext + SortableContext from @dnd-kit)
+    - TakeoffProposalPreview: drag-to-sort items within each section (nested DndContext per section)
+    - TakeoffProposalPreview: drag-to-sort standalone items
+    - GripVertical drag handles on sections and items, 5px activation distance to distinguish clicks from drags
+    - sortOrder passed to POST /generate: `{ sections: [{rowNumber, itemOrder}], standalones: [rowNumbers] }`
+    - generate/route.js: applySortOrder() reorders preview data before building template
+    - Version date (sheet name) included in proposal metadata as `version_date`
+    - Proposal naming: `{project}-proposal-{version_date}-{timestamp}.docx` (both download and Drive)
+    - After generation: version tracker status updated to "Proposal Generated" via updateVersionStatus()
+    - Dependencies added: @dnd-kit/core, @dnd-kit/sortable, @dnd-kit/utilities
+    - "History" button added to version tab action bar
+
 ### Remaining Work
 
 - Phase 3.6: Python backend — add WATERPROOFING location codes (FL1-FL7, MR, SBH, EBH) — requires Python server access
@@ -1079,6 +1104,7 @@ git push origin feature/[name]    # Push branch
 - `next-auth` ^4.24.13
 
 ### UI
+- `@dnd-kit/core` ^6.3.1 + `@dnd-kit/sortable` ^10.0.0 + `@dnd-kit/utilities` ^3.2.2 — Drag-to-sort (Session 42)
 - `@radix-ui/*` (25 packages) — Headless UI primitives
 - `lucide-react` ^0.454.0 — Icons
 - `cmdk` 1.0.4 — Command palette
@@ -1139,9 +1165,10 @@ git push origin feature/[name]    # Push branch
 - ✅ Project creation: Drive folder structure + template copy + Library refresh + project name write
 - ✅ Sheet-first BTX generation: reads live sheet via sheet-config, proxies to Python backend, returns per-floor zip
 - ✅ Bluebeam CSV import: deterministic (pipe-delimited) + fuzzy (27 regex) parsing → accumulates to active takeoff tab (version-aware, Session 33; accumulation + Drive save + import history Session 41)
-- ✅ Proposal preview: dynamic section/row detection from formulas, 3-mode description composition from BigQuery (version-aware, Session 33)
-- ✅ Proposal DOCX generation: Docxtemplater + Drive upload to Proposals subfolder
+- ✅ Proposal preview: dynamic section/row detection from formulas, 3-mode description composition from BigQuery (version-aware, Session 33). Drag-to-sort sections and items (Session 42)
+- ✅ Proposal DOCX generation: Docxtemplater + Drive upload to Proposals subfolder. Respects custom sort order. Naming: `{project}-proposal-{version}-{ts}.docx` (Session 42)
 - ✅ Bid type: BASE/ALT split detected in preview, separate sections in DOCX
+- ✅ Version tracker update: proposal generation sets version status to "Proposal Generated" (Session 42)
 - ✅ 87 items in item_description_mapping (13 columns queried by preview)
 - ✅ 48 items with Bluebeam tools on Python backend
 - ✅ Import summary: shows matched/unmatched items with reasons, errors, cells populated (Session 34)
