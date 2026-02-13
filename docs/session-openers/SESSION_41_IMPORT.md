@@ -41,4 +41,49 @@ Isaac (CEO) relays between you and the lead architect (Claude AI Desktop). You e
 
 ---
 ### HANDOFF:
-[Status]
+
+**Status: COMPLETE — All 16 Phase 4 tasks DONE**
+
+**Branch:** `feature/import-v2` (6 commits, ready to merge to main)
+
+**What was done:**
+
+1. **4A.2-3: Accumulation** — `fillBluebeamDataToSpreadsheet()` now batch-reads existing cell values via Sheets API batchGet, then writes `existing + imported`. Returns `previousValue`, `accumulatedTotal` per cell, plus `accumulated` flag and `accumulatedCount`.
+
+2. **4A.4: Enhanced report** — bluebeam/route.js response now includes accumulation details per matched item, structured unmatched data with `unmatchType`, `availableLocations`, `row`, `section` for UI reassignment.
+
+3. **4A.5-6: Drive CSV save** — Uploaded CSV saved to Drive → project folder → Markups/ subfolder. Named `{project}-bluebeam-{YYYY-MM-DD}.csv`. Non-fatal (import works even if Drive save fails).
+
+4. **4B.1-5: Enhanced UploadModal** — Shows accumulation ("X + Y = Z"), unmatched items with location dropdown reassignment, "Accept Selected" button for re-import, CSV-saved-to-Drive indicator. Wider modal, scrollable content.
+
+5. **4C.1-4: Staging routes wired** — All 3 routes (imports, compare, sync) rewritten from dead Python proxy to BigQuery import_history queries. Import recording added to bluebeam route. New ImportHistoryModal with timestamps, match stats, Drive CSV links. "History" button on version tab action bar.
+
+6. **4C.5: Bible updated** — Sections 6, 9, 16, 17, 18 updated.
+
+**Commits (oldest to newest):**
+- `3ce57c1` — accumulation logic in fillBluebeamDataToSpreadsheet
+- `346f491` — accumulation details in bluebeam route response
+- `bd5b855` — Drive CSV save + getAccessToken import
+- `552eb85` — enhanced UploadModal + route unmatched data
+- `b10dcbc` — staging routes + ImportHistoryModal
+- `84929de` — Architecture Bible update
+
+**Files modified:**
+- `lib/google-sheets.js` — fillBluebeamDataToSpreadsheet (accumulation)
+- `app/api/ko/takeoff/[projectId]/bluebeam/route.js` — Drive save, import recording, enhanced response
+- `app/api/ko/takeoff/[projectId]/imports/route.js` — BigQuery-backed
+- `app/api/ko/takeoff/[projectId]/compare/[importId]/route.js` — BigQuery-backed
+- `app/api/ko/takeoff/[projectId]/sync/[importId]/route.js` — BigQuery-backed
+- `components/ko/estimating-center-screen.jsx` — UploadModal + ImportHistoryModal
+- `docs/ARCHITECTURE_BIBLE.md` — Sections 6, 9, 16, 17, 18
+
+**No overlap with BTX or Proposal files.** Safe to merge independently.
+
+**BigQuery tracker:** All 16 tasks (4A.1-4A.6, 4B.1-4B.5, 4C.1-4C.5) marked DONE, verified by Session 41.
+**Google Sheet:** Synced.
+
+**MANDATORY END-OF-SESSION CHECKLIST:**
+1. Update BigQuery tracker: DONE (16 rows updated)
+2. Sync to Google Sheet: DONE
+3. Write HANDOFF: This section
+4. Pass this checklist forward
