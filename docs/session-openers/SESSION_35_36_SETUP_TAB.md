@@ -59,7 +59,73 @@ Session 36 picks up with columns and version tracker.
 
 ---
 ### HANDOFF (written by Session 35):
-[Session 35 writes status here — what's done, what's left for Session 36]
+
+**Date:** 2026-02-13
+**Branch:** `feature/setup-tab` (4 commits, NOT merged to main yet)
+**Build:** Clean (npm run build passes)
+
+#### COMPLETED (Phase 1E + 1A + 1B — ALL DONE):
+
+**Phase 1E: Library Enhancement**
+- 1E.1: `bluebeam_tool_name` column already existed (Session 31) ✓
+- 1E.2: Populated 48 items from Python backend `/bluebeam/tools` → BigQuery ✓
+- 1E.3: Updated `v_library_complete` view to include `bluebeam_tool_name` ✓
+- 1E.4: Added `bluebeam_tool_name` (col 31/AE) to Library tab in both:
+  - `scripts/populate-library-tab.mjs` (standalone populate script)
+  - `lib/google-sheets.js` (project creation Library refresh)
+- 1E.5: Fixed populate script: only clears data range (A:AE), not FILTER formulas (AF:AQ) ✓
+- 1E.6: Bible updated (Section 5, 7) ✓
+
+**Phase 1A: Setup Tab Structure**
+- 1A.1: "Setup" tab at index 0 on template ✓
+- 1A.2: Title row "BLUEBEAM SETUP & PROJECT CONFIGURATION" ✓
+- 1A.3: Project name row ✓
+- 1A.4: All 4 sections mirrored (ROOFING rows 3-35, WP 36-39, BALCONIES 40-45, EXTERIOR 49-67) ✓
+- 1A.5-6: Columns A (item_id) & B (unit_cost) — INDEX+MATCH from Library ✓
+- 1A.7: Column C (scope/item name) — dropdown validation per section ✓
+- 1A.8: Columns D-F (R, IN, TYPE) — editable ✓
+- 1A.9: Columns G-M — 7 location toggle columns per section ✓
+- 1A.10: Conditional formatting: populated toggles → blue fill, white text ✓
+- 1A.11: Column N (UOM) — INDEX+MATCH from Library ✓
+- 1A.12: Column O (Bid Type) — BASE/ALTERNATE dropdown ✓
+- 1A.13: ALTERNATE highlighted orange ✓
+- 1A.14: Column P (Bluebeam Tool Name) — INDEX+MATCH from Library col AE ✓
+- 1A.15: Column Q (Tool Status) — ✓ Ready / ✗ Missing formula ✓
+- 1A.16: Column R (Location Count) — COUNTA(G:M) formula ✓
+- 1A.17: Proposal pipeline verified — getActiveSheetName() skips Setup tab ✓
+
+**Phase 1B: Version Tracker**
+- 1B.1: Version tracker section at rows 72-80 ✓
+- 1B.2: Columns: Active (checkbox), Sheet Name, Created Date, Items Count, Locations Count, Status ✓
+- 1B.3: Status dropdown (In Progress, Ready for Proposal, Sent to GC, Revised, Archived) ✓
+
+#### KEY FILES MODIFIED:
+- `lib/google-sheets.js` — Library refresh query + columns updated
+- `scripts/populate-library-tab.mjs` — Column 31 + clear range fix
+- `scripts/create-setup-tab.mjs` — NEW: creates Setup tab (reproducible)
+
+#### KEY TEMPLATE CHANGES:
+- Template now has 3 tabs: Setup (index 0), DATE (index 1), Library (index 2)
+- Setup tab: 80 rows × 18 columns (A-R)
+- Library tab: 87 rows × 31 columns (A-AE) + 12 FILTER formulas (AF-AQ)
+- All INDEX+MATCH formulas on Setup reference Library correctly
+
+#### BigQuery CHANGES:
+- `item_description_mapping.bluebeam_tool_name`: 48 items populated
+- `v_library_complete` view: now includes `bluebeam_tool_name` column
+
+#### WHAT SESSION 36 NEEDS TO DO:
+Session 35 completed ALL Session 35 scope (1E, 1A, 1B) plus Session 36 scope (1A.11-1A.17, 1B).
+Session 36 can proceed directly to:
+- Phase 1C: Apps Script Column C auto-populate trigger
+- Phase 1D: Integration with project creation flow (createProjectTakeoffSheet updates)
+- OR Phase 2: Version management
+
+#### MANDATORY CHECKLIST:
+1. ✅ BigQuery tracker updated (26 tasks → DONE, session_completed='35')
+2. ✅ Google Sheet synced (197 tasks)
+3. ✅ HANDOFF written (this section)
+4. Pass this checklist forward to next session
 
 ### HANDOFF (written by Session 36):
 [Session 36 writes completion status here]
