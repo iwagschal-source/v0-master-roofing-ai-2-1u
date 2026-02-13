@@ -421,7 +421,8 @@ project_folders (existing, column added Session 31)
 | `/` | GET/PUT | Get/update takeoff sheet info |
 | `/sheet-config` | GET | Read actual Google Sheet layout dynamically. Accepts `?sheet=` param (Session 33) |
 | `/config` | GET/POST | Read/write wizard-generated config |
-| `/btx` | GET | Generate per-floor BTX zip (calls Python backend) |
+| `/setup-config` | GET | Read Setup tab toggles for BTX: items with active locations, tool names, section membership (Session 40) |
+| `/btx` | GET/POST | GET: check readiness (reads setup-config). POST: generate per-floor BTX zip via Python backend. Accepts `setupConfig` body (Phase 3) or legacy `config`. Saves zip to Drive Markups folder. Filename: `{project}-tools-{date}.zip` (Session 40) |
 | `/bluebeam` | POST | Import Bluebeam CSV into sheet. Accepts `sheet_name` in body (Session 33) |
 | `/generate` | POST | Generate proposal from takeoff |
 | `/imports` | GET/POST | List/create takeoff imports |
@@ -644,21 +645,28 @@ Key functions:
 
 ## 9. Bluebeam Integration
 
-### BTX Generation Flow
+### BTX Generation Flow (v2 — Setup-Aware, Session 40)
 
 ```
-Sheet Config (items + locations)
+Setup Tab (items with location toggles G-M)
+    ↓ GET /setup-config
+readSetupConfig() → active items + location names + tool names
     ↓
-Next.js /btx route
-    ↓ POST with items[] + locations[]
+UI shows summary dialog (items × locations = tools)
+    ↓ User confirms
+POST /btx with setupConfig { items, locations }
+    ↓
 Python backend /bluebeam/generate-btx-per-floor
     ↓
 Zip of BTX files (one per floor)
     ↓
-Browser downloads .zip
+1. Saved to Drive → project folder → Markups/
+2. Browser downloads .zip
 ```
 
 Each BTX file contains XML tool definitions. Tool subjects follow the pattern: `MR-003BU2PLY | 1STFLOOR`
+
+**Key change (Session 40):** BTX reads Setup tab toggles (columns G-M) to determine which items and locations to include, instead of reading all items from the takeoff tab via sheet-config. Only items with at least one active toggle are included. The summary dialog shows item/location counts and warns about items missing Bluebeam tools.
 
 ### CSV Import Flow
 
@@ -779,7 +787,7 @@ All chat exchanges are logged to BigQuery (`ko_audit.agent_chat_history`) with:
 | File | Size | Purpose | Critical Functions |
 |------|------|---------|-------------------|
 | `lib/google-sheets.js` | 45KB | Google Sheets API | `getAccessToken`, `getActiveSheetName`, `copyTemplateSheet`, `fillBluebeamDataToSpreadsheet`, `discoverSheetLayout`, `readSheetValues`, `batchUpdateSheet` |
-| `lib/version-management.js` | ~20KB | Version tab CRUD | `copyTemplateTabToProject`, `readSetupConfig`, `transferSetupToVersion`, `hideEmptyRows`, `hideEmptyColumns`, `addVersionTrackerEntry`, `setActiveVersion`, `deleteVersion` |
+| `lib/version-management.js` | ~20KB | Version tab CRUD + Setup config | `copyTemplateTabToProject`, `readSetupConfig` (returns items with toggles, tool names, section membership, location names from headers), `transferSetupToVersion`, `hideEmptyRows`, `hideEmptyColumns`, `addVersionTrackerEntry`, `setActiveVersion`, `deleteVersion` |
 | `lib/bigquery.js` | ~8KB | BigQuery client | `runQuery`, `getAverageRates`, `getRateForItem` |
 | `lib/auth.ts` | ~3KB | NextAuth config | `authOptions`, domain check, admin check |
 | `lib/project-storage.js` | ~6KB | GCS-backed project CRUD | `loadProjects`, `saveProjects`, `addProject`, `importProjectsFromCSV` |
@@ -1010,9 +1018,17 @@ git push origin feature/[name]    # Push branch
    - `loadVersions()` called inside `checkExistingTakeoffSheet` after `setEmbeddedSheetId` (direct call, not useEffect)
    - `currentSheetName` passed to BTX, Upload, and Proposal from selected version tab
 
+**Session 40 (feature/btx-v2):**
+9. Phase 3: BTX v2 (Setup-Aware)
+   - `readSetupConfig()` enhanced: returns location names from section headers, tool names (col P), section membership per item
+   - New API: `GET /setup-config` — reads Setup tab toggles and returns BTX-compatible data
+   - BTX route updated: accepts `setupConfig` body format alongside legacy `config`; saves zip to Drive Markups folder
+   - Frontend: `handleGenerateBtx` reads setup-config → shows summary dialog (items × locations = tools) → user confirms → downloads
+   - Filename changed to `{project}-tools-{YYYY-MM-DD}.zip`
+
 ### Remaining Work
 
-- Phase 3: BTX generation reads Setup tab toggle state
+- Phase 3.6: Python backend — add WATERPROOFING location codes (FL1-FL7, MR, SBH, EBH) — requires Python server access
 - Library tab refresh mechanism
 - Migration path for existing single-tab projects
 
