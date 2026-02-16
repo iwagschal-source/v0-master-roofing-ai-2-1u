@@ -40,7 +40,7 @@ import {
   Trash2,
   Wrench
 } from "lucide-react"
-import { TakeoffSpreadsheet } from "./takeoff-spreadsheet"
+
 
 import { TakeoffProposalPreview } from "./takeoff-proposal-preview"
 import { AddItemModal } from "./add-item-modal"
@@ -66,7 +66,7 @@ export function EstimatingCenterScreen({ onSelectProject, onBack }) {
 
   // Modal states
   const [showNewProjectModal, setShowNewProjectModal] = useState(false)
-  const [showTakeoffSheet, setShowTakeoffSheet] = useState(false)
+
   const [showUploadModal, setShowUploadModal] = useState(false)
   const [showImportHistory, setShowImportHistory] = useState(false)
 
@@ -930,8 +930,6 @@ export function EstimatingCenterScreen({ onSelectProject, onBack }) {
                           setEmbeddedSheetUrl(`https://docs.google.com/spreadsheets/d/${embeddedSheetId}/edit?embedded=true&rm=minimal`)
                         }
                         setShowEmbeddedSheet(true)
-                      } else {
-                        setShowTakeoffSheet(true)
                       }
                     }}
                     className={cn(
@@ -1427,38 +1425,6 @@ export function EstimatingCenterScreen({ onSelectProject, onBack }) {
 
       {/* ============ MODALS ============ */}
 
-      {/* Takeoff Sheet Modal (Legacy) */}
-      {showTakeoffSheet && selectedProject && (
-        <div className="fixed inset-0 z-50 bg-background/95 flex flex-col">
-          <div className="flex items-center justify-between px-4 py-3 border-b border-border bg-card">
-            <h2 className="font-semibold">{selectedProject.project_name} - Takeoff</h2>
-            <button
-              onClick={() => {
-                setShowTakeoffSheet(false)
-                if (selectedProject) {
-                  checkExistingTakeoffSheet(selectedProject.project_id)
-                }
-              }}
-              className="p-2 hover:bg-muted rounded-lg"
-            >
-              <X className="w-5 h-5" />
-            </button>
-          </div>
-          <div className="flex-1 overflow-auto">
-            <TakeoffSpreadsheet
-              projectId={selectedProject.project_id}
-              projectName={selectedProject.project_name}
-              onClose={() => {
-                setShowTakeoffSheet(false)
-                if (selectedProject) {
-                  checkExistingTakeoffSheet(selectedProject.project_id)
-                }
-              }}
-              onSave={(data) => console.log('Takeoff saved:', data)}
-            />
-          </div>
-        </div>
-      )}
 
       {/* Embedded Google Sheet Modal (Step 8.B.6) */}
       {showEmbeddedSheet && embeddedSheetId && (
@@ -1519,8 +1485,6 @@ export function EstimatingCenterScreen({ onSelectProject, onBack }) {
                 setEmbeddedSheetUrl(`https://docs.google.com/spreadsheets/d/${embeddedSheetId}/edit?embedded=true&rm=minimal`)
               }
               setShowEmbeddedSheet(true)
-            } else {
-              setShowTakeoffSheet(true)
             }
           }}
         />
