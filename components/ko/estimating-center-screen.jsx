@@ -41,7 +41,7 @@ import {
   Wrench
 } from "lucide-react"
 import { TakeoffSpreadsheet } from "./takeoff-spreadsheet"
-import { TakeoffSetupScreen } from "./takeoff-setup-screen"
+
 import { TakeoffProposalPreview } from "./takeoff-proposal-preview"
 import { AddItemModal } from "./add-item-modal"
 import { BluebeamToolManager } from "./bluebeam-tool-manager"
@@ -69,7 +69,7 @@ export function EstimatingCenterScreen({ onSelectProject, onBack }) {
   const [showTakeoffSheet, setShowTakeoffSheet] = useState(false)
   const [showUploadModal, setShowUploadModal] = useState(false)
   const [showImportHistory, setShowImportHistory] = useState(false)
-  const [showTakeoffSetup, setShowTakeoffSetup] = useState(false)
+
   const [showProposalPreview, setShowProposalPreview] = useState(false)
   const [showAddItem, setShowAddItem] = useState(false)
   const [showToolManager, setShowToolManager] = useState(false)
@@ -916,14 +916,6 @@ export function EstimatingCenterScreen({ onSelectProject, onBack }) {
                 </div>
                 <div className="flex items-center gap-2">
                   <button
-                    onClick={() => setShowTakeoffSetup(true)}
-                    className="flex items-center gap-1.5 px-3 py-1.5 bg-orange-600 text-white hover:bg-orange-700 rounded-lg text-sm"
-                    title="Configure takeoff structure and generate BTX for Bluebeam"
-                  >
-                    <Calculator className="w-4 h-4" />
-                    Setup
-                  </button>
-                  <button
                     onClick={() => setShowUploadModal(true)}
                     className="flex items-center gap-1.5 px-3 py-1.5 bg-green-600 text-white hover:bg-green-700 rounded-lg text-sm"
                   >
@@ -1434,32 +1426,6 @@ export function EstimatingCenterScreen({ onSelectProject, onBack }) {
       )}
 
       {/* ============ MODALS ============ */}
-
-      {/* Takeoff Setup Wizard */}
-      {showTakeoffSetup && selectedProject && (
-        <TakeoffSetupScreen
-          projectId={selectedProject.project_id}
-          projectName={selectedProject.project_name}
-          gcName={selectedProject.gc_name}
-          onClose={() => setShowTakeoffSetup(false)}
-          onComplete={(config) => {
-            setShowTakeoffSetup(false)
-            // If a spreadsheet was created, show it embedded
-            if (config.spreadsheetId) {
-              setEmbeddedSheetId(config.spreadsheetId)
-              setEmbeddedSheetUrl(config.embedUrl || `https://docs.google.com/spreadsheets/d/${config.spreadsheetId}/edit?embedded=true&rm=minimal`)
-              setShowEmbeddedSheet(true)
-              // Load versions so version bar appears immediately
-              if (selectedProject) {
-                loadVersions(selectedProject.project_id)
-              }
-            } else {
-              // Fallback to old takeoff sheet
-              setShowTakeoffSheet(true)
-            }
-          }}
-        />
-      )}
 
       {/* Takeoff Sheet Modal (Legacy) */}
       {showTakeoffSheet && selectedProject && (
