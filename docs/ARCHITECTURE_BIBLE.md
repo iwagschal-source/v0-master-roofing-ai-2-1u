@@ -593,7 +593,7 @@ page.jsx
 |----------|-----------|
 | **Core Layout** | `navigation-rail`, `top-header`, `ko-stage`, `mobile-menu-toggle` |
 | **Dashboard** | `home-screen`, `sales-dashboard`, `phase-tracker` |
-| **Estimating** | `estimating-center-screen`, `takeoff-setup-screen`, `takeoff-spreadsheet`, `embedded-sheet`, `variant-selector`, `line-item-selector` |
+| **Estimating** | `estimating-center-screen`, `embedded-sheet` |
 | **Proposals** | `proposal-preview-screen`, `proposal-document`, `proposal-template`, `proposal-template-v2`, `proposal-pdf-download`, `takeoff-proposal-preview` |
 | **Projects** | `project-folders-screen`, `project-folder`, `project-folder-detail`, `project-folder-light`, `project-card`, `project-detail-screen`, `create-project-modal` |
 | **AI Agents** | `agent-dashboard-screen`, `agent-detail-screen`, `agent-card`, `agent-grid`, `agent-network-map-screen`, `add-agent-screen`, `clone-agent-modal`, `agent-model-icon`, `model-arena-dashboard` |
@@ -1067,6 +1067,7 @@ git push origin feature/[name]    # Push branch
 | Sheet `#REF!` on row deletion | Partial | Section totals break when rows deleted; code-side mitigation in v1.8 |
 | `lib/proposal-systems.js` | Dead code | Replaced by BigQuery description library; kept for reference |
 | `lib/takeoff-to-proposal.js` | Dead code | Same; unused |
+| TakeoffSetupScreen wizard | Deleted (Session 46) | Replaced by auto-creation in checkExistingTakeoffSheet + Setup tab in sheet |
 | BigQuery region split | Tech debt | `mr_staging` in us-east4, `mr_main` in US multi-region |
 
 ---
@@ -1162,6 +1163,16 @@ git push origin feature/[name]    # Push branch
     - Dependencies added: @dnd-kit/core, @dnd-kit/sortable, @dnd-kit/utilities
     - "History" button added to version tab action bar
 
+**Session 46 (feature/cleanup-v2):**
+12. Phase 10: Cleanup & Deletion
+    - Deleted TakeoffSetupScreen wizard (920 lines) — replaced by auto-creation on first project access
+    - Deleted TakeoffSpreadsheet legacy modal (329 lines) — replaced by embedded sheet system
+    - Deleted line-item-selector.jsx (392 lines) + variant-selector.jsx (198 lines) — orphaned by wizard deletion
+    - Deleted /proposal-preview and /test-proposal standalone pages (487 lines)
+    - Added workbook auto-creation loading indicator ("Creating takeoff workbook...")
+    - Fixed bid type mismatch: proposal code now accepts both 'ALT' and 'ALTERNATE'
+    - Total: ~2,381 lines removed
+
 ### Remaining Work
 
 - Phase 3.6: Python backend — add WATERPROOFING location codes (FL1-FL7, MR, SBH, EBH) — requires Python server access
@@ -1236,6 +1247,10 @@ git push origin feature/[name]    # Push branch
 | ITEM_ID_TO_ROW constant | ~40 | **DELETED** (Session 32) |
 | detectSectionFromItemId duplication | — | **CONSOLIDATED** to lib/google-sheets.js (Session 32) |
 | Commented-out flat BTX code | ~40 | **DELETED** from btx/route.js (Session 32) |
+| components/ko/takeoff-setup-screen.jsx | ~920 | **DELETED** (Session 46) |
+| components/ko/takeoff-spreadsheet.jsx | ~329 | **DELETED** (Session 46) |
+| components/ko/line-item-selector.jsx | ~392 | **DELETED** (Session 46) |
+| components/ko/variant-selector.jsx | ~198 | **DELETED** (Session 46) |
 | Wizard Steps 1-3 data flow | — | Config saved to Python backend but NEVER written to sheet | Dead logic |
 | ko_estimating.takeoff_configs table | — | Zero live source references. Config fully on Python backend | Dead table |
 
@@ -1263,6 +1278,7 @@ git push origin feature/[name]    # Push branch
 3. ~~**CSV import overwrites instead of accumulating**~~ — **FIXED** (Session 41) — fillBluebeamDataToSpreadsheet() now batch-reads existing values and accumulates (new = existing + imported). CSV saved to Drive Markups/. Import recorded to BigQuery import_history.
 4. **populate-library-tab.mjs clears FILTER formulas** — clears Library tab then rewrites, but formulas in AF-AQ can be lost if script interrupted
 5. **[TBD] placeholders in proposals** — when sheet R/IN/TYPE columns are empty, descriptions show [TBD] instead of graceful handling
+6. ~~**Bid type mismatch (ALTERNATE vs ALT)**~~ — **FIXED** (Session 46) — generate route and preview component now accept both values
 
 ### Import Summary Enhancement (Session 34)
 - bluebeam/route.js now returns: `matchedItems`, `unmatchedItems`, `errors`, `cellsPopulated`
