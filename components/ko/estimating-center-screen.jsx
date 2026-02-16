@@ -158,7 +158,7 @@ export function EstimatingCenterScreen({ onSelectProject, onBack }) {
     }
   }, [selectedProject?.project_id])
 
-  // Check for existing takeoff spreadsheet
+  // Check for existing takeoff spreadsheet — auto-create if none exists
   const checkExistingTakeoffSheet = async (projectId) => {
     try {
       const res = await fetch(`/api/ko/takeoff/create?project_id=${projectId}`)
@@ -169,6 +169,28 @@ export function EstimatingCenterScreen({ onSelectProject, onBack }) {
           setEmbeddedSheetUrl(data.embedUrl)
           // Load versions directly after sheet confirmed (2C.1)
           loadVersions(projectId)
+        } else {
+          // No takeoff workbook yet — auto-create one (Setup + Library tabs)
+          const projectName = selectedProject?.project_name || projectId
+          try {
+            const createRes = await fetch('/api/ko/takeoff/create', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ project_id: projectId, project_name: projectName })
+            })
+            if (createRes.ok) {
+              const createData = await createRes.json()
+              if (createData.spreadsheetId) {
+                setEmbeddedSheetId(createData.spreadsheetId)
+                setEmbeddedSheetUrl(createData.embedUrl)
+                loadVersions(projectId)
+              }
+            } else {
+              console.warn('Failed to auto-create takeoff sheet:', await createRes.text())
+            }
+          } catch (createErr) {
+            console.warn('Failed to auto-create takeoff sheet:', createErr)
+          }
         }
       }
     } catch (err) {
