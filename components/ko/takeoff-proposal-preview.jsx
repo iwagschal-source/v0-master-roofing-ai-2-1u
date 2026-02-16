@@ -549,7 +549,7 @@ export function TakeoffProposalPreview({ projectId, sheetName, onClose, onGenera
                                     ({section.items?.length || 0} items)
                                   </span>
                                 </button>
-                                {section.bidType === 'ALT' && (
+                                {(section.bidType === 'ALT' || section.bidType === 'ALTERNATE') && (
                                   <span className="text-xs px-2 py-0.5 bg-orange-200 dark:bg-orange-800 text-orange-800 dark:text-orange-200 rounded font-medium">
                                     ALT
                                   </span>

@@ -338,22 +338,24 @@ function transformForTemplate(previewData, editedDescriptions, sheet = null) {
     })
   }
 
-  // Split by bid type
+  // Split by bid type (accept both 'ALT' and 'ALTERNATE')
+  const isAlt = (item) => item.bidType === 'ALT' || item.bidType === 'ALTERNATE'
+
   const lineItems = allItems
-    .filter(item => item.bidType !== 'ALT')
+    .filter(item => !isAlt(item))
     .map(({ bidType, _numericPrice, ...rest }) => rest)
 
   const altLineItems = allItems
-    .filter(item => item.bidType === 'ALT')
+    .filter(item => isAlt(item))
     .map(({ bidType, _numericPrice, ...rest }) => rest)
 
   // Calculate totals
   const baseBidTotal = allItems
-    .filter(item => item.bidType !== 'ALT')
+    .filter(item => !isAlt(item))
     .reduce((sum, item) => sum + item._numericPrice, 0)
 
   const addAltTotal = allItems
-    .filter(item => item.bidType === 'ALT')
+    .filter(item => isAlt(item))
     .reduce((sum, item) => sum + item._numericPrice, 0)
 
   const grandTotal = baseBidTotal + addAltTotal
