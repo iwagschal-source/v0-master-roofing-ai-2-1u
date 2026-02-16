@@ -4,7 +4,7 @@
 > **Stack:** Next.js 16 + React 19 + Tailwind 4 + Radix UI
 > **Deployed:** Vercel — https://v0-master-roofing-ai-2-1u.vercel.app
 > **Current version:** v2.1-proposal-v2 (feature/proposal-v2 branch)
-> **Last updated:** 2026-02-13
+> **Last updated:** 2026-02-16
 
 ---
 
@@ -77,7 +77,7 @@ v0-master-roofing-ai-2-1u/
 │   │   ├── gc-brief/                 # GC brief generation
 │   │   ├── sheets/                   # Google Sheets search/share
 │   │   ├── email/                    # Email draft generation
-│   │   ├── bluebeam/                 # Bluebeam file conversion
+│   │   ├── bluebeam/                 # Bluebeam file conversion + tool manager CRUD
 │   │   ├── rates/                    # Rate card endpoint
 │   │   ├── admin/                    # System config, agent code
 │   │   ├── arena/                    # Model testing arena
@@ -258,7 +258,7 @@ session.user = {
 
 | Dataset | Location | Tables |
 |---------|----------|--------|
-| `mr_main` | US (multi-region) | `item_description_mapping`, `lib_takeoff_template`, `estimator_rate_card`, `v_library_complete`, `project_folders`, `implementation_tracker`, `project_versions`, `import_history` |
+| `mr_main` | US (multi-region) | `item_description_mapping`, `lib_takeoff_template`, `estimator_rate_card`, `v_library_complete`, `project_folders`, `implementation_tracker`, `project_versions`, `import_history`, `bluebeam_tools` |
 | `mr_staging` | us-east4 | `takeoff_lines_enriched` (700k+ rows) |
 | `ko_estimating` | US | Estimating module data |
 | `ko_audit` | US | `agent_chat_history`, activity logs |
@@ -412,6 +412,28 @@ import_history (Bluebeam CSV import tracking, added Session 31)
 
 project_folders (existing, column added Session 31)
 └── active_version_sheet (STRING — tracks which takeoff version tab is active)
+
+bluebeam_tools (78 rows: 75 from Teju Tool Set + 3 test, added Phase 7)
+├── tool_id              (INT64 — unique tool identifier)
+├── subject              (STRING — Bluebeam system/tool name)
+├── label                (STRING — REQUIRED, human-readable display name)
+├── label_status         (STRING — empty | matches_subject | custom)
+├── type                 (STRING — Area | Polylength | Count | Perimeter)
+├── unit                 (STRING — SF | LF | EA)
+├── visual_template      (STRING — template category A-H)
+├── border_color_hex     (STRING — hex color code)
+├── fill_color_hex       (STRING — hex color code)
+├── fill_opacity         (FLOAT64)
+├── line_width           (FLOAT64)
+├── item_id              (STRING — FK to item_description_mapping)
+├── scope_name           (STRING — matches library scope)
+├── is_mapped            (BOOL — TRUE if linked to a library item)
+├── is_specialty         (BOOL — TRUE for specialty/one-off tools)
+├── created_at           (TIMESTAMP)
+├── updated_at           (TIMESTAMP)
+└── created_by           (STRING)
+Source of truth for Bluebeam tool definitions (replaces static JSON files).
+Python backend reads from this table for BTX generation.
 ```
 
 ### Section Distribution
@@ -526,6 +548,16 @@ project_folders (existing, column added Session 31)
 | `/arena/models` | POST | Model arena testing |
 | `/network/agents` | GET | Agent network topology |
 
+### Bluebeam Tool Manager (`/api/ko/bluebeam/tools`)
+
+| Route | Method | Purpose |
+|-------|--------|---------|
+| `/bluebeam/tools` | GET | List all tools + library items + gaps + stats. Query params: `?section=ROOFING&search=coping`. Returns tool list with label_status, mapping status, gap analysis (unmapped library items), and aggregate stats |
+| `/bluebeam/tools` | POST | CRUD actions via `action` field in body: `update` (tool properties), `create` (new tool + auto-assign), `clone` (copy source tool), `assign` (link tool to library item), `unassign` (remove link) |
+
+**Source:** `app/api/ko/bluebeam/tools/route.js`
+Reads/writes BigQuery `mr_main.bluebeam_tools` directly. No Python backend dependency for CRUD.
+
 ---
 
 ## 7. Frontend Architecture
@@ -571,6 +603,7 @@ page.jsx
 | **GC Intel** | `gc-intelligence`, `gc-brief`, `gc-brief-with-chat` |
 | **Voice** | `voice-indicator`, `voice-toggle`, `tts-play-button` |
 | **Admin** | `user-admin-screen`, `user-card`, `user-detail-screen`, `settings-screen`, `history-screen`, `history-list` |
+| **Bluebeam** | `bluebeam-tool-manager` (Phase 7 — modal overlay, tool CRUD, gap analysis, visual config) |
 | **Misc** | `startup-sequence`, `ko-glyph`, `resizable-panel`, `pane-divider`, `action-buttons`, `asana-screen`, `zoom-screen`, `prompt-designer` (chat) |
 
 **UI Primitives (`components/ui/`):**
@@ -592,6 +625,23 @@ Shadcn/ui-based Radix components: `button`, `card`, `input`, `textarea`, `dialog
 | `useWebSocketChat` | Chat WebSocket |
 | `useChatSpaces` | Google Chat spaces |
 | `use-agent-status` | Agent status polling |
+
+### BluebeamToolManager (Phase 7)
+
+**File:** `components/ko/bluebeam-tool-manager.jsx` (774 lines)
+**Entry point:** Wrench icon in Estimating Center toolbar
+**Props:** `isOpen`, `onClose`, `onSuccess`
+
+Modal overlay for managing Bluebeam tool definitions stored in BigQuery `mr_main.bluebeam_tools`.
+
+| View | Purpose |
+|------|---------|
+| **Tool List** | All 78 tools with label_status badges (empty/matches_subject/custom), section filter, search. Click to edit |
+| **Gap Analysis** | Library items missing a linked Bluebeam tool. One-click create or assign |
+| **Edit Panel** | Modify tool properties: Subject (system name), Label (REQUIRED, human-readable), Comment (read-only, auto-filled by Bluebeam). Visual config: 32-color palette, fill opacity, line width, visual template selector (A-H categories) |
+| **Create/Clone Panel** | Create new tool from scratch with auto-assign to library item, or clone existing tool as starting point |
+
+Three text fields follow Bluebeam XML spec: Subject (system identifier), Label (display name shown in markup), Comment (reserved, read-only).
 
 ---
 
