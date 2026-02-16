@@ -37,12 +37,14 @@ import {
   ArrowRight,
   Eye,
   BookPlus,
-  Trash2
+  Trash2,
+  Wrench
 } from "lucide-react"
 import { TakeoffSpreadsheet } from "./takeoff-spreadsheet"
 import { TakeoffSetupScreen } from "./takeoff-setup-screen"
 import { TakeoffProposalPreview } from "./takeoff-proposal-preview"
 import { AddItemModal } from "./add-item-modal"
+import { BluebeamToolManager } from "./bluebeam-tool-manager"
 import { cn } from "@/lib/utils"
 
 const STATUS_CONFIG = {
@@ -70,6 +72,7 @@ export function EstimatingCenterScreen({ onSelectProject, onBack }) {
   const [showTakeoffSetup, setShowTakeoffSetup] = useState(false)
   const [showProposalPreview, setShowProposalPreview] = useState(false)
   const [showAddItem, setShowAddItem] = useState(false)
+  const [showToolManager, setShowToolManager] = useState(false)
 
   // Preview state
   const [previewDoc, setPreviewDoc] = useState(null)
@@ -735,6 +738,13 @@ export function EstimatingCenterScreen({ onSelectProject, onBack }) {
                 title="Refresh"
               >
                 <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+              </button>
+              <button
+                onClick={() => setShowToolManager(true)}
+                className="p-2 hover:bg-muted rounded-lg transition-colors"
+                title="Bluebeam Tool Manager"
+              >
+                <Wrench className="w-4 h-4" />
               </button>
               <button
                 onClick={() => setShowAddItem(true)}
@@ -1697,6 +1707,9 @@ export function EstimatingCenterScreen({ onSelectProject, onBack }) {
           </div>
         </div>
       )}
+
+      {/* Bluebeam Tool Manager */}
+      <BluebeamToolManager isOpen={showToolManager} onClose={() => setShowToolManager(false)} />
 
       {/* Add Item Modal */}
       <AddItemModal isOpen={showAddItem} onClose={() => setShowAddItem(false)} />
