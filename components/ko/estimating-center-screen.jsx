@@ -8,14 +8,12 @@ import {
   Plus,
   Clock,
   Building2,
-  ChevronRight,
   Loader2,
   AlertCircle,
   CheckCircle2,
   FileSpreadsheet,
   X,
   GripHorizontal,
-  GripVertical,
   Send,
   Bot,
   Sparkles,
@@ -23,8 +21,6 @@ import {
   FileText,
   ExternalLink,
   RefreshCw,
-  DollarSign,
-  Calendar,
   Download,
   Folder,
   File,
@@ -40,8 +36,6 @@ import {
   Trash2,
   Wrench
 } from "lucide-react"
-
-
 import { TakeoffProposalPreview } from "./takeoff-proposal-preview"
 import { AddItemModal } from "./add-item-modal"
 import { BluebeamToolManager } from "./bluebeam-tool-manager"
@@ -56,7 +50,7 @@ const STATUS_CONFIG = {
   lost: { label: "Lost", color: "bg-red-500", textColor: "text-red-400" }
 }
 
-export function EstimatingCenterScreen({ onSelectProject, onBack }) {
+export function EstimatingCenterScreen() {
   // Project state
   const [searchQuery, setSearchQuery] = useState("")
   const [statusFilter, setStatusFilter] = useState("all")

@@ -420,9 +420,7 @@ export default function HomePage() {
           ) : showSales ? (
             <SalesDashboard />
           ) : showEstimating ? (
-            <EstimatingCenterScreen
-              onBack={() => setShowEstimating(false)}
-            />
+            <EstimatingCenterScreen />
           ) : showProjects ? (
             <ProjectFoldersScreen />
           ) : showContacts ? (
