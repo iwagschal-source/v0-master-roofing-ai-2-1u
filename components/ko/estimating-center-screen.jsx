@@ -78,6 +78,8 @@ export function EstimatingCenterScreen() {
 
   // BTX generation state
   const [generatingBtx, setGeneratingBtx] = useState(false)
+  // Workbook auto-creation state
+  const [creatingWorkbook, setCreatingWorkbook] = useState(false)
 
   // Version-aware sheet tracking
   const [currentSheetName, setCurrentSheetName] = useState(null)
@@ -146,6 +148,7 @@ export function EstimatingCenterScreen() {
       setVersions([])
       setSelectedVersionTab(null)
       setSetupTabSheetId(null)
+      setCreatingWorkbook(false)
       loadFolderData(selectedProject.project_id)
       // Check if project has an existing takeoff spreadsheet
       checkExistingTakeoffSheet(selectedProject.project_id)
@@ -166,6 +169,7 @@ export function EstimatingCenterScreen() {
         } else {
           // No takeoff workbook yet — auto-create one (Setup + Library tabs)
           const projectName = selectedProject?.project_name || projectId
+          setCreatingWorkbook(true)
           try {
             const createRes = await fetch('/api/ko/takeoff/create', {
               method: 'POST',
@@ -184,6 +188,8 @@ export function EstimatingCenterScreen() {
             }
           } catch (createErr) {
             console.warn('Failed to auto-create takeoff sheet:', createErr)
+          } finally {
+            setCreatingWorkbook(false)
           }
         }
       }
@@ -967,6 +973,17 @@ export function EstimatingCenterScreen() {
                   )}
                 </div>
               </div>
+
+              {/* Workbook creation loading indicator */}
+              {creatingWorkbook && !embeddedSheetId && (
+                <div className="flex items-center gap-3 mb-4 p-4 bg-orange-50 dark:bg-orange-950/30 border border-orange-200 dark:border-orange-800 rounded-lg">
+                  <Loader2 className="w-5 h-5 animate-spin text-orange-600" />
+                  <div>
+                    <p className="text-sm font-medium text-orange-800 dark:text-orange-200">Creating takeoff workbook...</p>
+                    <p className="text-xs text-orange-600 dark:text-orange-400">Setting up template with Setup + Library tabs. This takes 30-60 seconds.</p>
+                  </div>
+                </div>
+              )}
 
               {/* Version Selector Bar (2C.1) — shows below buttons when spreadsheet exists */}
               {embeddedSheetId && (
