@@ -92,7 +92,7 @@ v0-master-roofing-ai-2-1u/
 │   ├── ko/                           # 74 app-specific components
 │   │   ├── home-screen.jsx           # Dashboard
 │   │   ├── estimating-center-screen.jsx  # Main estimating UI
-│   │   ├── takeoff-setup-screen.jsx  # Takeoff wizard
+│   │   ├── project-status-icons.jsx  # Brand icon bar (Phase 11)
 │   │   ├── proposal-preview-screen.jsx   # Proposal preview
 │   │   ├── chat-screen.jsx           # AI chat
 │   │   ├── agent-dashboard-screen.jsx    # Agent management
@@ -107,6 +107,7 @@ v0-master-roofing-ai-2-1u/
 │
 ├── lib/                              # Backend libraries
 │   ├── auth.ts                       # NextAuth config
+│   ├── brand-colors.js               # Brand color hex constants + SVG mapping (Phase 11)
 │   ├── google-sheets.js              # Sheets API (45KB, core file)
 │   ├── version-management.js         # Version tab CRUD (~20KB, Session 38)
 │   ├── bigquery.js                   # BigQuery client
@@ -150,6 +151,7 @@ v0-master-roofing-ai-2-1u/
 │   └── WORKBOOK_REBUILD_DESIGN.md    # Multi-tab template design
 │
 ├── public/                           # Static assets (logos, images)
+│   ├── icons/                        # MR brand SVGs (Phase 11: 13 files)
 │   └── templates/                    # Word templates (.docx)
 │
 ├── types/                            # TypeScript type definitions
@@ -593,7 +595,7 @@ page.jsx
 |----------|-----------|
 | **Core Layout** | `navigation-rail`, `top-header`, `ko-stage`, `mobile-menu-toggle` |
 | **Dashboard** | `home-screen`, `sales-dashboard`, `phase-tracker` |
-| **Estimating** | `estimating-center-screen`, `embedded-sheet` |
+| **Estimating** | `estimating-center-screen`, `embedded-sheet`, `project-status-icons` |
 | **Proposals** | `proposal-preview-screen`, `proposal-document`, `proposal-template`, `proposal-template-v2`, `proposal-pdf-download`, `takeoff-proposal-preview` |
 | **Projects** | `project-folders-screen`, `project-folder`, `project-folder-detail`, `project-folder-light`, `project-card`, `project-detail-screen`, `create-project-modal` |
 | **AI Agents** | `agent-dashboard-screen`, `agent-detail-screen`, `agent-card`, `agent-grid`, `agent-network-map-screen`, `add-agent-screen`, `clone-agent-modal`, `agent-model-icon`, `model-arena-dashboard` |
@@ -1172,6 +1174,20 @@ git push origin feature/[name]    # Push branch
     - Added workbook auto-creation loading indicator ("Creating takeoff workbook...")
     - Fixed bid type mismatch: proposal code now accepts both 'ALT' and 'ALTERNATE'
     - Total: ~2,381 lines removed
+
+**Session 47 (feature/ui-restructure):**
+13. Phase 11A + 11B: UI Restructure — Brand Identity + Main Page
+    - Added 13 MR brand SVG files to public/icons/ (buttons, dropdown cards, status icons)
+    - Created lib/brand-colors.js with hex constants and verified SVG-to-purpose mapping
+    - Created components/ko/project-status-icons.jsx — 6 icon badges with active/inactive states
+    - Wired icon bar into estimating-center-screen.jsx below project header
+    - Icon detection: BLUEBEAM (embeddedSheetId), TAKEOFF (versions.length), EXPORT (version import status), PROPOSAL (version proposal status), DRAWINGS/MARKUP (Phase 8, always inactive)
+    - mix-blend-multiply on icon images to eliminate black PNG backgrounds
+    - Removed: header action buttons (Bluebeam, View Takeoff, Proposal, BTX)
+    - Removed: version tab bar from main page (navigation via icon clicks)
+    - Removed: status cards row (Status, Due Date, Proposal, Assigned)
+    - Kept: context-aware action buttons (Create Takeoff, Download BTX, Import CSV, History, Proposal) — replaced by ribbon in Session 48
+    - Icons hidden during workbook creation (creatingWorkbook flag)
 
 ### Remaining Work
 
