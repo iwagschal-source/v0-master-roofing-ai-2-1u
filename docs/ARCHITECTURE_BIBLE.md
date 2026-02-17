@@ -756,6 +756,8 @@ Each BTX file contains XML tool definitions. Tool subjects follow the pattern: `
 
 **Multi-section support:** Location names are section-specific (column G = "1st Floor" for ROOFING, "Front / Elevation" for EXTERIOR). The `setup-config` endpoint builds locations as a union of all per-item location names across all 4 sections (ROOFING, WATERPROOFING, BALCONIES, EXTERIOR).
 
+**Incremental generation (Session 49, 11E):** After BTX generation succeeds, Column Q (Tool Status) on the Setup tab is updated to `"Generated YYYY-MM-DD"` for each item. The GET `/btx` endpoint reads these statuses and returns `alreadyGenerated` and `needsGeneration` counts. The summary dialog shows this info so the user knows which items already have tools. `updateToolStatus()` in `lib/version-management.js` writes back to Column Q via Sheets API batch update.
+
 **Project creation:** `createProjectTakeoffSheet()` deletes the DATE tab after template copy. New projects start with Setup + Library only. First takeoff version tab is created via `POST /create-version` after estimator configures Setup.
 
 ### CSV Import Flow
@@ -787,6 +789,8 @@ Return detailed report (matched with accumulation, unmatched with reassignment o
 **Import history (Session 41):** Each import is recorded to `mr_main.import_history` in BigQuery. Import History panel accessible via "History" button on version tab action bar. Shows timestamps, match counts, accumulation mode, and links to CSV files in Drive.
 
 **Cross-section handling:** A merged location map combines all section location names. If an Exterior item was measured on a Roofing floor name (e.g., "MAIN ROOF"), the merged map catches it because all sections share the same physical columns (G-L).
+
+**CSV format reference (Session 49):** See `docs/BLUEBEAM_CSV_FORMAT.md` for the definitive documentation of Bluebeam CSV export structure, row type classification, quantity extraction logic, and edge cases. Key parser improvement: explicit empty-ID guard filters group/summary rows before the pipe check, as defense-in-depth.
 
 ---
 
@@ -1199,6 +1203,7 @@ git push origin feature/[name]    # Push branch
     - Added initialView prop to BluebeamToolManager for direct navigation to 'create' or 'tools' view
     - Removed old context-aware action buttons from main page (11B.12)
     - Dropdowns: mutual exclusivity via openDropdown state, close on click outside/Escape/option click
+    - Session 49: Added tab bar below ribbon (Setup | versions... | Library). Clicking a tab updates selectedVersionTab + iframe gid URL. Setup=orange, versions=green, Library=gray. Library ribbon shows "Read-only reference" with no action buttons. CSS crops iframe bottom 40px to hide Google's native tab bar. versions API now returns libraryTabSheetId.
 
 15. CSV Import Setup Config Filter (Bug Fix)
     - Bluebeam import route now reads Setup tab toggles via readSetupConfig before writing
