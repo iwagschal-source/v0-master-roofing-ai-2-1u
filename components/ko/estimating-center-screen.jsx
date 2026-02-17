@@ -266,19 +266,23 @@ export function EstimatingCenterScreen() {
     try {
       let sheetName, tabSheetId
 
-      if (newVersionMode === 'duplicate' && currentSheetName) {
+      // Save the current default BEFORE any API calls (avoid stale closure)
+      const previousActive = versions.find(v => v.active)
+      // For duplicate: use currentSheetName if viewing a version, else fall back to default
+      const duplicateSource = currentSheetName || previousActive?.sheetName
+
+      if (newVersionMode === 'duplicate' && duplicateSource) {
         // Duplicate existing version via POST /versions
         const res = await fetch(`/api/ko/takeoff/${selectedProject.project_id}/versions`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ sourceSheetName: currentSheetName })
+          body: JSON.stringify({ sourceSheetName: duplicateSource })
         })
         if (!res.ok) {
           const err = await res.json()
           throw new Error(err.error || 'Failed to duplicate version')
         }
         const data = await res.json()
-        // Normalize response: POST /versions returns newSheetName/newTabSheetId
         sheetName = data.newSheetName || data.sheetName
         tabSheetId = data.newTabSheetId ?? data.tabSheetId
       } else {
@@ -304,16 +308,23 @@ export function EstimatingCenterScreen() {
         handleVersionTabClick(sheetName, tabSheetId)
       }
 
-      // If "make active" unchecked, revert active flag
-      if (!newVersionMakeActive && sheetName && selectedProject) {
-        const activeVersion = versions.find(v => v.active)
-        if (activeVersion) {
-          fetch(`/api/ko/takeoff/${selectedProject.project_id}/versions`, {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ sheetName: activeVersion.sheetName, setActive: true }),
-          }).catch(err => console.warn('Failed to revert active version:', err))
-        }
+      // Explicitly manage the default (green dot) based on checkbox
+      if (newVersionMakeActive && sheetName) {
+        // User wants the new version as default — set it active
+        await fetch(`/api/ko/takeoff/${selectedProject.project_id}/versions`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ sheetName, setActive: true }),
+        })
+        setVersions(prev => prev.map(v => ({ ...v, active: v.sheetName === sheetName })))
+      } else if (!newVersionMakeActive && previousActive) {
+        // User unchecked — restore the previous default
+        await fetch(`/api/ko/takeoff/${selectedProject.project_id}/versions`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ sheetName: previousActive.sheetName, setActive: true }),
+        })
+        setVersions(prev => prev.map(v => ({ ...v, active: v.sheetName === previousActive.sheetName })))
       }
     } catch (err) {
       console.error('Create version error:', err)
