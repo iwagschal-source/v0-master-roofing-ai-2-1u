@@ -758,6 +758,8 @@ Each BTX file contains XML tool definitions. Tool subjects follow the pattern: `
 
 **Incremental generation (Session 49, 11E):** After BTX generation succeeds, Column Q (Tool Status) on the Setup tab is updated to `"Generated YYYY-MM-DD"` for each item. The GET `/btx` endpoint reads these statuses and returns `alreadyGenerated` and `needsGeneration` counts. The summary dialog shows this info so the user knows which items already have tools. `updateToolStatus()` in `lib/version-management.js` writes back to Column Q via Sheets API batch update.
 
+**BTX Subject vs Label (Session 50 fix):** The Python backend (`aeyecorp/app/bluebeam/btx_generator.py`) must always use the MR- `item_id` for `/Subj` in BTX annotations — never the BigQuery label. The `/Label` field keeps the human-readable name for Bluebeam display and legend grouping. Previously, `display_name = bq_label or item_id` caused tools with labels to export with non-MR- Subjects in CSV, which the parser couldn't match. Fixed in 3 methods: `generate_btx_with_locations`, `generate_btx_with_display_names`, `generate_btx_per_floor`.
+
 **Project creation:** `createProjectTakeoffSheet()` deletes the DATE tab after template copy. New projects start with Setup + Library only. First takeoff version tab is created via `POST /create-version` after estimator configures Setup.
 
 ### CSV Import Flow
@@ -1204,6 +1206,7 @@ git push origin feature/[name]    # Push branch
     - Removed old context-aware action buttons from main page (11B.12)
     - Dropdowns: mutual exclusivity via openDropdown state, close on click outside/Escape/option click
     - Session 49: Added tab bar below ribbon (Setup | versions... | Library). Clicking a tab updates selectedVersionTab + iframe gid URL. Setup=orange, versions=green, Library=gray. Library ribbon shows "Read-only reference" with no action buttons. CSS crops iframe bottom 40px to hide Google's native tab bar. versions API now returns libraryTabSheetId.
+    - Session 50: Tab click no longer changes default version. Only "Set as Default" ribbon button changes the green dot. Fixed `copyExistingVersion` response property mismatch (`newSheetId` vs `newTabSheetId`) so duplicate auto-navigates to the new tab. Fixed "Duplicate current version" always blank (currentSheetName was null on Setup tab — now falls back to active version). Fixed "Make active" checkbox ignored (now explicitly PUTs correct active version after creation). Fixed BTX Subject override: Python backend now always uses item_id for /Subj, keeps label for /Label (aeyecorp commit 51c754f).
 
 15. CSV Import Setup Config Filter (Bug Fix)
     - Bluebeam import route now reads Setup tab toggles via readSetupConfig before writing
