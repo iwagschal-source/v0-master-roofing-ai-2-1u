@@ -1,61 +1,62 @@
-# SESSION 51 HANDOFF
+# SESSION 51 HANDOFF (Redo — Version Tracker Fix)
+
+## Context
+Session 50 version tracker commit was reverted (`d13e325`). Tasks 1-3 (scrollable tabs, CSS polish, Tool Manager dark mode) survived the revert. Only Task 4 (version tracker 50 slots) needed to be redone.
 
 ## Completed
 
 | Task | Status | Commit | Notes |
 |------|--------|--------|-------|
-| Scrollable tab bar with pinned default | DONE | e84be46 | Layout: [Setup] [● Default (pinned)] [◀ scrollable versions ▶] [Library] |
-| Consistent font sizing (11F.1) | DONE | 3d799dd | "Open in Sheets" changed text-sm → text-xs font-semibold to match ribbon |
-| Hover states in brand colors (11F.2) | DONE | 3d799dd | All brand-colored buttons now have hover:opacity-90 + transition-all |
-| Loading states (11F.3) | DONE | 3d799dd | Already implemented: BTX spinner in dropdown, version spinner in dialog |
-| Tool Manager warm dark mode (11F.4) | DONE | ce71d51 | Replaced cold zinc palette with warm stone palette (91 replacements) |
-| BigQuery tracker updated | DONE | — | 6 rows inserted for 11F phase |
-| Google Sheet synced | DONE | — | 272 tasks synced |
+| Scrollable tab bar with pinned default | DONE | e84be46 (Session 50) | Survived revert — no changes needed |
+| CSS polish (11F.1-3) | DONE | 3d799dd (Session 50) | Survived revert — no changes needed |
+| Tool Manager warm dark mode | DONE | ce71d51 (Session 50) | Survived revert — no changes needed |
+| Version tracker 50 slots | DONE | 1bb07de (Session 51 redo) | Safe migration with grid expansion |
+| Bible update | DONE | b799bfc | Updated Section 9 and implementation log |
+
+## Version Tracker Fix — What Changed vs Session 50
+
+The Session 50 version broke because old projects have 80-row Setup tabs, and trying to read/write rows 201-250 threw "exceeds grid limits". The redo fixes this:
+
+1. **Grid expansion**: `expandSetupGrid()` — detects 80-row grids, appends rows to reach 251 via Sheets API `appendDimension`
+2. **Graceful fallback**: `readVersionTracker()` catches "exceeds grid limits" error, sets `gridTooSmall` flag, checks old location
+3. **Migration verification**: After writing to new location (rows 201-250), reads back and verifies count matches before clearing old location (rows 74-80)
+4. **Header row**: Migration also writes header row (row 200) with column labels
+5. **addVersionTrackerEntry safety**: Grid-size check before first write to new location (handles brand-new projects with no versions yet)
+6. **create-setup-tab.mjs**: Builds 250 rows, formats rows 199-250, validates rows 201-250
+
+### Constants (lib/version-management.js)
+```
+NEW: VERSION_TRACKER_HEADER_ROW = 200, DATA_START = 201, MAX_ROW = 250 (50 slots)
+OLD: OLD_TRACKER_HEADER_ROW = 73, DATA_START = 74, MAX_ROW = 80 (kept for migration only)
+```
+
+### Testing Done
+- Project with 1 version: migrated from row 74 → row 201 ✓
+- Project with 5 versions: migrated from rows 74-78 → rows 201-205 ✓
+- Re-read after migration: reads from new location directly, no re-migration ✓
+- PUT active version: writes to correct new row numbers ✓
+- Project without Setup tab: returns cleanly with `noSetupTab: true` ✓
+- Build: passes ✓
 
 ## Branch State
-- **Next.js repo:** `main` branch, last commit `ce71d51`
-- **Build:** Passes (verified after each commit)
-- **All commits pushed to origin**
-
-## Key Changes Summary
-
-### 1. Scrollable Tab Bar (sheet-ribbon.jsx)
-- **Layout:** `[Setup] [● Default (pinned)] [◀ scrollable versions ▶] [Library]`
-- Setup and Library always visible as `flex-shrink-0` at edges
-- Default version (green dot) pinned after Setup, outside scroll container
-- Non-default versions in a scroll container with `overflow-hidden min-w-0`
-- ChevronLeft/ChevronRight arrow buttons appear ONLY when overflow exists
-- `checkScrollState` callback runs on: mount, resize, scroll event, version changes
-- `scrollTabs(direction)` uses `scrollBy()` with smooth animation (150px per click)
-- Subtle `w-px h-4 bg-border` separator lines between pinned and scroll regions
-
-### 2. CSS Polish (sheet-ribbon.jsx)
-- All 4 brand-colored ribbon buttons (BTX TOOLS, SETUP TAKEOFF, IMPORT BLUEBEAM CSV, CREATE PROPOSAL) now have `hover:opacity-90` + `transition-all`
-- "Open in Sheets" link changed from `text-sm` to `text-xs font-semibold` for consistency
-- Loading states were already present (Loader2 spinners for BTX and version creation)
-
-### 3. Tool Manager Dark Mode (bluebeam-tool-manager.jsx)
-- Global replacement of `zinc-*` → `stone-*` Tailwind palette
-- stone-900 (#1c1917) = warm dark brown container background
-- stone-800 (#292524) = warm dark input fields/sections
-- stone-700 (#44403c) = warm medium-dark borders/hover states
-- 91 class name replacements total, zero logic changes
+- **Branch:** main
+- **Build:** PASSES
+- **Last commit:** `b799bfc` docs: Bible update for version tracker expansion
+- **Pushed:** NOT YET — Isaac should push after review
 
 ## What Isaac Should Test
+1. Open any existing project with versions — verify versions still load
+2. Open Google Sheet directly, scroll to row 199-250 — verify VERSION TRACKER header and data
+3. Verify old rows 74-80 are cleared
+4. Create a new version — verify it writes to rows 201+
+5. Create brand new project — verify version creation works
+6. Scrollable tabs — create 5+ versions, verify arrows appear
 
-1. **Scrollable tab bar** — Create 5+ versions in a project. Verify:
-   - Default version (green dot) is always visible, pinned after Setup
-   - Arrow buttons appear when versions overflow
-   - Clicking arrows scrolls hidden tabs into view
-   - Setup and Library never scroll off screen
-2. **Hover states** — Hover over BTX TOOLS, SETUP TAKEOFF, IMPORT CSV, CREATE PROPOSAL buttons. Should darken slightly.
-3. **Tool Manager colors** — Open Tool Manager (wrench icon). Background should be warm dark brown/charcoal, not pure cold black.
-
-## Deferred to Next Session
-
-- **11C.11:** Wire "Update Default Sheet" button
-- **11F.5:** Full end-to-end smoke test
-- **Phase 12+ planning:** Whatever Isaac priorities next
+## Deferred
+- Tool Manager accent color change (orange→blue) — expanded scope from original task
+- Tool Manager grid layout restructure — expanded scope
+- 11C.11: Wire "Update Default Sheet" button
+- 11F.5: Full end-to-end smoke test
 
 ## MANDATORY END-OF-SESSION CHECKLIST
 1. Update BigQuery tracker: `UPDATE master-roofing-intelligence.mr_main.implementation_tracker SET status='DONE', session_completed='N', branch='branch-name', verified=true, verified_by='Session N', verified_at=CURRENT_TIMESTAMP() WHERE phase='X'`
