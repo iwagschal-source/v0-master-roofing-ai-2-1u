@@ -92,6 +92,7 @@ export function EstimatingCenterScreen() {
   const [versionsLoading, setVersionsLoading] = useState(false)
   const [selectedVersionTab, setSelectedVersionTab] = useState(null)
   const [setupTabSheetId, setSetupTabSheetId] = useState(null)
+  const [libraryTabSheetId, setLibraryTabSheetId] = useState(null)
   const [creatingVersion, setCreatingVersion] = useState(false)
   const [showNewVersionDialog, setShowNewVersionDialog] = useState(false)
   const [newVersionMode, setNewVersionMode] = useState('duplicate')
@@ -151,6 +152,7 @@ export function EstimatingCenterScreen() {
       setVersions([])
       setSelectedVersionTab(null)
       setSetupTabSheetId(null)
+      setLibraryTabSheetId(null)
       setCreatingWorkbook(false)
       loadFolderData(selectedProject.project_id)
       // Check if project has an existing takeoff spreadsheet
@@ -214,6 +216,9 @@ export function EstimatingCenterScreen() {
         if (data.setupTabSheetId != null) {
           setSetupTabSheetId(data.setupTabSheetId)
         }
+        if (data.libraryTabSheetId != null) {
+          setLibraryTabSheetId(data.libraryTabSheetId)
+        }
         // Default to active version tab (2C.2)
         const activeVersion = validVersions.find(v => v.active)
         if (activeVersion) {
@@ -231,8 +236,8 @@ export function EstimatingCenterScreen() {
   // Handle version tab click — switch embedded sheet to that tab (2C.2)
   const handleVersionTabClick = (tabName, tabSheetId) => {
     setSelectedVersionTab(tabName)
-    if (tabName === 'Setup') {
-      setCurrentSheetName(null) // Setup is not a version
+    if (tabName === 'Setup' || tabName === 'Library') {
+      setCurrentSheetName(null) // Setup and Library are not versions
     } else {
       setCurrentSheetName(tabName)
       // Optimistic update: move green dot locally
@@ -1275,12 +1280,14 @@ export function EstimatingCenterScreen() {
         <div className="fixed inset-0 z-50 bg-background/95 flex flex-col">
           <SheetRibbon
             projectName={selectedProject?.project_name}
-            tabName={selectedVersionTab === 'Setup' ? 'Setup' : currentSheetName}
+            tabName={selectedVersionTab === 'Setup' ? 'Setup' : selectedVersionTab === 'Library' ? 'Library' : currentSheetName}
             embeddedSheetId={embeddedSheetId}
             selectedVersionTab={selectedVersionTab}
             versions={versions}
             creatingVersion={creatingVersion}
             generatingBtx={generatingBtx}
+            setupTabSheetId={setupTabSheetId}
+            libraryTabSheetId={libraryTabSheetId}
             onBack={() => {
               setShowEmbeddedSheet(false)
               setEmbeddedSheetUrl(null)
@@ -1311,11 +1318,16 @@ export function EstimatingCenterScreen() {
                 })
               }
             }}
+            onTabSwitch={(tabName, tabSheetId) => {
+              handleVersionTabClick(tabName, tabSheetId)
+            }}
           />
-          <div className="flex-1 relative">
+          {/* Iframe container: overflow-hidden crops Google's native tab bar at the bottom */}
+          <div className="flex-1 relative overflow-hidden">
             <iframe
               src={embeddedSheetUrl}
-              className="absolute inset-0 w-full h-full border-0"
+              className="absolute inset-0 w-full border-0"
+              style={{ height: 'calc(100% + 40px)' }}
               allow="clipboard-read; clipboard-write"
               sandbox="allow-scripts allow-same-origin allow-popups allow-forms"
             />
