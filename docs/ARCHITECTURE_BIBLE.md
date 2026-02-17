@@ -4,7 +4,7 @@
 > **Stack:** Next.js 16 + React 19 + Tailwind 4 + Radix UI
 > **Deployed:** Vercel — https://v0-master-roofing-ai-2-1u.vercel.app
 > **Current version:** v2.1-proposal-v2 (feature/proposal-v2 branch)
-> **Last updated:** 2026-02-16
+> **Last updated:** 2026-02-17
 
 ---
 
@@ -1119,7 +1119,7 @@ git push origin feature/[name]    # Push branch
 **Session 35 (feature/setup-tab):**
 1. `d7a1c53` — 1E: bluebeam_tool_name populated (48 items), v_library_complete view updated, Library tab enhanced (col 31)
 2. `4ec1b8b` — 1A: Setup tab created (index 0) with full row mirror, formulas, dropdowns, conditional formatting
-3. `c0e0c72` — 1B: Version tracker area on Setup tab (rows 72-80)
+3. `c0e0c72` — 1B: Version tracker area on Setup tab (originally rows 72-80, migrated to rows 199-250 in Session 51 — 50 slots with auto-migration)
 
 **Session 37 (feature/apps-script):**
 4. 1C: Apps Script Column C auto-populate trigger (`scripts/apps-script/Code.gs`)
@@ -1208,6 +1208,7 @@ git push origin feature/[name]    # Push branch
     - Session 49: Added tab bar below ribbon (Setup | versions... | Library). Clicking a tab updates selectedVersionTab + iframe gid URL. Setup=orange, versions=green, Library=gray. Library ribbon shows "Read-only reference" with no action buttons. CSS crops iframe bottom 40px to hide Google's native tab bar. versions API now returns libraryTabSheetId.
     - Session 50: Tab click no longer changes default version. Only "Set as Default" ribbon button changes the green dot. Fixed `copyExistingVersion` response property mismatch (`newSheetId` vs `newTabSheetId`) so duplicate auto-navigates to the new tab. Fixed "Duplicate current version" always blank (currentSheetName was null on Setup tab — now falls back to active version). Fixed "Make active" checkbox ignored (now explicitly PUTs correct active version after creation). Fixed BTX Subject override: Python backend now always uses item_id for /Subj, keeps label for /Label (aeyecorp commit 51c754f).
     - Session 51: Scrollable tab bar with pinned default version. Layout: [Setup] [● Default (pinned)] [◀ scrollable versions ▶] [Library]. Default version (green dot) always visible outside scroll container. ChevronLeft/ChevronRight arrows appear only when overflow exists. Scroll container uses overflow-hidden + JS scrollBy(). Subtle separator lines between pinned tabs and scroll region. Setup and Library always visible as flex-shrink-0. checkScrollState runs on mount, resize, scroll, and version changes.
+    - Session 51 (redo): Version tracker expanded from 7 slots (rows 73-80) to 50 slots (rows 199-250). Safe migration: readVersionTracker() tries new location first, falls back to old, auto-expands grid from 80→251 rows, copies data forward, verifies write, then clears old. addVersionTrackerEntry() also handles grid expansion for new projects. Tested on projects with 1 and 5 versions.
 
 15. CSV Import Setup Config Filter (Bug Fix)
     - Bluebeam import route now reads Setup tab toggles via readSetupConfig before writing
