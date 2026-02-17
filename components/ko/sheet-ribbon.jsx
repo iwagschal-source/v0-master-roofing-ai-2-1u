@@ -119,7 +119,7 @@ export function SheetRibbon({
               <div className="relative">
                 <button
                   onClick={() => toggleDropdown('btx')}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-white transition-colors"
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-white transition-all hover:opacity-90"
                   style={{ backgroundColor: BRAND_COLORS.bluebeamBlue }}
                 >
                   BTX TOOLS
@@ -155,7 +155,7 @@ export function SheetRibbon({
               <div className="relative">
                 <button
                   onClick={() => toggleDropdown('takeoff')}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-white transition-colors"
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-white transition-all hover:opacity-90"
                   style={{ backgroundColor: BRAND_COLORS.takeoffGreen }}
                 >
                   SETUP TAKEOFF
@@ -188,7 +188,7 @@ export function SheetRibbon({
               <div className="relative">
                 <button
                   onClick={() => toggleDropdown('import')}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-white transition-colors"
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-white transition-all hover:opacity-90"
                   style={{
                     backgroundColor: BRAND_COLORS.drawingsDark,
                     border: `2px solid ${BRAND_COLORS.bluebeamBlue}`,
@@ -218,7 +218,7 @@ export function SheetRibbon({
               {/* Create Proposal button */}
               <button
                 onClick={onCreateProposal}
-                className="px-3 py-1.5 rounded-lg text-xs font-semibold text-white transition-colors hover:opacity-90"
+                className="px-3 py-1.5 rounded-lg text-xs font-semibold text-white transition-all hover:opacity-90"
                 style={{ backgroundColor: BRAND_COLORS.proposalRed }}
               >
                 CREATE PROPOSAL
@@ -249,7 +249,7 @@ export function SheetRibbon({
           href={`https://docs.google.com/spreadsheets/d/${embeddedSheetId}/edit`}
           target="_blank"
           rel="noopener noreferrer"
-          className="flex items-center gap-1.5 px-3 py-1.5 bg-secondary hover:bg-secondary/80 rounded-lg text-sm transition-colors"
+          className="flex items-center gap-1.5 px-3 py-1.5 bg-secondary hover:bg-secondary/80 rounded-lg text-xs font-semibold transition-colors"
         >
           <ExternalLink className="w-4 h-4" />
           Open in Sheets
