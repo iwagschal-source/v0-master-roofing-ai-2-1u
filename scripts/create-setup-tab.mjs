@@ -190,11 +190,10 @@ async function sheetsApi(accessToken, method, endpoint, body = null) {
 }
 
 function buildSetupRows() {
-  // Build 200 rows for the Setup tab (70 item rows + version tracker title/header at rows 199-200)
-  // Version tracker data rows (201-250) are left empty and filled at runtime.
+  // Build 80 rows for the Setup tab (70 item rows + version tracker at 72-80)
   const rows = []
 
-  for (let rowNum = 1; rowNum <= 200; rowNum++) {
+  for (let rowNum = 1; rowNum <= 80; rowNum++) {
     const row = new Array(18).fill('')
 
     if (rowNum === 1) {
@@ -273,13 +272,13 @@ function buildSetupRows() {
       continue
     }
 
-    // Version tracker (rows 199-250: title at 199, headers at 200, data at 201-250)
-    if (rowNum === 199) {
+    // Version tracker (rows 72-80)
+    if (rowNum === 72) {
       row[0] = 'VERSION TRACKER'
       rows.push(row)
       continue
     }
-    if (rowNum === 200) {
+    if (rowNum === 73) {
       row[0] = 'Active'
       row[1] = 'Sheet Name'
       row[2] = 'Created Date'
@@ -329,7 +328,7 @@ async function main() {
           properties: {
             title: SETUP_TAB_NAME,
             index: 0,
-            gridProperties: { rowCount: 250, columnCount: 18 },
+            gridProperties: { rowCount: 80, columnCount: 18 },
           },
         },
       }],
@@ -526,16 +525,16 @@ async function main() {
   })
 
   // Version tracker formatting (1B)
-  // Row 199: title — merged, dark bg
+  // Row 72: title — merged, dark bg
   formatRequests.push({
     mergeCells: {
-      range: { sheetId: setupSheetId, startRowIndex: 198, endRowIndex: 199, startColumnIndex: 0, endColumnIndex: 6 },
+      range: { sheetId: setupSheetId, startRowIndex: 71, endRowIndex: 72, startColumnIndex: 0, endColumnIndex: 6 },
       mergeType: 'MERGE_ALL',
     },
   })
   formatRequests.push({
     repeatCell: {
-      range: { sheetId: setupSheetId, startRowIndex: 198, endRowIndex: 199, startColumnIndex: 0, endColumnIndex: 6 },
+      range: { sheetId: setupSheetId, startRowIndex: 71, endRowIndex: 72, startColumnIndex: 0, endColumnIndex: 6 },
       cell: {
         userEnteredFormat: {
           textFormat: { bold: true, fontSize: 12, foregroundColor: { red: 1, green: 1, blue: 1 } },
@@ -546,10 +545,10 @@ async function main() {
       fields: 'userEnteredFormat(textFormat,backgroundColor,horizontalAlignment)',
     },
   })
-  // Row 200: version tracker headers — bold, gray
+  // Row 73: headers — bold, gray
   formatRequests.push({
     repeatCell: {
-      range: { sheetId: setupSheetId, startRowIndex: 199, endRowIndex: 200, startColumnIndex: 0, endColumnIndex: 6 },
+      range: { sheetId: setupSheetId, startRowIndex: 72, endRowIndex: 73, startColumnIndex: 0, endColumnIndex: 6 },
       cell: {
         userEnteredFormat: {
           textFormat: { bold: true },
@@ -559,10 +558,10 @@ async function main() {
       fields: 'userEnteredFormat(textFormat,backgroundColor)',
     },
   })
-  // Borders around version tracker (rows 200-250)
+  // Borders around version tracker
   formatRequests.push({
     updateBorders: {
-      range: { sheetId: setupSheetId, startRowIndex: 199, endRowIndex: 250, startColumnIndex: 0, endColumnIndex: 6 },
+      range: { sheetId: setupSheetId, startRowIndex: 72, endRowIndex: 80, startColumnIndex: 0, endColumnIndex: 6 },
       top: { style: 'SOLID', width: 1, color: { red: 0.5, green: 0.5, blue: 0.5 } },
       bottom: { style: 'SOLID', width: 1, color: { red: 0.5, green: 0.5, blue: 0.5 } },
       left: { style: 'SOLID', width: 1, color: { red: 0.5, green: 0.5, blue: 0.5 } },
@@ -623,18 +622,18 @@ async function main() {
     'WATERPROOFING': { systems: 'AI', bundle: 'AM', standalone: 'AQ' },
   }
 
-  // Version tracker validations (1B) — rows 201-250
-  // Column A (Active): checkbox for rows 201-250
+  // Version tracker validations (1B)
+  // Column A (Active): checkbox for rows 74-80
   validationRequests.push({
     setDataValidation: {
-      range: { sheetId: setupSheetId, startRowIndex: 200, endRowIndex: 250, startColumnIndex: 0, endColumnIndex: 1 },
+      range: { sheetId: setupSheetId, startRowIndex: 73, endRowIndex: 80, startColumnIndex: 0, endColumnIndex: 1 },
       rule: { condition: { type: 'BOOLEAN' }, strict: true, showCustomUi: true },
     },
   })
-  // Column F (Status): dropdown for rows 201-250
+  // Column F (Status): dropdown for rows 74-80
   validationRequests.push({
     setDataValidation: {
-      range: { sheetId: setupSheetId, startRowIndex: 200, endRowIndex: 250, startColumnIndex: 5, endColumnIndex: 6 },
+      range: { sheetId: setupSheetId, startRowIndex: 73, endRowIndex: 80, startColumnIndex: 5, endColumnIndex: 6 },
       rule: {
         condition: {
           type: 'ONE_OF_LIST',
@@ -695,7 +694,7 @@ async function main() {
   console.log('  1A.14: Column P (Tool Name INDEX+MATCH) ✓')
   console.log('  1A.15: Column Q (Tool Status formula) ✓')
   console.log('  1A.16: Column R (Location Count COUNTA) ✓')
-  console.log('  1B.1: Version tracker at rows 199-250 (50 slots) ✓')
+  console.log('  1B.1: Version tracker at rows 72-80 ✓')
   console.log('  1B.2: Columns: Active, Sheet Name, Created Date, Items, Locations, Status ✓')
   console.log('  1B.3: Status dropdown + Active checkbox ✓')
 }
