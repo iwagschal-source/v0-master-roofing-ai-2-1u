@@ -1119,7 +1119,7 @@ git push origin feature/[name]    # Push branch
 **Session 35 (feature/setup-tab):**
 1. `d7a1c53` — 1E: bluebeam_tool_name populated (48 items), v_library_complete view updated, Library tab enhanced (col 31)
 2. `4ec1b8b` — 1A: Setup tab created (index 0) with full row mirror, formulas, dropdowns, conditional formatting
-3. `c0e0c72` — 1B: Version tracker area on Setup tab (rows 72-80)
+3. `c0e0c72` — 1B: Version tracker area on Setup tab (originally rows 72-80, now rows 200-250 — see below)
 
 **Session 37 (feature/apps-script):**
 4. 1C: Apps Script Column C auto-populate trigger (`scripts/apps-script/Code.gs`)
@@ -1220,6 +1220,15 @@ git push origin feature/[name]    # Push branch
     - Dedup: Deduplicate matchedCells by range before batch write — prevents last-write-wins data loss when multiple CSV rows resolve to same cell
     - Bug 48-A: Merge LOCATION_NOT_ACTIVE items into unmatchedItems with NO_COLUMN_MAPPING type — surfaces in reassignment dialog with active-only location dropdown
     - All three fixes verified end-to-end on dev server
+
+17. Version Tracker Expansion (Bug Fix — Session 52)
+    - **Root cause:** `VERSION_TRACKER_MAX_ROW=80` limited tracker to 7 version slots (rows 74-80). Creating version 8+ silently overwrote row 80, losing previous version data.
+    - **Fix:** Moved version tracker from rows 73-80 to rows 200-250 (50 slots).
+      - Row 199: VERSION TRACKER title
+      - Row 200: Column headers (Active, Sheet Name, Created Date, Items Count, Locations Count, Status)
+      - Rows 201-250: Data rows (50 version slots)
+    - **Auto-migration:** `readVersionTracker()` checks old location (rows 74-80) first. If new location (201-250) is empty but old location has data, copies to new rows and clears old rows. One-time, non-destructive.
+    - **Files changed:** `lib/version-management.js` (constants + readVersionTracker migration), `scripts/create-setup-tab.mjs` (template row indices + gridProperties rowCount 80→250)
 
 ### Remaining Work
 
