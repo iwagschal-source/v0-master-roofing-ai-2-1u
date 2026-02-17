@@ -66,7 +66,7 @@ function ColorSwatch({ color, size = 16 }) {
 }
 
 // ─── MAIN COMPONENT ──────────────────────────────────────────────
-export function BluebeamToolManager({ isOpen, onClose, onSuccess }) {
+export function BluebeamToolManager({ isOpen, onClose, onSuccess, initialView }) {
   const [tools, setTools] = useState([])
   const [libraryItems, setLibraryItems] = useState([])
   const [gaps, setGaps] = useState([])
@@ -116,8 +116,11 @@ export function BluebeamToolManager({ isOpen, onClose, onSuccess }) {
   }, [section, search])
 
   useEffect(() => {
-    if (isOpen) fetchTools()
-  }, [isOpen, fetchTools])
+    if (isOpen) {
+      fetchTools()
+      if (initialView) setView(initialView)
+    }
+  }, [isOpen, fetchTools, initialView])
 
   // ─── EDIT TOOL ────────────────────────────────────────────
   function openEdit(tool) {

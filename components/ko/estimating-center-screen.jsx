@@ -39,6 +39,7 @@ import {
 import { TakeoffProposalPreview } from "./takeoff-proposal-preview"
 import { AddItemModal } from "./add-item-modal"
 import { BluebeamToolManager } from "./bluebeam-tool-manager"
+import { SheetRibbon } from "./sheet-ribbon"
 import ProjectStatusIcons from "./project-status-icons"
 import { cn } from "@/lib/utils"
 
@@ -68,6 +69,7 @@ export function EstimatingCenterScreen() {
   const [showProposalPreview, setShowProposalPreview] = useState(false)
   const [showAddItem, setShowAddItem] = useState(false)
   const [showToolManager, setShowToolManager] = useState(false)
+  const [toolManagerInitialView, setToolManagerInitialView] = useState(null)
 
   // Preview state
   const [previewDoc, setPreviewDoc] = useState(null)
@@ -966,57 +968,7 @@ export function EstimatingCenterScreen() {
 
               {/* Version tab bar removed (11B.10) — navigation via icon clicks */}
 
-              {/* Context-Aware Actions (2C.4 + 2C.5) — context-specific buttons below version bar */}
-              {embeddedSheetId && selectedVersionTab && (
-                <div className="flex items-center gap-2 mb-4">
-                  {selectedVersionTab === 'Setup' ? (
-                    <>
-                      <span className="text-xs text-muted-foreground mr-1">Setup actions:</span>
-                      <button
-                        onClick={handleCreateVersion}
-                        disabled={creatingVersion}
-                        className="flex items-center gap-1.5 px-3 py-1.5 bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50 rounded-lg text-xs font-medium"
-                      >
-                        {creatingVersion ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Plus className="w-3.5 h-3.5" />}
-                        Create Takeoff
-                      </button>
-                      <button
-                        onClick={handleGenerateBtx}
-                        disabled={generatingBtx}
-                        className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50 rounded-lg text-xs font-medium"
-                      >
-                        {generatingBtx ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Download className="w-3.5 h-3.5" />}
-                        Download BTX
-                      </button>
-                    </>
-                  ) : (
-                    <>
-                      <span className="text-xs text-muted-foreground mr-1">{selectedVersionTab}:</span>
-                      <button
-                        onClick={() => setShowUploadModal(true)}
-                        className="flex items-center gap-1.5 px-3 py-1.5 bg-green-600 text-white hover:bg-green-700 rounded-lg text-xs font-medium"
-                      >
-                        <Upload className="w-3.5 h-3.5" />
-                        Import CSV
-                      </button>
-                      <button
-                        onClick={() => setShowImportHistory(true)}
-                        className="flex items-center gap-1.5 px-3 py-1.5 bg-muted hover:bg-muted/80 border border-border rounded-lg text-xs font-medium"
-                      >
-                        <Clock className="w-3.5 h-3.5" />
-                        History
-                      </button>
-                      <button
-                        onClick={() => setShowProposalPreview(true)}
-                        className="flex items-center gap-1.5 px-3 py-1.5 bg-primary text-primary-foreground hover:bg-primary/90 rounded-lg text-xs font-medium"
-                      >
-                        <FileText className="w-3.5 h-3.5" />
-                        Proposal
-                      </button>
-                    </>
-                  )}
-                </div>
-              )}
+              {/* Context-Aware Actions removed (11B.12) — replaced by SheetRibbon in embedded sheet toolbar */}
 
               {/* Status cards removed (11B.11) */}
 
@@ -1321,38 +1273,45 @@ export function EstimatingCenterScreen() {
       {/* Embedded Google Sheet Modal (Step 8.B.6) */}
       {showEmbeddedSheet && embeddedSheetId && (
         <div className="fixed inset-0 z-50 bg-background/95 flex flex-col">
-          <div className="flex items-center justify-between px-4 py-3 border-b border-border bg-card">
-            <div className="flex items-center gap-3">
-              <div className="w-8 h-8 rounded-lg bg-green-500/10 flex items-center justify-center">
-                <FileSpreadsheet className="w-4 h-4 text-green-600" />
-              </div>
-              <div>
-                <h2 className="font-semibold">{selectedProject?.project_name} - Takeoff Sheet</h2>
-                <p className="text-xs text-muted-foreground">Google Sheets</p>
-              </div>
-            </div>
-            <div className="flex items-center gap-2">
-              <a
-                href={`https://docs.google.com/spreadsheets/d/${embeddedSheetId}/edit`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center gap-1.5 px-3 py-1.5 bg-secondary hover:bg-secondary/80 rounded-lg text-sm"
-              >
-                <ExternalLink className="w-4 h-4" />
-                Open in Sheets
-              </a>
-              <button
-                onClick={() => {
-                  setShowEmbeddedSheet(false)
-                  // Keep embeddedSheetId so reopen is instant (no re-fetch needed)
-                  setEmbeddedSheetUrl(null)
-                }}
-                className="p-2 hover:bg-muted rounded-lg"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-          </div>
+          <SheetRibbon
+            projectName={selectedProject?.project_name}
+            tabName={selectedVersionTab === 'Setup' ? 'Setup' : currentSheetName}
+            embeddedSheetId={embeddedSheetId}
+            selectedVersionTab={selectedVersionTab}
+            versions={versions}
+            creatingVersion={creatingVersion}
+            generatingBtx={generatingBtx}
+            onBack={() => {
+              setShowEmbeddedSheet(false)
+              setEmbeddedSheetUrl(null)
+            }}
+            onGenerateBtx={handleGenerateBtx}
+            onOpenToolManager={(view) => {
+              setToolManagerInitialView(view)
+              setShowToolManager(true)
+            }}
+            onCreateVersion={handleCreateVersion}
+            onImportCsv={() => setShowUploadModal(true)}
+            onImportHistory={() => setShowImportHistory(true)}
+            onCreateProposal={() => setShowProposalPreview(true)}
+            onSetDefault={(sheetName) => {
+              // Set the version as active/default
+              setVersions(prev => prev.map(v => ({
+                ...v,
+                active: v.sheetName === sheetName,
+              })))
+              if (selectedProject) {
+                fetch(`/api/ko/takeoff/${selectedProject.project_id}/versions`, {
+                  method: 'PUT',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ sheetName, setActive: true }),
+                }).catch(err => {
+                  console.warn('Failed to set default version:', err)
+                  loadVersions(selectedProject.project_id)
+                })
+              }
+            }}
+          />
           <div className="flex-1 relative">
             <iframe
               src={embeddedSheetUrl}
@@ -1553,7 +1512,11 @@ export function EstimatingCenterScreen() {
       )}
 
       {/* Bluebeam Tool Manager */}
-      <BluebeamToolManager isOpen={showToolManager} onClose={() => setShowToolManager(false)} />
+      <BluebeamToolManager
+        isOpen={showToolManager}
+        onClose={() => { setShowToolManager(false); setToolManagerInitialView(null) }}
+        initialView={toolManagerInitialView}
+      />
 
       {/* Add Item Modal */}
       <AddItemModal isOpen={showAddItem} onClose={() => setShowAddItem(false)} />

@@ -93,6 +93,7 @@ v0-master-roofing-ai-2-1u/
 │   │   ├── home-screen.jsx           # Dashboard
 │   │   ├── estimating-center-screen.jsx  # Main estimating UI
 │   │   ├── project-status-icons.jsx  # Brand icon bar (Phase 11)
+│   │   ├── sheet-ribbon.jsx          # Setup/Version ribbon toolbar (Phase 11C/11D)
 │   │   ├── proposal-preview-screen.jsx   # Proposal preview
 │   │   ├── chat-screen.jsx           # AI chat
 │   │   ├── agent-dashboard-screen.jsx    # Agent management
@@ -595,7 +596,7 @@ page.jsx
 |----------|-----------|
 | **Core Layout** | `navigation-rail`, `top-header`, `ko-stage`, `mobile-menu-toggle` |
 | **Dashboard** | `home-screen`, `sales-dashboard`, `phase-tracker` |
-| **Estimating** | `estimating-center-screen`, `embedded-sheet`, `project-status-icons` |
+| **Estimating** | `estimating-center-screen`, `embedded-sheet`, `project-status-icons`, `sheet-ribbon` |
 | **Proposals** | `proposal-preview-screen`, `proposal-document`, `proposal-template`, `proposal-template-v2`, `proposal-pdf-download`, `takeoff-proposal-preview` |
 | **Projects** | `project-folders-screen`, `project-folder`, `project-folder-detail`, `project-folder-light`, `project-card`, `project-detail-screen`, `create-project-modal` |
 | **AI Agents** | `agent-dashboard-screen`, `agent-detail-screen`, `agent-card`, `agent-grid`, `agent-network-map-screen`, `add-agent-screen`, `clone-agent-modal`, `agent-model-icon`, `model-arena-dashboard` |
@@ -632,7 +633,7 @@ Shadcn/ui-based Radix components: `button`, `card`, `input`, `textarea`, `dialog
 
 **File:** `components/ko/bluebeam-tool-manager.jsx` (774 lines)
 **Entry point:** Wrench icon in Estimating Center toolbar
-**Props:** `isOpen`, `onClose`, `onSuccess`
+**Props:** `isOpen`, `onClose`, `onSuccess`, `initialView` (optional: 'tools' | 'create')
 
 Modal overlay for managing Bluebeam tool definitions stored in BigQuery `mr_main.bluebeam_tools`.
 
@@ -1188,6 +1189,16 @@ git push origin feature/[name]    # Push branch
     - Removed: status cards row (Status, Due Date, Proposal, Assigned)
     - Kept: context-aware action buttons (Create Takeoff, Download BTX, Import CSV, History, Proposal) — replaced by ribbon in Session 48
     - Icons hidden during workbook creation (creatingWorkbook flag)
+
+**Session 48:**
+14. Phase 11C + 11D + 11B.12: Setup Ribbon + Version Ribbon
+    - Created components/ko/sheet-ribbon.jsx — context-aware ribbon toolbar in embedded sheet overlay
+    - Setup ribbon (11C): BTX Tools dropdown (Create Project Tools, Setup New Tool, Edit Existing Tool) + Setup Takeoff dropdown (Create New Sheet, Update Default Sheet disabled)
+    - Version ribbon (11D): Import Bluebeam CSV dropdown (Import CSV, Import History) + Create Proposal button + Default toggle
+    - Back arrow replaces X close button; layout: ← Back | ProjectName - TabName | [Ribbon Buttons] | Open in Sheets
+    - Added initialView prop to BluebeamToolManager for direct navigation to 'create' or 'tools' view
+    - Removed old context-aware action buttons from main page (11B.12)
+    - Dropdowns: mutual exclusivity via openDropdown state, close on click outside/Escape/option click
 
 ### Remaining Work
 
