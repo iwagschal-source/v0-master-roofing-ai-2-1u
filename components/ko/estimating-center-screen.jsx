@@ -39,6 +39,7 @@ import {
 import { TakeoffProposalPreview } from "./takeoff-proposal-preview"
 import { AddItemModal } from "./add-item-modal"
 import { BluebeamToolManager } from "./bluebeam-tool-manager"
+import ProjectStatusIcons from "./project-status-icons"
 import { cn } from "@/lib/utils"
 
 const STATUS_CONFIG = {
@@ -914,65 +915,43 @@ export function EstimatingCenterScreen() {
                     )}
                   </div>
                 </div>
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={() => setShowUploadModal(true)}
-                    className="flex items-center gap-1.5 px-3 py-1.5 bg-green-600 text-white hover:bg-green-700 rounded-lg text-sm"
-                  >
-                    <Upload className="w-4 h-4" />
-                    Bluebeam
-                  </button>
-                  <button
-                    onClick={() => {
-                      if (embeddedSheetId) {
-                        // Restore URL from stored ID if it was cleared on close
-                        if (!embeddedSheetUrl) {
-                          setEmbeddedSheetUrl(`https://docs.google.com/spreadsheets/d/${embeddedSheetId}/edit?embedded=true&rm=minimal`)
-                        }
+              </div>
+
+              {/* Project Status Icons (11B.1-7) — hidden during workbook creation */}
+              {!creatingWorkbook && (
+                <ProjectStatusIcons
+                  iconStates={{
+                    drawings: false,
+                    bluebeam: !!embeddedSheetId,
+                    takeoff: versions.length > 0,
+                    markup: false,
+                    export: versions.some(v => v.status?.toLowerCase().includes('import') || v.importCount > 0),
+                    proposal: versions.some(v => v.status?.toLowerCase().includes('proposal')),
+                  }}
+                  onIconClick={(key) => {
+                    if (key === 'bluebeam' && embeddedSheetId) {
+                      // Open Setup sheet
+                      if (!embeddedSheetUrl) {
+                        setEmbeddedSheetUrl(`https://docs.google.com/spreadsheets/d/${embeddedSheetId}/edit?embedded=true&rm=minimal${setupTabSheetId ? `&gid=${setupTabSheetId}` : ''}`)
+                      }
+                      setSelectedVersionTab('Setup')
+                      setCurrentSheetName(null)
+                      setShowEmbeddedSheet(true)
+                    } else if (key === 'takeoff' && versions.length > 0) {
+                      // Open default (active) version tab
+                      const activeVersion = versions.find(v => v.active) || versions[0]
+                      if (activeVersion?.tabSheetId) {
+                        setEmbeddedSheetUrl(`https://docs.google.com/spreadsheets/d/${embeddedSheetId}/edit?embedded=true&rm=minimal&gid=${activeVersion.tabSheetId}`)
+                        setSelectedVersionTab(activeVersion.sheetName)
+                        setCurrentSheetName(activeVersion.sheetName)
                         setShowEmbeddedSheet(true)
                       }
-                    }}
-                    className={cn(
-                      "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm",
-                      embeddedSheetId
-                        ? "bg-green-600 text-white hover:bg-green-700"
-                        : "bg-secondary hover:bg-secondary/80"
-                    )}
-                  >
-                    <FileSpreadsheet className="w-4 h-4" />
-                    {embeddedSheetId ? 'View Takeoff' : 'Takeoff'}
-                  </button>
-                  <button
-                    onClick={() => setShowProposalPreview(true)}
-                    disabled={!embeddedSheetId}
-                    className={cn(
-                      "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm",
-                      embeddedSheetId
-                        ? "bg-primary text-primary-foreground hover:bg-primary/90"
-                        : "bg-muted text-muted-foreground cursor-not-allowed"
-                    )}
-                    title={embeddedSheetId ? "Preview proposal from takeoff" : "Create a takeoff sheet first"}
-                  >
-                    <FileText className="w-4 h-4" />
-                    Proposal
-                  </button>
-                  {embeddedSheetId && (
-                    <button
-                      onClick={handleGenerateBtx}
-                      disabled={generatingBtx}
-                      className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50 rounded-lg text-sm"
-                      title="Generate Bluebeam Tool Chest (.btx) from sheet items and locations"
-                    >
-                      {generatingBtx ? (
-                        <Loader2 className="w-4 h-4 animate-spin" />
-                      ) : (
-                        <Download className="w-4 h-4" />
-                      )}
-                      {generatingBtx ? 'Generating...' : 'BTX'}
-                    </button>
-                  )}
-                </div>
-              </div>
+                    } else if (key === 'proposal') {
+                      setShowProposalPreview(true)
+                    }
+                  }}
+                />
+              )}
 
               {/* Workbook creation loading indicator */}
               {creatingWorkbook && !embeddedSheetId && (
@@ -985,84 +964,7 @@ export function EstimatingCenterScreen() {
                 </div>
               )}
 
-              {/* Version Selector Bar (2C.1) — shows below buttons when spreadsheet exists */}
-              {embeddedSheetId && (
-                <div className="flex items-center gap-1.5 mb-4 p-2 bg-muted/30 rounded-lg border border-border overflow-x-auto">
-                  {/* Setup tab button */}
-                  <button
-                    onClick={() => handleVersionTabClick('Setup', setupTabSheetId)}
-                    className={cn(
-                      "flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium whitespace-nowrap transition-colors",
-                      selectedVersionTab === 'Setup'
-                        ? "bg-orange-600 text-white"
-                        : "bg-background hover:bg-muted text-muted-foreground"
-                    )}
-                  >
-                    <Calculator className="w-3 h-3" />
-                    Setup
-                  </button>
-
-                  <div className="w-px h-5 bg-border flex-shrink-0" />
-
-                  {/* Version tabs */}
-                  {versionsLoading ? (
-                    <Loader2 className="w-4 h-4 animate-spin text-muted-foreground mx-2" />
-                  ) : versions.length > 0 ? (
-                    versions.map(v => (
-                      <div key={v.sheetName} className="flex items-center gap-0 group/vtab">
-                        <button
-                          onClick={() => handleVersionTabClick(v.sheetName, v.tabSheetId)}
-                          disabled={!v.existsAsTab}
-                          className={cn(
-                            "flex items-center gap-1.5 px-3 py-1.5 rounded-l-md text-xs font-medium whitespace-nowrap transition-colors",
-                            selectedVersionTab === v.sheetName
-                              ? "bg-primary text-primary-foreground"
-                              : "bg-background hover:bg-muted text-muted-foreground",
-                            !v.existsAsTab && "opacity-40 cursor-not-allowed line-through"
-                          )}
-                        >
-                          {v.active && <span className="w-1.5 h-1.5 rounded-full bg-green-400 flex-shrink-0" />}
-                          {v.sheetName}
-                          {v.status && v.status !== 'In Progress' && (
-                            <span className="text-[10px] opacity-60">({v.status})</span>
-                          )}
-                        </button>
-                        <button
-                          onClick={(e) => { e.stopPropagation(); handleDeleteVersion(v.sheetName) }}
-                          className={cn(
-                            "px-1 py-1.5 rounded-r-md text-xs transition-colors opacity-0 group-hover/vtab:opacity-100",
-                            selectedVersionTab === v.sheetName
-                              ? "bg-primary text-primary-foreground hover:bg-red-600"
-                              : "bg-background hover:bg-red-600 hover:text-white text-muted-foreground"
-                          )}
-                          title={`Delete ${v.sheetName}`}
-                        >
-                          <Trash2 className="w-3 h-3" />
-                        </button>
-                      </div>
-                    ))
-                  ) : (
-                    <span className="text-xs text-muted-foreground px-2">No versions yet</span>
-                  )}
-
-                  <div className="w-px h-5 bg-border flex-shrink-0" />
-
-                  {/* Create new version */}
-                  <button
-                    onClick={handleCreateVersion}
-                    disabled={creatingVersion}
-                    className="flex items-center gap-1 px-2.5 py-1.5 rounded-md text-xs font-medium bg-background hover:bg-muted text-muted-foreground whitespace-nowrap transition-colors disabled:opacity-50"
-                    title="Create new takeoff version from Setup tab"
-                  >
-                    {creatingVersion ? (
-                      <Loader2 className="w-3 h-3 animate-spin" />
-                    ) : (
-                      <Plus className="w-3 h-3" />
-                    )}
-                    New Version
-                  </button>
-                </div>
-              )}
+              {/* Version tab bar removed (11B.10) — navigation via icon clicks */}
 
               {/* Context-Aware Actions (2C.4 + 2C.5) — context-specific buttons below version bar */}
               {embeddedSheetId && selectedVersionTab && (
@@ -1116,28 +1018,7 @@ export function EstimatingCenterScreen() {
                 </div>
               )}
 
-              {/* Info Cards Row */}
-              <div className="grid grid-cols-4 gap-3 mb-4">
-                <div className="bg-muted/50 rounded-lg p-3">
-                  <p className="text-xs text-muted-foreground mb-1">Status</p>
-                  <div className="flex items-center gap-2">
-                    <span className={`w-2 h-2 rounded-full ${STATUS_CONFIG[selectedProject.estimate_status]?.color || 'bg-gray-500'}`} />
-                    <span className="font-medium text-sm">{STATUS_CONFIG[selectedProject.estimate_status]?.label || 'Draft'}</span>
-                  </div>
-                </div>
-                <div className="bg-muted/50 rounded-lg p-3">
-                  <p className="text-xs text-muted-foreground mb-1">Due Date</p>
-                  <p className="font-medium text-sm">{formatDate(selectedProject.due_date)}</p>
-                </div>
-                <div className="bg-muted/50 rounded-lg p-3">
-                  <p className="text-xs text-muted-foreground mb-1">Proposal</p>
-                  <p className="font-medium text-sm">{formatCurrency(selectedProject.proposal_total)}</p>
-                </div>
-                <div className="bg-muted/50 rounded-lg p-3">
-                  <p className="text-xs text-muted-foreground mb-1">Assigned</p>
-                  <p className="font-medium text-sm">{selectedProject.assigned_to || 'Unassigned'}</p>
-                </div>
-              </div>
+              {/* Status cards removed (11B.11) */}
 
               {/* GC Contact */}
               <div className="bg-muted/30 rounded-lg p-3 mb-4">
