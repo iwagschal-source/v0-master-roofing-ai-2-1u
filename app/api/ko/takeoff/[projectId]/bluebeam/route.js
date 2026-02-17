@@ -140,8 +140,10 @@ function parseDeterministicCSV(csvContent, config) {
         continue
       }
 
+      // Strip Bluebeam instance suffixes: "5THFLOOR (1)" → "5THFLOOR"
+      const cleanLocation = location.replace(/\s*\(\d+\)$/, '')
       // Map location to column
-      const floor = locationMap[location.toUpperCase()] || location
+      const floor = locationMap[cleanLocation.toUpperCase()] || cleanLocation
 
       items.push({
         code: itemCode,
@@ -374,11 +376,12 @@ export async function POST(request, { params }) {
     let result
     let storage = 'google_sheets'
 
+    let setupConfig = null
     if (spreadsheetId) {
       // Build valid targets from Setup config to skip inactive items/locations
       let validTargets = null
       try {
-        const setupConfig = await readSetupConfig(spreadsheetId)
+        setupConfig = await readSetupConfig(spreadsheetId)
         validTargets = new Map()
         for (const item of setupConfig.rows) {
           if (item.hasAnyToggle) {
@@ -414,7 +417,25 @@ export async function POST(request, { params }) {
     const details = result.details || []
     const matchedItems = details.filter(d => d.status === 'MATCHED' || d.status === 'MATCHED_NORMALIZED')
     const unmatchedItems = details.filter(d => d.status === 'NO_ROW_MAPPING' || d.status === 'NO_COLUMN_MAPPING' || d.status === 'ROW_NOT_IN_SECTION')
-    const skippedItems = details.filter(d => d.status === 'ITEM_NOT_ACTIVE' || d.status === 'LOCATION_NOT_ACTIVE')
+
+    // Merge LOCATION_NOT_ACTIVE into unmatched so they appear in reassignment dialog
+    const locationNotActive = details.filter(d => d.status === 'LOCATION_NOT_ACTIVE')
+    for (const d of locationNotActive) {
+      // Build active location names for this item's section from Setup config
+      let activeLocationNames = []
+      if (setupConfig && d.section && d.code) {
+        const sectionNames = setupConfig.sectionLocationNames?.[d.section] || []
+        const itemToggles = setupConfig.rows.find(r => r.itemId.toUpperCase() === d.code)?.toggles || []
+        activeLocationNames = sectionNames.filter((_, i) => itemToggles[i])
+      }
+      unmatchedItems.push({
+        ...d,
+        status: 'NO_COLUMN_MAPPING',
+        originalStatus: 'LOCATION_NOT_ACTIVE',
+        availableLocations: activeLocationNames,
+      })
+    }
+    const skippedItems = details.filter(d => d.status === 'ITEM_NOT_ACTIVE')
     const errors = []
 
     if (parseStats?.skipped > 0) {
@@ -498,6 +519,7 @@ export async function POST(request, { params }) {
         raw_name: d.code,
         unmatchType: d.status,
         reason: d.status === 'NO_ROW_MAPPING' ? 'Item not found in sheet'
+          : d.originalStatus === 'LOCATION_NOT_ACTIVE' ? `Location "${d.floor}" not active in Setup`
           : d.status === 'NO_COLUMN_MAPPING' ? `Location "${d.floor}" not found`
           : 'Row not in any section',
         quantity: d.quantity,
