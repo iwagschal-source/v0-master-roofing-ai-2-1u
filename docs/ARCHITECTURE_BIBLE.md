@@ -1206,6 +1206,11 @@ git push origin feature/[name]    # Push branch
     - fillBluebeamDataToSpreadsheet filters: ITEM_NOT_ACTIVE (item has no toggles), LOCATION_NOT_ACTIVE (location not toggled for that item)
     - Response includes skippedItems array with reasons
     - Graceful degradation: if Setup read fails, imports without filter
+16. Bluebeam Import Hotfixes (Bug 48-A + 48-B + Dedup)
+    - Bug 48-B: Strip Bluebeam instance suffixes "(1)", "(2)" from CSV locations before matching (regex in parseDeterministicCSV)
+    - Dedup: Deduplicate matchedCells by range before batch write — prevents last-write-wins data loss when multiple CSV rows resolve to same cell
+    - Bug 48-A: Merge LOCATION_NOT_ACTIVE items into unmatchedItems with NO_COLUMN_MAPPING type — surfaces in reassignment dialog with active-only location dropdown
+    - All three fixes verified end-to-end on dev server
 
 ### Remaining Work
 
