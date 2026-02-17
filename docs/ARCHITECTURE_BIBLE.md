@@ -1200,6 +1200,13 @@ git push origin feature/[name]    # Push branch
     - Removed old context-aware action buttons from main page (11B.12)
     - Dropdowns: mutual exclusivity via openDropdown state, close on click outside/Escape/option click
 
+15. CSV Import Setup Config Filter (Bug Fix)
+    - Bluebeam import route now reads Setup tab toggles via readSetupConfig before writing
+    - Builds validTargets map: item_id → Set of active location toggle indices
+    - fillBluebeamDataToSpreadsheet filters: ITEM_NOT_ACTIVE (item has no toggles), LOCATION_NOT_ACTIVE (location not toggled for that item)
+    - Response includes skippedItems array with reasons
+    - Graceful degradation: if Setup read fails, imports without filter
+
 ### Remaining Work
 
 - Phase 3.6: Python backend — add WATERPROOFING location codes (FL1-FL7, MR, SBH, EBH) — requires Python server access
