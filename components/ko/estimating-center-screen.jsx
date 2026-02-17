@@ -669,6 +669,18 @@ export function EstimatingCenterScreen() {
         throw new Error('No locations active. Toggle at least one location column on the Setup tab.')
       }
 
+      // 11E: Fetch incremental status (how many already generated)
+      let alreadyGenerated = 0
+      let needsGeneration = 0
+      try {
+        const btxStatusRes = await fetch(`/api/ko/takeoff/${selectedProject.project_id}/btx`)
+        if (btxStatusRes.ok) {
+          const btxStatus = await btxStatusRes.json()
+          alreadyGenerated = btxStatus.alreadyGenerated || 0
+          needsGeneration = btxStatus.needsGeneration || 0
+        }
+      } catch { /* non-fatal */ }
+
       // Show summary dialog — user confirms before download
       setBtxSetupData(setupData)
       setBtxSummary({
@@ -677,6 +689,8 @@ export function EstimatingCenterScreen() {
         toolCount: setupData.tool_count,
         locationNames: setupData.locations.map(l => l.name),
         itemsWithoutTools: setupData.selected_items.filter(i => !i.tool_name).length,
+        alreadyGenerated,
+        needsGeneration,
       })
       // Don't set generatingBtx false — the dialog handles it
     } catch (err) {
@@ -1494,6 +1508,15 @@ export function EstimatingCenterScreen() {
                   ))}
                 </div>
               </div>
+
+              {btxSummary.alreadyGenerated > 0 && (
+                <div className="bg-green-500/10 border border-green-500/30 rounded-lg p-3">
+                  <p className="text-xs text-green-400">
+                    {btxSummary.alreadyGenerated} item{btxSummary.alreadyGenerated > 1 ? 's' : ''} already generated
+                    {btxSummary.needsGeneration > 0 && ` — ${btxSummary.needsGeneration} new`}
+                  </p>
+                </div>
+              )}
 
               {btxSummary.itemsWithoutTools > 0 && (
                 <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-lg p-3">

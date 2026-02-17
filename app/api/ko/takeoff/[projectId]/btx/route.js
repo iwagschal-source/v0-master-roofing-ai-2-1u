@@ -9,6 +9,7 @@
 import { NextResponse } from 'next/server'
 import { getAccessToken } from '@/lib/google-sheets'
 import { runQuery } from '@/lib/bigquery'
+import { readSetupConfig, updateToolStatus } from '@/lib/version-management'
 
 // FastAPI backend on port 8000 (HTTP, not HTTPS)
 const BACKEND_URL = process.env.PYTHON_BACKEND_URL || 'http://136.111.252.120:8000'
@@ -123,6 +124,25 @@ export async function POST(request, { params }) {
       console.warn('[BTX] Drive save failed (non-fatal):', driveErr.message)
     }
 
+    // 11E: Mark generated items as "Generated" in Setup tab Column Q (non-fatal)
+    try {
+      const spreadsheetResult = await runQuery(
+        `SELECT takeoff_spreadsheet_id FROM \`master-roofing-intelligence.mr_main.project_folders\` WHERE id = @projectId`,
+        { projectId }, { location: 'US' }
+      )
+      if (spreadsheetResult.length > 0 && spreadsheetResult[0].takeoff_spreadsheet_id) {
+        const spreadsheetId = spreadsheetResult[0].takeoff_spreadsheet_id
+        const setupConfig = await readSetupConfig(spreadsheetId)
+        const generatedItemIds = new Set(selectedItemIds.map(id => id.toUpperCase()))
+        const generatedItems = setupConfig.rows
+          .filter(r => r.hasAnyToggle && generatedItemIds.has(r.itemId.toUpperCase()))
+          .map(r => ({ itemId: r.itemId, rowNum: r.rowNum }))
+        await updateToolStatus(spreadsheetId, generatedItems)
+      }
+    } catch (statusErr) {
+      console.warn('[BTX] Tool status update failed (non-fatal):', statusErr.message)
+    }
+
     return new NextResponse(zipBuffer, {
       status: 200,
       headers: {
@@ -140,7 +160,7 @@ export async function POST(request, { params }) {
 
 /**
  * GET /api/ko/takeoff/[projectId]/btx
- * Check if BTX can be generated — reads Setup tab toggles
+ * Check BTX readiness + report which items already have tools (11E incremental)
  */
 export async function GET(request, { params }) {
   try {
@@ -154,12 +174,39 @@ export async function GET(request, { params }) {
       if (!data.selected_items?.length) {
         return NextResponse.json({ ready: false, message: 'No items toggled on Setup tab' })
       }
+
+      // 11E: Read tool status from Setup tab Column Q
+      let alreadyGenerated = 0
+      let needsGeneration = 0
+      try {
+        const spreadsheetResult = await runQuery(
+          `SELECT takeoff_spreadsheet_id FROM \`master-roofing-intelligence.mr_main.project_folders\` WHERE id = @projectId`,
+          { projectId }, { location: 'US' }
+        )
+        if (spreadsheetResult.length > 0 && spreadsheetResult[0].takeoff_spreadsheet_id) {
+          const setupConfig = await readSetupConfig(spreadsheetResult[0].takeoff_spreadsheet_id)
+          for (const row of setupConfig.rows) {
+            if (row.hasAnyToggle) {
+              if (row.toolStatus && row.toolStatus.startsWith('Generated')) {
+                alreadyGenerated++
+              } else {
+                needsGeneration++
+              }
+            }
+          }
+        }
+      } catch (statusErr) {
+        console.warn('[BTX] Tool status read failed (non-fatal):', statusErr.message)
+      }
+
       return NextResponse.json({
         ready: true,
         toolCount: data.tool_count,
         items: data.items_count,
         locations: data.locations_count,
-        source: 'setup-tab'
+        source: 'setup-tab',
+        alreadyGenerated,
+        needsGeneration,
       })
     }
 
@@ -180,7 +227,9 @@ export async function GET(request, { params }) {
       toolCount,
       items: config.selectedItems.length,
       locations: config.columns.length,
-      source: 'legacy-config'
+      source: 'legacy-config',
+      alreadyGenerated: 0,
+      needsGeneration: config.selectedItems.length,
     })
 
   } catch (err) {
