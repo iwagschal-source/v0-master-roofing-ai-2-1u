@@ -55,10 +55,10 @@ function LabelStatusBadge({ status }) {
 }
 
 function ColorSwatch({ color, size = 16 }) {
-  if (!color) return <span className="text-zinc-600 text-xs">none</span>
+  if (!color) return <span className="text-stone-600 text-xs">none</span>
   return (
     <span
-      className="inline-block rounded border border-zinc-600"
+      className="inline-block rounded border border-stone-600"
       style={{ width: size, height: size, backgroundColor: color }}
       title={color}
     />
@@ -256,29 +256,29 @@ export function BluebeamToolManager({ isOpen, onClose, onSuccess, initialView })
   // ─── RENDER ───────────────────────────────────────────────
   return (
     <div className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center">
-      <div className="bg-zinc-900 rounded-xl border border-zinc-700 w-[95vw] h-[90vh] flex flex-col overflow-hidden">
+      <div className="bg-stone-900 rounded-xl border border-stone-700 w-[95vw] h-[90vh] flex flex-col overflow-hidden">
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-zinc-700">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-stone-700">
           <div className="flex items-center gap-3">
             {view !== 'tools' && view !== 'gaps' && (
               <button onClick={() => { setView('tools'); setSelectedTool(null) }}
-                className="p-1.5 hover:bg-zinc-700 rounded">
+                className="p-1.5 hover:bg-stone-700 rounded">
                 <ArrowLeft size={18} />
               </button>
             )}
             <Wrench size={20} className="text-orange-400" />
             <h2 className="text-lg font-semibold">Bluebeam Tool Manager</h2>
             {stats && (
-              <span className="text-xs text-zinc-400 ml-2">
+              <span className="text-xs text-stone-400 ml-2">
                 {stats.totalTools} tools | {stats.mappedCount} mapped | {stats.missingLabels} missing labels | {stats.gapCount} gaps
               </span>
             )}
           </div>
-          <button onClick={onClose} className="p-2 hover:bg-zinc-700 rounded"><X size={20} /></button>
+          <button onClick={onClose} className="p-2 hover:bg-stone-700 rounded"><X size={20} /></button>
         </div>
 
         {/* Tab bar + Filters */}
-        <div className="flex items-center gap-4 px-6 py-3 border-b border-zinc-800">
+        <div className="flex items-center gap-4 px-6 py-3 border-b border-stone-800">
           <div className="flex gap-1">
             {[
               { key: 'tools', label: 'All Tools', icon: Wrench },
@@ -287,7 +287,7 @@ export function BluebeamToolManager({ isOpen, onClose, onSuccess, initialView })
               <button key={tab.key}
                 onClick={() => setView(tab.key)}
                 className={`flex items-center gap-1.5 px-3 py-1.5 rounded text-sm ${
-                  view === tab.key ? 'bg-zinc-700 text-white' : 'text-zinc-400 hover:text-white'
+                  view === tab.key ? 'bg-stone-700 text-white' : 'text-stone-400 hover:text-white'
                 }`}>
                 <tab.icon size={14} /> {tab.label}
               </button>
@@ -298,16 +298,16 @@ export function BluebeamToolManager({ isOpen, onClose, onSuccess, initialView })
 
           {/* Section filter */}
           <select value={section} onChange={e => setSection(e.target.value)}
-            className="bg-zinc-800 border border-zinc-600 rounded px-3 py-1.5 text-sm">
+            className="bg-stone-800 border border-stone-600 rounded px-3 py-1.5 text-sm">
             {SECTIONS.map(s => <option key={s} value={s}>{s}</option>)}
           </select>
 
           {/* Search */}
           <div className="relative">
-            <Search size={14} className="absolute left-2.5 top-2.5 text-zinc-500" />
+            <Search size={14} className="absolute left-2.5 top-2.5 text-stone-500" />
             <input value={search} onChange={e => setSearch(e.target.value)}
               placeholder="Search tools..."
-              className="bg-zinc-800 border border-zinc-600 rounded pl-8 pr-3 py-1.5 text-sm w-48" />
+              className="bg-stone-800 border border-stone-600 rounded pl-8 pr-3 py-1.5 text-sm w-48" />
           </div>
 
           <button onClick={() => openCreate()}
@@ -344,10 +344,10 @@ export function BluebeamToolManager({ isOpen, onClose, onSuccess, initialView })
 
 // ─── TOOL LIST ──────────────────────────────────────────────
 function ToolList({ tools, onEdit, onClone }) {
-  if (!tools.length) return <p className="text-zinc-500 text-center py-8">No tools found</p>
+  if (!tools.length) return <p className="text-stone-500 text-center py-8">No tools found</p>
   return (
     <div className="space-y-1">
-      <div className="grid grid-cols-[60px_1fr_1fr_100px_80px_80px_100px_120px_80px] gap-2 px-3 py-2 text-xs text-zinc-500 uppercase font-medium border-b border-zinc-800">
+      <div className="grid grid-cols-[60px_1fr_1fr_100px_80px_80px_100px_120px_80px] gap-2 px-3 py-2 text-xs text-stone-500 uppercase font-medium border-b border-stone-800">
         <span>ID</span><span>Subject</span><span>Label</span><span>Type</span>
         <span>Unit</span><span>Colors</span><span>Label Status</span><span>Item ID</span><span>Actions</span>
       </div>
@@ -355,31 +355,31 @@ function ToolList({ tools, onEdit, onClone }) {
         const TypeIcon = TYPE_ICONS[tool.type] || Square
         return (
           <div key={tool.tool_id}
-            className="grid grid-cols-[60px_1fr_1fr_100px_80px_80px_100px_120px_80px] gap-2 px-3 py-2 hover:bg-zinc-800/50 rounded items-center text-sm">
-            <span className="text-zinc-500 font-mono">{tool.tool_id}</span>
+            className="grid grid-cols-[60px_1fr_1fr_100px_80px_80px_100px_120px_80px] gap-2 px-3 py-2 hover:bg-stone-800/50 rounded items-center text-sm">
+            <span className="text-stone-500 font-mono">{tool.tool_id}</span>
             <span className="truncate font-medium" title={tool.subject}>{tool.subject || '—'}</span>
             <span className={`truncate ${!tool.label ? 'text-red-400 italic' : ''}`}>
               {tool.label || '(empty — needs label)'}
             </span>
-            <span className="flex items-center gap-1 text-zinc-400">
+            <span className="flex items-center gap-1 text-stone-400">
               <TypeIcon size={14} /> {tool.type}
             </span>
-            <span className="text-zinc-400">{tool.unit}</span>
+            <span className="text-stone-400">{tool.unit}</span>
             <span className="flex items-center gap-1">
               <ColorSwatch color={tool.border_color_hex} />
               <ColorSwatch color={tool.fill_color_hex} />
             </span>
             <LabelStatusBadge status={tool.label_status} />
-            <span className="text-zinc-500 text-xs truncate" title={tool.item_id}>
+            <span className="text-stone-500 text-xs truncate" title={tool.item_id}>
               {tool.item_id || '—'}
             </span>
             <span className="flex items-center gap-1">
               <button onClick={() => onEdit(tool)} title="Edit"
-                className="p-1 hover:bg-zinc-700 rounded text-zinc-400 hover:text-white">
+                className="p-1 hover:bg-stone-700 rounded text-stone-400 hover:text-white">
                 <Pencil size={14} />
               </button>
               <button onClick={() => onClone(tool)} title="Clone"
-                className="p-1 hover:bg-zinc-700 rounded text-zinc-400 hover:text-white">
+                className="p-1 hover:bg-stone-700 rounded text-stone-400 hover:text-white">
                 <Copy size={14} />
               </button>
             </span>
@@ -400,17 +400,17 @@ function GapList({ gaps, tools, onAssign, onCreate }) {
   )
   return (
     <div className="space-y-1">
-      <p className="text-sm text-zinc-400 mb-4">{gaps.length} library items without Bluebeam tools</p>
-      <div className="grid grid-cols-[1fr_1fr_100px_80px_150px] gap-2 px-3 py-2 text-xs text-zinc-500 uppercase font-medium border-b border-zinc-800">
+      <p className="text-sm text-stone-400 mb-4">{gaps.length} library items without Bluebeam tools</p>
+      <div className="grid grid-cols-[1fr_1fr_100px_80px_150px] gap-2 px-3 py-2 text-xs text-stone-500 uppercase font-medium border-b border-stone-800">
         <span>Item ID</span><span>Display Name</span><span>Section</span><span>UOM</span><span>Actions</span>
       </div>
       {gaps.map(item => (
         <div key={item.item_id}
-          className="grid grid-cols-[1fr_1fr_100px_80px_150px] gap-2 px-3 py-2 hover:bg-zinc-800/50 rounded items-center text-sm">
+          className="grid grid-cols-[1fr_1fr_100px_80px_150px] gap-2 px-3 py-2 hover:bg-stone-800/50 rounded items-center text-sm">
           <span className="font-mono text-orange-400">{item.item_id}</span>
           <span>{item.display_name}</span>
-          <span className="text-zinc-400">{item.section}</span>
-          <span className="text-zinc-400">{item.uom}</span>
+          <span className="text-stone-400">{item.section}</span>
+          <span className="text-stone-400">{item.uom}</span>
           <span className="flex gap-1">
             <button onClick={() => onCreate()}
               className="flex items-center gap-1 px-2 py-1 bg-orange-600/20 hover:bg-orange-600/40 rounded text-xs text-orange-400">
@@ -434,25 +434,25 @@ function EditPanel({ form, setForm, tool, saving, saveMsg, onSave }) {
       </div>
 
       {/* Three Text Fields — Subject, Label, Comment */}
-      <fieldset className="border border-zinc-700 rounded-lg p-4 space-y-4">
-        <legend className="text-sm font-medium text-zinc-300 px-2">Text Fields (Bluebeam BTX)</legend>
+      <fieldset className="border border-stone-700 rounded-lg p-4 space-y-4">
+        <legend className="text-sm font-medium text-stone-300 px-2">Text Fields (Bluebeam BTX)</legend>
 
         <div>
-          <label className="block text-xs text-zinc-400 mb-1">
-            Subject <span className="text-zinc-600">— System name for CSV matching. Auto-generated.</span>
+          <label className="block text-xs text-stone-400 mb-1">
+            Subject <span className="text-stone-600">— System name for CSV matching. Auto-generated.</span>
           </label>
           <input value={form.subject} onChange={e => setForm({ ...form, subject: e.target.value })}
-            className="w-full bg-zinc-800 border border-zinc-600 rounded px-3 py-2 text-sm" />
+            className="w-full bg-stone-800 border border-stone-600 rounded px-3 py-2 text-sm" />
         </div>
 
         <div>
           <label className="block text-xs mb-1">
             <span className="text-orange-400 font-semibold">Label *</span>
-            <span className="text-zinc-400"> — Human-readable name shown on plan. REQUIRED — never leave empty.</span>
+            <span className="text-stone-400"> — Human-readable name shown on plan. REQUIRED — never leave empty.</span>
           </label>
           <input value={form.label} onChange={e => setForm({ ...form, label: e.target.value })}
-            className={`w-full bg-zinc-800 border rounded px-3 py-2 text-sm ${
-              !form.label?.trim() ? 'border-red-500' : 'border-zinc-600'
+            className={`w-full bg-stone-800 border rounded px-3 py-2 text-sm ${
+              !form.label?.trim() ? 'border-red-500' : 'border-stone-600'
             }`}
             placeholder="e.g., 2-Ply BUR System" />
           {!form.label?.trim() && (
@@ -463,32 +463,32 @@ function EditPanel({ form, setForm, tool, saving, saveMsg, onSave }) {
         </div>
 
         <div>
-          <label className="block text-xs text-zinc-400 mb-1">
-            Comment <span className="text-zinc-600">— Always left empty. Bluebeam auto-fills with measurement data.</span>
+          <label className="block text-xs text-stone-400 mb-1">
+            Comment <span className="text-stone-600">— Always left empty. Bluebeam auto-fills with measurement data.</span>
           </label>
           <input value="" disabled
-            className="w-full bg-zinc-800/50 border border-zinc-700 rounded px-3 py-2 text-sm text-zinc-600 cursor-not-allowed"
+            className="w-full bg-stone-800/50 border border-stone-700 rounded px-3 py-2 text-sm text-stone-600 cursor-not-allowed"
             placeholder="(auto-filled by Bluebeam at markup time)" />
         </div>
       </fieldset>
 
       {/* Visual Properties */}
-      <fieldset className="border border-zinc-700 rounded-lg p-4 space-y-4">
-        <legend className="text-sm font-medium text-zinc-300 px-2">Visual Properties</legend>
+      <fieldset className="border border-stone-700 rounded-lg p-4 space-y-4">
+        <legend className="text-sm font-medium text-stone-300 px-2">Visual Properties</legend>
 
         <div className="grid grid-cols-3 gap-4">
           <div>
-            <label className="block text-xs text-zinc-400 mb-1">Type</label>
+            <label className="block text-xs text-stone-400 mb-1">Type</label>
             <select value={form.type} onChange={e => setForm({ ...form, type: e.target.value })}
-              className="w-full bg-zinc-800 border border-zinc-600 rounded px-3 py-2 text-sm">
+              className="w-full bg-stone-800 border border-stone-600 rounded px-3 py-2 text-sm">
               {TOOL_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
             </select>
           </div>
           <div>
-            <label className="block text-xs text-zinc-400 mb-1">Visual Template</label>
+            <label className="block text-xs text-stone-400 mb-1">Visual Template</label>
             <select value={form.visual_template}
               onChange={e => setForm({ ...form, visual_template: e.target.value })}
-              className="w-full bg-zinc-800 border border-zinc-600 rounded px-3 py-2 text-sm">
+              className="w-full bg-stone-800 border border-stone-600 rounded px-3 py-2 text-sm">
               <option value="">None</option>
               {(VISUAL_TEMPLATES[form.type] || []).map(t => (
                 <option key={t.id} value={t.id}>{t.label}</option>
@@ -496,9 +496,9 @@ function EditPanel({ form, setForm, tool, saving, saveMsg, onSave }) {
             </select>
           </div>
           <div>
-            <label className="block text-xs text-zinc-400 mb-1">Line Style</label>
+            <label className="block text-xs text-stone-400 mb-1">Line Style</label>
             <select value={form.line_style} onChange={e => setForm({ ...form, line_style: e.target.value })}
-              className="w-full bg-zinc-800 border border-zinc-600 rounded px-3 py-2 text-sm">
+              className="w-full bg-stone-800 border border-stone-600 rounded px-3 py-2 text-sm">
               <option value="S">Solid</option>
               <option value="D">Dashed</option>
             </select>
@@ -514,19 +514,19 @@ function EditPanel({ form, setForm, tool, saving, saveMsg, onSave }) {
 
         <div className="grid grid-cols-3 gap-4">
           <div>
-            <label className="block text-xs text-zinc-400 mb-1">Fill Opacity ({Math.round((form.fill_opacity || 0) * 100)}%)</label>
+            <label className="block text-xs text-stone-400 mb-1">Fill Opacity ({Math.round((form.fill_opacity || 0) * 100)}%)</label>
             <input type="range" min="0" max="1" step="0.05" value={form.fill_opacity || 0}
               onChange={e => setForm({ ...form, fill_opacity: parseFloat(e.target.value) })}
               className="w-full" />
           </div>
           <div>
-            <label className="block text-xs text-zinc-400 mb-1">Line Width ({form.line_width}pt)</label>
+            <label className="block text-xs text-stone-400 mb-1">Line Width ({form.line_width}pt)</label>
             <input type="range" min="0" max="10" step="0.25" value={form.line_width || 0}
               onChange={e => setForm({ ...form, line_width: parseFloat(e.target.value) })}
               className="w-full" />
           </div>
           <div>
-            <label className="block text-xs text-zinc-400 mb-1">Line Opacity ({Math.round((form.line_opacity || 0) * 100)}%)</label>
+            <label className="block text-xs text-stone-400 mb-1">Line Opacity ({Math.round((form.line_opacity || 0) * 100)}%)</label>
             <input type="range" min="0" max="1" step="0.05" value={form.line_opacity || 0}
               onChange={e => setForm({ ...form, line_opacity: parseFloat(e.target.value) })}
               className="w-full" />
@@ -534,8 +534,8 @@ function EditPanel({ form, setForm, tool, saving, saveMsg, onSave }) {
         </div>
 
         {/* Preview swatch */}
-        <div className="flex items-center gap-3 p-3 bg-zinc-800 rounded">
-          <span className="text-xs text-zinc-400">Preview:</span>
+        <div className="flex items-center gap-3 p-3 bg-stone-800 rounded">
+          <span className="text-xs text-stone-400">Preview:</span>
           <div className="relative w-24 h-12 rounded border-2"
             style={{
               borderColor: form.border_color_hex || '#ff0000',
@@ -553,19 +553,19 @@ function EditPanel({ form, setForm, tool, saving, saveMsg, onSave }) {
       </fieldset>
 
       {/* Mapping */}
-      <fieldset className="border border-zinc-700 rounded-lg p-4 space-y-4">
-        <legend className="text-sm font-medium text-zinc-300 px-2">Library Mapping</legend>
+      <fieldset className="border border-stone-700 rounded-lg p-4 space-y-4">
+        <legend className="text-sm font-medium text-stone-300 px-2">Library Mapping</legend>
         <div className="grid grid-cols-2 gap-4">
           <div>
-            <label className="block text-xs text-zinc-400 mb-1">Item ID</label>
+            <label className="block text-xs text-stone-400 mb-1">Item ID</label>
             <input value={form.item_id} onChange={e => setForm({ ...form, item_id: e.target.value })}
-              className="w-full bg-zinc-800 border border-zinc-600 rounded px-3 py-2 text-sm font-mono"
+              className="w-full bg-stone-800 border border-stone-600 rounded px-3 py-2 text-sm font-mono"
               placeholder="e.g., MR-2PLYBUR" />
           </div>
           <div>
-            <label className="block text-xs text-zinc-400 mb-1">Scope Name</label>
+            <label className="block text-xs text-stone-400 mb-1">Scope Name</label>
             <input value={form.scope_name} onChange={e => setForm({ ...form, scope_name: e.target.value })}
-              className="w-full bg-zinc-800 border border-zinc-600 rounded px-3 py-2 text-sm"
+              className="w-full bg-stone-800 border border-stone-600 rounded px-3 py-2 text-sm"
               placeholder="e.g., 2-Ply BUR System" />
           </div>
         </div>
@@ -601,26 +601,26 @@ function CreatePanel({ form, setForm, cloneSource, libraryItems, gaps, saving, s
       </div>
 
       {/* Three Text Fields */}
-      <fieldset className="border border-zinc-700 rounded-lg p-4 space-y-4">
-        <legend className="text-sm font-medium text-zinc-300 px-2">Text Fields (Bluebeam BTX)</legend>
+      <fieldset className="border border-stone-700 rounded-lg p-4 space-y-4">
+        <legend className="text-sm font-medium text-stone-300 px-2">Text Fields (Bluebeam BTX)</legend>
 
         <div>
-          <label className="block text-xs text-zinc-400 mb-1">
-            Subject * <span className="text-zinc-600">— System name for CSV matching.</span>
+          <label className="block text-xs text-stone-400 mb-1">
+            Subject * <span className="text-stone-600">— System name for CSV matching.</span>
           </label>
           <input value={form.subject} onChange={e => setForm({ ...form, subject: e.target.value })}
-            className="w-full bg-zinc-800 border border-zinc-600 rounded px-3 py-2 text-sm"
+            className="w-full bg-stone-800 border border-stone-600 rounded px-3 py-2 text-sm"
             placeholder="e.g., Fire-Rated Liquid Membrane" />
         </div>
 
         <div>
           <label className="block text-xs mb-1">
             <span className="text-orange-400 font-semibold">Label *</span>
-            <span className="text-zinc-400"> — Human-readable name shown on plan. REQUIRED.</span>
+            <span className="text-stone-400"> — Human-readable name shown on plan. REQUIRED.</span>
           </label>
           <input value={form.label} onChange={e => setForm({ ...form, label: e.target.value })}
-            className={`w-full bg-zinc-800 border rounded px-3 py-2 text-sm ${
-              !form.label?.trim() ? 'border-red-500' : 'border-zinc-600'
+            className={`w-full bg-stone-800 border rounded px-3 py-2 text-sm ${
+              !form.label?.trim() ? 'border-red-500' : 'border-stone-600'
             }`}
             placeholder="e.g., Fire-Rated Liquid Membrane" />
           {!form.label?.trim() && (
@@ -631,31 +631,31 @@ function CreatePanel({ form, setForm, cloneSource, libraryItems, gaps, saving, s
         </div>
 
         <div>
-          <label className="block text-xs text-zinc-400 mb-1">
-            Comment <span className="text-zinc-600">— Always left empty. Bluebeam auto-fills.</span>
+          <label className="block text-xs text-stone-400 mb-1">
+            Comment <span className="text-stone-600">— Always left empty. Bluebeam auto-fills.</span>
           </label>
           <input value="" disabled
-            className="w-full bg-zinc-800/50 border border-zinc-700 rounded px-3 py-2 text-sm text-zinc-600 cursor-not-allowed"
+            className="w-full bg-stone-800/50 border border-stone-700 rounded px-3 py-2 text-sm text-stone-600 cursor-not-allowed"
             placeholder="(auto-filled by Bluebeam at markup time)" />
         </div>
       </fieldset>
 
       {/* Visual Properties */}
-      <fieldset className="border border-zinc-700 rounded-lg p-4 space-y-4">
-        <legend className="text-sm font-medium text-zinc-300 px-2">Visual Properties</legend>
+      <fieldset className="border border-stone-700 rounded-lg p-4 space-y-4">
+        <legend className="text-sm font-medium text-stone-300 px-2">Visual Properties</legend>
         <div className="grid grid-cols-3 gap-4">
           <div>
-            <label className="block text-xs text-zinc-400 mb-1">Type</label>
+            <label className="block text-xs text-stone-400 mb-1">Type</label>
             <select value={form.type} onChange={e => setForm({ ...form, type: e.target.value })}
-              className="w-full bg-zinc-800 border border-zinc-600 rounded px-3 py-2 text-sm">
+              className="w-full bg-stone-800 border border-stone-600 rounded px-3 py-2 text-sm">
               {TOOL_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
             </select>
           </div>
           <div>
-            <label className="block text-xs text-zinc-400 mb-1">Visual Template</label>
+            <label className="block text-xs text-stone-400 mb-1">Visual Template</label>
             <select value={form.visual_template}
               onChange={e => setForm({ ...form, visual_template: e.target.value })}
-              className="w-full bg-zinc-800 border border-zinc-600 rounded px-3 py-2 text-sm">
+              className="w-full bg-stone-800 border border-stone-600 rounded px-3 py-2 text-sm">
               <option value="">None</option>
               {(VISUAL_TEMPLATES[form.type] || []).map(t => (
                 <option key={t.id} value={t.id}>{t.label}</option>
@@ -663,9 +663,9 @@ function CreatePanel({ form, setForm, cloneSource, libraryItems, gaps, saving, s
             </select>
           </div>
           <div>
-            <label className="block text-xs text-zinc-400 mb-1">Line Style</label>
+            <label className="block text-xs text-stone-400 mb-1">Line Style</label>
             <select value={form.line_style} onChange={e => setForm({ ...form, line_style: e.target.value })}
-              className="w-full bg-zinc-800 border border-zinc-600 rounded px-3 py-2 text-sm">
+              className="w-full bg-stone-800 border border-stone-600 rounded px-3 py-2 text-sm">
               <option value="S">Solid</option>
               <option value="D">Dashed</option>
             </select>
@@ -681,21 +681,21 @@ function CreatePanel({ form, setForm, cloneSource, libraryItems, gaps, saving, s
 
         <div className="grid grid-cols-3 gap-4">
           <div>
-            <label className="block text-xs text-zinc-400 mb-1">Fill Opacity ({Math.round((form.fill_opacity || 0) * 100)}%)</label>
+            <label className="block text-xs text-stone-400 mb-1">Fill Opacity ({Math.round((form.fill_opacity || 0) * 100)}%)</label>
             <input type="range" min="0" max="1" step="0.05" value={form.fill_opacity || 0}
               onChange={e => setForm({ ...form, fill_opacity: parseFloat(e.target.value) })}
               className="w-full" />
           </div>
           <div>
-            <label className="block text-xs text-zinc-400 mb-1">Line Width ({form.line_width}pt)</label>
+            <label className="block text-xs text-stone-400 mb-1">Line Width ({form.line_width}pt)</label>
             <input type="range" min="0" max="10" step="0.25" value={form.line_width || 0}
               onChange={e => setForm({ ...form, line_width: parseFloat(e.target.value) })}
               className="w-full" />
           </div>
           <div>
-            <label className="block text-xs text-zinc-400 mb-1">Line Style</label>
+            <label className="block text-xs text-stone-400 mb-1">Line Style</label>
             <select value={form.line_style} onChange={e => setForm({ ...form, line_style: e.target.value })}
-              className="w-full bg-zinc-800 border border-zinc-600 rounded px-3 py-2 text-sm">
+              className="w-full bg-stone-800 border border-stone-600 rounded px-3 py-2 text-sm">
               <option value="S">Solid</option><option value="D">Dashed</option>
             </select>
           </div>
@@ -703,17 +703,17 @@ function CreatePanel({ form, setForm, cloneSource, libraryItems, gaps, saving, s
       </fieldset>
 
       {/* Library Mapping */}
-      <fieldset className="border border-zinc-700 rounded-lg p-4 space-y-4">
-        <legend className="text-sm font-medium text-zinc-300 px-2">Library Mapping (optional)</legend>
+      <fieldset className="border border-stone-700 rounded-lg p-4 space-y-4">
+        <legend className="text-sm font-medium text-stone-300 px-2">Library Mapping (optional)</legend>
         <div className="grid grid-cols-2 gap-4">
           <div>
-            <label className="block text-xs text-zinc-400 mb-1">Item ID</label>
+            <label className="block text-xs text-stone-400 mb-1">Item ID</label>
             <input value={form.item_id} onChange={e => setForm({ ...form, item_id: e.target.value })}
-              className="w-full bg-zinc-800 border border-zinc-600 rounded px-3 py-2 text-sm font-mono"
+              className="w-full bg-stone-800 border border-stone-600 rounded px-3 py-2 text-sm font-mono"
               placeholder="e.g., MR-FIRE-LIQ" />
             {gaps.length > 0 && (
               <div className="mt-1 max-h-24 overflow-y-auto">
-                <p className="text-xs text-zinc-500 mb-1">Unmapped items:</p>
+                <p className="text-xs text-stone-500 mb-1">Unmapped items:</p>
                 {gaps.slice(0, 10).map(g => (
                   <button key={g.item_id}
                     onClick={() => setForm({ ...form, item_id: g.item_id, scope_name: g.display_name || '' })}
@@ -725,9 +725,9 @@ function CreatePanel({ form, setForm, cloneSource, libraryItems, gaps, saving, s
             )}
           </div>
           <div>
-            <label className="block text-xs text-zinc-400 mb-1">Scope Name</label>
+            <label className="block text-xs text-stone-400 mb-1">Scope Name</label>
             <input value={form.scope_name} onChange={e => setForm({ ...form, scope_name: e.target.value })}
-              className="w-full bg-zinc-800 border border-zinc-600 rounded px-3 py-2 text-sm" />
+              className="w-full bg-stone-800 border border-stone-600 rounded px-3 py-2 text-sm" />
           </div>
         </div>
       </fieldset>
@@ -754,20 +754,20 @@ function ColorPicker({ label, value, onChange }) {
   const [open, setOpen] = useState(false)
   return (
     <div>
-      <label className="block text-xs text-zinc-400 mb-1">{label}</label>
+      <label className="block text-xs text-stone-400 mb-1">{label}</label>
       <div className="flex items-center gap-2">
         <button onClick={() => setOpen(!open)}
-          className="w-8 h-8 rounded border border-zinc-600"
+          className="w-8 h-8 rounded border border-stone-600"
           style={{ backgroundColor: value || 'transparent' }} />
         <input value={value || ''} onChange={e => onChange(e.target.value)}
-          className="flex-1 bg-zinc-800 border border-zinc-600 rounded px-3 py-1.5 text-sm font-mono"
+          className="flex-1 bg-stone-800 border border-stone-600 rounded px-3 py-1.5 text-sm font-mono"
           placeholder="#ff0000" />
       </div>
       {open && (
-        <div className="mt-2 grid grid-cols-8 gap-1 p-2 bg-zinc-800 rounded border border-zinc-700">
+        <div className="mt-2 grid grid-cols-8 gap-1 p-2 bg-stone-800 rounded border border-stone-700">
           {COLOR_PALETTE.map(c => (
             <button key={c} onClick={() => { onChange(c); setOpen(false) }}
-              className={`w-6 h-6 rounded border ${value === c ? 'border-white border-2' : 'border-zinc-600'}`}
+              className={`w-6 h-6 rounded border ${value === c ? 'border-white border-2' : 'border-stone-600'}`}
               style={{ backgroundColor: c }} />
           ))}
         </div>
