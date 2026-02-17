@@ -194,7 +194,7 @@ export async function POST(request, { params }) {
     return NextResponse.json({
       success: true,
       newSheetName: result.newSheetName,
-      newTabSheetId: result.newTabSheetId,
+      newTabSheetId: result.newSheetId,
       copiedFrom: sourceSheetName,
     })
   } catch (error) {

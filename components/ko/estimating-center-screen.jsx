@@ -240,22 +240,6 @@ export function EstimatingCenterScreen() {
       setCurrentSheetName(null) // Setup and Library are not versions
     } else {
       setCurrentSheetName(tabName)
-      // Optimistic update: move green dot locally
-      setVersions(prev => prev.map(v => ({
-        ...v,
-        active: v.sheetName === tabName,
-      })))
-      // Persist active version to Setup tab (async, non-blocking)
-      if (selectedProject) {
-        fetch(`/api/ko/takeoff/${selectedProject.project_id}/versions`, {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ sheetName: tabName, setActive: true }),
-        }).catch(err => {
-          console.warn('Failed to persist active version:', err)
-          loadVersions(selectedProject.project_id) // Rollback on error
-        })
-      }
     }
     // Update embedded sheet URL to show the selected tab
     if (embeddedSheetId && tabSheetId != null) {
