@@ -14,6 +14,7 @@ import { NextResponse } from 'next/server'
 import https from 'https'
 import { fillBluebeamDataToTab, fillBluebeamDataToSpreadsheet, getTakeoffTab, createTakeoffTab, getAccessToken } from '@/lib/google-sheets'
 import { runQuery } from '@/lib/bigquery'
+import { readSetupConfig } from '@/lib/version-management'
 
 const BACKEND_URL = process.env.PYTHON_BACKEND_URL || 'http://136.111.252.120:8000'
 
@@ -374,8 +375,26 @@ export async function POST(request, { params }) {
     let storage = 'google_sheets'
 
     if (spreadsheetId) {
+      // Build valid targets from Setup config to skip inactive items/locations
+      let validTargets = null
+      try {
+        const setupConfig = await readSetupConfig(spreadsheetId)
+        validTargets = new Map()
+        for (const item of setupConfig.rows) {
+          if (item.hasAnyToggle) {
+            const activeLocations = new Set()
+            item.toggles.forEach((isActive, i) => {
+              if (isActive) activeLocations.add(i) // i = 0-6 maps to columns G-M (sheet index 6-12)
+            })
+            validTargets.set(item.itemId.toUpperCase(), activeLocations)
+          }
+        }
+      } catch (setupErr) {
+        console.warn('Setup config read failed, importing without filter:', setupErr.message)
+      }
+
       // Use standalone spreadsheet (new approach)
-      result = await fillBluebeamDataToSpreadsheet(spreadsheetId, items, config, resolvedSheetName)
+      result = await fillBluebeamDataToSpreadsheet(spreadsheetId, items, config, resolvedSheetName, validTargets)
       storage = 'standalone_spreadsheet'
     } else {
       // Fall back to tab-based approach (legacy)
@@ -395,6 +414,7 @@ export async function POST(request, { params }) {
     const details = result.details || []
     const matchedItems = details.filter(d => d.status === 'MATCHED' || d.status === 'MATCHED_NORMALIZED')
     const unmatchedItems = details.filter(d => d.status === 'NO_ROW_MAPPING' || d.status === 'NO_COLUMN_MAPPING' || d.status === 'ROW_NOT_IN_SECTION')
+    const skippedItems = details.filter(d => d.status === 'ITEM_NOT_ACTIVE' || d.status === 'LOCATION_NOT_ACTIVE')
     const errors = []
 
     if (parseStats?.skipped > 0) {
@@ -485,6 +505,13 @@ export async function POST(request, { params }) {
         row: d.row || null,
         section: d.section || null,
         availableLocations: d.availableLocations || []
+      })),
+      skippedItems: skippedItems.map(d => ({
+        item_id: d.code,
+        location: d.floor,
+        quantity: d.quantity,
+        reason: d.status === 'ITEM_NOT_ACTIVE' ? 'Item not toggled in Setup'
+          : 'Location not active for this item in Setup',
       })),
       errors,
       cellsPopulated: result.updated,
