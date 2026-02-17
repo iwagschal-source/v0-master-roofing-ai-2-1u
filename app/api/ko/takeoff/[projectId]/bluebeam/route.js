@@ -81,6 +81,7 @@ function parseDeterministicCSV(csvContent, config) {
 
   // Parse header
   const header = parseCSVLine(lines[0]).map(h => h.toLowerCase().trim())
+  const idIdx = header.findIndex(h => h === 'id')
   const subjectIdx = header.findIndex(h => h.includes('subject') || h.includes('layer') || h.includes('label'))
   // Prioritize exact 'measurement' column - it always has the correct value regardless of item type
   // (Length/Area/Count columns only have values for their specific measurement types)
@@ -115,16 +116,24 @@ function parseDeterministicCSV(csvContent, config) {
   const items = []
   let deterministicCount = 0
   let skippedCount = 0
+  let groupRowsSkipped = 0
 
   for (let i = 1; i < lines.length; i++) {
     const cols = parseCSVLine(lines[i])
     if (cols.length < 2) continue
 
+    // Skip group/summary rows: empty ID = rolled-up data that duplicates detail rows
+    // See docs/BLUEBEAM_CSV_FORMAT.md for full row type classification
+    if (idIdx >= 0 && !cols[idIdx]?.trim()) {
+      groupRowsSkipped++
+      continue
+    }
+
     const subject = cols[subjectIdx] || ''
     const measurement = cols[measurementIdx >= 0 ? measurementIdx : 1] || ''
 
-    // Skip empty or summary rows
-    if (!subject || /^\d+\s*(?:sf|lf|ea)?\s*\(\d+\)$/i.test(subject)) continue
+    // Skip empty subjects
+    if (!subject) continue
 
     // Check for PIPE delimiter format
     if (subject.includes(' | ')) {
@@ -160,7 +169,8 @@ function parseDeterministicCSV(csvContent, config) {
     stats: {
       totalRows: lines.length - 1,
       parsed: deterministicCount,
-      skipped: skippedCount
+      skipped: skippedCount,
+      groupRowsSkipped
     }
   }
 }
@@ -174,6 +184,7 @@ function parseBluebeamCSV(csvContent) {
 
   // Parse header to find columns
   const header = lines[0].split(',').map(h => h.trim().toLowerCase())
+  const idIdx = header.findIndex(h => h === 'id')
   const subjectIdx = header.findIndex(h => h.includes('subject') || h.includes('layer') || h.includes('label'))
   const measurementIdx = header.findIndex(h => h.includes('measurement') || h.includes('area') || h.includes('length') || h.includes('count'))
   const spaceIdx = header.findIndex(h => h.includes('space') || h.includes('page') || h.includes('location'))
@@ -183,6 +194,9 @@ function parseBluebeamCSV(csvContent) {
   for (let i = 1; i < lines.length; i++) {
     const cols = parseCSVLine(lines[i])
     if (cols.length < 2) continue
+
+    // Skip group/summary rows (empty ID = rolled-up data)
+    if (idIdx >= 0 && !cols[idIdx]?.trim()) continue
 
     const subject = cols[subjectIdx >= 0 ? subjectIdx : 0] || ''
     const measurement = cols[measurementIdx >= 0 ? measurementIdx : 1] || ''
