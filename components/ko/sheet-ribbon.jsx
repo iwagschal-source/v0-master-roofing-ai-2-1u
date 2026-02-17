@@ -1,7 +1,7 @@
 "use client"
 
-import { useState, useEffect, useRef } from "react"
-import { ArrowLeft, ExternalLink, ChevronDown, Loader2 } from "lucide-react"
+import { useState, useEffect, useRef, useCallback } from "react"
+import { ArrowLeft, ExternalLink, ChevronDown, ChevronLeft, ChevronRight, Loader2 } from "lucide-react"
 import { BRAND_COLORS } from "@/lib/brand-colors"
 
 export function SheetRibbon({
@@ -26,6 +26,9 @@ export function SheetRibbon({
 }) {
   const [openDropdown, setOpenDropdown] = useState(null)
   const ribbonRef = useRef(null)
+  const scrollContainerRef = useRef(null)
+  const [canScrollLeft, setCanScrollLeft] = useState(false)
+  const [canScrollRight, setCanScrollRight] = useState(false)
 
   // Close dropdown on click outside or Escape
   useEffect(() => {
@@ -57,6 +60,36 @@ export function SheetRibbon({
   const isVersion = !isSetup && !isLibrary
   const currentVersion = versions?.find(v => v.sheetName === selectedVersionTab)
   const isDefault = currentVersion?.active === true
+
+  // Split versions: pinned default vs scrollable others
+  const defaultVersion = (versions || []).find(v => v.active === true)
+  const scrollableVersions = (versions || []).filter(v => v.active !== true)
+
+  // Check if scroll container overflows in either direction
+  const checkScrollState = useCallback(() => {
+    const el = scrollContainerRef.current
+    if (!el) {
+      setCanScrollLeft(false)
+      setCanScrollRight(false)
+      return
+    }
+    setCanScrollLeft(el.scrollLeft > 1)
+    setCanScrollRight(el.scrollLeft + el.clientWidth < el.scrollWidth - 1)
+  }, [])
+
+  // Re-check on mount, resize, and when versions change
+  useEffect(() => {
+    checkScrollState()
+    window.addEventListener('resize', checkScrollState)
+    return () => window.removeEventListener('resize', checkScrollState)
+  }, [checkScrollState, versions])
+
+  const scrollTabs = (direction) => {
+    const el = scrollContainerRef.current
+    if (!el) return
+    el.scrollBy({ left: direction * 150, behavior: 'smooth' })
+    setTimeout(checkScrollState, 350)
+  }
 
   return (
     <div ref={ribbonRef}>
@@ -223,13 +256,13 @@ export function SheetRibbon({
         </a>
       </div>
 
-      {/* Row 2: Tab bar — Setup | Versions... | Library */}
+      {/* Row 2: Tab bar — Setup | ● Default (pinned) | ◀ [scrollable versions] ▶ | Library */}
       {onTabSwitch && (
-        <div className="flex items-center gap-0 px-4 bg-card border-b border-border overflow-x-auto">
-          {/* Setup tab */}
+        <div className="flex items-center px-4 bg-card border-b border-border">
+          {/* Setup tab — always visible, pinned left */}
           <button
             onClick={() => onTabSwitch('Setup', setupTabSheetId)}
-            className={`px-4 py-1.5 text-xs font-medium border-b-2 transition-colors whitespace-nowrap ${
+            className={`flex-shrink-0 px-4 py-1.5 text-xs font-medium border-b-2 transition-colors whitespace-nowrap ${
               isSetup
                 ? 'border-orange-500 text-orange-400'
                 : 'border-transparent text-muted-foreground hover:text-foreground hover:border-muted-foreground/40'
@@ -238,40 +271,85 @@ export function SheetRibbon({
             Setup
           </button>
 
-          {/* Version tabs — chronological order */}
-          {(versions || []).map((v) => {
-            const isSelected = selectedVersionTab === v.sheetName
-            const isActiveDefault = v.active === true
-            return (
+          {/* Default version — pinned after Setup, always visible */}
+          {defaultVersion && (
+            <>
+              <div className="w-px h-4 bg-border mx-0.5 flex-shrink-0" />
               <button
-                key={v.sheetName}
-                onClick={() => onTabSwitch(v.sheetName, v.tabSheetId)}
-                className={`px-4 py-1.5 text-xs font-medium border-b-2 transition-colors whitespace-nowrap flex items-center gap-1.5 ${
-                  isSelected
+                onClick={() => onTabSwitch(defaultVersion.sheetName, defaultVersion.tabSheetId)}
+                className={`flex-shrink-0 px-4 py-1.5 text-xs font-medium border-b-2 transition-colors whitespace-nowrap flex items-center gap-1.5 ${
+                  selectedVersionTab === defaultVersion.sheetName
                     ? 'border-green-500 text-green-400'
                     : 'border-transparent text-muted-foreground hover:text-foreground hover:border-muted-foreground/40'
                 }`}
               >
-                {isActiveDefault && (
-                  <span className="w-1.5 h-1.5 rounded-full bg-green-500 inline-block" />
-                )}
-                {v.sheetName}
+                <span className="w-1.5 h-1.5 rounded-full bg-green-500 inline-block" />
+                {defaultVersion.sheetName}
               </button>
-            )
-          })}
+            </>
+          )}
 
-          {/* Library tab */}
-          {libraryTabSheetId != null && (
+          {/* Left scroll arrow — only when hidden tabs exist to the left */}
+          {canScrollLeft && (
             <button
-              onClick={() => onTabSwitch('Library', libraryTabSheetId)}
-              className={`px-4 py-1.5 text-xs font-medium border-b-2 transition-colors whitespace-nowrap ${
-                isLibrary
-                  ? 'border-gray-400 text-gray-300'
-                  : 'border-transparent text-muted-foreground hover:text-foreground hover:border-muted-foreground/40'
-              }`}
+              onClick={() => scrollTabs(-1)}
+              className="flex-shrink-0 px-1 py-1 text-muted-foreground hover:text-foreground rounded transition-colors"
+              aria-label="Scroll tabs left"
             >
-              Library
+              <ChevronLeft className="w-4 h-4" />
             </button>
+          )}
+
+          {/* Scrollable version tabs container */}
+          <div
+            ref={scrollContainerRef}
+            onScroll={checkScrollState}
+            className="flex items-center overflow-hidden min-w-0"
+          >
+            {scrollableVersions.map((v) => {
+              const isSelected = selectedVersionTab === v.sheetName
+              return (
+                <button
+                  key={v.sheetName}
+                  onClick={() => onTabSwitch(v.sheetName, v.tabSheetId)}
+                  className={`flex-shrink-0 px-4 py-1.5 text-xs font-medium border-b-2 transition-colors whitespace-nowrap ${
+                    isSelected
+                      ? 'border-green-500 text-green-400'
+                      : 'border-transparent text-muted-foreground hover:text-foreground hover:border-muted-foreground/40'
+                  }`}
+                >
+                  {v.sheetName}
+                </button>
+              )
+            })}
+          </div>
+
+          {/* Right scroll arrow — only when hidden tabs exist to the right */}
+          {canScrollRight && (
+            <button
+              onClick={() => scrollTabs(1)}
+              className="flex-shrink-0 px-1 py-1 text-muted-foreground hover:text-foreground rounded transition-colors"
+              aria-label="Scroll tabs right"
+            >
+              <ChevronRight className="w-4 h-4" />
+            </button>
+          )}
+
+          {/* Library tab — always visible, pinned right */}
+          {libraryTabSheetId != null && (
+            <>
+              <div className="w-px h-4 bg-border mx-0.5 flex-shrink-0" />
+              <button
+                onClick={() => onTabSwitch('Library', libraryTabSheetId)}
+                className={`flex-shrink-0 px-4 py-1.5 text-xs font-medium border-b-2 transition-colors whitespace-nowrap ${
+                  isLibrary
+                    ? 'border-gray-400 text-gray-300'
+                    : 'border-transparent text-muted-foreground hover:text-foreground hover:border-muted-foreground/40'
+                }`}
+              >
+                Library
+              </button>
+            </>
           )}
         </div>
       )}
