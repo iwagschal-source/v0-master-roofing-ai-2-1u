@@ -28,6 +28,7 @@ import { UserAdminScreen } from "@/components/ko/user-admin-screen"
 import { SalesDashboard } from "@/components/ko/sales-dashboard"
 import { EstimatingCenterScreen } from "@/components/ko/estimating-center-screen"
 import ProjectFoldersScreen from "@/components/ko/project-folders-screen"
+import { ProjectFolderDetail } from "@/components/ko/project-folder-detail"
 import { ContactsScreen } from "@/components/ko/contacts-screen"
 import { agents as fallbackAgents } from "@/data/agent-data"
 
@@ -61,6 +62,7 @@ export default function HomePage() {
   const [showSales, setShowSales] = useState(false)
   const [showEstimating, setShowEstimating] = useState(false)
   const [showProjects, setShowProjects] = useState(false)
+  const [selectedFolderProject, setSelectedFolderProject] = useState(null) // { id, name } for detail view
   const [showContacts, setShowContacts] = useState(false)
   const [selectedAgent, setSelectedAgent] = useState(null)
   const [showAgentNetwork, setShowAgentNetwork] = useState(false)
@@ -159,6 +161,7 @@ export default function HomePage() {
       setShowSales(false)
       setShowEstimating(false)
       setShowProjects(false)
+      setSelectedFolderProject(null)
       setShowContacts(false)
       setSelectedAgent(null)
       setShowAgentNetwork(false)
@@ -422,11 +425,18 @@ export default function HomePage() {
           ) : showEstimating ? (
             <EstimatingCenterScreen />
           ) : showProjects ? (
-            <ProjectFoldersScreen
-              onNavigateToProject={(projectId) => {
-                handleModeChange("estimating")
-              }}
-            />
+            selectedFolderProject ? (
+              <ProjectFolderDetail
+                projectName={selectedFolderProject.name}
+                onClose={() => setSelectedFolderProject(null)}
+              />
+            ) : (
+              <ProjectFoldersScreen
+                onNavigateToProject={(project) => {
+                  setSelectedFolderProject(project)
+                }}
+              />
+            )
           ) : showContacts ? (
             <ContactsScreen />
           ) : (

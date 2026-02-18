@@ -266,7 +266,7 @@ export default function ProjectFoldersScreen({ onNavigateToProject }) {
                       }
                     }}
                     onFileClick={handleFileClick}
-                    onCardClick={() => onNavigateToProject?.(project.id)}
+                    onCardClick={() => onNavigateToProject?.({ id: project.id, name: project.name })}
                   />
                 ))}
               </div>
@@ -285,7 +285,7 @@ export default function ProjectFoldersScreen({ onNavigateToProject }) {
                       onVisible={() => {
                         if (project.driveFolderId) loadFolderStatus(project.id)
                       }}
-                      onOpen={() => onNavigateToProject?.(project.id)}
+                      onOpen={() => onNavigateToProject?.({ id: project.id, name: project.name })}
                       onDelete={() => setDeleteConfirm(project)}
                       menuOpen={menuOpen === project.id}
                       onToggleMenu={() => setMenuOpen(menuOpen === project.id ? null : project.id)}
@@ -392,13 +392,13 @@ function LazyFolderCard({ project, folders, onVisible, onHoverIcons, onFileClick
   )
 }
 
-/** Icon color map for list view mini icons */
-const LIST_ICON_COLORS = {
-  drawings: '#333333',
-  bluebeam: '#277ed0',
-  takeoff: '#00883e',
-  markups: '#c96500',
-  proposals: '#c0352f',
+/** Map category keys to the WORKING numbered icon files */
+const LIST_ICON_SRC = {
+  drawings: '/icons/11.svg',
+  bluebeam: '/icons/8.svg',
+  takeoff: '/icons/9.svg',
+  markups: '/icons/10.svg',
+  proposals: '/icons/13.svg',
 }
 
 /**
@@ -450,16 +450,15 @@ function LazyListRow({ project, activeIcons, onVisible, onOpen, onDelete, menuOp
         <p className="text-xs text-muted-foreground truncate">{project.companyName}</p>
       </div>
 
-      {/* Category icons */}
+      {/* Category icons — use working numbered SVGs with mix-blend-multiply */}
       <div className="flex items-center gap-1.5 shrink-0">
         {activeIcons.map((key) => (
           <img
             key={key}
-            src={`/icons/${key}.svg`}
+            src={LIST_ICON_SRC[key]}
             alt={key}
-            width={20}
-            height={20}
-            className="block w-5 h-5"
+            className="block h-5 w-auto mix-blend-multiply"
+            draggable={false}
           />
         ))}
       </div>
