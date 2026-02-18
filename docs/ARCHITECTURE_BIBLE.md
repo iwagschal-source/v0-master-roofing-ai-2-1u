@@ -1478,6 +1478,7 @@ KO Projects/
 | `/api/ko/project/[projectId]/folders` | GET | Full folder structure with file lists per category |
 | `/api/ko/project/[projectId]/folders/status` | GET | Lightweight: which folders have content (for card icons) |
 | `/api/ko/project/[projectId]/folders/[folderType]/upload` | POST | Upload file to specific subfolder |
+| `/api/ko/project/[projectId]` | DELETE | Soft-delete project + trash Drive folder |
 
 ### Shared Library
 
@@ -1523,6 +1524,15 @@ Key functions:
 4. Changed BTX save path: Markups/ → Bluebeam/
 5. Updated `getOrCreateProjectFolder()`: 3 subfolders → 5 subfolders
 6. Rewired project-folders-screen.jsx with FolderCard + lazy status loading
+
+### Session 53 Changes
+
+1. Fixed folder status icons: `next/image` → plain `<img>` (Canva base64-in-SVG incompatible with next/image)
+2. Wired card click navigation: `page.jsx` → `ProjectFoldersScreen.onNavigateToProject` → `FolderCard.onClick` → estimating center
+3. Removed broken logo from project list header (`logo-square.png` didn't exist)
+4. Enhanced list view: category icons (20px), three-dot menu (Open/Delete/Settings), lazy-loaded status
+5. Delete confirmation dialog with BigQuery soft-delete (`status='deleted'`) + Drive folder trash
+6. New DELETE API: `app/api/ko/project/[projectId]/route.js`
 
 ---
 
