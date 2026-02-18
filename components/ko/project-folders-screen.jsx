@@ -1,27 +1,25 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef, useCallback } from "react"
 import { useTheme } from "@/components/theme-provider"
-import { ProjectFolder } from "@/components/ko/project-folder"
-import { ProjectFolderLight } from "@/components/ko/project-folder-light"
-import { ProjectFolderDetail } from "@/components/ko/project-folder-detail"
+import { FolderCard } from "@/components/ko/folder-card"
 import { CreateProjectModal } from "@/components/ko/create-project-modal"
-import { Search, LayoutGrid, List, Settings, Bell, Sun, Moon, Plus, Loader2, FolderOpen } from "lucide-react"
+import { Search, LayoutGrid, List, Plus, Loader2, FolderOpen } from "lucide-react"
 
 /**
- * @typedef {"green"|"yellow"|"red"} HealthStatus
- * @typedef {{id: string, name: string, summary: string, healthStatus: HealthStatus, isIngesting: boolean, tickerMessages: string[], companyName?: string}} Project
+ * Project Folders Screen — Phase 12 redesign with folder cards
+ * Shows project grid with category icon status badges and hover file popups
  */
-
 export default function ProjectFoldersScreen() {
   const [projects, setProjects] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
-  const [selectedProject, setSelectedProject] = useState(null)
   const [searchQuery, setSearchQuery] = useState("")
   const [viewMode, setViewMode] = useState("grid")
   const [showCreateModal, setShowCreateModal] = useState(false)
-  const { resolvedTheme, toggleTheme } = useTheme()
+  const [folderStatus, setFolderStatus] = useState({}) // projectId → { drawings: bool, ... }
+  const [folderFiles, setFolderFiles] = useState({})   // projectId → { drawings: { files: [...] }, ... }
+  const { resolvedTheme } = useTheme()
 
   // Fetch projects from API on mount
   useEffect(() => {
@@ -30,24 +28,20 @@ export default function ProjectFoldersScreen() {
         setLoading(true)
         setError(null)
         const res = await fetch('/api/ko/project-folders')
-        if (!res.ok) {
-          throw new Error(`Failed to fetch projects: ${res.status}`)
-        }
+        if (!res.ok) throw new Error(`Failed to fetch projects: ${res.status}`)
         const data = await res.json()
-        // Map API response to component format
         const mappedProjects = (data.projects || []).map(p => ({
           id: p.id,
           name: p.name,
-          summary: p.summary || `Project with ${p.companyName || 'company'}`,
-          status: p.healthStatus || 'green',
-          healthStatus: p.healthStatus || 'green',
-          isIngesting: p.isIngesting || false,
-          tickerMessages: p.tickerMessages || [],
-          companyName: p.companyName,
+          companyName: p.companyName || 'Unknown Company',
           contactName: p.contactName,
           address: p.address,
           city: p.city,
           state: p.state,
+          driveFolderId: p.driveFolderId,
+          takeoffSpreadsheetId: p.takeoffSpreadsheetId,
+          status: p.status || 'active',
+          updatedAt: p.updatedAt,
         }))
         setProjects(mappedProjects)
       } catch (err) {
@@ -60,16 +54,64 @@ export default function ProjectFoldersScreen() {
     fetchProjects()
   }, [])
 
-  const filteredProjects = projects.filter((project) =>
-    project.name.toLowerCase().includes(searchQuery.toLowerCase())
-  )
+  // Lazy-load folder status when a card becomes visible
+  const loadFolderStatus = useCallback(async (projectId) => {
+    if (folderStatus[projectId] !== undefined) return // already loaded
+    setFolderStatus(prev => ({ ...prev, [projectId]: null })) // mark as loading
+    try {
+      const res = await fetch(`/api/ko/project/${projectId}/folders/status`)
+      if (res.ok) {
+        const status = await res.json()
+        setFolderStatus(prev => ({ ...prev, [projectId]: status }))
+      }
+    } catch {
+      // Silently fail — card will show no icons
+    }
+  }, [folderStatus])
 
-  const statusCounts = {
-    total: projects.length,
-    green: projects.filter((p) => p.status === "green" || p.healthStatus === "green").length,
-    yellow: projects.filter((p) => p.status === "yellow" || p.healthStatus === "yellow").length,
-    red: projects.filter((p) => p.status === "red" || p.healthStatus === "red").length,
+  // Load file list for a specific folder category on hover
+  const loadFolderFiles = useCallback(async (projectId) => {
+    if (folderFiles[projectId]) return // already loaded
+    try {
+      const res = await fetch(`/api/ko/project/${projectId}/folders`)
+      if (res.ok) {
+        const data = await res.json()
+        setFolderFiles(prev => ({ ...prev, [projectId]: data.folders }))
+      }
+    } catch {
+      // Silently fail
+    }
+  }, [folderFiles])
+
+  // Build folder categories array for a project card
+  const buildFolderCategories = (projectId) => {
+    const status = folderStatus[projectId]
+    const files = folderFiles[projectId]
+    if (!status) return []
+
+    const categories = []
+    const keys = ['drawings', 'bluebeam', 'takeoff', 'markups', 'proposals']
+    for (const key of keys) {
+      if (status[key]) {
+        const fileList = files?.[key]?.files || []
+        categories.push({
+          category: key,
+          files: fileList.map(f => f.name),
+        })
+      }
+    }
+    return categories
   }
+
+  const handleFileClick = (fileName) => {
+    console.log('Opening file:', fileName)
+    // TODO: Open webViewLink or trigger download
+  }
+
+  const filteredProjects = projects.filter((project) =>
+    project.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    (project.companyName || '').toLowerCase().includes(searchQuery.toLowerCase())
+  )
 
   return (
     <div className="min-h-screen bg-background">
@@ -86,10 +128,10 @@ export default function ProjectFoldersScreen() {
               />
               <div>
                 <h1 className="font-mono text-sm font-semibold tracking-wide uppercase">
-                  Project Folder Agent
+                  Projects
                 </h1>
                 <p className="text-xs text-muted-foreground">
-                  {statusCounts.total} Active Projects
+                  {projects.length} Active Projects
                 </p>
               </div>
             </div>
@@ -108,24 +150,8 @@ export default function ProjectFoldersScreen() {
               </div>
             </div>
 
-            {/* Status Summary & Actions */}
-            <div className="flex items-center gap-6">
-              {/* Status Pills */}
-              <div className="hidden md:flex items-center gap-3">
-                <div className="flex items-center gap-1.5 px-2 py-1 rounded bg-green-500/10">
-                  <div className="w-2 h-2 rounded-full bg-green-500" />
-                  <span className="text-xs font-mono text-green-600 dark:text-green-400">{statusCounts.green}</span>
-                </div>
-                <div className="flex items-center gap-1.5 px-2 py-1 rounded bg-yellow-500/10">
-                  <div className="w-2 h-2 rounded-full bg-yellow-500" />
-                  <span className="text-xs font-mono text-yellow-600 dark:text-yellow-400">{statusCounts.yellow}</span>
-                </div>
-                <div className="flex items-center gap-1.5 px-2 py-1 rounded bg-red-500/10">
-                  <div className="w-2 h-2 rounded-full bg-red-500" />
-                  <span className="text-xs font-mono text-red-600 dark:text-red-400">{statusCounts.red}</span>
-                </div>
-              </div>
-
+            {/* Actions */}
+            <div className="flex items-center gap-4">
               {/* View Toggle */}
               <div className="flex items-center gap-1 p-1 bg-secondary/30 rounded-lg">
                 <button
@@ -158,28 +184,6 @@ export default function ProjectFoldersScreen() {
                 <Plus className="w-4 h-4" />
                 <span className="hidden sm:inline">New Project</span>
               </button>
-
-              {/* Actions */}
-              <div className="flex items-center gap-2">
-                <button className="p-2 rounded hover:bg-secondary transition-colors relative">
-                  <Bell className="w-4 h-4 text-muted-foreground" />
-                  <span className="absolute top-1 right-1 w-2 h-2 rounded-full bg-primary" />
-                </button>
-                <button
-                  onClick={toggleTheme}
-                  className="p-2 rounded hover:bg-secondary transition-colors"
-                  title={resolvedTheme === "light" ? "Switch to dark mode" : "Switch to light mode"}
-                >
-                  {resolvedTheme === "light" ? (
-                    <Moon className="w-4 h-4 text-muted-foreground" />
-                  ) : (
-                    <Sun className="w-4 h-4 text-muted-foreground" />
-                  )}
-                </button>
-                <button className="p-2 rounded hover:bg-secondary transition-colors">
-                  <Settings className="w-4 h-4 text-muted-foreground" />
-                </button>
-              </div>
             </div>
           </div>
         </div>
@@ -212,7 +216,7 @@ export default function ProjectFoldersScreen() {
           </div>
         )}
 
-        {/* Empty State - No Projects Yet */}
+        {/* Empty State */}
         {!loading && !error && projects.length === 0 && (
           <div className="flex flex-col items-center justify-center py-24">
             <div className="w-20 h-20 rounded-full bg-secondary/50 flex items-center justify-center mb-6">
@@ -220,7 +224,7 @@ export default function ProjectFoldersScreen() {
             </div>
             <h3 className="text-lg font-medium mb-2">No Projects Yet</h3>
             <p className="text-sm text-muted-foreground mb-6 text-center max-w-md">
-              Create your first project folder to start tracking documents, RFIs, and project health.
+              Create your first project folder to start tracking documents.
             </p>
             <button
               onClick={() => setShowCreateModal(true)}
@@ -232,27 +236,28 @@ export default function ProjectFoldersScreen() {
           </div>
         )}
 
-        {/* Projects Grid/List */}
+        {/* Projects Grid */}
         {!loading && !error && projects.length > 0 && (
           <>
             {viewMode === "grid" ? (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
                 {filteredProjects.map((project) => (
-                  resolvedTheme === "light" ? (
-                    <ProjectFolderLight
-                      key={project.id}
-                      {...project}
-                      isActive={selectedProject?.id === project.id}
-                      onClick={() => setSelectedProject(project)}
-                    />
-                  ) : (
-                    <ProjectFolder
-                      key={project.id}
-                      {...project}
-                      isActive={selectedProject?.id === project.id}
-                      onClick={() => setSelectedProject(project)}
-                    />
-                  )
+                  <LazyFolderCard
+                    key={project.id}
+                    project={project}
+                    folders={buildFolderCategories(project.id)}
+                    onVisible={() => {
+                      if (project.driveFolderId) {
+                        loadFolderStatus(project.id)
+                      }
+                    }}
+                    onHoverIcons={() => {
+                      if (project.driveFolderId && !folderFiles[project.id]) {
+                        loadFolderFiles(project.id)
+                      }
+                    }}
+                    onFileClick={handleFileClick}
+                  />
                 ))}
               </div>
             ) : (
@@ -260,28 +265,12 @@ export default function ProjectFoldersScreen() {
                 {filteredProjects.map((project) => (
                   <button
                     key={project.id}
-                    onClick={() => setSelectedProject(project)}
                     className="w-full flex items-center gap-4 p-4 bg-card border border-border/50 rounded-lg hover:border-primary/30 transition-colors text-left"
                   >
-                    <div
-                      className={`w-3 h-3 rounded-full ${
-                        (project.status === "green" || project.healthStatus === "green")
-                          ? "bg-green-500"
-                          : (project.status === "yellow" || project.healthStatus === "yellow")
-                            ? "bg-yellow-500"
-                            : "bg-red-500"
-                      }`}
-                    />
                     <div className="flex-1 min-w-0">
                       <h3 className="font-mono text-sm font-medium truncate">{project.name}</h3>
-                      <p className="text-xs text-muted-foreground truncate">{project.summary}</p>
+                      <p className="text-xs text-muted-foreground truncate">{project.companyName}</p>
                     </div>
-                    {project.isIngesting && (
-                      <div className="flex items-center gap-1.5">
-                        <div className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
-                        <span className="text-[10px] font-mono text-green-500/70 uppercase">Live</span>
-                      </div>
-                    )}
                   </button>
                 ))}
               </div>
@@ -290,30 +279,59 @@ export default function ProjectFoldersScreen() {
             {/* No search results */}
             {filteredProjects.length === 0 && searchQuery && (
               <div className="text-center py-16">
-                <p className="text-muted-foreground">No projects found matching "{searchQuery}"</p>
+                <p className="text-muted-foreground">No projects found matching &ldquo;{searchQuery}&rdquo;</p>
               </div>
             )}
           </>
         )}
       </main>
 
-      {/* Expanded View Modal */}
-      {selectedProject && (
-        <ProjectFolderDetail
-          projectName={selectedProject.name}
-          onClose={() => setSelectedProject(null)}
-        />
-      )}
-
       {/* Create Project Modal */}
       <CreateProjectModal
         isOpen={showCreateModal}
         onClose={() => setShowCreateModal(false)}
         onSuccess={(newProject) => {
-          // Prepend new project to list
           setProjects(prev => [newProject, ...prev])
           setShowCreateModal(false)
         }}
+      />
+    </div>
+  )
+}
+
+/**
+ * Wrapper that uses IntersectionObserver to lazy-load folder status
+ */
+function LazyFolderCard({ project, folders, onVisible, onHoverIcons, onFileClick }) {
+  const cardRef = useRef(null)
+  const hasTriggered = useRef(false)
+
+  useEffect(() => {
+    const el = cardRef.current
+    if (!el) return
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting && !hasTriggered.current) {
+          hasTriggered.current = true
+          onVisible()
+          observer.disconnect()
+        }
+      },
+      { threshold: 0.1 }
+    )
+
+    observer.observe(el)
+    return () => observer.disconnect()
+  }, [onVisible])
+
+  return (
+    <div ref={cardRef} onMouseEnter={onHoverIcons}>
+      <FolderCard
+        projectName={project.name}
+        clientName={project.companyName}
+        folders={folders}
+        onFileClick={onFileClick}
       />
     </div>
   )
