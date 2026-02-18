@@ -392,13 +392,13 @@ function LazyFolderCard({ project, folders, onVisible, onHoverIcons, onFileClick
   )
 }
 
-/** Map category keys to the WORKING numbered icon files */
+/** Map category keys to v0 PNG icon files (64x64, transparent bg) */
 const LIST_ICON_SRC = {
-  drawings: '/icons/11.svg',
-  bluebeam: '/icons/8.svg',
-  takeoff: '/icons/9.svg',
-  markups: '/icons/10.svg',
-  proposals: '/icons/13.svg',
+  drawings: '/icons/drawings.png',
+  bluebeam: '/icons/bluebeam.png',
+  takeoff: '/icons/takeoff.png',
+  markups: '/icons/markups.png',
+  proposals: '/icons/proposals.png',
 }
 
 /**
@@ -457,7 +457,7 @@ function LazyListRow({ project, activeIcons, onVisible, onOpen, onDelete, menuOp
             key={key}
             src={LIST_ICON_SRC[key]}
             alt={key}
-            className="block h-5 w-auto mix-blend-multiply"
+            className="block w-5 h-5"
             draggable={false}
           />
         ))}

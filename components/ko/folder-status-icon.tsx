@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useRef, useCallback } from "react"
-import { FOLDER_ICON_COLORS, ICON_FILES } from "@/lib/brand-colors"
+import { FOLDER_ICON_COLORS } from "@/lib/brand-colors"
 
 export type CategoryKey = "drawings" | "bluebeam" | "takeoff" | "markups" | "proposals"
 
@@ -16,35 +16,35 @@ interface CategoryConfig {
 const CATEGORY_CONFIG: Record<CategoryKey, CategoryConfig> = {
   drawings: {
     label: "Drawings",
-    icon: ICON_FILES.drawingsIcon,   // /icons/11.svg — working numbered icon
+    icon: "/icons/drawings.png",
     color: FOLDER_ICON_COLORS.drawings.primary,
     bgLight: FOLDER_ICON_COLORS.drawings.light,
     borderColor: "#444",
   },
   bluebeam: {
     label: "Bluebeam",
-    icon: ICON_FILES.bluebeamIcon,   // /icons/8.svg
+    icon: "/icons/bluebeam.png",
     color: FOLDER_ICON_COLORS.bluebeam.primary,
     bgLight: FOLDER_ICON_COLORS.bluebeam.light,
     borderColor: FOLDER_ICON_COLORS.bluebeam.primary,
   },
   takeoff: {
     label: "Takeoff",
-    icon: ICON_FILES.takeoffIcon,    // /icons/9.svg
+    icon: "/icons/takeoff.png",
     color: FOLDER_ICON_COLORS.takeoff.primary,
     bgLight: FOLDER_ICON_COLORS.takeoff.light,
     borderColor: "#00aa50",
   },
   markups: {
     label: "Markups",
-    icon: ICON_FILES.markupIcon,     // /icons/10.svg
+    icon: "/icons/markups.png",
     color: FOLDER_ICON_COLORS.markups.primary,
     bgLight: FOLDER_ICON_COLORS.markups.light,
     borderColor: "#f57c00",
   },
   proposals: {
     label: "Proposals",
-    icon: ICON_FILES.proposalIcon,   // /icons/13.svg
+    icon: "/icons/proposals.png",
     color: FOLDER_ICON_COLORS.proposals.primary,
     bgLight: FOLDER_ICON_COLORS.proposals.light,
     borderColor: "#d7403a",
@@ -115,13 +115,13 @@ export function StatusIcon({ category, files, onFileClick }: StatusIconProps) {
       onMouseLeave={handleMouseLeave}
     >
       {/* Icon badge */}
-      <div className="w-[30px] h-[30px] cursor-pointer transition-transform duration-150 hover:scale-110">
+      <div className="w-[24px] h-[24px] cursor-pointer transition-transform duration-150 hover:scale-110">
         <img
           src={config.icon}
           alt={config.label}
-          width={30}
-          height={30}
-          className="block h-[30px] w-auto mix-blend-multiply"
+          width={24}
+          height={24}
+          className="block w-[24px] h-[24px]"
           draggable={false}
         />
       </div>
@@ -148,7 +148,7 @@ export function StatusIcon({ category, files, onFileClick }: StatusIconProps) {
               alt=""
               width={18}
               height={18}
-              className="shrink-0 mix-blend-multiply"
+              className="shrink-0"
               draggable={false}
             />
             <span
