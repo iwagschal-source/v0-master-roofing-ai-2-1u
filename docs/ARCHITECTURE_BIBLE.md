@@ -1527,12 +1527,13 @@ Key functions:
 
 ### Session 53 Changes
 
-1. Fixed folder status icons: `next/image` → plain `<img>` (Canva base64-in-SVG incompatible with next/image)
-2. Wired card click navigation: `page.jsx` → `ProjectFoldersScreen.onNavigateToProject` → `FolderCard.onClick` → estimating center
+1. Fixed folder status icons: Canva SVGs unrenderable → switched to numbered icons (8-13.svg) + `mix-blend-multiply`
+2. Wired card click → `ProjectFolderDetail` (Documents page with sidebar + viewer + Agent chat)
 3. Removed broken logo from project list header (`logo-square.png` didn't exist)
 4. Enhanced list view: category icons (20px), three-dot menu (Open/Delete/Settings), lazy-loaded status
 5. Delete confirmation dialog with BigQuery soft-delete (`status='deleted'`) + Drive folder trash
 6. New DELETE API: `app/api/ko/project/[projectId]/route.js`
+7. `page.jsx`: `selectedFolderProject` state manages detail view within projects mode
 
 ---
 

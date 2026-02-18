@@ -73,6 +73,19 @@
 5. **Delete** — Click Delete in menu → confirmation dialog → confirm → project removed from list
 6. **No broken images** — No broken logos or missing icons anywhere
 
+## Additional Fix Commit (post-initial push)
+
+| Task | Commit | Status |
+|------|--------|--------|
+| Fix icons: use numbered SVGs (8-13.svg) + mix-blend-multiply | `18199d1` | DONE |
+| Fix navigation: card click → ProjectFolderDetail (not estimating center) | `18199d1` | DONE |
+
+### Why Icons Were Still Broken After First Fix
+The Canva-exported SVGs (`drawings.svg`, `bluebeam.svg`, etc.) are base64-encoded PNGs inside SVG containers — browsers can't render them even with plain `<img>` tags. The WORKING icons are the numbered files (`8.svg`=Bluebeam, `9.svg`=Takeoff, `10.svg`=Markups, `11.svg`=Drawings, `13.svg`=Proposals) already used by `project-status-icons.jsx`. Switched to those + added `mix-blend-multiply` CSS to eliminate black PNG backgrounds.
+
+### Why Card Navigation Was Wrong
+Card click was going to estimating center. The CORRECT target is `ProjectFolderDetail` (`components/ko/project-folder-detail.jsx`) — an existing Documents page with sidebar file tree, document viewer, and Agent View chat. Wired via `selectedFolderProject` state in `page.jsx`.
+
 ## Not Done (Deferred)
 - 12.4: Inside folder view (sidebar tree + document viewer) — card click currently goes to estimating center as interim
 - 12.5: Upload system + auto-save wiring
