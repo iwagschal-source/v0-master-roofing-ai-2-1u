@@ -1445,7 +1445,88 @@ Placeholder replacement (case-insensitive): {R_VALUE}→col D, {THICKNESS}→col
 
 ---
 
-## 19. Pre-Rebuild Baseline (Session 31)
+## 19. Phase 12: Project Folder System (Session 52+)
+
+### Concept
+
+Unified document hub per project. Five static folders in workflow order:
+
+| # | Folder | Icon Color | Contents |
+|---|--------|-----------|----------|
+| 1 | Drawings | #333333 | Original architectural/structural/mechanical PDFs |
+| 2 | Bluebeam | #277ed0 | BTX tool files + CSV measurement exports |
+| 3 | Takeoff | #00883e | Takeoff sheets (Google Sheets workbook versions) |
+| 4 | Markups | #c96500 | Annotated/marked-up drawing PDFs |
+| 5 | Proposals | #c0352f | Word docs + PDFs from proposal generator |
+
+### Drive Subfolder Structure
+
+```
+KO Projects/
+└── {ProjectName} - {ProjectID}/
+    ├── Drawings/
+    ├── Bluebeam/     (Phase 12 — BTX saves here now, NOT Markups/)
+    ├── Takeoff/
+    ├── Markups/      (CSV imports still save here)
+    └── Proposals/    (Proposal DOCX saves here)
+```
+
+### API Endpoints
+
+| Route | Method | Purpose |
+|-------|--------|---------|
+| `/api/ko/project/[projectId]/folders` | GET | Full folder structure with file lists per category |
+| `/api/ko/project/[projectId]/folders/status` | GET | Lightweight: which folders have content (for card icons) |
+| `/api/ko/project/[projectId]/folders/[folderType]/upload` | POST | Upload file to specific subfolder |
+
+### Shared Library
+
+**File:** `lib/google-drive.js`
+
+Key functions:
+- `getProjectDriveFolderId(projectId)` — BigQuery lookup
+- `getOrCreateSubfolder(accessToken, parentId, name)` — Find or create
+- `ensureAllSubfolders(accessToken, parentId)` — Create all 5
+- `listFilesInFolder(accessToken, folderId)` — List files with metadata
+- `getSubfolderStatus(accessToken, parentId)` — Lightweight boolean check per category
+- `uploadFileToDrive(accessToken, folderId, fileName, buffer, mimeType)` — Multipart upload
+
+### Frontend Components
+
+| Component | File | Purpose |
+|-----------|------|---------|
+| `FolderCard` | `components/ko/folder-card.tsx` | Project card with folder tab SVG, icons, activity feed |
+| `StatusIcon` | `components/ko/folder-status-icon.tsx` | Category icon with hover file list popup |
+| `FolderCardGrid` | `components/ko/folder-card-grid.tsx` | Responsive grid wrapper |
+
+### Brand Colors (Phase 12)
+
+**File:** `lib/brand-colors.js` — `FOLDER_ICON_COLORS` and `FOLDER_ICONS` exports
+
+### Icon Assets
+
+5 SVG files in `public/icons/`: `drawings.svg`, `bluebeam.svg`, `takeoff.svg`, `markups.svg`, `proposals.svg`
+
+### Card Behavior
+
+- Icons are **present+colored OR absent** (no gray placeholders)
+- Fixed workflow order maintained; only icons with content appear
+- Hover popup: category-colored background, file list with type badges
+- File click opens Drive webViewLink
+- IntersectionObserver lazy-loads folder status per card
+
+### Session 52 Changes
+
+1. Integrated v0 design package (3 components + 5 icons)
+2. Created `lib/google-drive.js` shared Drive utilities
+3. Added 3 folder API routes (GET structure, GET status, POST upload)
+4. Changed BTX save path: Markups/ → Bluebeam/
+5. Updated `getOrCreateProjectFolder()`: 3 subfolders → 5 subfolders
+6. Rewired project-folders-screen.jsx with FolderCard + lazy status loading
+
+---
+
+## 20. Pre-Rebuild Baseline (Session 31)
 
 | Item | Value |
 |------|-------|
