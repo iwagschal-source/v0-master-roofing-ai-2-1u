@@ -427,6 +427,7 @@ export default function HomePage() {
           ) : showProjects ? (
             selectedFolderProject ? (
               <ProjectFolderDetail
+                projectId={selectedFolderProject.id}
                 projectName={selectedFolderProject.name}
                 onClose={() => setSelectedFolderProject(null)}
               />

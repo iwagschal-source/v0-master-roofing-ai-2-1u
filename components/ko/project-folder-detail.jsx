@@ -11,6 +11,7 @@ import {
   Mic,
   Send,
   X,
+  ArrowLeft,
   ChevronRight,
   Maximize2,
   Minimize2,
@@ -94,9 +95,9 @@ const cashFlowByQuarter = [
 
 /**
  * Project folder detail/expanded view component
- * @param {{projectName: string, onClose: () => void}} props
+ * @param {{projectId: string, projectName: string, onClose: () => void}} props
  */
-export function ProjectFolderDetail({ projectName, onClose }) {
+export function ProjectFolderDetail({ projectId, projectName, onClose }) {
   const { resolvedTheme } = useTheme()
   const isLight = resolvedTheme === "light"
 
@@ -225,22 +226,19 @@ export function ProjectFolderDetail({ projectName, onClose }) {
           "flex items-center justify-between px-6 py-4 border-b",
           isLight ? "border-border bg-white" : "border-border/50"
         )}>
-          <div className="flex items-center gap-4">
-            <div className={cn(
-              "w-8 h-8 rounded flex items-center justify-center overflow-hidden border",
-              isLight ? "bg-white border-border" : "bg-card border-border"
-            )}>
-              <img
-                src={isLight ? "/images/logo-light.png" : "/images/favicon.png"}
-                alt="Master Roofing"
-                className="w-6 h-6 object-contain"
-              />
-            </div>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={onClose}
+              className="p-1.5 rounded transition-colors hover:bg-secondary text-muted-foreground hover:text-foreground"
+              title="Back to Projects"
+            >
+              <ArrowLeft className="w-5 h-5" />
+            </button>
             <div>
               <h1 className="font-mono text-sm font-medium tracking-wide uppercase text-primary">
                 {projectName}
               </h1>
-              <p className="text-xs text-muted-foreground">Engaged Mode</p>
+              <p className="text-xs text-muted-foreground">Documents</p>
             </div>
           </div>
 
@@ -266,15 +264,6 @@ export function ProjectFolderDetail({ projectName, onClose }) {
               )}
             >
               Analytics
-            </button>
-            <button
-              onClick={onClose}
-              className={cn(
-                "ml-4 p-2 rounded transition-colors",
-                "hover:bg-secondary"
-              )}
-            >
-              <X className="w-4 h-4 text-muted-foreground" />
             </button>
           </div>
         </header>
