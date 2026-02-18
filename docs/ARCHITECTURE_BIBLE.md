@@ -476,8 +476,8 @@ Python backend reads from this table for BTX generation.
 | `/sheet-config` | GET | Read actual Google Sheet layout dynamically. Accepts `?sheet=` param (Session 33) |
 | `/config` | GET/POST | Read/write wizard-generated config |
 | `/setup-config` | GET | Read Setup tab toggles for BTX: items with active locations, tool names, section membership (Session 40) |
-| `/btx` | GET/POST | GET: check readiness (reads setup-config). POST: generate per-floor BTX zip via Python backend. Accepts `setupConfig` body (Phase 3) or legacy `config`. Saves zip to Drive Markups folder. Filename: `{project}-tools-{date}.zip` (Session 40) |
-| `/bluebeam` | POST | Import Bluebeam CSV into sheet with accumulation. Reads existing values and adds imported quantities. Saves CSV to Drive Markups/. Records to BigQuery import_history. Returns matchedItems with previousValue/accumulatedTotal, unmatchedItems with availableLocations. Accepts `sheet_name` in body. (Session 33, enhanced Session 41) |
+| `/btx` | GET/POST | GET: check readiness (reads setup-config). POST: generate per-floor BTX zip via Python backend. Accepts `setupConfig` body (Phase 3) or legacy `config`. Saves zip to Drive Bluebeam/ folder. Filename: `{project}-tools-{date}.zip` (Session 40, Phase 12) |
+| `/bluebeam` | POST | Import Bluebeam CSV into sheet with accumulation. Reads existing values and adds imported quantities. Saves CSV to Drive Bluebeam/. Records to BigQuery import_history. Returns matchedItems with previousValue/accumulatedTotal, unmatchedItems with availableLocations. Accepts `sheet_name` in body. (Session 33, enhanced Session 41, Phase 12) |
 | `/generate` | POST | Generate proposal from takeoff |
 | `/imports` | GET | List past imports from BigQuery import_history (Session 41 — rewritten from Python proxy to BigQuery) |
 | `/sync/[importId]` | POST | Update import status/notes in BigQuery (Session 41 — rewritten from Python proxy) |
@@ -777,7 +777,7 @@ fillBluebeamDataToSpreadsheet()
     ↓ Sheets API batch update
 Quantities accumulated to correct cells
     ↓
-Save CSV to Drive → Markups/ subfolder
+Save CSV to Drive → Bluebeam/ subfolder
     ↓
 Record import to BigQuery import_history
     ↓
@@ -1152,7 +1152,7 @@ git push origin feature/[name]    # Push branch
 10. Phase 4: CSV Import v2 (Accumulation + Staging)
     - `fillBluebeamDataToSpreadsheet()` now batch-reads existing values and accumulates (new = existing + imported)
     - Each import recorded to BigQuery `import_history` with match counts, accumulation mode, CSV file ID
-    - Uploaded CSV saved to Drive → Markups/ subfolder ({project}-bluebeam-{date}.csv)
+    - Uploaded CSV saved to Drive → Bluebeam/ subfolder ({project}-bluebeam-{date}.csv)
     - Enhanced UploadModal: shows accumulation details (X + Y = Z), unmatched items with location reassignment dropdowns, "Accept Selected" for re-import
     - ImportHistoryModal: lists past imports with timestamps, match stats, Drive CSV links
     - /imports, /compare, /sync routes rewritten from Python proxies to BigQuery-backed
@@ -1324,7 +1324,7 @@ git push origin feature/[name]    # Push branch
 ### Active Bugs (Verified)
 1. ~~**Upload success opens legacy component**~~ — **FIXED** (Session 34) — onSuccess now opens embedded sheet if embeddedSheetId exists, falls back to legacy only when no embedded sheet
 2. ~~**Embedded sheet close loses state**~~ — **FIXED** (Session 34) — close only nulls embeddedSheetUrl, keeps embeddedSheetId for instant reopen
-3. ~~**CSV import overwrites instead of accumulating**~~ — **FIXED** (Session 41) — fillBluebeamDataToSpreadsheet() now batch-reads existing values and accumulates (new = existing + imported). CSV saved to Drive Markups/. Import recorded to BigQuery import_history.
+3. ~~**CSV import overwrites instead of accumulating**~~ — **FIXED** (Session 41) — fillBluebeamDataToSpreadsheet() now batch-reads existing values and accumulates (new = existing + imported). CSV saved to Drive Bluebeam/. Import recorded to BigQuery import_history.
 4. **populate-library-tab.mjs clears FILTER formulas** — clears Library tab then rewrites, but formulas in AF-AQ can be lost if script interrupted
 5. **[TBD] placeholders in proposals** — when sheet R/IN/TYPE columns are empty, descriptions show [TBD] instead of graceful handling
 6. ~~**Bid type mismatch (ALTERNATE vs ALT)**~~ — **FIXED** (Session 46) — generate route and preview component now accept both values
@@ -1465,9 +1465,9 @@ Unified document hub per project. Five static folders in workflow order:
 KO Projects/
 └── {ProjectName} - {ProjectID}/
     ├── Drawings/
-    ├── Bluebeam/     (Phase 12 — BTX saves here now, NOT Markups/)
+    ├── Bluebeam/     (Phase 12 — BTX zips + CSV imports save here)
     ├── Takeoff/
-    ├── Markups/      (CSV imports still save here)
+    ├── Markups/      (Manual uploads only — annotated PDFs)
     └── Proposals/    (Proposal DOCX saves here)
 ```
 

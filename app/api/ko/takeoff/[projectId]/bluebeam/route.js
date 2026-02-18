@@ -457,7 +457,7 @@ export async function POST(request, { params }) {
       errors.push({ message: `${parseStats.skipped} rows skipped (item code not in config)` })
     }
 
-    // Save CSV to Drive Markups folder (non-fatal)
+    // Save CSV to Drive Bluebeam folder (non-fatal)
     let csvDriveResult = null
     try {
       // Get project name for filename
@@ -565,19 +565,19 @@ export async function POST(request, { params }) {
 }
 
 /**
- * Save CSV content to Google Drive project folder → Markups subfolder
+ * Save CSV content to Google Drive project folder → Bluebeam subfolder
  */
 async function saveCsvToDrive(parentFolderId, filename, csvContent) {
   const accessToken = await getAccessToken()
 
-  // Find or create Markups subfolder
-  const markupsFolderId = await getOrCreateSubfolder(accessToken, parentFolderId, 'Markups')
-  if (!markupsFolderId) return null
+  // Find or create Bluebeam subfolder (Phase 12: CSV imports → Bluebeam/, not Markups/)
+  const bluebeamFolderId = await getOrCreateSubfolder(accessToken, parentFolderId, 'Bluebeam')
+  if (!bluebeamFolderId) return null
 
   const boundary = '-------csv-upload-boundary'
   const metadata = {
     name: filename,
-    parents: [markupsFolderId],
+    parents: [bluebeamFolderId],
     mimeType: 'text/csv'
   }
 
