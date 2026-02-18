@@ -116,7 +116,7 @@ export async function POST(request, { params }) {
     const dateStr = new Date().toISOString().split('T')[0]
     const filename = `${safeName}-tools-${dateStr}.zip`
 
-    // Save to Google Drive Markups folder (non-fatal — download still works if this fails)
+    // Save to Google Drive Bluebeam folder (non-fatal — download still works if this fails)
     let driveResult = null
     try {
       driveResult = await saveBtxToDrive(projectId, filename, Buffer.from(zipBuffer))
@@ -238,7 +238,7 @@ export async function GET(request, { params }) {
 }
 
 /**
- * Save BTX zip to Google Drive project folder → Markups subfolder
+ * Save BTX zip to Google Drive project folder → Bluebeam subfolder
  */
 async function saveBtxToDrive(projectId, filename, zipBuffer) {
   const accessToken = await getAccessToken()
