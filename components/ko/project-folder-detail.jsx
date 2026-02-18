@@ -20,6 +20,7 @@ import {
   Mic,
   Send,
   ImageIcon,
+  FolderOpen,
 } from "lucide-react"
 import { FOLDER_ICON_COLORS, FOLDER_ICONS } from "@/lib/brand-colors"
 
@@ -104,6 +105,8 @@ export function ProjectFolderDetail({ projectId, projectName, onClose, onNavigat
   const [folders, setFolders] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
+  const [needsSetup, setNeedsSetup] = useState(false)
+  const [settingUp, setSettingUp] = useState(false)
   const [expandedFolders, setExpandedFolders] = useState({})
   const [selectedFile, setSelectedFile] = useState(null)
   const [selectedCategory, setSelectedCategory] = useState(null)
@@ -129,11 +132,19 @@ export function ProjectFolderDetail({ projectId, projectName, onClose, onNavigat
   useEffect(() => {
     if (!projectId) return
     setLoading(true)
+    setNeedsSetup(false)
     fetch(`/api/ko/project/${projectId}/folders`)
-      .then(r => r.ok ? r.json() : Promise.reject(new Error('Failed to load folders')))
+      .then(async r => {
+        if (r.status === 404) {
+          const data = await r.json()
+          if (data.needsSetup) { setNeedsSetup(true); setLoading(false); return null }
+        }
+        if (!r.ok) throw new Error('Failed to load folders')
+        return r.json()
+      })
       .then(data => {
+        if (!data) return
         setFolders(data.folders)
-        // Auto-expand folders that have files
         const expanded = {}
         for (const key of FOLDER_KEYS) {
           if (data.folders[key]?.files?.length > 0) expanded[key] = true
@@ -176,6 +187,28 @@ export function ProjectFolderDetail({ projectId, projectName, onClose, onNavigat
     }
     return () => { document.removeEventListener("mousemove", handleMove); document.removeEventListener("mouseup", handleUp) }
   }, [isSplitDragging])
+
+  const handleSetupFolders = async () => {
+    setSettingUp(true)
+    try {
+      const res = await fetch(`/api/ko/project/${projectId}/folders`, { method: 'POST' })
+      if (!res.ok) throw new Error('Failed to create folders')
+      setNeedsSetup(false)
+      setLoading(true)
+      // Re-fetch to get the new empty folder structure
+      const foldersRes = await fetch(`/api/ko/project/${projectId}/folders`)
+      if (foldersRes.ok) {
+        const data = await foldersRes.json()
+        setFolders(data.folders)
+      }
+    } catch (err) {
+      console.error('[FolderDetail] Setup error:', err)
+      setError('Failed to set up folders: ' + err.message)
+    } finally {
+      setSettingUp(false)
+      setLoading(false)
+    }
+  }
 
   const toggleFolder = (key) => {
     setExpandedFolders(prev => ({ ...prev, [key]: !prev[key] }))
@@ -411,6 +444,19 @@ export function ProjectFolderDetail({ projectId, projectName, onClose, onNavigat
                   {loading ? (
                     <div className="flex items-center justify-center py-8">
                       <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
+                    </div>
+                  ) : needsSetup ? (
+                    <div className="px-2 py-6 text-center">
+                      <FolderOpen className="w-8 h-8 mx-auto mb-2 text-muted-foreground/40" />
+                      <p className="text-xs text-muted-foreground mb-3">No folders set up yet</p>
+                      <button
+                        onClick={handleSetupFolders}
+                        disabled={settingUp}
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-primary text-primary-foreground hover:bg-primary/90 transition-colors disabled:opacity-50"
+                      >
+                        {settingUp ? <Loader2 className="w-3 h-3 animate-spin" /> : <Upload className="w-3 h-3" />}
+                        Set up folders
+                      </button>
                     </div>
                   ) : error ? (
                     <div className="px-2 py-4 text-xs text-red-500">{error}</div>

@@ -115,7 +115,7 @@ export function FolderCard({
                 />
               ))
             ) : (
-              <span className="text-[10px] text-[#bbb] italic">No folders</span>
+              <span className="text-[10px] text-muted-foreground/60 italic">Click to set up</span>
             )}
           </div>
         </div>
