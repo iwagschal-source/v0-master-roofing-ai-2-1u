@@ -168,3 +168,9 @@
     display: block !important;
   }
 }
+
+/* Folder card activity feed scrollbar */
+.scroll-feed::-webkit-scrollbar { width: 3px; }
+.scroll-feed::-webkit-scrollbar-track { background: transparent; }
+.scroll-feed::-webkit-scrollbar-thumb { background: #ccc; border-radius: 3px; }
+.scroll-feed { scrollbar-width: thin; scrollbar-color: #ccc transparent; }
