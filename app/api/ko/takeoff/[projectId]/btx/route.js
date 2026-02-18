@@ -3,7 +3,7 @@
  * Generates Bluebeam Tool Chest files using the real Bluebeam BTX format
  *
  * Phase 3 (BTX v2): Reads item/location toggles from Setup tab via setup-config,
- * instead of sheet-config from the takeoff tab. Saves BTX zip to Drive Markups folder.
+ * instead of sheet-config from the takeoff tab. Saves BTX zip to Drive Bluebeam folder.
  */
 
 import { NextResponse } from 'next/server'
@@ -258,10 +258,10 @@ async function saveBtxToDrive(projectId, filename, zipBuffer) {
 
   const parentFolderId = folderResult[0].drive_folder_id
 
-  // Find or create Markups subfolder
-  const markupsFolderId = await getOrCreateSubfolder(accessToken, parentFolderId, 'Markups')
-  if (!markupsFolderId) {
-    console.warn('[BTX] Could not get/create Markups folder, skipping upload')
+  // Find or create Bluebeam subfolder (Phase 12: BTX tools → Bluebeam/, not Markups/)
+  const bluebeamFolderId = await getOrCreateSubfolder(accessToken, parentFolderId, 'Bluebeam')
+  if (!bluebeamFolderId) {
+    console.warn('[BTX] Could not get/create Bluebeam folder, skipping upload')
     return null
   }
 
@@ -269,7 +269,7 @@ async function saveBtxToDrive(projectId, filename, zipBuffer) {
   const boundary = '-------btx-upload-boundary'
   const metadata = {
     name: filename,
-    parents: [markupsFolderId],
+    parents: [bluebeamFolderId],
     mimeType: 'application/zip'
   }
 
@@ -347,7 +347,7 @@ async function getOrCreateSubfolder(accessToken, parentFolderId, subfolderName) 
 
     if (createResponse.ok) {
       const folder = await createResponse.json()
-      console.log(`[BTX] Created Markups subfolder: ${folder.id}`)
+      console.log(`[BTX] Created subfolder: ${subfolderName} (${folder.id})`)
       return folder.id
     }
 
