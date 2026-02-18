@@ -74,7 +74,11 @@ const cashFlowByQuarter = [
  */
 function getViewerType(file) {
   const name = (file.name || '').toLowerCase()
-  const mime = (file.mimeType || '').toLowerCase()
+  let mime = (file.mimeType || '').toLowerCase()
+  // Resolve shortcut target MIME type
+  if (mime.includes('shortcut') && file.shortcutDetails?.targetMimeType) {
+    mime = file.shortcutDetails.targetMimeType.toLowerCase()
+  }
   if (mime.includes('spreadsheet') || mime.includes('google-apps.spreadsheet')) return 'sheets'
   if (mime.includes('pdf') || name.endsWith('.pdf')) return 'pdf'
   if (mime.includes('word') || mime.includes('document') || name.endsWith('.docx') || name.endsWith('.doc')) return 'office'
@@ -284,7 +288,9 @@ export function ProjectFolderDetail({ projectId, projectName, onClose, onNavigat
     }
 
     if (viewerType === 'sheets') {
-      const sheetUrl = selectedFile.webViewLink?.replace(/\/edit.*$/, '/htmlembed') || `https://drive.google.com/file/d/${selectedFile.id}/preview`
+      // For shortcuts, use the target file ID for the embedded URL
+      const targetId = selectedFile.shortcutDetails?.targetId || selectedFile.id
+      const sheetUrl = selectedFile.webViewLink?.replace(/\/edit.*$/, '/htmlembed') || `https://docs.google.com/spreadsheets/d/${targetId}/htmlembed`
       return (
         <iframe
           src={sheetUrl}

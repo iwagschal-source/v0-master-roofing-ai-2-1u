@@ -6,6 +6,7 @@ import {
   getProjectDriveFolderId,
   ensureAllSubfolders,
   listFilesInFolder,
+  createDriveShortcut,
   FOLDER_KEYS,
 } from '@/lib/google-drive'
 import { runQuery } from '@/lib/bigquery'
@@ -37,6 +38,24 @@ export async function GET(request, { params }) {
       }
       const files = await listFilesInFolder(accessToken, folderId)
       folders[key] = { id: folderId, files }
+    }
+
+    // Lazy-link: if Takeoff/ folder is empty but workbook exists, create a shortcut
+    if (subfolderIds.takeoff && folders.takeoff.files.length === 0) {
+      try {
+        const wbRows = await runQuery(
+          `SELECT takeoff_spreadsheet_id FROM \`master-roofing-intelligence.mr_main.project_folders\` WHERE id = @projectId AND takeoff_spreadsheet_id IS NOT NULL`,
+          { projectId }, { location: 'US' }
+        )
+        if (wbRows?.length > 0 && wbRows[0].takeoff_spreadsheet_id) {
+          const spreadsheetId = wbRows[0].takeoff_spreadsheet_id
+          await createDriveShortcut(accessToken, subfolderIds.takeoff, spreadsheetId, 'Takeoff Workbook')
+          // Re-list to include the new shortcut
+          folders.takeoff.files = await listFilesInFolder(accessToken, subfolderIds.takeoff)
+        }
+      } catch (linkErr) {
+        console.warn('[Folders API] Takeoff workbook link failed (non-fatal):', linkErr.message)
+      }
     }
 
     return NextResponse.json({ folders })
