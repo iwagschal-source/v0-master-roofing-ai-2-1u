@@ -422,7 +422,11 @@ export default function HomePage() {
           ) : showEstimating ? (
             <EstimatingCenterScreen />
           ) : showProjects ? (
-            <ProjectFoldersScreen />
+            <ProjectFoldersScreen
+              onNavigateToProject={(projectId) => {
+                handleModeChange("estimating")
+              }}
+            />
           ) : showContacts ? (
             <ContactsScreen />
           ) : (

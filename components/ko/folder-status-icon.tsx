@@ -1,7 +1,6 @@
 "use client"
 
 import { useState, useRef, useCallback } from "react"
-import Image from "next/image"
 import { FOLDER_ICON_COLORS } from "@/lib/brand-colors"
 
 export type CategoryKey = "drawings" | "bluebeam" | "takeoff" | "markups" | "proposals"
@@ -117,7 +116,7 @@ export function StatusIcon({ category, files, onFileClick }: StatusIconProps) {
     >
       {/* Icon badge */}
       <div className="w-[30px] h-[30px] cursor-pointer transition-transform duration-150 hover:scale-110">
-        <Image
+        <img
           src={config.icon}
           alt={config.label}
           width={30}
@@ -143,7 +142,7 @@ export function StatusIcon({ category, files, onFileClick }: StatusIconProps) {
               borderBottom: `1px solid ${config.borderColor}33`,
             }}
           >
-            <Image
+            <img
               src={config.icon}
               alt=""
               width={18}

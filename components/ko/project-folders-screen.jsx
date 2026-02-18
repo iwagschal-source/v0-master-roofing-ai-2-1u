@@ -1,16 +1,16 @@
 "use client"
 
 import { useState, useEffect, useRef, useCallback } from "react"
-import { useTheme } from "@/components/theme-provider"
 import { FolderCard } from "@/components/ko/folder-card"
 import { CreateProjectModal } from "@/components/ko/create-project-modal"
-import { Search, LayoutGrid, List, Plus, Loader2, FolderOpen } from "lucide-react"
+import { Search, LayoutGrid, List, Plus, Loader2, FolderOpen, MoreVertical, Trash2, ExternalLink, Settings } from "lucide-react"
+import { FOLDER_ICON_COLORS } from "@/lib/brand-colors"
 
 /**
  * Project Folders Screen — Phase 12 redesign with folder cards
  * Shows project grid with category icon status badges and hover file popups
  */
-export default function ProjectFoldersScreen() {
+export default function ProjectFoldersScreen({ onNavigateToProject }) {
   const [projects, setProjects] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
@@ -19,8 +19,9 @@ export default function ProjectFoldersScreen() {
   const [showCreateModal, setShowCreateModal] = useState(false)
   const [folderStatus, setFolderStatus] = useState({}) // projectId → { drawings: bool, ... }
   const [folderFiles, setFolderFiles] = useState({})   // projectId → { drawings: { files: [...] }, ... }
-  const { resolvedTheme } = useTheme()
-
+  const [menuOpen, setMenuOpen] = useState(null)        // projectId of open menu
+  const [deleteConfirm, setDeleteConfirm] = useState(null) // project to confirm delete
+  const [deleting, setDeleting] = useState(false)
   // Fetch projects from API on mount
   useEffect(() => {
     async function fetchProjects() {
@@ -108,6 +109,21 @@ export default function ProjectFoldersScreen() {
     // TODO: Open webViewLink or trigger download
   }
 
+  const handleDeleteProject = async (project) => {
+    setDeleting(true)
+    try {
+      const res = await fetch(`/api/ko/project/${project.id}`, { method: 'DELETE' })
+      if (!res.ok) throw new Error('Delete failed')
+      setProjects(prev => prev.filter(p => p.id !== project.id))
+      setDeleteConfirm(null)
+    } catch (err) {
+      console.error('Error deleting project:', err)
+      alert('Failed to delete project. Please try again.')
+    } finally {
+      setDeleting(false)
+    }
+  }
+
   const filteredProjects = projects.filter((project) =>
     project.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
     (project.companyName || '').toLowerCase().includes(searchQuery.toLowerCase())
@@ -119,21 +135,14 @@ export default function ProjectFoldersScreen() {
       <header className="sticky top-0 z-40 bg-background/80 backdrop-blur-md border-b border-border/50">
         <div className="max-w-[1800px] mx-auto px-6 py-4">
           <div className="flex items-center justify-between">
-            {/* Logo & Title */}
-            <div className="flex items-center gap-4">
-              <img
-                src={resolvedTheme === "light" ? "/images/logo-light.png" : "/images/logo-square.png"}
-                alt="Master Roofing"
-                className="w-10 h-10 rounded"
-              />
-              <div>
-                <h1 className="font-mono text-sm font-semibold tracking-wide uppercase">
-                  Projects
-                </h1>
-                <p className="text-xs text-muted-foreground">
-                  {projects.length} Active Projects
-                </p>
-              </div>
+            {/* Title */}
+            <div>
+              <h1 className="font-mono text-sm font-semibold tracking-wide uppercase">
+                Projects
+              </h1>
+              <p className="text-xs text-muted-foreground">
+                {projects.length} Active Projects
+              </p>
             </div>
 
             {/* Search */}
@@ -257,22 +266,33 @@ export default function ProjectFoldersScreen() {
                       }
                     }}
                     onFileClick={handleFileClick}
+                    onCardClick={() => onNavigateToProject?.(project.id)}
                   />
                 ))}
               </div>
             ) : (
-              <div className="space-y-2">
-                {filteredProjects.map((project) => (
-                  <button
-                    key={project.id}
-                    className="w-full flex items-center gap-4 p-4 bg-card border border-border/50 rounded-lg hover:border-primary/30 transition-colors text-left"
-                  >
-                    <div className="flex-1 min-w-0">
-                      <h3 className="font-mono text-sm font-medium truncate">{project.name}</h3>
-                      <p className="text-xs text-muted-foreground truncate">{project.companyName}</p>
-                    </div>
-                  </button>
-                ))}
+              <div className="space-y-1">
+                {filteredProjects.map((project) => {
+                  const status = folderStatus[project.id]
+                  const iconKeys = ['drawings', 'bluebeam', 'takeoff', 'markups', 'proposals']
+                  const activeIcons = status ? iconKeys.filter(k => status[k]) : []
+
+                  return (
+                    <LazyListRow
+                      key={project.id}
+                      project={project}
+                      activeIcons={activeIcons}
+                      onVisible={() => {
+                        if (project.driveFolderId) loadFolderStatus(project.id)
+                      }}
+                      onOpen={() => onNavigateToProject?.(project.id)}
+                      onDelete={() => setDeleteConfirm(project)}
+                      menuOpen={menuOpen === project.id}
+                      onToggleMenu={() => setMenuOpen(menuOpen === project.id ? null : project.id)}
+                      onCloseMenu={() => setMenuOpen(null)}
+                    />
+                  )
+                })}
               </div>
             )}
 
@@ -285,6 +305,40 @@ export default function ProjectFoldersScreen() {
           </>
         )}
       </main>
+
+      {/* Delete Confirmation Dialog */}
+      {deleteConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+          <div className="bg-card border border-border rounded-xl shadow-2xl max-w-md w-full mx-4 p-6">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-10 h-10 rounded-full bg-red-500/10 flex items-center justify-center">
+                <Trash2 className="w-5 h-5 text-red-500" />
+              </div>
+              <h3 className="font-semibold text-base">Delete project</h3>
+            </div>
+            <p className="text-sm text-muted-foreground mb-6">
+              Delete project <strong className="text-foreground">{deleteConfirm.name}</strong>? This will remove the project folder and all its contents. This cannot be undone.
+            </p>
+            <div className="flex items-center justify-end gap-3">
+              <button
+                onClick={() => setDeleteConfirm(null)}
+                disabled={deleting}
+                className="px-4 py-2 text-sm rounded-lg border border-border hover:bg-secondary transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => handleDeleteProject(deleteConfirm)}
+                disabled={deleting}
+                className="px-4 py-2 text-sm rounded-lg bg-red-500 text-white hover:bg-red-600 transition-colors disabled:opacity-50 flex items-center gap-2"
+              >
+                {deleting && <Loader2 className="w-3 h-3 animate-spin" />}
+                Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Create Project Modal */}
       <CreateProjectModal
@@ -302,7 +356,7 @@ export default function ProjectFoldersScreen() {
 /**
  * Wrapper that uses IntersectionObserver to lazy-load folder status
  */
-function LazyFolderCard({ project, folders, onVisible, onHoverIcons, onFileClick }) {
+function LazyFolderCard({ project, folders, onVisible, onHoverIcons, onFileClick, onCardClick }) {
   const cardRef = useRef(null)
   const hasTriggered = useRef(false)
 
@@ -332,7 +386,120 @@ function LazyFolderCard({ project, folders, onVisible, onHoverIcons, onFileClick
         clientName={project.companyName}
         folders={folders}
         onFileClick={onFileClick}
+        onClick={onCardClick}
       />
+    </div>
+  )
+}
+
+/** Icon color map for list view mini icons */
+const LIST_ICON_COLORS = {
+  drawings: '#333333',
+  bluebeam: '#277ed0',
+  takeoff: '#00883e',
+  markups: '#c96500',
+  proposals: '#c0352f',
+}
+
+/**
+ * List row with IntersectionObserver, category icons, and three-dot menu
+ */
+function LazyListRow({ project, activeIcons, onVisible, onOpen, onDelete, menuOpen, onToggleMenu, onCloseMenu }) {
+  const rowRef = useRef(null)
+  const hasTriggered = useRef(false)
+  const menuRef = useRef(null)
+
+  useEffect(() => {
+    const el = rowRef.current
+    if (!el) return
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting && !hasTriggered.current) {
+          hasTriggered.current = true
+          onVisible()
+          observer.disconnect()
+        }
+      },
+      { threshold: 0.1 }
+    )
+    observer.observe(el)
+    return () => observer.disconnect()
+  }, [onVisible])
+
+  // Close menu on outside click
+  useEffect(() => {
+    if (!menuOpen) return
+    const handleClick = (e) => {
+      if (menuRef.current && !menuRef.current.contains(e.target)) {
+        onCloseMenu()
+      }
+    }
+    document.addEventListener('mousedown', handleClick)
+    return () => document.removeEventListener('mousedown', handleClick)
+  }, [menuOpen, onCloseMenu])
+
+  return (
+    <div
+      ref={rowRef}
+      className="flex items-center gap-4 px-4 py-3 bg-card border border-border/50 rounded-lg hover:border-primary/30 transition-colors cursor-pointer"
+      onClick={onOpen}
+    >
+      {/* Project name + client */}
+      <div className="flex-1 min-w-0">
+        <h3 className="font-mono text-sm font-medium truncate">{project.name}</h3>
+        <p className="text-xs text-muted-foreground truncate">{project.companyName}</p>
+      </div>
+
+      {/* Category icons */}
+      <div className="flex items-center gap-1.5 shrink-0">
+        {activeIcons.map((key) => (
+          <img
+            key={key}
+            src={`/icons/${key}.svg`}
+            alt={key}
+            width={20}
+            height={20}
+            className="block w-5 h-5"
+          />
+        ))}
+      </div>
+
+      {/* Three-dot menu */}
+      <div className="relative shrink-0" ref={menuRef}>
+        <button
+          onClick={(e) => { e.stopPropagation(); onToggleMenu() }}
+          className="p-1.5 rounded-md hover:bg-secondary transition-colors text-muted-foreground hover:text-foreground"
+        >
+          <MoreVertical className="w-4 h-4" />
+        </button>
+
+        {menuOpen && (
+          <div className="absolute right-0 top-full mt-1 z-50 min-w-[160px] bg-card border border-border rounded-lg shadow-xl overflow-hidden">
+            <button
+              onClick={(e) => { e.stopPropagation(); onCloseMenu(); onOpen() }}
+              className="w-full flex items-center gap-2.5 px-3 py-2 text-sm text-left hover:bg-secondary transition-colors"
+            >
+              <ExternalLink className="w-3.5 h-3.5" />
+              Open
+            </button>
+            <button
+              onClick={(e) => { e.stopPropagation(); onCloseMenu(); onDelete() }}
+              className="w-full flex items-center gap-2.5 px-3 py-2 text-sm text-left hover:bg-red-500/10 text-red-500 transition-colors"
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+              Delete
+            </button>
+            <button
+              disabled
+              className="w-full flex items-center gap-2.5 px-3 py-2 text-sm text-left text-muted-foreground/50 cursor-not-allowed"
+            >
+              <Settings className="w-3.5 h-3.5" />
+              Settings
+              <span className="text-[10px] ml-auto opacity-60">Soon</span>
+            </button>
+          </div>
+        )}
+      </div>
     </div>
   )
 }

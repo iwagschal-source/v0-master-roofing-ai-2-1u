@@ -57,7 +57,7 @@ export function FolderCard({
   }, [activity])
 
   return (
-    <div className="relative group cursor-default select-none" onClick={onClick}>
+    <div className="relative group cursor-pointer select-none" onClick={onClick}>
       {/* ===== FOLDER TAB ===== */}
       <div className="relative w-[45%] max-w-[200px]">
         <svg
