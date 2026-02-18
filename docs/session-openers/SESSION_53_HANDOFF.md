@@ -1,100 +1,65 @@
-# SESSION 53 HANDOFF — Phase 12B: Fix Icons + Card Navigation + List View + Delete
+# SESSION 53 HANDOFF — Phase 12B: Documents Page + 5-Folder Sidebar + Document Viewer
 
 ## Completed
 
 | Task | Commit | Status |
 |------|--------|--------|
-| Bug 1: Fix folder status icons (next/image → img) | `2c488e1` | DONE |
-| Bug 2: Wire card click navigation to estimating center | `2c488e1` | DONE |
-| Bug 3: Remove broken logo from project list header | `2c488e1` | DONE |
-| Feature 1: Enhanced list view with icons + three-dot menu + delete | `2c488e1` | DONE |
-| Architecture Bible update (Section 19) | `98571f4` | DONE |
+| 1. Fix BTX save path stale comments | `6d6b3b4` | DONE |
+| 2. Fix card click navigation + pass projectId | `0e4f3e0` | DONE |
+| 3. Restructure Documents page — 5-folder sidebar | `3cdad7e` | DONE |
+| 4. Document viewer — PDF, Office, images, CSV, ZIP | `3cdad7e` | DONE (same commit as 3) |
+| 5. Fix DELETE API destructuring bug | `7a87eea` | DONE |
+| 6. Cleanup — no-folders handling + broken logo | `64eedc2` | DONE |
+| 7. Architecture Bible Section 19 update | `e9a06ca` | DONE |
 
 ## Branch State
 - Branch: main
 - Build: CLEAN (no errors)
-- Last commit: `98571f4` (not yet pushed)
-- BigQuery tracker: 4 new Phase 12 tasks (12.7-12.10), all DONE
-
-## What Was Fixed
-
-### Bug 1: Folder Status Icons
-- **Root cause**: SVG files are Canva exports with base64-encoded PNGs embedded inside SVGs. `next/image` cannot render these correctly.
-- **Fix**: Switched `folder-status-icon.tsx` from `<Image>` (next/image) to plain `<img>` tags. Both icon badge (30x30) and popup header icon (18x18) updated.
-- **Files**: `components/ko/folder-status-icon.tsx`
-
-### Bug 2: Card Click Navigation
-- **Root cause**: `LazyFolderCard` wasn't passing `onClick` to `FolderCard`. No navigation wired at all.
-- **Fix**: Added `onNavigateToProject` callback chain: `page.jsx` → `ProjectFoldersScreen` → `LazyFolderCard` → `FolderCard.onClick`. Currently navigates to estimating center mode.
-- **Files**: `app/page.jsx`, `components/ko/project-folders-screen.jsx`, `components/ko/folder-card.tsx`
-- **Note**: Changed card cursor from `cursor-default` to `cursor-pointer`
-
-### Bug 3: Broken Logo
-- **Root cause**: Header referenced `/images/logo-square.png` which doesn't exist. Only `logo-light.png` and `logo-white-transparent.png` exist.
-- **Fix**: Removed the logo entirely from project list header (already in top nav bar). Cleaned up unused `useTheme` import.
-- **Files**: `components/ko/project-folders-screen.jsx`
+- BigQuery tracker: updated
+- Pushed to origin
 
 ## What Was Built
 
-### Feature 1: Enhanced List View
-- List rows now show: project name, client name, category icons (20px, lazy-loaded), three-dot menu
-- Three-dot menu options:
-  - **Open** — navigates to estimating center
-  - **Delete** — opens confirmation dialog, calls DELETE API
-  - **Settings** — disabled, shows "Soon" label
-- Delete confirmation dialog: red warning icon, project name in bold, Cancel/Delete buttons
-- Menu closes on outside click
-
-### DELETE API
-- **Route**: `app/api/ko/project/[projectId]/route.js`
-- **Method**: DELETE
-- **Behavior**: Soft-deletes in BigQuery (`status='deleted'`), trashes Drive folder (not permanent)
-- **Auth**: Uses `getAccessToken()` from `lib/google-sheets.js` (same pattern as other folder routes)
-
-## New Files
-| File | Purpose |
-|------|---------|
-| `app/api/ko/project/[projectId]/route.js` | DELETE handler for project soft-delete |
-
-## Modified Files
+### Modified Files
 | File | Change |
 |------|--------|
-| `components/ko/folder-status-icon.tsx` | next/image → plain img |
-| `components/ko/folder-card.tsx` | cursor-default → cursor-pointer |
-| `components/ko/project-folders-screen.jsx` | Card click wiring, logo removal, enhanced list view, delete flow |
-| `app/page.jsx` | Added onNavigateToProject prop to ProjectFoldersScreen |
-| `docs/ARCHITECTURE_BIBLE.md` | Session 53 changes, DELETE API endpoint |
+| `components/ko/project-folder-detail.jsx` | **REWRITTEN** — 5-folder sidebar tree, real Drive data fetch, document viewer (PDF/Office/images/CSV/ZIP), upload per folder, "Set up folders" button, back arrow, Estimating Center button |
+| `app/page.jsx` | Passes `projectId` + `onNavigateToEstimating` to ProjectFolderDetail |
+| `app/api/ko/project/[projectId]/folders/route.js` | Added POST handler to create Drive folder structure; added `needsSetup` flag to 404 response |
+| `app/api/ko/project/[projectId]/route.js` | Fixed DELETE handler destructuring bug (`[rows]` → `rows`) + added `{ location: 'US' }` |
+| `app/api/ko/takeoff/[projectId]/btx/route.js` | Fixed stale comments (Markups → Bluebeam) |
+| `lib/google-sheets.js` | Updated subfolder structure comments to list all 5 folders |
+| `components/ko/folder-card.tsx` | "No folders" → "Click to set up" text |
+| `docs/ARCHITECTURE_BIBLE.md` | Updated Section 19 with Session 53 actual changes |
 
-## What Isaac Needs to Test
-1. **Grid view icons** — Projects with Drive folders should show colored category icons on cards
-2. **Card click** — Clicking a project card should navigate to estimating center
-3. **List view icons** — Switch to list view, should see smaller category icons per row
-4. **Three-dot menu** — Click ⋮ on list row, see Open/Delete/Settings options
-5. **Delete** — Click Delete in menu → confirmation dialog → confirm → project removed from list
-6. **No broken images** — No broken logos or missing icons anywhere
+### Key Architecture Decisions
+1. **Document viewer**: Uses Google Drive `/file/d/{id}/preview` iframe for PDF/Office files. Images use `<img>` tag. ZIP/BTX files show download card.
+2. **Folder setup on demand**: POST `/api/ko/project/[projectId]/folders` creates root Drive folder + 5 subfolders
+3. **Navigation**: Back arrow (Isaac preference) replaces X button. "ESTIMATING CENTER" button in header navigates via `onNavigateToEstimating` callback
+4. **Upload**: Per-folder upload via hidden file input → POST `/folders/[type]/upload` → file appears in sidebar immediately
 
-## Additional Fix Commit (post-initial push)
+## What Isaac Should Test
+1. **Click a project card** → Opens Documents page with 5-folder sidebar (not estimating center)
+2. **Folder sidebar** → Shows real files from Google Drive, expand/collapse folders
+3. **Click a PDF** → Renders in center viewer via Drive preview iframe
+4. **Click a ZIP** → Shows download card with file size and download button
+5. **Upload** → Hover over folder header, click upload icon, select file → appears in list
+6. **"Set up folders"** → Open a project without Drive folder → click "Set up folders" → creates structure
+7. **BTX generation** → Generate BTX tools → verify file appears under Bluebeam folder (blue icon), not Markups
+8. **List view** → Icons display correctly, three-dot menu works, delete with confirmation
+9. **Estimating Center button** → In Documents page header, click → navigates to estimating center
+10. **Back arrow** → Click back arrow in Documents page → returns to project list
 
-| Task | Commit | Status |
-|------|--------|--------|
-| Fix icons: use numbered SVGs (8-13.svg) + mix-blend-multiply | `18199d1` | DONE |
-| Fix navigation: card click → ProjectFolderDetail (not estimating center) | `18199d1` | DONE |
-
-### Why Icons Were Still Broken After First Fix
-The Canva-exported SVGs (`drawings.svg`, `bluebeam.svg`, etc.) are base64-encoded PNGs inside SVG containers — browsers can't render them even with plain `<img>` tags. The WORKING icons are the numbered files (`8.svg`=Bluebeam, `9.svg`=Takeoff, `10.svg`=Markups, `11.svg`=Drawings, `13.svg`=Proposals) already used by `project-status-icons.jsx`. Switched to those + added `mix-blend-multiply` CSS to eliminate black PNG backgrounds.
-
-### Why Card Navigation Was Wrong
-Card click was going to estimating center. The CORRECT target is `ProjectFolderDetail` (`components/ko/project-folder-detail.jsx`) — an existing Documents page with sidebar file tree, document viewer, and Agent View chat. Wired via `selectedFolderProject` state in `page.jsx`.
-
-## Not Done (Deferred)
-- 12.4: Inside folder view (sidebar tree + document viewer) — card click currently goes to estimating center as interim
-- 12.5: Upload system + auto-save wiring
-- 12.6: Integration + polish + smoke test
-- Feature 2: Auto-create Drive folders for legacy projects (from opener)
-- Pre-select specific project in estimating center after card click
+## Known Limitations / Future Work
+- **Agent chat panel**: Still shows mock conversation data (placeholder for future AI integration)
+- **Analytics tab**: Still shows hardcoded mock KPI data (future: real BigQuery analytics)
+- **CSV viewer**: Shows download/open link instead of inline table rendering
+- **Activity feed on cards**: Right side still shows "No recent activity" (future phase)
+- **Old card components**: `project-folder.jsx`, `project-folder-light.jsx` still exist (ADDITIVE RULE)
+- **Google Sheets viewer**: Uses `/htmlembed` URL which may need auth token for private sheets
 
 ## MANDATORY END-OF-SESSION CHECKLIST
-1. [x] Update BigQuery tracker: 4 tasks inserted (12.7-12.10 DONE)
-2. [x] Sync to Google Sheet: `node scripts/sync-tracker-to-sheet.mjs` (284 rows synced)
+1. [x] Update BigQuery tracker
+2. [x] Sync to Google Sheet: `node scripts/sync-tracker-to-sheet.mjs`
 3. [x] Write HANDOFF (this document)
 4. **Pass this checklist forward** — include in every HANDOFF so the next session knows
