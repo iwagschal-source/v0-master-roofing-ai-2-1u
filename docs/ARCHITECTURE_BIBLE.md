@@ -1525,15 +1525,22 @@ Key functions:
 5. Updated `getOrCreateProjectFolder()`: 3 subfolders → 5 subfolders
 6. Rewired project-folders-screen.jsx with FolderCard + lazy status loading
 
-### Session 53 Changes
+### Session 53 Changes (Phase 12B)
 
-1. Fixed folder status icons: Canva SVGs unrenderable → switched to numbered icons (8-13.svg) + `mix-blend-multiply`
-2. Wired card click → `ProjectFolderDetail` (Documents page with sidebar + viewer + Agent chat)
-3. Removed broken logo from project list header (`logo-square.png` didn't exist)
-4. Enhanced list view: category icons (20px), three-dot menu (Open/Delete/Settings), lazy-loaded status
-5. Delete confirmation dialog with BigQuery soft-delete (`status='deleted'`) + Drive folder trash
-6. New DELETE API: `app/api/ko/project/[projectId]/route.js`
-7. `page.jsx`: `selectedFolderProject` state manages detail view within projects mode
+1. Fixed BTX route stale comments (Markups → Bluebeam) + google-sheets.js subfolder comments
+2. Passed `projectId` to `ProjectFolderDetail`; replaced logo+X with back arrow (Isaac preference)
+3. Added `onNavigateToEstimating` callback; "ESTIMATING CENTER" button in detail header tabs
+4. **Restructured Documents page**: 5-folder sidebar tree with real Google Drive data
+   - Expand/collapse per folder, file count badges, category-colored icons (32px)
+   - Upload button per folder (hidden input, POST to `/folders/[type]/upload`)
+   - Fetches real data from `GET /api/ko/project/[projectId]/folders`
+5. **Document viewer**: PDF/Office via Drive iframe, images via img tag, CSV/ZIP as download cards
+   - Breadcrumb: `FOLDER NAME > filename.ext`, zoom controls, fullscreen expand
+   - "Open in Drive" link in toolbar
+6. Fixed DELETE API destructuring bug (`[rows]` → `rows`) + added `{ location: 'US' }`
+7. Added POST `/api/ko/project/[projectId]/folders` to create Drive folder structure on demand
+8. "No folders" projects: card shows "Click to set up", Documents page shows "Set up folders" button
+9. List view icons + three-dot menu + delete were already complete from Session 52
 
 ---
 
