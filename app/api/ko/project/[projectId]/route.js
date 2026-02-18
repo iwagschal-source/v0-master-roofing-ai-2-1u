@@ -19,11 +19,12 @@ export async function DELETE(request, { params }) {
     }
 
     // Verify project exists and get drive_folder_id
-    const [rows] = await runQuery(
+    const rows = await runQuery(
       `SELECT id, project_name, drive_folder_id
        FROM \`master-roofing-intelligence.mr_main.project_folders\`
        WHERE id = @projectId`,
-      { projectId }
+      { projectId },
+      { location: 'US' }
     )
 
     if (!rows || rows.length === 0) {
