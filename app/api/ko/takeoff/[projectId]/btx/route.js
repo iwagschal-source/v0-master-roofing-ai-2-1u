@@ -10,6 +10,7 @@ import { NextResponse } from 'next/server'
 import { getAccessToken } from '@/lib/google-sheets'
 import { runQuery } from '@/lib/bigquery'
 import { readSetupConfig, updateToolStatus } from '@/lib/version-management'
+import { setFilePublicRead } from '@/lib/google-drive'
 
 // FastAPI backend on port 8000 (HTTP, not HTTPS)
 const BACKEND_URL = process.env.PYTHON_BACKEND_URL || 'http://136.111.252.120:8000'
@@ -309,6 +310,12 @@ async function saveBtxToDrive(projectId, filename, zipBuffer) {
 
   const result = await uploadResponse.json()
   console.log(`[BTX] Uploaded to Drive: ${filename} (${result.id})`)
+
+  // Set public read so Drive preview iframe works
+  if (result?.id) {
+    await setFilePublicRead(accessToken, result.id)
+  }
+
   return { fileId: result.id, webViewLink: result.webViewLink }
 }
 

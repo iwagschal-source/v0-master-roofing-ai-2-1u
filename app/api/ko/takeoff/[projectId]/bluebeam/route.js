@@ -15,6 +15,7 @@ import https from 'https'
 import { fillBluebeamDataToTab, fillBluebeamDataToSpreadsheet, getTakeoffTab, createTakeoffTab, getAccessToken } from '@/lib/google-sheets'
 import { runQuery } from '@/lib/bigquery'
 import { readSetupConfig } from '@/lib/version-management'
+import { setFilePublicRead } from '@/lib/google-drive'
 
 const BACKEND_URL = process.env.PYTHON_BACKEND_URL || 'http://136.111.252.120:8000'
 
@@ -609,6 +610,12 @@ async function saveCsvToDrive(parentFolderId, filename, csvContent) {
 
   const result = await uploadResponse.json()
   console.log(`[Bluebeam] CSV saved to Drive: ${filename} (${result.id})`)
+
+  // Set public read so Drive preview iframe works
+  if (result?.id) {
+    await setFilePublicRead(accessToken, result.id)
+  }
+
   return { fileId: result.id, webViewLink: result.webViewLink }
 }
 

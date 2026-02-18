@@ -19,6 +19,7 @@ import { NextResponse } from 'next/server'
 import { runQuery } from '@/lib/bigquery'
 import { getAccessToken } from '@/lib/google-sheets'
 import { updateVersionStatus } from '@/lib/version-management'
+import { setFilePublicRead } from '@/lib/google-drive'
 import Docxtemplater from 'docxtemplater'
 import PizZip from 'pizzip'
 
@@ -576,6 +577,11 @@ async function saveToGoogleDrive(projectId, projectName, docBuffer, sheet = null
 
     const uploadResult = await uploadResponse.json()
     console.log(`[Drive] Uploaded proposal: ${filename} (${uploadResult.id})`)
+
+    // Set public read so Drive preview iframe works
+    if (uploadResult?.id) {
+      await setFilePublicRead(accessToken, uploadResult.id)
+    }
 
     return {
       fileId: uploadResult.id,
