@@ -430,6 +430,10 @@ export default function HomePage() {
                 projectId={selectedFolderProject.id}
                 projectName={selectedFolderProject.name}
                 onClose={() => setSelectedFolderProject(null)}
+                onNavigateToEstimating={() => {
+                  setSelectedFolderProject(null)
+                  handleModeChange('estimating')
+                }}
               />
             ) : (
               <ProjectFoldersScreen
