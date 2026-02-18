@@ -486,7 +486,7 @@ export function ProjectFolderDetail({ projectId, projectName, onClose, onNavigat
                                 <img
                                   src={FOLDER_ICONS[key]}
                                   alt={key}
-                                  className="w-6 h-6 flex-shrink-0"
+                                  className="w-8 h-8 flex-shrink-0"
                                   style={{ mixBlendMode: 'multiply' }}
                                 />
                                 <span className="text-xs font-semibold tracking-wide text-foreground">
