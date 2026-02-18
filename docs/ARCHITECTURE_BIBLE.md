@@ -1506,7 +1506,7 @@ Key functions:
 
 ### Icon Assets
 
-5 SVG files in `public/icons/`: `drawings.svg`, `bluebeam.svg`, `takeoff.svg`, `markups.svg`, `proposals.svg`
+5 SVG + PNG pairs in `public/icons/`: `drawings.{svg,png}`, `bluebeam.{svg,png}`, `takeoff.{svg,png}`, `markups.{svg,png}`, `proposals.{svg,png}`. **Use PNGs** (Canva SVGs don't render reliably). `FOLDER_ICONS` in `brand-colors.js` maps to `.png` files.
 
 ### Card Behavior
 
@@ -1541,6 +1541,21 @@ Key functions:
 7. Added POST `/api/ko/project/[projectId]/folders` to create Drive folder structure on demand
 8. "No folders" projects: card shows "Click to set up", Documents page shows "Set up folders" button
 9. List view icons + three-dot menu + delete were already complete from Session 52
+
+### Session 54 Changes (Phase 12C)
+
+1. **Sidebar icons**: Bumped to 32px (`w-8 h-8`); PNGs at `/public/icons/*.png` already mapped via `FOLDER_ICONS`
+2. **Drive file permissions**: Added `setFilePublicRead` call after every Drive upload (BTX, CSV, Proposal routes + shared `uploadFileToDrive`). Files are "anyone with link can view" for Drive preview iframe
+3. **CSV save path**: Changed from Markups/ → Bluebeam/. Naming: `import-{date}-{originalFilename}.csv`. Frontend passes `csv_filename` to backend
+4. **BTX success notification**: Green toast "Tools saved to project folder (Bluebeam) and downloaded", auto-dismisses after 6 seconds
+5. **Proposal Save as PDF**: New endpoint `POST /api/ko/proposal/[projectId]/export-pdf` converts Drive DOCX → PDF via Google Docs copy+export, saves to Proposals/. Red "Save as PDF" button in proposal preview (visible after successful DOCX generation)
+6. **Takeoff workbook shortcut**: `createDriveShortcut()` in `lib/google-drive.js`. Folders API lazily creates Drive shortcut to workbook in Takeoff/ subfolder. `listFilesInFolder` returns `shortcutDetails`. `getViewerType` resolves shortcut target MIME type
+7. **Folder destination mapping** (final):
+   - Drawings/ — original PDFs (manual upload only)
+   - Bluebeam/ — BTX zips + CSV measurement imports
+   - Takeoff/ — workbook shortcut (auto-linked)
+   - Markups/ — annotated PDFs (manual upload only)
+   - Proposals/ — DOCX + PDF from proposal generator
 
 ---
 
