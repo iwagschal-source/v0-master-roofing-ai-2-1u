@@ -125,6 +125,7 @@ export function TakeoffProposalPreview({ projectId, sheetName, onClose, onGenera
   // Generate state
   const [generating, setGenerating] = useState(false)
   const [generateResult, setGenerateResult] = useState(null)
+  const [exportingPdf, setExportingPdf] = useState(false)
 
   // DnD sensors with activation constraint to distinguish clicks from drags
   const sensors = useSensors(
@@ -356,6 +357,36 @@ export function TakeoffProposalPreview({ projectId, sheetName, onClose, onGenera
     }
   }
 
+  const handleExportPdf = async () => {
+    if (!generateResult?.driveFileId) return
+    setExportingPdf(true)
+    try {
+      const res = await fetch(`/api/ko/proposal/${projectId}/export-pdf`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          driveFileId: generateResult.driveFileId,
+          filename: generateResult.message?.includes('downloaded') ? undefined : undefined,
+        }),
+      })
+      const data = await res.json()
+      if (res.ok && data.success) {
+        setGenerateResult(prev => ({
+          ...prev,
+          message: 'DOCX + PDF saved to Proposals folder!',
+          pdfFileUrl: data.file.webViewLink,
+        }))
+      } else {
+        alert('Failed to export PDF: ' + (data.error || 'Unknown error'))
+      }
+    } catch (err) {
+      console.error('PDF export error:', err)
+      alert('Failed to export PDF: ' + err.message)
+    } finally {
+      setExportingPdf(false)
+    }
+  }
+
   // Loading state
   if (loading) {
     return (
@@ -466,6 +497,20 @@ export function TakeoffProposalPreview({ projectId, sheetName, onClose, onGenera
             )}
             {generating ? 'Generating...' : 'Generate Document'}
           </button>
+          {generateResult?.success && generateResult?.driveFileId && (
+            <button
+              onClick={handleExportPdf}
+              disabled={exportingPdf}
+              className="flex items-center gap-2 px-4 py-2.5 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {exportingPdf ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <FileText className="w-4 h-4" />
+              )}
+              {exportingPdf ? 'Exporting...' : 'Save as PDF'}
+            </button>
+          )}
         </div>
       </div>
 
