@@ -1674,6 +1674,7 @@ function UploadModal({ project, sheetName, onClose, onSuccess }) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           csv_content: content,
+          csv_filename: file.name,
           tab_name: null,
           sheet_name: sheetName || undefined
         })

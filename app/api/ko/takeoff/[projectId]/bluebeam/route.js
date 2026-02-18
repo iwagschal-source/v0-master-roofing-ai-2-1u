@@ -281,7 +281,7 @@ export async function POST(request, { params }) {
   try {
     const { projectId } = await params
     const body = await request.json()
-    const { csv_content, tab_name, force_legacy, sheet_name: requestSheetName } = body
+    const { csv_content, csv_filename, tab_name, force_legacy, sheet_name: requestSheetName } = body
 
     if (!csv_content) {
       return NextResponse.json(
@@ -467,9 +467,9 @@ export async function POST(request, { params }) {
         { location: 'US' }
       )
       if (projectResult.length > 0 && projectResult[0].drive_folder_id) {
-        const safeName = (projectResult[0].name || projectId).replace(/[^a-zA-Z0-9]/g, '_')
         const dateStr = new Date().toISOString().split('T')[0]
-        const csvFilename = `${safeName}-bluebeam-${dateStr}.csv`
+        const originalName = csv_filename ? csv_filename.replace(/\.csv$/i, '') : (projectResult[0].name || projectId).replace(/[^a-zA-Z0-9]/g, '_')
+        const csvFilename = `import-${dateStr}-${originalName}.csv`
         csvDriveResult = await saveCsvToDrive(projectResult[0].drive_folder_id, csvFilename, csv_content)
       }
     } catch (driveErr) {
