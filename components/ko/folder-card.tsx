@@ -85,7 +85,7 @@ export function FolderCard({
   return (
     <div ref={cardRef} className="relative group cursor-pointer select-none" onClick={onClick}>
       {/* ===== FOLDER TAB ===== */}
-      <div className="relative w-[45%] max-w-[200px] group-hover:max-w-[90%] group-hover:z-10 transition-[max-width] duration-300 ease-in-out">
+      <div className="relative w-[45%] max-w-[200px]">
         <svg
           viewBox="0 0 200 30"
           className="block w-full h-auto"
@@ -102,8 +102,11 @@ export function FolderCard({
           <rect x="7" y="28" width="189" height="4" fill={FOLDER_BG} />
         </svg>
 
-        <div className="absolute inset-0 flex items-center px-4 pb-[2px]">
-          <span className="text-[12px] font-medium tracking-widest text-[#1a1a1a] font-mono uppercase truncate group-hover:whitespace-nowrap leading-none">
+        <div className="absolute inset-0 flex items-center px-4 pb-[2px] overflow-hidden">
+          <span
+            className="text-[12px] font-medium tracking-widest text-[#1a1a1a] font-mono uppercase whitespace-nowrap leading-none group-hover:animate-marquee"
+            style={{ display: "inline-block" }}
+          >
             {projectName}
           </span>
         </div>
