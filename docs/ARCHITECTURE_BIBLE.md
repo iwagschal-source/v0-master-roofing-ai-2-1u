@@ -1557,6 +1557,34 @@ Key functions:
    - Markups/ — annotated PDFs (manual upload only)
    - Proposals/ — DOCX + PDF from proposal generator
 
+### 19.5 Phase 12D — Session 55 Bug Fixes & Features
+
+**Bug Fixes Applied:**
+1. Center panel heading now updates when clicking a folder header — clears selectedFile, sets selectedCategory, shows folder name in breadcrumb
+2. Excel/Word files (.xlsx, .docx) open via Google Docs gview URL: `https://docs.google.com/gview?url={driveDownloadUrl}&embedded=true`
+3. Google Sheets embed URL changed from `/htmlembed` to `/edit?usp=sharing&rm=minimal` for proper access
+4. File icons in sidebar inherit parent folder's category color via inline `style={{ color: colors.primary }}`
+5. Zoom controls apply CSS `transform: scale()` + adjusted width/height to iframe-based viewers (PDF, Office, Sheets)
+6. Delete project filters out `status='deleted'` from BOTH `/api/ko/project-folders` and `/api/ko/estimating` BigQuery queries using `WHERE COALESCE(status, 'active') != 'deleted'`
+7. ALL X close buttons replaced with ArrowLeft back arrows across 19 component files (30 instances)
+
+**New Features:**
+1. **Delete documents from folders**: Trash icon on hover per file, confirmation dialog, `DELETE /api/ko/project/{id}/folders/{type}/file/{fileId}` → Drive trash
+2. **Custom subfolders**: "Add Folder" button in sidebar, `POST /api/ko/project/{id}/folders/custom` creates Drive folder, `DELETE /api/ko/project/{id}/folders/custom/{folderId}` trashes it. Custom folders appear below 5 defaults with gray icons and can be deleted (defaults cannot)
+3. **Proposal preview improvements**: Zero-quantity items filtered out, bundled items get subtle amber background + "Bundled" badge, generate saves to Drive only (no browser download), button renamed "Generate to Drive"
+
+**New API Endpoints:**
+- `DELETE /api/ko/project/[projectId]/folders/[folderType]/file/[fileId]` — Trash a file from Drive
+- `POST /api/ko/project/[projectId]/folders/custom` — Create custom subfolder
+- `DELETE /api/ko/project/[projectId]/folders/custom/[folderId]` — Trash custom subfolder + contents
+- `GET /api/ko/project/[projectId]/folders` — Now returns `customFolders[]` alongside standard `folders{}`
+
+**Key State Changes in project-folder-detail.jsx:**
+- `customFolders` — array of {id, name, files[]} for custom subfolders
+- `deleteConfirm` — {file, category} for file delete confirmation
+- `deleteFolderConfirm` — {id, name} for custom folder delete confirmation
+- `showAddFolder`, `newFolderName`, `creatingFolder` — add folder UI state
+
 ---
 
 ## 20. Pre-Rebuild Baseline (Session 31)
