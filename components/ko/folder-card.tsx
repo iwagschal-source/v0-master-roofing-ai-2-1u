@@ -87,7 +87,7 @@ export function FolderCard({
       {/* ===== FOLDER TAB ===== */}
       <div
         className="relative w-[45%] max-w-[200px] overflow-hidden"
-        style={{ clipPath: "polygon(2% 100%, 2% 0%, 84% 0%, 89% 27%, 99% 100%)" }}
+        style={{ clipPath: "polygon(0% 100%, 0% 0%, 84% 0%, 89% 27%, 99% 100%)" }}
       >
         <svg
           viewBox="0 0 200 30"
@@ -96,13 +96,13 @@ export function FolderCard({
           style={{ filter: "drop-shadow(0 -1px 1px rgba(0,0,0,0.03))" }}
         >
           <path
-            d="M8 30 L8 8 Q8 1 15 1 L165 1 Q170 1 175 8 L195 30 Z"
+            d="M4 30 L4 8 Q4 1 11 1 L165 1 Q170 1 175 8 L195 30 Z"
             fill={FOLDER_BG}
             stroke={BORDER_COLOR}
             strokeWidth="1.5"
             strokeLinejoin="round"
           />
-          <rect x="7" y="28" width="189" height="4" fill={FOLDER_BG} />
+          <rect x="3" y="28" width="193" height="4" fill={FOLDER_BG} />
         </svg>
 
         <div
