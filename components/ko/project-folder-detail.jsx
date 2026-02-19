@@ -21,6 +21,9 @@ import {
   Send,
   ImageIcon,
   FolderOpen,
+  Trash2,
+  Plus,
+  FolderPlus,
 } from "lucide-react"
 import { FOLDER_ICON_COLORS, FOLDER_ICONS } from "@/lib/brand-colors"
 
@@ -118,6 +121,18 @@ export function ProjectFolderDetail({ projectId, projectName, onClose, onNavigat
   const uploadRef = useRef(null)
   const [uploadTarget, setUploadTarget] = useState(null)
 
+  // File delete state
+  const [deleteConfirm, setDeleteConfirm] = useState(null) // { file, category }
+  const [deleting, setDeleting] = useState(false)
+
+  // Custom folders state
+  const [customFolders, setCustomFolders] = useState([])
+  const [showAddFolder, setShowAddFolder] = useState(false)
+  const [newFolderName, setNewFolderName] = useState('')
+  const [creatingFolder, setCreatingFolder] = useState(false)
+  const [deleteFolderConfirm, setDeleteFolderConfirm] = useState(null) // { id, name }
+  const [deletingFolder, setDeletingFolder] = useState(false)
+
   // Document viewer state
   const [previewZoom, setPreviewZoom] = useState(100)
   const [isPreviewExpanded, setIsPreviewExpanded] = useState(false)
@@ -149,9 +164,14 @@ export function ProjectFolderDetail({ projectId, projectName, onClose, onNavigat
       .then(data => {
         if (!data) return
         setFolders(data.folders)
+        setCustomFolders(data.customFolders || [])
         const expanded = {}
         for (const key of FOLDER_KEYS) {
           if (data.folders[key]?.files?.length > 0) expanded[key] = true
+        }
+        // Auto-expand custom folders with files
+        for (const cf of (data.customFolders || [])) {
+          if (cf.files?.length > 0) expanded[`custom_${cf.id}`] = true
         }
         setExpandedFolders(expanded)
         setLoading(false)
@@ -216,6 +236,11 @@ export function ProjectFolderDetail({ projectId, projectName, onClose, onNavigat
 
   const toggleFolder = (key) => {
     setExpandedFolders(prev => ({ ...prev, [key]: !prev[key] }))
+    // Clear selected file and update selected category when clicking a folder header
+    setSelectedFile(null)
+    setSelectedCategory(key)
+    setPreviewZoom(100)
+    setIsPreviewExpanded(false)
   }
 
   const handleFileClick = (file, category) => {
@@ -262,13 +287,99 @@ export function ProjectFolderDetail({ projectId, projectName, onClose, onNavigat
     }
   }
 
+  const handleDeleteFile = async () => {
+    if (!deleteConfirm || !projectId) return
+    setDeleting(true)
+    try {
+      const res = await fetch(
+        `/api/ko/project/${projectId}/folders/${deleteConfirm.category}/file/${deleteConfirm.file.id}`,
+        { method: 'DELETE' }
+      )
+      if (!res.ok) throw new Error('Delete failed')
+      // Remove from local state
+      setFolders(prev => {
+        if (!prev) return prev
+        const updated = { ...prev }
+        const cat = deleteConfirm.category
+        updated[cat] = {
+          ...updated[cat],
+          files: (updated[cat]?.files || []).filter(f => f.id !== deleteConfirm.file.id)
+        }
+        return updated
+      })
+      // Clear selected file if it was the deleted one
+      if (selectedFile?.id === deleteConfirm.file.id) {
+        setSelectedFile(null)
+      }
+    } catch (err) {
+      console.error('[FolderDetail] Delete error:', err)
+    } finally {
+      setDeleting(false)
+      setDeleteConfirm(null)
+    }
+  }
+
+  const handleCreateCustomFolder = async () => {
+    if (!newFolderName.trim() || !projectId) return
+    setCreatingFolder(true)
+    try {
+      const res = await fetch(`/api/ko/project/${projectId}/folders/custom`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: newFolderName.trim() }),
+      })
+      if (!res.ok) throw new Error('Failed to create folder')
+      const data = await res.json()
+      setCustomFolders(prev => [...prev, { id: data.folder.id, name: data.folder.name, files: [] }])
+      setNewFolderName('')
+      setShowAddFolder(false)
+    } catch (err) {
+      console.error('[FolderDetail] Create custom folder error:', err)
+    } finally {
+      setCreatingFolder(false)
+    }
+  }
+
+  const handleDeleteCustomFolder = async () => {
+    if (!deleteFolderConfirm || !projectId) return
+    setDeletingFolder(true)
+    try {
+      const res = await fetch(
+        `/api/ko/project/${projectId}/folders/custom/${deleteFolderConfirm.id}`,
+        { method: 'DELETE' }
+      )
+      if (!res.ok) throw new Error('Failed to delete folder')
+      setCustomFolders(prev => prev.filter(f => f.id !== deleteFolderConfirm.id))
+      // Clear selection if viewing a file from deleted folder
+      if (selectedCategory === `custom_${deleteFolderConfirm.id}`) {
+        setSelectedFile(null)
+        setSelectedCategory(null)
+      }
+    } catch (err) {
+      console.error('[FolderDetail] Delete custom folder error:', err)
+    } finally {
+      setDeletingFolder(false)
+      setDeleteFolderConfirm(null)
+    }
+  }
+
   const renderViewer = () => {
     if (!selectedFile) {
       return (
         <div className="h-full flex items-center justify-center">
           <div className="text-center">
-            <FileText className="w-12 h-12 mx-auto mb-3 text-border" />
-            <p className="text-sm text-muted-foreground">Select a document from the sidebar to view it here</p>
+            {selectedCategory ? (
+              <>
+                <FolderOpen className="w-12 h-12 mx-auto mb-3" style={{ color: FOLDER_ICON_COLORS[selectedCategory]?.primary || '#888' }} />
+                <p className="text-sm font-medium text-foreground mb-1">{FOLDER_LABELS[selectedCategory] || customFolders.find(cf => `custom_${cf.id}` === selectedCategory)?.name?.toUpperCase() || ''}</p>
+                <p className="text-xs text-muted-foreground">Select a file from this folder to view it here</p>
+              </>
+            ) : (
+              <>
+                <FileText className="w-12 h-12 mx-auto mb-3 text-border" />
+                <p className="text-sm text-muted-foreground">Select a document from the sidebar to view it here</p>
+              </>
+            )}
           </div>
         </div>
       )
@@ -276,27 +387,58 @@ export function ProjectFolderDetail({ projectId, projectName, onClose, onNavigat
 
     const viewerType = getViewerType(selectedFile)
 
-    if (viewerType === 'pdf' || viewerType === 'office') {
+    // Zoom wrapper for iframe-based viewers
+    const zoomScale = previewZoom / 100
+    const iframeZoomStyle = previewZoom !== 100 ? {
+      transform: `scale(${zoomScale})`,
+      transformOrigin: 'top left',
+      width: `${100 / zoomScale}%`,
+      height: `${100 / zoomScale}%`,
+    } : {}
+
+    if (viewerType === 'pdf') {
       return (
-        <iframe
-          src={`https://drive.google.com/file/d/${selectedFile.id}/preview`}
-          className="w-full h-full border-0"
-          title={selectedFile.name}
-          allow="autoplay"
-        />
+        <div className="w-full h-full overflow-auto">
+          <iframe
+            src={`https://drive.google.com/file/d/${selectedFile.id}/preview`}
+            className="border-0"
+            style={{ width: '100%', height: '100%', ...iframeZoomStyle }}
+            title={selectedFile.name}
+            allow="autoplay"
+          />
+        </div>
+      )
+    }
+
+    if (viewerType === 'office') {
+      // Use Google Docs viewer for Office files (xlsx, docx, etc.)
+      const driveDownloadUrl = `https://drive.google.com/uc?export=download&id=${selectedFile.id}`
+      return (
+        <div className="w-full h-full overflow-auto">
+          <iframe
+            src={`https://docs.google.com/gview?url=${encodeURIComponent(driveDownloadUrl)}&embedded=true`}
+            className="border-0"
+            style={{ width: '100%', height: '100%', ...iframeZoomStyle }}
+            title={selectedFile.name}
+          />
+        </div>
       )
     }
 
     if (viewerType === 'sheets') {
-      // For shortcuts, use the target file ID for the embedded URL
+      // For shortcuts, resolve to the target file ID
       const targetId = selectedFile.shortcutDetails?.targetId || selectedFile.id
-      const sheetUrl = selectedFile.webViewLink?.replace(/\/edit.*$/, '/htmlembed') || `https://docs.google.com/spreadsheets/d/${targetId}/htmlembed`
+      // Use the edit URL with rm=minimal for a clean embedded view
+      const sheetUrl = `https://docs.google.com/spreadsheets/d/${targetId}/edit?usp=sharing&rm=minimal`
       return (
-        <iframe
-          src={sheetUrl}
-          className="w-full h-full border-0"
-          title={selectedFile.name}
-        />
+        <div className="w-full h-full overflow-auto">
+          <iframe
+            src={sheetUrl}
+            className="border-0"
+            style={{ width: '100%', height: '100%', ...iframeZoomStyle }}
+            title={selectedFile.name}
+          />
+        </div>
       )
     }
 
@@ -528,25 +670,124 @@ export function ProjectFolderDetail({ projectId, projectName, onClose, onNavigat
                             {isExpanded && files.length > 0 && (
                               <div className="ml-6 pl-3 border-l border-border/50 mb-1">
                                 {files.map((file) => (
-                                  <button
-                                    key={file.id}
-                                    onClick={() => handleFileClick(file, key)}
-                                    className={cn(
-                                      "w-full flex items-center gap-2 px-2 py-1.5 rounded text-left transition-colors text-xs",
-                                      selectedFile?.id === file.id
-                                        ? "bg-secondary text-foreground font-medium"
-                                        : "text-muted-foreground hover:bg-secondary/50 hover:text-foreground"
-                                    )}
-                                  >
-                                    <FileText className="w-3 h-3 flex-shrink-0" />
-                                    <span className="truncate">{file.name}</span>
-                                  </button>
+                                  <div key={file.id} className="group/file flex items-center">
+                                    <button
+                                      onClick={() => handleFileClick(file, key)}
+                                      className={cn(
+                                        "flex-1 flex items-center gap-2 px-2 py-1.5 rounded text-left transition-colors text-xs min-w-0",
+                                        selectedFile?.id === file.id
+                                          ? "bg-secondary text-foreground font-medium"
+                                          : "text-muted-foreground hover:bg-secondary/50 hover:text-foreground"
+                                      )}
+                                    >
+                                      <FileText className="w-3 h-3 flex-shrink-0" style={{ color: colors.primary }} />
+                                      <span className="truncate">{file.name}</span>
+                                    </button>
+                                    <button
+                                      onClick={(e) => { e.stopPropagation(); setDeleteConfirm({ file, category: key }) }}
+                                      className="p-1 rounded transition-colors opacity-0 group-hover/file:opacity-100 text-muted-foreground hover:text-red-500 hover:bg-red-50 flex-shrink-0"
+                                      title="Delete file"
+                                    >
+                                      <Trash2 className="w-3 h-3" />
+                                    </button>
+                                  </div>
                                 ))}
                               </div>
                             )}
                           </div>
                         )
                       })}
+                      {/* Custom Folders */}
+                      {customFolders.map((cf) => {
+                        const cfKey = `custom_${cf.id}`
+                        const isExpanded = expandedFolders[cfKey]
+                        return (
+                          <div key={cf.id}>
+                            <div className="flex items-center group">
+                              <button
+                                onClick={() => {
+                                  setExpandedFolders(prev => ({ ...prev, [cfKey]: !prev[cfKey] }))
+                                  setSelectedFile(null)
+                                  setSelectedCategory(cfKey)
+                                  setPreviewZoom(100)
+                                }}
+                                className="flex-1 flex items-center gap-2.5 px-2 py-2 rounded-lg text-left transition-colors hover:bg-secondary/60"
+                              >
+                                {isExpanded
+                                  ? <ChevronDown className="w-3.5 h-3.5 text-muted-foreground flex-shrink-0" />
+                                  : <ChevronRight className="w-3.5 h-3.5 text-muted-foreground flex-shrink-0" />
+                                }
+                                <FolderOpen className="w-5 h-5 text-muted-foreground flex-shrink-0" />
+                                <span className="text-xs font-semibold tracking-wide text-foreground uppercase">
+                                  {cf.name}
+                                </span>
+                                {cf.files.length > 0 && (
+                                  <span className="ml-auto text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-secondary text-muted-foreground">
+                                    {cf.files.length}
+                                  </span>
+                                )}
+                              </button>
+                              <button
+                                onClick={(e) => { e.stopPropagation(); setDeleteFolderConfirm({ id: cf.id, name: cf.name }) }}
+                                className="p-1.5 rounded transition-colors opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-red-500 hover:bg-red-50 mr-1"
+                                title="Delete folder"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                            {isExpanded && cf.files.length > 0 && (
+                              <div className="ml-6 pl-3 border-l border-border/50 mb-1">
+                                {cf.files.map((file) => (
+                                  <div key={file.id} className="group/file flex items-center">
+                                    <button
+                                      onClick={() => { setSelectedFile(file); setSelectedCategory(cfKey); setPreviewZoom(100) }}
+                                      className={cn(
+                                        "flex-1 flex items-center gap-2 px-2 py-1.5 rounded text-left transition-colors text-xs min-w-0",
+                                        selectedFile?.id === file.id
+                                          ? "bg-secondary text-foreground font-medium"
+                                          : "text-muted-foreground hover:bg-secondary/50 hover:text-foreground"
+                                      )}
+                                    >
+                                      <FileText className="w-3 h-3 flex-shrink-0 text-muted-foreground" />
+                                      <span className="truncate">{file.name}</span>
+                                    </button>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        )
+                      })}
+
+                      {/* Add Folder Button */}
+                      {showAddFolder ? (
+                        <div className="flex items-center gap-1.5 px-2 py-1.5 mt-1">
+                          <input
+                            type="text"
+                            value={newFolderName}
+                            onChange={(e) => setNewFolderName(e.target.value)}
+                            onKeyDown={(e) => { if (e.key === 'Enter') handleCreateCustomFolder(); if (e.key === 'Escape') { setShowAddFolder(false); setNewFolderName('') } }}
+                            placeholder="Folder name"
+                            autoFocus
+                            className="flex-1 text-xs px-2 py-1 rounded border bg-background border-border text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary/50"
+                          />
+                          <button
+                            onClick={handleCreateCustomFolder}
+                            disabled={creatingFolder || !newFolderName.trim()}
+                            className="p-1 rounded text-primary hover:bg-primary/10 disabled:opacity-50"
+                          >
+                            {creatingFolder ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Plus className="w-3.5 h-3.5" />}
+                          </button>
+                        </div>
+                      ) : (
+                        <button
+                          onClick={() => setShowAddFolder(true)}
+                          className="flex items-center gap-2 px-2 py-2 mt-1 rounded-lg text-xs text-muted-foreground hover:text-foreground hover:bg-secondary/60 transition-colors w-full"
+                        >
+                          <FolderPlus className="w-3.5 h-3.5" />
+                          Add Folder
+                        </button>
+                      )}
                     </div>
                   )}
                 </div>
@@ -555,21 +796,26 @@ export function ProjectFolderDetail({ projectId, projectName, onClose, onNavigat
               {/* Document Viewer */}
               <main className={cn("flex-1 overflow-hidden flex flex-col", isLight ? "bg-gray-50" : "bg-background")}>
                 {/* Breadcrumb + Toolbar */}
-                {selectedFile && (
+                {selectedCategory && (
                   <div className={cn(
                     "shrink-0 flex items-center justify-between px-4 py-2 border-b",
                     isLight ? "bg-white border-border" : "bg-surface-elevated border-border"
                   )}>
                     <div className="flex items-center gap-2 text-xs">
-                      <span className="font-semibold" style={{ color: FOLDER_ICON_COLORS[selectedCategory]?.primary }}>
-                        {FOLDER_LABELS[selectedCategory]}
+                      <span className="font-semibold" style={{ color: FOLDER_ICON_COLORS[selectedCategory]?.primary || '#888' }}>
+                        {FOLDER_LABELS[selectedCategory] || customFolders.find(cf => `custom_${cf.id}` === selectedCategory)?.name?.toUpperCase() || selectedCategory}
                       </span>
-                      <ChevronRight className="w-3 h-3 text-muted-foreground" />
-                      <span className="text-foreground">{selectedFile.name}</span>
-                      {selectedFile.size && (
-                        <span className="text-muted-foreground/50 ml-2">{formatFileSize(selectedFile.size)}</span>
+                      {selectedFile && (
+                        <>
+                          <ChevronRight className="w-3 h-3 text-muted-foreground" />
+                          <span className="text-foreground">{selectedFile.name}</span>
+                          {selectedFile.size && (
+                            <span className="text-muted-foreground/50 ml-2">{formatFileSize(selectedFile.size)}</span>
+                          )}
+                        </>
                       )}
                     </div>
+                    {selectedFile && (
                     <div className="flex items-center gap-1">
                       <button
                         onClick={() => setPreviewZoom(Math.max(25, previewZoom - 25))}
@@ -608,6 +854,7 @@ export function ProjectFolderDetail({ projectId, projectName, onClose, onNavigat
                         </a>
                       )}
                     </div>
+                    )}
                   </div>
                 )}
 
@@ -923,6 +1170,62 @@ export function ProjectFolderDetail({ projectId, projectName, onClose, onNavigat
           </aside>
         </div>
       </div>
+
+      {/* Delete File Confirmation Dialog */}
+      {deleteConfirm && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 backdrop-blur-sm">
+          <div className={cn("rounded-xl border p-6 max-w-sm w-full mx-4 shadow-xl", isLight ? "bg-white border-border" : "bg-card border-border")}>
+            <h3 className="text-sm font-semibold text-foreground mb-2">Delete File</h3>
+            <p className="text-xs text-muted-foreground mb-4">
+              Delete <span className="font-medium text-foreground">{deleteConfirm.file.name}</span>? This cannot be undone.
+            </p>
+            <div className="flex items-center justify-end gap-2">
+              <button
+                onClick={() => setDeleteConfirm(null)}
+                disabled={deleting}
+                className="px-3 py-1.5 rounded-lg text-xs font-medium transition-colors hover:bg-secondary text-muted-foreground"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleDeleteFile}
+                disabled={deleting}
+                className="px-3 py-1.5 rounded-lg text-xs font-medium bg-red-500 text-white hover:bg-red-600 transition-colors disabled:opacity-50"
+              >
+                {deleting ? 'Deleting...' : 'Delete'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Custom Folder Confirmation Dialog */}
+      {deleteFolderConfirm && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 backdrop-blur-sm">
+          <div className={cn("rounded-xl border p-6 max-w-sm w-full mx-4 shadow-xl", isLight ? "bg-white border-border" : "bg-card border-border")}>
+            <h3 className="text-sm font-semibold text-foreground mb-2">Delete Folder</h3>
+            <p className="text-xs text-muted-foreground mb-4">
+              Delete <span className="font-medium text-foreground">{deleteFolderConfirm.name}</span> and all its contents? This cannot be undone.
+            </p>
+            <div className="flex items-center justify-end gap-2">
+              <button
+                onClick={() => setDeleteFolderConfirm(null)}
+                disabled={deletingFolder}
+                className="px-3 py-1.5 rounded-lg text-xs font-medium transition-colors hover:bg-secondary text-muted-foreground"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleDeleteCustomFolder}
+                disabled={deletingFolder}
+                className="px-3 py-1.5 rounded-lg text-xs font-medium bg-red-500 text-white hover:bg-red-600 transition-colors disabled:opacity-50"
+              >
+                {deletingFolder ? 'Deleting...' : 'Delete Folder'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
