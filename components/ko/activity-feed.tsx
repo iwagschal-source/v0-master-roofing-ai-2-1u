@@ -115,10 +115,12 @@ export function ActivityFeed({
             return updated
           })
 
-          // Auto-scroll to bottom
+          // Auto-scroll to bottom — scroll the nearest scrollable parent
           requestAnimationFrame(() => {
-            const el = containerRef.current
-            if (el) el.scrollTop = el.scrollHeight
+            const el = containerRef.current?.parentElement
+            if (el && el.scrollHeight > el.clientHeight) {
+              el.scrollTop = el.scrollHeight
+            }
           })
         } else {
           // Event done streaming — mark done, start pause
@@ -188,10 +190,9 @@ export function ActivityFeed({
   return (
     <div
       ref={containerRef}
-      className="flex-1 overflow-y-scroll scroll-feed"
+      className="flex-1"
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
-      style={{ paddingRight: 0, marginRight: 0 }}
     >
       {displayedBlocks.map((block, i) => {
         const event = events[block.eventIndex]
