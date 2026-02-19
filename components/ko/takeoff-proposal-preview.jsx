@@ -315,15 +315,22 @@ export function TakeoffProposalPreview({ projectId, sheetName, onClose, onGenera
         throw new Error(errData.error || 'Failed to generate document')
       }
 
-      // Document saved to Drive (no browser download)
       const driveFileId = res.headers.get('X-Drive-File-Id')
       const driveFileUrl = res.headers.get('X-Drive-File-Url')
-      // Consume the blob to complete the response
-      await res.blob()
+      // Download to browser
+      const blob = await res.blob()
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = res.headers.get('Content-Disposition')?.match(/filename="?([^"]+)"?/)?.[1] || 'proposal.docx'
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      URL.revokeObjectURL(url)
 
       setGenerateResult({
         success: true,
-        message: 'Document saved to Proposals folder!',
+        message: 'Document generated and downloaded! Also saved to Proposals folder.',
         driveFileId,
         driveFileUrl
       })
@@ -488,7 +495,7 @@ export function TakeoffProposalPreview({ projectId, sheetName, onClose, onGenera
             ) : (
               <Download className="w-4 h-4" />
             )}
-            {generating ? 'Generating...' : 'Generate to Drive'}
+            {generating ? 'Generating...' : 'Generate Document'}
           </button>
           {generateResult?.success && generateResult?.driveFileId && (
             <button
