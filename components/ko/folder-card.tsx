@@ -102,7 +102,10 @@ export function FolderCard({
           <rect x="7" y="28" width="189" height="4" fill={FOLDER_BG} />
         </svg>
 
-        <div className="absolute inset-0 flex items-center px-4 pb-[2px] overflow-hidden">
+        <div
+          className="absolute flex items-center overflow-hidden"
+          style={{ top: "2px", bottom: "4px", left: "14px", right: "18px" }}
+        >
           <span
             className="text-[12px] font-medium tracking-widest text-[#1a1a1a] font-mono uppercase whitespace-nowrap leading-none group-hover:animate-marquee"
             style={{ display: "inline-block" }}
@@ -164,10 +167,10 @@ export function FolderCard({
             onDoubleClickScreen?.()
           }}
         >
-          {/* Content area — fixed height, never grows/shrinks, scrollbar flush right */}
+          {/* Content area — fixed height, scrollbar flush right */}
           <div
             className="flex flex-col gap-1 overflow-y-scroll scroll-feed"
-            style={{ height: "100px", padding: "12px 0 12px 12px" }}
+            style={{ height: "100px", paddingLeft: "12px", paddingTop: "12px", paddingBottom: "12px", paddingRight: 0, marginRight: 0 }}
           >
             {selectedCategory && selectedFolder ? (
               /* ===== CATEGORY FILE LIST VIEW ===== */
