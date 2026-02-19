@@ -25,7 +25,7 @@ import {
   Plus,
   FolderPlus,
 } from "lucide-react"
-import { FOLDER_ICON_COLORS, FOLDER_ICONS } from "@/lib/brand-colors"
+import { FOLDER_ICON_COLORS, FOLDER_ICONS, FOLDER_ICONS_CLOSED } from "@/lib/brand-colors"
 
 const FOLDER_KEYS = ['drawings', 'bluebeam', 'takeoff', 'markups', 'proposals']
 const FOLDER_LABELS = { drawings: 'DRAWINGS', bluebeam: 'BLUEBEAM', takeoff: 'TAKEOFF', markups: 'MARKUPS', proposals: 'PROPOSALS' }
@@ -652,9 +652,9 @@ export function ProjectFolderDetail({ projectId, projectName, onClose, onNavigat
                                   : <ChevronRight className="w-3.5 h-3.5 text-muted-foreground flex-shrink-0" />
                                 }
                                 <img
-                                  src={FOLDER_ICONS[key]}
+                                  src={selectedCategory === key ? FOLDER_ICONS[key] : FOLDER_ICONS_CLOSED[key]}
                                   alt={key}
-                                  className="w-8 h-8 flex-shrink-0"
+                                  className="w-8 h-8 flex-shrink-0 transition-opacity duration-200"
                                   style={{ mixBlendMode: 'multiply' }}
                                 />
                                 <span className="text-xs font-semibold tracking-wide text-foreground">
