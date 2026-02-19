@@ -55,7 +55,7 @@ function LabelStatusBadge({ status }) {
 }
 
 function ColorSwatch({ color, size = 16 }) {
-  if (!color) return <span className="text-stone-600 text-xs">none</span>
+  if (!color) return <span className="text-stone-500 text-xs">none</span>
   return (
     <span
       className="inline-block rounded border border-stone-600"
@@ -256,7 +256,7 @@ export function BluebeamToolManager({ isOpen, onClose, onSuccess, initialView })
   // ─── RENDER ───────────────────────────────────────────────
   return (
     <div className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center">
-      <div className="bg-stone-900 rounded-xl border border-stone-700 w-[95vw] h-[90vh] flex flex-col overflow-hidden">
+      <div className="bg-stone-900 text-white rounded-xl border border-stone-700 w-[95vw] h-[90vh] flex flex-col overflow-hidden">
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-stone-700">
           <div className="flex items-center gap-3">
@@ -266,7 +266,7 @@ export function BluebeamToolManager({ isOpen, onClose, onSuccess, initialView })
                 <ArrowLeft size={18} />
               </button>
             )}
-            <Wrench size={20} className="text-orange-400" />
+            <Wrench size={20} className="text-[#277ed0]" />
             <h2 className="text-lg font-semibold">Bluebeam Tool Manager</h2>
             {stats && (
               <span className="text-xs text-stone-400 ml-2">
@@ -311,7 +311,7 @@ export function BluebeamToolManager({ isOpen, onClose, onSuccess, initialView })
           </div>
 
           <button onClick={() => openCreate()}
-            className="flex items-center gap-1.5 px-3 py-1.5 bg-orange-600 hover:bg-orange-500 rounded text-sm font-medium">
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-[#277ed0] hover:bg-[#3a8fd8] rounded text-sm font-medium">
             <Plus size={14} /> New Tool
           </button>
         </div>
@@ -407,13 +407,13 @@ function GapList({ gaps, tools, onAssign, onCreate }) {
       {gaps.map(item => (
         <div key={item.item_id}
           className="grid grid-cols-[1fr_1fr_100px_80px_150px] gap-2 px-3 py-2 hover:bg-stone-800/50 rounded items-center text-sm">
-          <span className="font-mono text-orange-400">{item.item_id}</span>
+          <span className="font-mono text-[#277ed0]">{item.item_id}</span>
           <span>{item.display_name}</span>
           <span className="text-stone-400">{item.section}</span>
           <span className="text-stone-400">{item.uom}</span>
           <span className="flex gap-1">
             <button onClick={() => onCreate()}
-              className="flex items-center gap-1 px-2 py-1 bg-orange-600/20 hover:bg-orange-600/40 rounded text-xs text-orange-400">
+              className="flex items-center gap-1 px-2 py-1 bg-[#277ed0]/20 hover:bg-[#277ed0]/40 rounded text-xs text-[#277ed0]">
               <Plus size={12} /> Create Tool
             </button>
           </span>
@@ -428,7 +428,7 @@ function EditPanel({ form, setForm, tool, saving, saveMsg, onSave }) {
   return (
     <div className="max-w-3xl mx-auto space-y-6">
       <div className="flex items-center gap-3 mb-4">
-        <Pencil size={20} className="text-orange-400" />
+        <Pencil size={20} className="text-[#277ed0]" />
         <h3 className="text-lg font-semibold">Edit Tool #{tool.tool_id}</h3>
         <LabelStatusBadge status={tool.label_status} />
       </div>
@@ -439,7 +439,7 @@ function EditPanel({ form, setForm, tool, saving, saveMsg, onSave }) {
 
         <div>
           <label className="block text-xs text-stone-400 mb-1">
-            Subject <span className="text-stone-600">— System name for CSV matching. Auto-generated.</span>
+            Subject <span className="text-stone-500">— System name for CSV matching. Auto-generated.</span>
           </label>
           <input value={form.subject} onChange={e => setForm({ ...form, subject: e.target.value })}
             className="w-full bg-stone-800 border border-stone-600 rounded px-3 py-2 text-sm" />
@@ -447,7 +447,7 @@ function EditPanel({ form, setForm, tool, saving, saveMsg, onSave }) {
 
         <div>
           <label className="block text-xs mb-1">
-            <span className="text-orange-400 font-semibold">Label *</span>
+            <span className="text-[#277ed0] font-semibold">Label *</span>
             <span className="text-stone-400"> — Human-readable name shown on plan. REQUIRED — never leave empty.</span>
           </label>
           <input value={form.label} onChange={e => setForm({ ...form, label: e.target.value })}
@@ -464,10 +464,10 @@ function EditPanel({ form, setForm, tool, saving, saveMsg, onSave }) {
 
         <div>
           <label className="block text-xs text-stone-400 mb-1">
-            Comment <span className="text-stone-600">— Always left empty. Bluebeam auto-fills with measurement data.</span>
+            Comment <span className="text-stone-500">— Always left empty. Bluebeam auto-fills with measurement data.</span>
           </label>
           <input value="" disabled
-            className="w-full bg-stone-800/50 border border-stone-700 rounded px-3 py-2 text-sm text-stone-600 cursor-not-allowed"
+            className="w-full bg-stone-800/50 border border-stone-700 rounded px-3 py-2 text-sm text-stone-500 cursor-not-allowed"
             placeholder="(auto-filled by Bluebeam at markup time)" />
         </div>
       </fieldset>
@@ -581,7 +581,7 @@ function EditPanel({ form, setForm, tool, saving, saveMsg, onSave }) {
         </div>
       )}
       <button onClick={onSave} disabled={saving}
-        className="flex items-center gap-2 px-6 py-2.5 bg-orange-600 hover:bg-orange-500 disabled:opacity-50 rounded font-medium">
+        className="flex items-center gap-2 px-6 py-2.5 bg-[#277ed0] hover:bg-[#3a8fd8] disabled:opacity-50 rounded font-medium">
         {saving ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
         {saving ? 'Saving...' : 'Save Changes'}
       </button>
@@ -606,7 +606,7 @@ function CreatePanel({ form, setForm, cloneSource, libraryItems, gaps, saving, s
 
         <div>
           <label className="block text-xs text-stone-400 mb-1">
-            Subject * <span className="text-stone-600">— System name for CSV matching.</span>
+            Subject * <span className="text-stone-500">— System name for CSV matching.</span>
           </label>
           <input value={form.subject} onChange={e => setForm({ ...form, subject: e.target.value })}
             className="w-full bg-stone-800 border border-stone-600 rounded px-3 py-2 text-sm"
@@ -615,7 +615,7 @@ function CreatePanel({ form, setForm, cloneSource, libraryItems, gaps, saving, s
 
         <div>
           <label className="block text-xs mb-1">
-            <span className="text-orange-400 font-semibold">Label *</span>
+            <span className="text-[#277ed0] font-semibold">Label *</span>
             <span className="text-stone-400"> — Human-readable name shown on plan. REQUIRED.</span>
           </label>
           <input value={form.label} onChange={e => setForm({ ...form, label: e.target.value })}
@@ -632,10 +632,10 @@ function CreatePanel({ form, setForm, cloneSource, libraryItems, gaps, saving, s
 
         <div>
           <label className="block text-xs text-stone-400 mb-1">
-            Comment <span className="text-stone-600">— Always left empty. Bluebeam auto-fills.</span>
+            Comment <span className="text-stone-500">— Always left empty. Bluebeam auto-fills.</span>
           </label>
           <input value="" disabled
-            className="w-full bg-stone-800/50 border border-stone-700 rounded px-3 py-2 text-sm text-stone-600 cursor-not-allowed"
+            className="w-full bg-stone-800/50 border border-stone-700 rounded px-3 py-2 text-sm text-stone-500 cursor-not-allowed"
             placeholder="(auto-filled by Bluebeam at markup time)" />
         </div>
       </fieldset>
@@ -717,7 +717,7 @@ function CreatePanel({ form, setForm, cloneSource, libraryItems, gaps, saving, s
                 {gaps.slice(0, 10).map(g => (
                   <button key={g.item_id}
                     onClick={() => setForm({ ...form, item_id: g.item_id, scope_name: g.display_name || '' })}
-                    className="block text-xs text-orange-400 hover:text-orange-300 py-0.5">
+                    className="block text-xs text-[#277ed0] hover:text-blue-300 py-0.5">
                     {g.item_id} — {g.display_name}
                   </button>
                 ))}
@@ -741,7 +741,7 @@ function CreatePanel({ form, setForm, cloneSource, libraryItems, gaps, saving, s
         </div>
       )}
       <button onClick={onSave} disabled={saving}
-        className="flex items-center gap-2 px-6 py-2.5 bg-orange-600 hover:bg-orange-500 disabled:opacity-50 rounded font-medium">
+        className="flex items-center gap-2 px-6 py-2.5 bg-[#277ed0] hover:bg-[#3a8fd8] disabled:opacity-50 rounded font-medium">
         {saving ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
         {saving ? 'Saving...' : cloneSource ? 'Clone Tool' : 'Create Tool'}
       </button>
