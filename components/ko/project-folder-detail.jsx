@@ -24,6 +24,7 @@ import {
   Trash2,
   Plus,
   FolderPlus,
+  FileUp,
 } from "lucide-react"
 import { FOLDER_ICON_COLORS, FOLDER_ICONS } from "@/lib/brand-colors"
 
@@ -136,6 +137,10 @@ export function ProjectFolderDetail({ projectId, projectName, onClose, onNavigat
   // Document viewer state
   const [previewZoom, setPreviewZoom] = useState(100)
   const [isPreviewExpanded, setIsPreviewExpanded] = useState(false)
+
+  // Proposal actions state
+  const [savingPdf, setSavingPdf] = useState(false)
+  const replaceFileRef = useRef(null)
 
   // Agent panel state
   const [panelWidth, setPanelWidth] = useState(360)
@@ -268,14 +273,21 @@ export function ProjectFolderDetail({ projectId, projectName, onClose, onNavigat
       })
       if (!res.ok) throw new Error('Upload failed')
       const data = await res.json()
+      const newFile = { id: data.file.id, name: data.file.name, webViewLink: data.file.webViewLink, mimeType: file.type, size: file.size, modifiedTime: new Date().toISOString() }
       // Add file to local state
-      setFolders(prev => {
-        if (!prev) return prev
-        const updated = { ...prev }
-        const newFile = { id: data.file.id, name: data.file.name, webViewLink: data.file.webViewLink, mimeType: file.type, size: file.size, modifiedTime: new Date().toISOString() }
-        updated[uploadTarget] = { ...updated[uploadTarget], files: [newFile, ...(updated[uploadTarget]?.files || [])] }
-        return updated
-      })
+      if (uploadTarget.startsWith('custom_')) {
+        const folderId = uploadTarget.replace('custom_', '')
+        setCustomFolders(prev => prev.map(cf =>
+          cf.id === folderId ? { ...cf, files: [newFile, ...cf.files] } : cf
+        ))
+      } else {
+        setFolders(prev => {
+          if (!prev) return prev
+          const updated = { ...prev }
+          updated[uploadTarget] = { ...updated[uploadTarget], files: [newFile, ...(updated[uploadTarget]?.files || [])] }
+          return updated
+        })
+      }
       // Auto-expand the folder
       setExpandedFolders(prev => ({ ...prev, [uploadTarget]: true }))
     } catch (err) {
@@ -284,6 +296,78 @@ export function ProjectFolderDetail({ projectId, projectName, onClose, onNavigat
       setUploading(null)
       setUploadTarget(null)
       if (uploadRef.current) uploadRef.current.value = ''
+    }
+  }
+
+  // ─── PROPOSAL ACTIONS ─────────────────────────────────────
+  const handleDownloadDocx = () => {
+    if (!selectedFile?.webContentLink && !selectedFile?.id) return
+    const downloadUrl = selectedFile.webContentLink || `https://drive.google.com/uc?id=${selectedFile.id}&export=download`
+    window.open(downloadUrl, '_blank')
+  }
+
+  const handleUploadRevised = async (e) => {
+    const file = e.target.files?.[0]
+    if (!file || !selectedFile?.id || !projectId) return
+    setUploading('proposals')
+    try {
+      const formData = new FormData()
+      formData.append('file', file)
+      const res = await fetch(`/api/ko/project/${projectId}/folders/proposals/upload`, {
+        method: 'POST',
+        body: formData,
+      })
+      if (!res.ok) throw new Error('Upload failed')
+      const data = await res.json()
+      const newFile = { id: data.file.id, name: data.file.name, webViewLink: data.file.webViewLink, mimeType: file.type, size: file.size, modifiedTime: new Date().toISOString() }
+      // Add new file to proposals folder in state
+      setFolders(prev => {
+        if (!prev) return prev
+        const updated = { ...prev }
+        updated.proposals = { ...updated.proposals, files: [newFile, ...(updated.proposals?.files || [])] }
+        return updated
+      })
+      // Switch to viewing the new file
+      setSelectedFile(newFile)
+      setExpandedFolders(prev => ({ ...prev, proposals: true }))
+    } catch (err) {
+      console.error('[FolderDetail] Upload revised error:', err)
+    } finally {
+      setUploading(null)
+      if (replaceFileRef.current) replaceFileRef.current.value = ''
+    }
+  }
+
+  const handleSaveAsPdf = async () => {
+    if (!selectedFile?.id || !projectId) return
+    setSavingPdf(true)
+    try {
+      const res = await fetch(`/api/ko/proposal/${projectId}/export-pdf`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          driveFileId: selectedFile.id,
+          filename: selectedFile.name,
+        }),
+      })
+      if (!res.ok) throw new Error('PDF export failed')
+      const data = await res.json()
+      if (data.success && data.file) {
+        const pdfFile = { id: data.file.id, name: data.file.name, webViewLink: data.file.webViewLink, mimeType: 'application/pdf', modifiedTime: new Date().toISOString() }
+        // Add PDF to proposals folder in state
+        setFolders(prev => {
+          if (!prev) return prev
+          const updated = { ...prev }
+          updated.proposals = { ...updated.proposals, files: [pdfFile, ...(updated.proposals?.files || [])] }
+          return updated
+        })
+        // Switch to viewing the PDF
+        setSelectedFile(pdfFile)
+      }
+    } catch (err) {
+      console.error('[FolderDetail] Save as PDF error:', err)
+    } finally {
+      setSavingPdf(false)
     }
   }
 
@@ -370,9 +454,21 @@ export function ProjectFolderDetail({ projectId, projectName, onClose, onNavigat
           <div className="text-center">
             {selectedCategory ? (
               <>
-                <FolderOpen className="w-12 h-12 mx-auto mb-3" style={{ color: FOLDER_ICON_COLORS[selectedCategory]?.primary || '#888' }} />
+                {FOLDER_ICONS[selectedCategory] ? (
+                  <img src={FOLDER_ICONS[selectedCategory]} alt={selectedCategory} className="w-16 h-16 mx-auto mb-3" />
+                ) : (
+                  <FolderOpen className="w-12 h-12 mx-auto mb-3" style={{ color: FOLDER_ICON_COLORS[selectedCategory]?.primary || '#888' }} />
+                )}
                 <p className="text-sm font-medium text-foreground mb-1">{FOLDER_LABELS[selectedCategory] || customFolders.find(cf => `custom_${cf.id}` === selectedCategory)?.name?.toUpperCase() || ''}</p>
-                <p className="text-xs text-muted-foreground">Select a file from this folder to view it here</p>
+                <p className="text-xs text-muted-foreground mb-4">Select a file from this folder to view it here</p>
+                <button
+                  onClick={() => handleUploadClick(selectedCategory)}
+                  className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium text-white transition-colors"
+                  style={{ backgroundColor: FOLDER_ICON_COLORS[selectedCategory]?.primary || '#555' }}
+                >
+                  <Upload className="w-4 h-4" />
+                  Upload to {FOLDER_LABELS[selectedCategory] || customFolders.find(cf => `custom_${cf.id}` === selectedCategory)?.name || 'Folder'}
+                </button>
               </>
             ) : (
               <>
@@ -577,6 +673,14 @@ export function ProjectFolderDetail({ projectId, projectName, onClose, onNavigat
                 className="hidden"
                 accept=".pdf,.docx,.xlsx,.csv,.zip,.png,.jpg,.jpeg"
                 onChange={handleFileUpload}
+              />
+              {/* Hidden file input for Upload Revised (proposals) */}
+              <input
+                ref={replaceFileRef}
+                type="file"
+                className="hidden"
+                accept=".docx"
+                onChange={handleUploadRevised}
               />
 
               {/* 5-Folder Sidebar */}
@@ -843,6 +947,35 @@ export function ProjectFolderDetail({ projectId, projectName, onClose, onNavigat
                       >
                         {isPreviewExpanded ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
                       </button>
+                      {/* Proposal-specific actions for .docx in Proposals folder */}
+                      {selectedCategory === 'proposals' && selectedFile?.name?.toLowerCase().endsWith('.docx') && (
+                        <>
+                          <div className="w-px h-4 mx-2 bg-border" />
+                          <button
+                            onClick={handleDownloadDocx}
+                            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded text-[11px] font-medium text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
+                          >
+                            <Download className="w-3.5 h-3.5" />
+                            Download
+                          </button>
+                          <button
+                            onClick={() => replaceFileRef.current?.click()}
+                            disabled={!!uploading}
+                            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded text-[11px] font-medium text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors disabled:opacity-50"
+                          >
+                            <FileUp className="w-3.5 h-3.5" />
+                            {uploading === 'proposals' ? 'Uploading...' : 'Upload Revised'}
+                          </button>
+                          <button
+                            onClick={handleSaveAsPdf}
+                            disabled={savingPdf}
+                            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded text-[11px] font-medium bg-[#c0352f] text-white hover:bg-[#a82d28] transition-colors disabled:opacity-50"
+                          >
+                            {savingPdf ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <FileText className="w-3.5 h-3.5" />}
+                            {savingPdf ? 'Exporting...' : 'Save as PDF'}
+                          </button>
+                        </>
+                      )}
                       {selectedFile.webViewLink && (
                         <a
                           href={selectedFile.webViewLink}

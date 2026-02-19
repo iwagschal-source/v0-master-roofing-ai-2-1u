@@ -13,8 +13,10 @@ export async function POST(request, { params }) {
   try {
     const { projectId, folderType } = await params
 
+    const isCustomFolder = folderType.startsWith('custom_')
+
     // Validate folder type
-    if (!FOLDER_KEYS.includes(folderType)) {
+    if (!isCustomFolder && !FOLDER_KEYS.includes(folderType)) {
       return NextResponse.json(
         { error: `Invalid folder type: ${folderType}. Must be one of: ${FOLDER_KEYS.join(', ')}` },
         { status: 400 }
@@ -39,8 +41,14 @@ export async function POST(request, { params }) {
     const accessToken = await getAccessToken()
 
     // Get or create the target subfolder
-    const canonicalName = FOLDER_CATEGORIES[FOLDER_KEYS.indexOf(folderType)]
-    const subfolderId = await getOrCreateSubfolder(accessToken, driveFolderId, canonicalName)
+    let subfolderId
+    if (isCustomFolder) {
+      // Custom folder: the folder ID is embedded in the key (custom_<driveFolderId>)
+      subfolderId = folderType.replace('custom_', '')
+    } else {
+      const canonicalName = FOLDER_CATEGORIES[FOLDER_KEYS.indexOf(folderType)]
+      subfolderId = await getOrCreateSubfolder(accessToken, driveFolderId, canonicalName)
+    }
     if (!subfolderId) {
       return NextResponse.json(
         { error: `Could not access ${canonicalName} folder` },
