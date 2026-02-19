@@ -85,7 +85,10 @@ export function FolderCard({
   return (
     <div ref={cardRef} className="relative group cursor-pointer select-none" onClick={onClick}>
       {/* ===== FOLDER TAB ===== */}
-      <div className="relative w-[45%] max-w-[200px]">
+      <div
+        className="relative w-[45%] max-w-[200px] overflow-hidden"
+        style={{ clipPath: "polygon(4% 100%, 4% 27%, 7.5% 3%, 82.5% 3%, 87.5% 27%, 97.5% 100%)" }}
+      >
         <svg
           viewBox="0 0 200 30"
           className="block w-full h-auto"
@@ -103,8 +106,8 @@ export function FolderCard({
         </svg>
 
         <div
-          className="absolute flex items-center overflow-hidden"
-          style={{ top: "2px", bottom: "4px", left: "14px", right: "18px" }}
+          className="absolute inset-0 flex items-center overflow-hidden"
+          style={{ padding: "0 16px", paddingBottom: "2px" }}
         >
           <span
             className="text-[12px] font-medium tracking-widest text-[#1a1a1a] font-mono uppercase whitespace-nowrap leading-none group-hover:animate-marquee"
@@ -167,10 +170,10 @@ export function FolderCard({
             onDoubleClickScreen?.()
           }}
         >
-          {/* Content area — fixed height, scrollbar flush right */}
+          {/* Content area — fixed height, scrollbar flush right against border */}
           <div
             className="flex flex-col gap-1 overflow-y-scroll scroll-feed"
-            style={{ height: "100px", paddingLeft: "12px", paddingTop: "12px", paddingBottom: "12px", paddingRight: 0, marginRight: 0 }}
+            style={{ height: "100px", paddingLeft: "12px", paddingTop: "12px", paddingBottom: "12px", paddingRight: 0, marginRight: "-1px" }}
           >
             {selectedCategory && selectedFolder ? (
               /* ===== CATEGORY FILE LIST VIEW ===== */
