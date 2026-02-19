@@ -1,10 +1,11 @@
 "use client"
 
 import { FolderCard, type FolderCardProps } from "./folder-card"
+import type { CategoryKey } from "./folder-status-icon"
 
 interface FolderCardGridProps {
   projects: FolderCardProps[]
-  onFileClick?: (fileName: string) => void
+  onFileClick?: (category: CategoryKey, fileName: string) => void
   onCardClick?: (projectName: string) => void
 }
 
@@ -18,7 +19,6 @@ export function FolderCardGrid({ projects, onFileClick, onCardClick }: FolderCar
           clientName={project.clientName}
           folders={project.folders}
           activity={project.activity}
-          lastActivityTime={project.lastActivityTime}
           onFileClick={onFileClick}
           onClick={() => onCardClick?.(project.projectName)}
         />

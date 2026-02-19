@@ -104,9 +104,9 @@ export default function ProjectFoldersScreen({ onNavigateToProject }) {
     return categories
   }
 
-  const handleFileClick = (fileName) => {
-    console.log('Opening file:', fileName)
-    // TODO: Open webViewLink or trigger download
+  const handleFileClick = (category, fileName) => {
+    console.log('Opening file:', category, fileName)
+    // TODO: Navigate to project documents page with file open (Task 6)
   }
 
   const handleDeleteProject = async (project) => {

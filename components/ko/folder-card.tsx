@@ -1,7 +1,13 @@
 "use client"
 
-import { useEffect, useRef, useState } from "react"
-import { StatusIcon, type CategoryKey } from "./folder-status-icon"
+import { useCallback, useEffect, useRef, useState } from "react"
+import {
+  StatusIcon,
+  CATEGORY_CONFIG,
+  getFileTag,
+  getFileTagColor,
+  type CategoryKey,
+} from "./folder-status-icon"
 
 const CATEGORY_ORDER: CategoryKey[] = [
   "drawings",
@@ -26,8 +32,7 @@ export interface FolderCardProps {
   clientName: string
   folders: FolderCategory[]
   activity?: ActivityItem[]
-  lastActivityTime?: string
-  onFileClick?: (fileName: string) => void
+  onFileClick?: (category: CategoryKey, fileName: string) => void
   onClick?: () => void
 }
 
@@ -39,7 +44,6 @@ export function FolderCard({
   clientName,
   folders,
   activity = [],
-  lastActivityTime = "2h ago",
   onFileClick,
   onClick,
 }: FolderCardProps) {
@@ -49,15 +53,47 @@ export function FolderCard({
 
   const scrollRef = useRef<HTMLDivElement>(null)
   const [shouldScroll, setShouldScroll] = useState(false)
+  const [selectedCategory, setSelectedCategory] = useState<CategoryKey | null>(null)
+  const cardRef = useRef<HTMLDivElement>(null)
+
+  // Get files for the selected category
+  const selectedFolder = selectedCategory
+    ? folders.find((f) => f.category === selectedCategory)
+    : null
+  const selectedConfig = selectedCategory
+    ? CATEGORY_CONFIG[selectedCategory]
+    : null
 
   useEffect(() => {
     const el = scrollRef.current
     if (!el) return
     setShouldScroll(el.scrollHeight > el.clientHeight)
-  }, [activity])
+  }, [activity, selectedCategory])
+
+  // Click away to deselect
+  useEffect(() => {
+    if (!selectedCategory) return
+    function handleClickOutside(e: MouseEvent) {
+      if (cardRef.current && !cardRef.current.contains(e.target as Node)) {
+        setSelectedCategory(null)
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside)
+    return () => document.removeEventListener("mousedown", handleClickOutside)
+  }, [selectedCategory])
+
+  const handleIconClick = useCallback((category: CategoryKey) => {
+    setSelectedCategory((prev) => (prev === category ? null : category))
+  }, [])
+
+  // Determine screen styles based on selected category
+  const screenBg = selectedConfig ? selectedConfig.bgLight : "#fff"
+  const screenBorder = selectedConfig
+    ? `1px solid ${selectedConfig.borderColor}`
+    : "1px solid rgba(215, 64, 58, 0.4)"
 
   return (
-    <div className="relative group cursor-pointer select-none" onClick={onClick}>
+    <div ref={cardRef} className="relative group cursor-pointer select-none" onClick={onClick}>
       {/* ===== FOLDER TAB ===== */}
       <div className="relative w-[45%] max-w-[200px] group-hover:max-w-[90%] group-hover:z-10 transition-[max-width] duration-300 ease-in-out">
         <svg
@@ -73,13 +109,11 @@ export function FolderCard({
             strokeWidth="1.5"
             strokeLinejoin="round"
           />
-          {/* Cover the bottom edge so it blends into the body */}
           <rect x="7" y="28" width="189" height="4" fill={FOLDER_BG} />
         </svg>
 
-        {/* Project name positioned over the tab SVG */}
         <div className="absolute inset-0 flex items-center px-4 pb-[2px]">
-          <span className="text-[12px] font-bold tracking-widest text-[#1a1a1a] font-mono uppercase truncate group-hover:whitespace-nowrap leading-none">
+          <span className="text-[12px] font-medium tracking-widest text-[#1a1a1a] font-mono uppercase truncate group-hover:whitespace-nowrap leading-none">
             {projectName}
           </span>
         </div>
@@ -92,11 +126,11 @@ export function FolderCard({
           background: FOLDER_BG,
           border: `1.5px solid ${BORDER_COLOR}`,
           borderRadius: "0 10px 10px 10px",
-          minHeight: "140px",
+          minHeight: "115px",
         }}
       >
-        {/* Left section: status + client + icons */}
-        <div className="flex-1 flex flex-col p-4 pr-2 min-w-0">
+        {/* Left section: client + icons */}
+        <div className="flex-1 flex flex-col p-3 pr-1 min-w-0">
           <div className="mb-auto">
             <p className="text-[11px] text-[#777] leading-snug">
               {clientName}
@@ -111,7 +145,8 @@ export function FolderCard({
                   key={folder.category}
                   category={folder.category}
                   files={folder.files}
-                  onFileClick={onFileClick}
+                  isSelected={selectedCategory === folder.category}
+                  onClick={handleIconClick}
                 />
               ))
             ) : (
@@ -120,66 +155,100 @@ export function FolderCard({
           </div>
         </div>
 
-        {/* Right section: embedded mini "screen" */}
+        {/* Right section: mini screen */}
         <div
-          className="w-[150px] shrink-0 flex flex-col m-3 ml-0 rounded-md overflow-hidden"
+          className="shrink-0 flex flex-col my-2 mr-2 ml-1 overflow-hidden"
           style={{
-            background: "#eae8e5",
-            border: "1px solid #d8d4cf",
-            boxShadow:
-              "inset 0 1px 3px rgba(0,0,0,0.07), inset 0 0 0 0.5px rgba(0,0,0,0.03)",
+            width: "48%",
+            background: screenBg,
+            border: screenBorder,
+            borderRadius: "14px",
+            boxShadow: "0 2px 8px rgba(0, 0, 0, 0.06)",
+            transition: "background-color 250ms ease, border-color 250ms ease",
           }}
         >
-          {/* Screen title bar with dots */}
-          <div
-            className="flex items-center gap-[3px] px-2 py-[3px]"
-            style={{
-              background: "linear-gradient(to bottom, #e5e2de, #ddd9d5)",
-              borderBottom: "1px solid #d0ccc7",
-            }}
-          >
-            <span className="w-[4px] h-[4px] rounded-full bg-[#c9c5c0]" />
-            <span className="w-[4px] h-[4px] rounded-full bg-[#c9c5c0]" />
-            <span className="w-[4px] h-[4px] rounded-full bg-[#c9c5c0]" />
-            <span className="text-[7px] text-[#aaa] ml-auto font-mono uppercase tracking-widest">
-              Live
-            </span>
-          </div>
-
-          {/* Scrollable feed area */}
+          {/* Scrollable content area */}
           <div
             ref={scrollRef}
-            className={`flex-1 overflow-y-auto p-2 flex flex-col gap-1.5 min-h-[70px] max-h-[88px] ${
-              shouldScroll ? "scroll-feed" : ""
+            className={`flex-1 overflow-y-auto p-3 flex flex-col gap-1 min-h-[60px] max-h-[120px] scroll-feed ${
+              shouldScroll ? "" : ""
             }`}
           >
-            {activity.length > 0 ? (
-              activity.map((item, i) => (
-                <div key={i} className="flex flex-col">
-                  <span className="text-[9px] leading-snug text-[#444]">
-                    {item.text}
+            {selectedCategory && selectedFolder ? (
+              /* ===== CATEGORY FILE LIST VIEW ===== */
+              <>
+                {/* Category header */}
+                <div className="flex items-center gap-1.5 mb-1">
+                  <img
+                    src={selectedConfig!.icon}
+                    alt=""
+                    width={14}
+                    height={14}
+                    className="shrink-0"
+                    draggable={false}
+                  />
+                  <span
+                    className="text-[10px] font-bold tracking-wider uppercase"
+                    style={{ color: selectedConfig!.color }}
+                  >
+                    {selectedConfig!.label}
                   </span>
-                  <span className="text-[8px] text-[#aaa] mt-px">{item.time}</span>
+                  <span className="text-[9px] text-[#999] ml-auto font-mono">
+                    {selectedFolder.files.length}
+                  </span>
                 </div>
-              ))
-            ) : (
-              <div className="flex items-center justify-center flex-1">
-                <span className="text-[10px] text-[#b0ada8]">No recent activity</span>
-              </div>
-            )}
-          </div>
 
-          {/* Screen footer */}
-          <div
-            className="px-2 py-[3px] text-center"
-            style={{
-              background: "linear-gradient(to bottom, #ddd9d5, #e5e2de)",
-              borderTop: "1px solid #d0ccc7",
-            }}
-          >
-            <span className="text-[8px] text-[#aaa] font-mono tracking-wide">
-              {lastActivityTime}
-            </span>
+                {/* File list */}
+                {selectedFolder.files.length > 0 ? (
+                  selectedFolder.files.map((file) => {
+                    const tag = getFileTag(file)
+                    const tagColor = getFileTagColor(tag)
+                    return (
+                      <button
+                        key={file}
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          onFileClick?.(selectedCategory, file)
+                        }}
+                        className="flex items-center gap-1.5 py-[3px] text-left transition-colors duration-100 hover:bg-black/[0.04] rounded cursor-pointer px-1 -mx-1"
+                      >
+                        <span
+                          className="shrink-0 text-[7px] font-bold tracking-wider rounded px-1 py-[1px] font-mono leading-none"
+                          style={{
+                            color: tagColor,
+                            backgroundColor: `${tagColor}15`,
+                            border: `1px solid ${tagColor}30`,
+                          }}
+                        >
+                          {tag}
+                        </span>
+                        <span className="text-[10px] text-[#333] truncate hover:underline leading-tight">
+                          {file}
+                        </span>
+                      </button>
+                    )
+                  })
+                ) : (
+                  <span className="text-[9px] text-[#999] italic">No files yet</span>
+                )}
+              </>
+            ) : (
+              /* ===== DEFAULT: ACTIVITY FEED ===== */
+              activity.length > 0 ? (
+                activity.map((item, i) => (
+                  <div key={i} className="flex flex-col">
+                    <span className="text-[9px] leading-snug text-[#444]">
+                      {item.text}
+                    </span>
+                    <span className="text-[8px] text-[#aaa] mt-px">{item.time}</span>
+                  </div>
+                ))
+              ) : (
+                <div className="flex items-center justify-center flex-1">
+                  <span className="text-[10px] text-[#b0ada8]">No recent activity</span>
+                </div>
+              )
+            )}
           </div>
         </div>
       </div>
