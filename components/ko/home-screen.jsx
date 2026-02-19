@@ -2,12 +2,13 @@
 
 import * as React from "react"
 
-import { useState, useCallback, useEffect, useRef } from "react"
+import { useState, useCallback, useEffect, useRef, useMemo } from "react"
 import { MessageInput } from "./message-input"
 import { VoiceIndicator } from "./voice-indicator"
 import { useVoiceWebSocket } from "@/hooks/useVoiceWebSocket"
-import { ConversationList } from "./conversation-list"
+import { useSession } from "next-auth/react"
 import { FOLDER_ICONS, FOLDER_ICON_COLORS } from "@/lib/brand-colors"
+import { ArrowLeft } from "lucide-react"
 
 const CATEGORIES = [
   { key: "drawings",  label: "Drawings",  bg: "#f0f0f0", border: "#333333" },
@@ -16,6 +17,34 @@ const CATEGORIES = [
   { key: "markups",   label: "Markups",   bg: "#fff3e0", border: "#c96500" },
   { key: "proposals", label: "Proposals", bg: "#fce8e7", border: "#c0352f" },
 ]
+
+/** Generate a dynamic greeting based on time of day and day of week */
+function getGreeting(firstName) {
+  const now = new Date()
+  const hour = now.getHours()
+  const day = now.getDay() // 0=Sun, 1=Mon, ..., 5=Fri, 6=Sat
+  const dayNames = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"]
+  const name = firstName || "there"
+
+  // Friday always gets "Happy Friday"
+  if (day === 5) return `Happy Friday, ${name}`
+  // Monday always gets "Happy Monday"
+  if (day === 1) return `Happy Monday, ${name}`
+
+  // Time-based greetings
+  if (hour >= 5 && hour < 12) {
+    // Morning: sometimes "Good Morning", sometimes "Happy [Day]"
+    if (Math.random() > 0.5) return `Happy ${dayNames[day]}, ${name}`
+    return `Good Morning, ${name}`
+  }
+  if (hour >= 12 && hour < 17) {
+    if (Math.random() > 0.5) return `Happy ${dayNames[day]}, ${name}`
+    return `Good Afternoon, ${name}`
+  }
+  // Evening / Night
+  if (Math.random() > 0.5) return `Happy ${dayNames[day]}, ${name}`
+  return `Good Evening, ${name}`
+}
 
 export function HomeScreen({
   onSubmit,
@@ -27,12 +56,22 @@ export function HomeScreen({
   onDeleteConversation,
   onExportConversation,
   onNavigateToProject,
+  messages = [],
 }) {
+  const { data: session } = useSession()
+  const firstName = session?.user?.name?.split(" ")[0] || ""
+
   const [isVoiceEnabled, setIsVoiceEnabled] = useState(false)
+  const [screenMode, setScreenMode] = useState("chat") // "chat" | "category"
   const [selectedCategory, setSelectedCategory] = useState(null)
-  const [recentFiles, setRecentFiles] = useState({}) // category → files[]
+  const [recentFiles, setRecentFiles] = useState({})
   const [loadingFiles, setLoadingFiles] = useState(null)
-  const popupRef = useRef(null)
+
+  // Stable greeting — only recompute on mount or when firstName changes
+  const [greeting, setGreeting] = useState("")
+  useEffect(() => {
+    setGreeting(getGreeting(firstName))
+  }, [firstName])
 
   const {
     isConnected: isVoiceConnected,
@@ -55,23 +94,14 @@ export function HomeScreen({
     }
   }, [transcript, isTranscribing, isRecording, onSubmit])
 
-  // Click away to close popup
-  useEffect(() => {
-    if (!selectedCategory) return
-    function handleClickOutside(e) {
-      if (popupRef.current && !popupRef.current.contains(e.target)) {
-        setSelectedCategory(null)
-      }
-    }
-    document.addEventListener("mousedown", handleClickOutside)
-    return () => document.removeEventListener("mousedown", handleClickOutside)
-  }, [selectedCategory])
-
   const handleCategoryClick = async (key) => {
-    if (selectedCategory === key) {
+    if (screenMode === "category" && selectedCategory === key) {
+      // Same icon clicked — back to chat
+      setScreenMode("chat")
       setSelectedCategory(null)
       return
     }
+    setScreenMode("category")
     setSelectedCategory(key)
 
     // Load recent files if not cached
@@ -98,6 +128,12 @@ export function HomeScreen({
       folder: selectedCategory,
       fileName: file.name,
     })
+    setScreenMode("chat")
+    setSelectedCategory(null)
+  }
+
+  const handleBackToChat = () => {
+    setScreenMode("chat")
     setSelectedCategory(null)
   }
 
@@ -124,6 +160,14 @@ export function HomeScreen({
     ? CATEGORIES.find(c => c.key === selectedCategory)
     : null
 
+  // Screen border color based on mode
+  const screenBorderColor = screenMode === "category" && activeCat
+    ? activeCat.border
+    : "rgba(0,0,0,0.08)"
+  const screenBg = screenMode === "category" && activeCat
+    ? activeCat.bg
+    : "#fff"
+
   return (
     <div className="flex flex-col h-full bg-background">
       <VoiceIndicator
@@ -132,17 +176,18 @@ export function HomeScreen({
         transcript={transcript}
         isTranscribing={isTranscribing}
       />
-      <div className="flex-1 flex flex-col items-center justify-center px-8">
-        <div className="flex flex-col items-center mb-12">
+      <div className="flex-1 flex flex-col items-center px-8 pt-8 pb-4 overflow-hidden">
+        {/* Dynamic Greeting */}
+        <div className="flex flex-col items-center mb-6">
           <h2 className="text-xl font-medium text-foreground text-center text-balance">
-            What impact will you drive today?
+            {greeting}
           </h2>
         </div>
 
         {/* 5 Category Icon Buttons */}
-        <div className="relative flex flex-wrap justify-center gap-4 max-w-2xl" ref={popupRef}>
+        <div className="flex flex-wrap justify-center gap-4 max-w-2xl mb-6">
           {CATEGORIES.map((cat) => {
-            const isActive = selectedCategory === cat.key
+            const isActive = screenMode === "category" && selectedCategory === cat.key
             return (
               <button
                 key={cat.key}
@@ -169,32 +214,43 @@ export function HomeScreen({
               </button>
             )
           })}
+        </div>
 
-          {/* Recent Files Popup */}
-          {selectedCategory && activeCat && (
-            <div
-              className="absolute top-full mt-3 left-1/2 -translate-x-1/2 z-50 w-[320px] rounded-xl overflow-hidden"
-              style={{
-                backgroundColor: activeCat.bg,
-                border: `1.5px solid ${activeCat.border}`,
-                boxShadow: "0 8px 24px rgba(0,0,0,0.12), 0 2px 6px rgba(0,0,0,0.06)",
-              }}
-            >
-              {/* Header */}
+        {/* ===== MAIN INTERACTION SCREEN ===== */}
+        <div
+          className="flex-1 w-full max-w-3xl flex flex-col overflow-hidden transition-all duration-300"
+          style={{
+            borderRadius: "16px",
+            border: `1.5px solid ${screenBorderColor}`,
+            backgroundColor: screenBg,
+            boxShadow: "0 4px 20px rgba(0,0,0,0.06), 0 1px 4px rgba(0,0,0,0.04)",
+          }}
+        >
+          {screenMode === "category" && activeCat ? (
+            /* ===== MODE B: CATEGORY FILE BROWSER ===== */
+            <div className="flex flex-col h-full">
+              {/* Category header */}
               <div
-                className="flex items-center gap-2 px-4 py-2.5"
-                style={{ borderBottom: `1px solid ${activeCat.border}33` }}
+                className="flex items-center gap-3 px-5 py-3"
+                style={{ borderBottom: `1px solid ${activeCat.border}22` }}
               >
+                <button
+                  onClick={handleBackToChat}
+                  className="p-1 rounded-lg hover:bg-black/[0.06] transition-colors"
+                  title="Back to Chat"
+                >
+                  <ArrowLeft className="w-4 h-4 text-foreground" />
+                </button>
                 <img
                   src={FOLDER_ICONS[activeCat.key]}
                   alt=""
-                  width={20}
-                  height={20}
+                  width={24}
+                  height={24}
                   style={{ mixBlendMode: 'multiply' }}
                   draggable={false}
                 />
                 <span
-                  className="text-xs font-bold tracking-wider uppercase"
+                  className="text-sm font-bold tracking-wider uppercase"
                   style={{ color: activeCat.border }}
                 >
                   Recent {activeCat.label}
@@ -202,64 +258,103 @@ export function HomeScreen({
               </div>
 
               {/* File list */}
-              <div className="py-1.5">
+              <div className="flex-1 overflow-y-auto py-2 scroll-feed">
                 {loadingFiles === selectedCategory ? (
-                  <div className="px-4 py-3 text-center">
-                    <span className="text-xs text-muted-foreground">Loading...</span>
+                  <div className="px-5 py-8 text-center">
+                    <span className="text-sm text-muted-foreground">Loading...</span>
                   </div>
                 ) : (recentFiles[selectedCategory] || []).length > 0 ? (
-                  recentFiles[selectedCategory].map((file) => (
+                  (recentFiles[selectedCategory] || []).map((file) => (
                     <button
                       key={file.id}
                       onClick={() => handleFileClick(file)}
-                      className="w-full flex flex-col gap-0.5 px-4 py-2 text-left transition-colors hover:bg-black/[0.04] cursor-pointer"
+                      className="w-full flex flex-col gap-0.5 px-5 py-3 text-left transition-colors hover:bg-black/[0.04] cursor-pointer"
                     >
-                      <span className="text-[13px] text-foreground truncate hover:underline">
+                      <span className="text-sm text-foreground truncate hover:underline">
                         {file.name}
                       </span>
-                      <span className="text-[10px] text-muted-foreground truncate">
-                        {file.projectName}
-                      </span>
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs text-muted-foreground truncate">
+                          {file.projectName}
+                        </span>
+                        {file.modifiedTime && (
+                          <span className="text-[10px] text-muted-foreground/60">
+                            {new Date(file.modifiedTime).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+                          </span>
+                        )}
+                      </div>
                     </button>
                   ))
                 ) : (
-                  <div className="px-4 py-3 text-center">
-                    <span className="text-xs text-muted-foreground">No recent files</span>
+                  <div className="px-5 py-8 text-center">
+                    <span className="text-sm text-muted-foreground">No recent files</span>
                   </div>
                 )}
               </div>
             </div>
-          )}
-        </div>
+          ) : (
+            /* ===== MODE A: AGENT CHAT ===== */
+            <div className="flex flex-col h-full">
+              {/* Chat messages area */}
+              <div className="flex-1 overflow-y-auto px-5 py-4 scroll-feed">
+                {savedConversations.length > 0 && messages?.length === 0 ? (
+                  /* Show recent conversation previews as starting point */
+                  <div className="flex flex-col items-center justify-center h-full gap-3">
+                    <img
+                      src="/images/logo-light.png"
+                      alt="KO"
+                      className="w-10 h-10 opacity-20"
+                      draggable={false}
+                    />
+                    <span className="text-sm text-muted-foreground/60">Ask KO anything</span>
+                  </div>
+                ) : messages?.length > 0 ? (
+                  /* Render chat messages */
+                  <div className="space-y-3">
+                    {messages.map((msg, i) => (
+                      <div
+                        key={i}
+                        className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}
+                      >
+                        <div
+                          className={`max-w-[80%] rounded-xl px-4 py-2.5 text-sm leading-relaxed ${
+                            msg.role === "user"
+                              ? "bg-primary text-primary-foreground"
+                              : "bg-secondary text-foreground"
+                          }`}
+                        >
+                          {msg.content}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="flex flex-col items-center justify-center h-full gap-3">
+                    <img
+                      src="/images/logo-light.png"
+                      alt="KO"
+                      className="w-10 h-10 opacity-20"
+                      draggable={false}
+                    />
+                    <span className="text-sm text-muted-foreground/60">Ask KO anything</span>
+                  </div>
+                )}
+              </div>
 
-        {/* Recent Conversations */}
-        {savedConversations.length > 0 && (
-          <div className="mt-8 w-full max-w-md">
-            <div className="bg-card/30 border border-border/50 rounded-xl">
-              <ConversationList
-                conversations={savedConversations}
-                currentSessionId={currentSessionId}
-                onSelectConversation={onSelectConversation}
-                onNewConversation={onNewConversation}
-                onDeleteConversation={onDeleteConversation}
-                onExportConversation={onExportConversation}
-              />
+              {/* Chat input — INSIDE the screen */}
+              <div className="px-4 py-3" style={{ borderTop: "1px solid rgba(0,0,0,0.06)" }}>
+                <MessageInput
+                  onSubmit={onSubmit}
+                  isRecording={isRecording}
+                  onMicToggle={handleMicToggle}
+                  isVoiceEnabled={isVoiceEnabled}
+                  onToggleVoice={() => setIsVoiceEnabled(!isVoiceEnabled)}
+                  isThinking={isRecording}
+                  placeholder="Ask KO..."
+                />
+              </div>
             </div>
-          </div>
-        )}
-      </div>
-
-      <div className="p-4 border-t border-border">
-        <div className="max-w-4xl mx-auto">
-          <MessageInput
-            onSubmit={onSubmit}
-            isRecording={isRecording}
-            onMicToggle={handleMicToggle}
-            isVoiceEnabled={isVoiceEnabled}
-            onToggleVoice={() => setIsVoiceEnabled(!isVoiceEnabled)}
-            isThinking={isRecording}
-            placeholder="Ask KO..."
-          />
+          )}
         </div>
       </div>
     </div>

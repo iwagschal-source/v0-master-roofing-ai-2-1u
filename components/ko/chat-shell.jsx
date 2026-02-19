@@ -414,6 +414,7 @@ export function ChatShell({ initialContext, onClearContext, historyItem, activeM
     <HomeScreen
       {...props}
       onSubmit={submit}
+      messages={messages}
       savedConversations={savedConversations}
       currentSessionId={currentSessionId}
       onSelectConversation={loadConversation}
