@@ -170,13 +170,13 @@ export function ActivityFeed({
     }
   }, [events, charDelay, pauseBetween])
 
-  // Hover pause
-  const handleMouseEnter = useCallback(() => {
-    isPaused.current = true
-  }, [])
-
-  const handleMouseLeave = useCallback(() => {
-    isPaused.current = false
+  // Click to pause/resume
+  const [paused, setPaused] = useState(false)
+  const handleTogglePause = useCallback(() => {
+    setPaused(prev => {
+      isPaused.current = !prev
+      return !prev
+    })
   }, [])
 
   if (events.length === 0) {
@@ -190,9 +190,9 @@ export function ActivityFeed({
   return (
     <div
       ref={containerRef}
-      className="flex-1"
-      onMouseEnter={handleMouseEnter}
-      onMouseLeave={handleMouseLeave}
+      className="flex-1 cursor-pointer"
+      onClick={handleTogglePause}
+      style={{ opacity: paused ? 0.7 : 1, transition: "opacity 200ms" }}
     >
       {displayedBlocks.map((block, i) => {
         const event = events[block.eventIndex]
