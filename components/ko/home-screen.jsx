@@ -186,16 +186,16 @@ export function HomeScreen({
             minHeight: "68px",
             borderRadius: "16px",
             border: `1px solid ${screenBorderColor}`,
-            backgroundColor: screenBg,
+            backgroundColor: "transparent",
           }}
         >
           {screenMode === "category" && activeCat ? (
             /* ===== MODE B: CATEGORY FILE BROWSER ===== */
             <div className="flex flex-col">
-              {/* Category header */}
+              {/* Category header — colored bg */}
               <div
                 className="flex items-center gap-3 px-4 py-2.5"
-                style={{ borderBottom: `1px solid ${activeCat.border}22` }}
+                style={{ backgroundColor: activeCat.bg, borderBottom: `1px solid ${activeCat.border}33` }}
               >
                 <button
                   onClick={handleBackToChat}
@@ -220,8 +220,8 @@ export function HomeScreen({
                 </span>
               </div>
 
-              {/* File list */}
-              <div className="max-h-[260px] overflow-y-auto py-1 scroll-feed">
+              {/* File list — neutral white bg */}
+              <div className="max-h-[260px] overflow-y-auto py-1 scroll-feed" style={{ backgroundColor: "#fff" }}>
                 {loadingFiles === selectedCategory ? (
                   <div className="px-4 py-6 text-center">
                     <span className="text-xs text-muted-foreground">Loading...</span>
