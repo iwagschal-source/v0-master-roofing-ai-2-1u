@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react"
 import {
-  X, Plus, Loader2, AlertCircle, CheckCircle2,
+  ArrowLeft, Plus, Loader2, AlertCircle, CheckCircle2,
   ChevronDown, Eye, Package, Layers, Box
 } from "lucide-react"
 
@@ -224,7 +224,7 @@ export function AddItemModal({ isOpen, onClose, onSuccess }) {
             Add Item to Library
           </h2>
           <button onClick={handleClose} className="p-1 hover:bg-secondary rounded">
-            <X size={20} />
+            <ArrowLeft size={20} />
           </button>
         </div>
 

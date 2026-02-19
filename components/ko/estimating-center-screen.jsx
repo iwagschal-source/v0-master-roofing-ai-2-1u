@@ -12,7 +12,7 @@ import {
   AlertCircle,
   CheckCircle2,
   FileSpreadsheet,
-  X,
+  ArrowLeft,
   GripHorizontal,
   Send,
   Bot,
@@ -1187,7 +1187,7 @@ export function EstimatingCenterScreen() {
                     onClick={() => setPreviewDoc(null)}
                     className="p-1 hover:bg-muted rounded"
                   >
-                    <X className="w-4 h-4" />
+                    <ArrowLeft className="w-4 h-4" />
                   </button>
                 </div>
                 <div className="flex-1 flex items-center justify-center bg-muted/20">
@@ -1402,7 +1402,7 @@ export function EstimatingCenterScreen() {
                 onClick={() => setShowNewVersionDialog(false)}
                 className="p-1 hover:bg-muted rounded-lg"
               >
-                <X className="w-5 h-5" />
+                <ArrowLeft className="w-5 h-5" />
               </button>
             </div>
             <div className="p-5 space-y-4">
@@ -1496,7 +1496,7 @@ export function EstimatingCenterScreen() {
                 onClick={handleBtxCancel}
                 className="p-1 hover:bg-muted rounded-lg"
               >
-                <X className="w-5 h-5" />
+                <ArrowLeft className="w-5 h-5" />
               </button>
             </div>
             <div className="p-5 space-y-4">
@@ -1575,7 +1575,7 @@ export function EstimatingCenterScreen() {
                 onClick={() => setShowNewProjectModal(false)}
                 className="p-1 hover:bg-muted rounded-lg"
               >
-                <X className="w-5 h-5" />
+                <ArrowLeft className="w-5 h-5" />
               </button>
             </div>
             <div className="p-6 space-y-4">
@@ -1767,7 +1767,7 @@ function UploadModal({ project, sheetName, onClose, onSuccess }) {
         <div className="flex items-center justify-between p-4 border-b border-border">
           <h2 className="font-semibold">Upload Bluebeam CSV</h2>
           <button onClick={onClose} className="p-1 hover:bg-muted rounded-lg">
-            <X className="w-5 h-5" />
+            <ArrowLeft className="w-5 h-5" />
           </button>
         </div>
         <div className="p-6 overflow-y-auto">
@@ -1959,7 +1959,7 @@ function ImportHistoryModal({ project, onClose }) {
         <div className="flex items-center justify-between p-4 border-b border-border">
           <h2 className="font-semibold">Import History</h2>
           <button onClick={onClose} className="p-1 hover:bg-muted rounded-lg">
-            <X className="w-5 h-5" />
+            <ArrowLeft className="w-5 h-5" />
           </button>
         </div>
         <div className="p-4 overflow-y-auto flex-1">

@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect, useRef } from "react"
-import { Plus, Search, Filter, RefreshCw, Loader2, Grid3X3, List, X, Upload, Download, CheckCircle, AlertCircle, CloudDownload, Users } from "lucide-react"
+import { Plus, Search, Filter, RefreshCw, Loader2, Grid3X3, List, ArrowLeft, X, Upload, Download, CheckCircle, AlertCircle, CloudDownload, Users } from "lucide-react"
 import Image from "next/image"
 import { ProjectCard } from "./project-card"
 
@@ -497,7 +497,7 @@ export function ProjectsScreen({ onSelectProject, onBack }) {
                 onClick={() => setShowFilters(false)}
                 className="p-2 rounded-lg hover:bg-secondary transition-colors"
               >
-                <X className="w-4 h-4 text-foreground-secondary" />
+                <ArrowLeft className="w-4 h-4 text-foreground-secondary" />
               </button>
             </div>
 
@@ -560,7 +560,7 @@ export function ProjectsScreen({ onSelectProject, onBack }) {
                   onClick={() => setShowImportModal(false)}
                   className="p-2 rounded-lg hover:bg-secondary transition-colors"
                 >
-                  <X className="w-4 h-4 text-foreground-secondary" />
+                  <ArrowLeft className="w-4 h-4 text-foreground-secondary" />
                 </button>
               )}
             </div>
@@ -641,7 +641,7 @@ export function ProjectsScreen({ onSelectProject, onBack }) {
                 onClick={() => setShowNewProjectModal(false)}
                 className="p-2 rounded-lg hover:bg-secondary transition-colors"
               >
-                <X className="w-4 h-4 text-foreground-secondary" />
+                <ArrowLeft className="w-4 h-4 text-foreground-secondary" />
               </button>
             </div>
 
@@ -778,7 +778,7 @@ export function ProjectsScreen({ onSelectProject, onBack }) {
                   onClick={() => setShowAsanaSyncModal(false)}
                   className="p-2 rounded-lg hover:bg-secondary transition-colors"
                 >
-                  <X className="w-4 h-4 text-foreground-secondary" />
+                  <ArrowLeft className="w-4 h-4 text-foreground-secondary" />
                 </button>
               )}
             </div>

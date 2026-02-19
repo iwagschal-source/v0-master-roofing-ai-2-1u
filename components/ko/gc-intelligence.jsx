@@ -16,7 +16,7 @@ import {
   ChevronUp,
   Send,
   Bot,
-  X
+  ArrowLeft
 } from "lucide-react"
 
 function formatCurrency(amount) {
@@ -253,7 +253,7 @@ export function GCIntelligence({ gcId, gcName, onAskKO }) {
               <Bot className="w-4 h-4 text-primary" />
               <span className="text-sm font-medium text-foreground">Ask KO about {gcData.name || gcName}</span>
               <button onClick={() => setShowAskKO(false)} className="ml-auto p-1 hover:bg-muted rounded">
-                <X className="w-4 h-4 text-foreground-tertiary" />
+                <ArrowLeft className="w-4 h-4 text-foreground-tertiary" />
               </button>
             </div>
 

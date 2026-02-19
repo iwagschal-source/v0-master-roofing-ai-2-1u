@@ -5,7 +5,7 @@ import {
   Mail, Send, RefreshCw, Search, Loader2, Check, X,
   AlertCircle, Clock, CheckCircle2, XCircle, Edit3,
   MessageSquare, Sparkles, ChevronDown, Filter, Inbox,
-  FileText, ArrowRight
+  FileText, ArrowRight, ArrowLeft
 } from "lucide-react"
 import { ResizablePanel } from "./resizable-panel"
 import { cn } from "@/lib/utils"
@@ -625,7 +625,7 @@ export function EmailScreenV2() {
               <AlertCircle className="w-4 h-4" />
               {error}
               <button onClick={() => setError(null)} className="ml-auto">
-                <X className="w-4 h-4" />
+                <ArrowLeft className="w-4 h-4" />
               </button>
             </div>
           )}

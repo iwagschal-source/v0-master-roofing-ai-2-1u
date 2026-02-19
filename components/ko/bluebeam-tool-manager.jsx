@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react"
 import {
-  X, Search, Loader2, AlertCircle, CheckCircle2,
+  Search, Loader2, AlertCircle, CheckCircle2,
   Wrench, Eye, Palette, Copy, Plus, ArrowLeft,
   Ruler, Hash, Square, Hexagon, Filter, Save,
   AlertTriangle, ChevronDown, ChevronRight, Pencil
@@ -274,7 +274,7 @@ export function BluebeamToolManager({ isOpen, onClose, onSuccess, initialView })
               </span>
             )}
           </div>
-          <button onClick={onClose} className="p-2 hover:bg-stone-700 rounded"><X size={20} /></button>
+          <button onClick={onClose} className="p-2 hover:bg-stone-700 rounded"><ArrowLeft size={20} /></button>
         </div>
 
         {/* Tab bar + Filters */}

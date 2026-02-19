@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { X, ExternalLink, FileText, BarChart2, Users, Mail, File, FileSpreadsheet, Loader2 } from "lucide-react"
+import { ArrowLeft, ExternalLink, FileText, BarChart2, Users, Mail, File, FileSpreadsheet, Loader2 } from "lucide-react"
 import { api } from "@/lib/api/client"
 
 const TYPE_ICONS = {
@@ -173,7 +173,7 @@ export function SourceViewer({ item, onClose }) {
             className="p-2 text-muted-foreground hover:text-foreground hover:bg-muted rounded-lg transition-colors"
             aria-label="Close viewer"
           >
-            <X className="w-5 h-5" />
+            <ArrowLeft className="w-5 h-5" />
           </button>
         </div>
       </div>

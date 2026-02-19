@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { X, Copy, ArrowRight, Loader2, AlertCircle, CheckCircle } from "lucide-react"
+import { ArrowLeft, Copy, ArrowRight, Loader2, AlertCircle, CheckCircle } from "lucide-react"
 import { AgentModelIcon } from "./agent-model-icon"
 
 export function CloneAgentModal({ agent, isOpen, onClose, onClone }) {
@@ -168,7 +168,7 @@ export function CloneAgentModal({ agent, isOpen, onClose, onClone }) {
             Clone Agent
           </h2>
           <button onClick={onClose} className="p-1 hover:bg-secondary rounded">
-            <X size={20} />
+            <ArrowLeft size={20} />
           </button>
         </div>
 

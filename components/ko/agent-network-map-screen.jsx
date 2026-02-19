@@ -12,7 +12,6 @@ import {
   Filter,
   AlertTriangle,
   Activity,
-  X,
 } from "lucide-react"
 import { agents, statusConfig, connectionTypes, getAllConnections, getBottlenecks } from "@/data/agent-data"
 import { AgentModelIcon, StatusDot, QueueIndicator } from "./agent-model-icon"
@@ -894,7 +893,7 @@ export function AgentNetworkMapScreen({ onBack, onSelectAgent }) {
                   className="ml-2 text-red-400 hover:text-red-300"
                   title="Dismiss"
                 >
-                  <X size={14} />
+                  <ArrowLeft size={14} />
                 </button>
               </div>
             )}
@@ -1198,7 +1197,7 @@ export function AgentNetworkMapScreen({ onBack, onSelectAgent }) {
                 onClick={() => setSelectedNode(null)}
                 className="p-1 hover:bg-secondary rounded"
               >
-                <X size={16} />
+                <ArrowLeft size={16} />
               </button>
             </div>
 

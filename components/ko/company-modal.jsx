@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { X, Loader2, Trash2, AlertTriangle } from "lucide-react"
+import { ArrowLeft, Loader2, Trash2, AlertTriangle } from "lucide-react"
 
 /**
  * Modal for creating and editing companies
@@ -153,7 +153,7 @@ export function CompanyModal({ isOpen, onClose, onSuccess, company }) {
             onClick={onClose}
             className="p-1 hover:bg-secondary rounded-lg transition-colors"
           >
-            <X className="w-5 h-5 text-muted-foreground" />
+            <ArrowLeft className="w-5 h-5 text-muted-foreground" />
           </button>
         </div>
 

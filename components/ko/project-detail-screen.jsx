@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect, useRef } from "react"
-import { ArrowLeft, Calendar, DollarSign, Building2, ExternalLink, Loader2, Mail, Paperclip, RefreshCw, Upload, FolderOpen, File, FileText, Image, Trash2, Download, Eye, Send, Sparkles, Check, FileSpreadsheet, CheckCircle2, AlertCircle, X } from "lucide-react"
+import { ArrowLeft, Calendar, DollarSign, Building2, ExternalLink, Loader2, Mail, Paperclip, RefreshCw, Upload, FolderOpen, File, FileText, Image, Trash2, Download, Eye, Send, Sparkles, Check, FileSpreadsheet, CheckCircle2, AlertCircle } from "lucide-react"
 import { GCBriefWithChat } from "./gc-brief-with-chat"
 import { ResizablePanel } from "./resizable-panel"
 import { cn } from "@/lib/utils"
@@ -584,7 +584,7 @@ Master Roofing & Siding`)
                     onClick={() => setBluebeamResult(null)}
                     className="p-1 hover:bg-secondary rounded transition-colors"
                   >
-                    <X className="w-4 h-4 text-foreground-tertiary" />
+                    <ArrowLeft className="w-4 h-4 text-foreground-tertiary" />
                   </button>
                 </div>
 

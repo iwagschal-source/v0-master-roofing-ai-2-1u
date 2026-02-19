@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useRef } from "react"
-import { Upload, FileText, Download, Loader2, CheckCircle, AlertCircle } from "lucide-react"
+import { Upload, FileText, Download, Loader2, CheckCircle, AlertCircle, ArrowLeft } from "lucide-react"
 
 const BACKEND_URL = process.env.NEXT_PUBLIC_PYTHON_BACKEND_URL || "http://136.111.252.120:8000"
 
@@ -246,7 +246,7 @@ export function ActionButtons({ projectId, sheetId, projectName, onPreviewPropos
             onClick={() => setUploadResult(null)}
             className="text-foreground-tertiary hover:text-foreground p-1"
           >
-            ×
+            <ArrowLeft className="w-4 h-4" />
           </button>
         </div>
       )}

@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { X, Loader2, Building2, User, MapPin } from "lucide-react"
+import { ArrowLeft, Loader2, Building2, User, MapPin } from "lucide-react"
 import { cn } from "@/lib/utils"
 
 /**
@@ -172,7 +172,7 @@ export function CreateProjectModal({ isOpen, onClose, onSuccess }) {
             onClick={onClose}
             className="p-1 rounded hover:bg-secondary transition-colors"
           >
-            <X className="w-5 h-5 text-muted-foreground" />
+            <ArrowLeft className="w-5 h-5 text-muted-foreground" />
           </button>
         </div>
 

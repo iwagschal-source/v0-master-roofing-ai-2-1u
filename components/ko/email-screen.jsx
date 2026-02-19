@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Mail, Send, Plus, RefreshCw, Search, Loader2, X, Paperclip, AlertCircle, ExternalLink, LogOut, Check } from "lucide-react"
+import { Mail, Send, Plus, RefreshCw, Search, Loader2, ArrowLeft, Paperclip, AlertCircle, ExternalLink, LogOut, Check } from "lucide-react"
 import { useGmail } from "@/hooks/useGmail"
 import { useGoogleAuth } from "@/hooks/useGoogleAuth"
 
@@ -384,7 +384,7 @@ export function EmailScreen() {
                 onClick={() => setShowCompose(false)}
                 className="p-1.5 hover:bg-muted rounded-lg transition-colors text-foreground-secondary hover:text-foreground"
               >
-                <X className="w-5 h-5" />
+                <ArrowLeft className="w-5 h-5" />
               </button>
             </div>
 

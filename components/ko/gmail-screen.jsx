@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from "react"
 import {
-  Mail, Send, Plus, RefreshCw, Search, Loader2, X,
+  Mail, Send, Plus, RefreshCw, Search, Loader2, ArrowLeft,
   AlertCircle, ExternalLink, LogOut, Check, Sparkles,
   MessageSquare, FileText, Paperclip, FolderOpen, ChevronDown
 } from "lucide-react"
@@ -979,7 +979,7 @@ function ComposeModal({ isOpen, onClose, onSend, sending, error }) {
             onClick={handleClose}
             className="p-1.5 hover:bg-muted rounded-lg transition-colors text-muted-foreground hover:text-foreground"
           >
-            <X className="w-5 h-5" />
+            <ArrowLeft className="w-5 h-5" />
           </button>
         </div>
 

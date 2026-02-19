@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useRef, useEffect, useCallback } from "react"
-import { Bot, ChevronDown, ChevronUp, Send, Loader2, X, Maximize2, Bell, BellOff, Sparkles } from "lucide-react"
+import { Bot, ChevronDown, ChevronUp, Send, Loader2, ArrowLeft, Maximize2, Bell, BellOff, Sparkles } from "lucide-react"
 import { useWebSocketChat } from "@/hooks/useKOPrimeChat"
 import { PhaseTracker } from "./phase-tracker"
 
@@ -186,7 +186,7 @@ export function MiniKOChat({ onMaximize }) {
                 onClick={() => dismissAlert(alert.id)}
                 className="p-1 hover:bg-muted rounded"
               >
-                <X className="w-3 h-3 text-foreground-secondary" />
+                <ArrowLeft className="w-3 h-3 text-foreground-secondary" />
               </button>
             </div>
           </div>
@@ -262,7 +262,7 @@ export function MiniKOChat({ onMaximize }) {
             className="p-1.5 hover:bg-muted rounded-lg transition-colors"
             title="Close"
           >
-            <X size={14} className="text-foreground-secondary" />
+            <ArrowLeft size={14} className="text-foreground-secondary" />
           </button>
         </div>
       </div>

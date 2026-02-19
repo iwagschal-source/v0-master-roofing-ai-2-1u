@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { MessageSquare, Trash2, X } from "lucide-react";
+import { MessageSquare, Trash2, ArrowLeft } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { useChat } from "@/hooks/useChat";
 
@@ -53,7 +53,7 @@ function ConfirmDialog({ isOpen, onClose, onConfirm, item }) {
           onClick={onClose}
           className="absolute top-4 right-4 text-muted-foreground hover:text-foreground"
         >
-          <X className="w-4 h-4" />
+          <ArrowLeft className="w-4 h-4" />
         </button>
 
         {/* Content */}
