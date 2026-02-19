@@ -2,13 +2,11 @@
 
 import * as React from "react"
 
-import { useState, useCallback, useEffect, useRef, useMemo } from "react"
-import { MessageInput } from "./message-input"
-import { VoiceIndicator } from "./voice-indicator"
+import { useState, useCallback, useEffect, useRef } from "react"
 import { useVoiceWebSocket } from "@/hooks/useVoiceWebSocket"
 import { useSession } from "next-auth/react"
-import { FOLDER_ICONS, FOLDER_ICON_COLORS } from "@/lib/brand-colors"
-import { ArrowLeft } from "lucide-react"
+import { FOLDER_ICONS } from "@/lib/brand-colors"
+import { ArrowLeft, Plus, Send } from "lucide-react"
 
 const CATEGORIES = [
   { key: "drawings",  label: "Drawings",  bg: "#f0f0f0", border: "#333333" },
@@ -22,18 +20,14 @@ const CATEGORIES = [
 function getGreeting(firstName) {
   const now = new Date()
   const hour = now.getHours()
-  const day = now.getDay() // 0=Sun, 1=Mon, ..., 5=Fri, 6=Sat
+  const day = now.getDay()
   const dayNames = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"]
   const name = firstName || "there"
 
-  // Friday always gets "Happy Friday"
   if (day === 5) return `Happy Friday, ${name}`
-  // Monday always gets "Happy Monday"
   if (day === 1) return `Happy Monday, ${name}`
 
-  // Time-based greetings
   if (hour >= 5 && hour < 12) {
-    // Morning: sometimes "Good Morning", sometimes "Happy [Day]"
     if (Math.random() > 0.5) return `Happy ${dayNames[day]}, ${name}`
     return `Good Morning, ${name}`
   }
@@ -41,7 +35,6 @@ function getGreeting(firstName) {
     if (Math.random() > 0.5) return `Happy ${dayNames[day]}, ${name}`
     return `Good Afternoon, ${name}`
   }
-  // Evening / Night
   if (Math.random() > 0.5) return `Happy ${dayNames[day]}, ${name}`
   return `Good Evening, ${name}`
 }
@@ -61,42 +54,20 @@ export function HomeScreen({
   const { data: session } = useSession()
   const firstName = session?.user?.name?.split(" ")[0] || ""
 
-  const [isVoiceEnabled, setIsVoiceEnabled] = useState(false)
-  const [screenMode, setScreenMode] = useState("chat") // "chat" | "category"
+  const [screenMode, setScreenMode] = useState("chat")
   const [selectedCategory, setSelectedCategory] = useState(null)
   const [recentFiles, setRecentFiles] = useState({})
   const [loadingFiles, setLoadingFiles] = useState(null)
+  const [inputValue, setInputValue] = useState("")
+  const iconsRowRef = useRef(null)
 
-  // Stable greeting — only recompute on mount or when firstName changes
   const [greeting, setGreeting] = useState("")
   useEffect(() => {
     setGreeting(getGreeting(firstName))
   }, [firstName])
 
-  const {
-    isConnected: isVoiceConnected,
-    isRecording,
-    audioLevel,
-    transcript,
-    isTranscribing,
-    streamingText: voiceStreamingText,
-    isStreaming: isVoiceStreaming,
-    isComplete: isVoiceComplete,
-    error: voiceError,
-    connect: connectVoice,
-    startVoice,
-    stopVoice,
-  } = useVoiceWebSocket()
-
-  useEffect(() => {
-    if (transcript && !isTranscribing && !isRecording) {
-      onSubmit?.(transcript)
-    }
-  }, [transcript, isTranscribing, isRecording, onSubmit])
-
   const handleCategoryClick = async (key) => {
     if (screenMode === "category" && selectedCategory === key) {
-      // Same icon clicked — back to chat
       setScreenMode("chat")
       setSelectedCategory(null)
       return
@@ -104,7 +75,6 @@ export function HomeScreen({
     setScreenMode("category")
     setSelectedCategory(key)
 
-    // Load recent files if not cached
     if (!recentFiles[key]) {
       setLoadingFiles(key)
       try {
@@ -137,55 +107,44 @@ export function HomeScreen({
     setSelectedCategory(null)
   }
 
-  const handleMicToggle = useCallback(async () => {
-    try {
-      if (isRecording) {
-        stopVoice()
-      } else {
-        if (!isVoiceEnabled) {
-          setIsVoiceEnabled(true)
-        }
-        if (!isVoiceConnected) {
-          connectVoice()
-          await new Promise(resolve => setTimeout(resolve, 500))
-        }
-        await startVoice()
-      }
-    } catch (err) {
-      console.error('[Voice] Mic error:', err)
+  const handleSubmit = () => {
+    const text = inputValue.trim()
+    if (!text) return
+    setInputValue("")
+    onSubmit?.(text)
+  }
+
+  const handleKeyDown = (e) => {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault()
+      handleSubmit()
     }
-  }, [isRecording, isVoiceEnabled, isVoiceConnected, connectVoice, startVoice, stopVoice])
+  }
 
   const activeCat = selectedCategory
     ? CATEGORIES.find(c => c.key === selectedCategory)
     : null
 
-  // Screen border color based on mode
+  // Screen border/bg based on mode
   const screenBorderColor = screenMode === "category" && activeCat
     ? activeCat.border
-    : "rgba(0,0,0,0.08)"
+    : "rgba(0,0,0,0.1)"
   const screenBg = screenMode === "category" && activeCat
     ? activeCat.bg
-    : "#fff"
+    : "transparent"
 
   return (
     <div className="flex flex-col h-full bg-background">
-      <VoiceIndicator
-        isRecording={isRecording}
-        audioLevel={audioLevel}
-        transcript={transcript}
-        isTranscribing={isTranscribing}
-      />
-      <div className="flex-1 flex flex-col items-center px-8 pt-8 pb-4 overflow-hidden">
+      <div className="flex-1 flex flex-col items-center justify-center px-8">
         {/* Dynamic Greeting */}
-        <div className="flex flex-col items-center mb-6">
+        <div className="flex flex-col items-center mb-8">
           <h2 className="text-xl font-medium text-foreground text-center text-balance">
             {greeting}
           </h2>
         </div>
 
-        {/* 5 Category Icon Buttons */}
-        <div className="flex flex-wrap justify-center gap-4 max-w-2xl mb-6">
+        {/* 5 Category Icon Buttons — ref to measure width */}
+        <div ref={iconsRowRef} className="inline-flex flex-wrap justify-center gap-4 mb-4">
           {CATEGORIES.map((cat) => {
             const isActive = screenMode === "category" && selectedCategory === cat.key
             return (
@@ -216,22 +175,26 @@ export function HomeScreen({
           })}
         </div>
 
-        {/* ===== MAIN INTERACTION SCREEN ===== */}
+        {/* ===== MAIN INTERACTION SCREEN =====
+            Matches icon row: same width, same border style, same border-radius */}
         <div
-          className="flex-1 w-full max-w-3xl flex flex-col overflow-hidden transition-all duration-300"
+          className="transition-all duration-300 overflow-hidden"
           style={{
+            /* Match the icon row width — uses the same inline-flex parent width */
+            width: "100%",
+            maxWidth: "calc(5 * 96px + 4 * 16px)", /* 5 icon boxes (~96px each) + 4 gaps (16px) */
+            minHeight: "68px",
             borderRadius: "16px",
-            border: `1.5px solid ${screenBorderColor}`,
+            border: `1px solid ${screenBorderColor}`,
             backgroundColor: screenBg,
-            boxShadow: "0 4px 20px rgba(0,0,0,0.06), 0 1px 4px rgba(0,0,0,0.04)",
           }}
         >
           {screenMode === "category" && activeCat ? (
             /* ===== MODE B: CATEGORY FILE BROWSER ===== */
-            <div className="flex flex-col h-full">
+            <div className="flex flex-col">
               {/* Category header */}
               <div
-                className="flex items-center gap-3 px-5 py-3"
+                className="flex items-center gap-3 px-4 py-2.5"
                 style={{ borderBottom: `1px solid ${activeCat.border}22` }}
               >
                 <button
@@ -244,13 +207,13 @@ export function HomeScreen({
                 <img
                   src={FOLDER_ICONS[activeCat.key]}
                   alt=""
-                  width={24}
-                  height={24}
+                  width={20}
+                  height={20}
                   style={{ mixBlendMode: 'multiply' }}
                   draggable={false}
                 />
                 <span
-                  className="text-sm font-bold tracking-wider uppercase"
+                  className="text-xs font-bold tracking-wider uppercase"
                   style={{ color: activeCat.border }}
                 >
                   Recent {activeCat.label}
@@ -258,23 +221,23 @@ export function HomeScreen({
               </div>
 
               {/* File list */}
-              <div className="flex-1 overflow-y-auto py-2 scroll-feed">
+              <div className="max-h-[260px] overflow-y-auto py-1 scroll-feed">
                 {loadingFiles === selectedCategory ? (
-                  <div className="px-5 py-8 text-center">
-                    <span className="text-sm text-muted-foreground">Loading...</span>
+                  <div className="px-4 py-6 text-center">
+                    <span className="text-xs text-muted-foreground">Loading...</span>
                   </div>
                 ) : (recentFiles[selectedCategory] || []).length > 0 ? (
                   (recentFiles[selectedCategory] || []).map((file) => (
                     <button
                       key={file.id}
                       onClick={() => handleFileClick(file)}
-                      className="w-full flex flex-col gap-0.5 px-5 py-3 text-left transition-colors hover:bg-black/[0.04] cursor-pointer"
+                      className="w-full flex flex-col gap-0.5 px-4 py-2 text-left transition-colors hover:bg-black/[0.04] cursor-pointer"
                     >
                       <span className="text-sm text-foreground truncate hover:underline">
                         {file.name}
                       </span>
                       <div className="flex items-center gap-2">
-                        <span className="text-xs text-muted-foreground truncate">
+                        <span className="text-[10px] text-muted-foreground truncate">
                           {file.projectName}
                         </span>
                         {file.modifiedTime && (
@@ -286,73 +249,43 @@ export function HomeScreen({
                     </button>
                   ))
                 ) : (
-                  <div className="px-5 py-8 text-center">
-                    <span className="text-sm text-muted-foreground">No recent files</span>
+                  <div className="px-4 py-6 text-center">
+                    <span className="text-xs text-muted-foreground">No recent files</span>
                   </div>
                 )}
               </div>
             </div>
           ) : (
-            /* ===== MODE A: AGENT CHAT ===== */
-            <div className="flex flex-col h-full">
-              {/* Chat messages area */}
-              <div className="flex-1 overflow-y-auto px-5 py-4 scroll-feed">
-                {savedConversations.length > 0 && messages?.length === 0 ? (
-                  /* Show recent conversation previews as starting point */
-                  <div className="flex flex-col items-center justify-center h-full gap-3">
-                    <img
-                      src="/images/logo-light.png"
-                      alt="KO"
-                      className="w-10 h-10 opacity-20"
-                      draggable={false}
-                    />
-                    <span className="text-sm text-muted-foreground/60">Ask KO anything</span>
-                  </div>
-                ) : messages?.length > 0 ? (
-                  /* Render chat messages */
-                  <div className="space-y-3">
-                    {messages.map((msg, i) => (
-                      <div
-                        key={i}
-                        className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}
-                      >
-                        <div
-                          className={`max-w-[80%] rounded-xl px-4 py-2.5 text-sm leading-relaxed ${
-                            msg.role === "user"
-                              ? "bg-primary text-primary-foreground"
-                              : "bg-secondary text-foreground"
-                          }`}
-                        >
-                          {msg.content}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="flex flex-col items-center justify-center h-full gap-3">
-                    <img
-                      src="/images/logo-light.png"
-                      alt="KO"
-                      className="w-10 h-10 opacity-20"
-                      draggable={false}
-                    />
-                    <span className="text-sm text-muted-foreground/60">Ask KO anything</span>
-                  </div>
-                )}
-              </div>
+            /* ===== MODE A: CHAT INPUT ===== */
+            <div className="flex items-center gap-2 px-3 py-3">
+              {/* + button */}
+              <button
+                onClick={() => onNewConversation?.()}
+                className="shrink-0 p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-secondary/60 transition-colors"
+                title="New conversation"
+              >
+                <Plus className="w-4 h-4" />
+              </button>
 
-              {/* Chat input — INSIDE the screen */}
-              <div className="px-4 py-3" style={{ borderTop: "1px solid rgba(0,0,0,0.06)" }}>
-                <MessageInput
-                  onSubmit={onSubmit}
-                  isRecording={isRecording}
-                  onMicToggle={handleMicToggle}
-                  isVoiceEnabled={isVoiceEnabled}
-                  onToggleVoice={() => setIsVoiceEnabled(!isVoiceEnabled)}
-                  isThinking={isRecording}
-                  placeholder="Ask KO..."
-                />
-              </div>
+              {/* Text input */}
+              <input
+                type="text"
+                value={inputValue}
+                onChange={(e) => setInputValue(e.target.value)}
+                onKeyDown={handleKeyDown}
+                placeholder="Ask KO..."
+                className="flex-1 text-sm bg-transparent border-none outline-none text-foreground placeholder:text-muted-foreground/50"
+              />
+
+              {/* Send button — only visible when there's input */}
+              {inputValue.trim() && (
+                <button
+                  onClick={handleSubmit}
+                  className="shrink-0 p-1.5 rounded-lg text-primary hover:bg-primary/10 transition-colors"
+                >
+                  <Send className="w-4 h-4" />
+                </button>
+              )}
             </div>
           )}
         </div>

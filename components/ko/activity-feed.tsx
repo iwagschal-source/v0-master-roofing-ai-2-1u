@@ -15,8 +15,10 @@ export interface ActivityEvent {
 
 interface ActivityFeedProps {
   events: ActivityEvent[]
-  /** Scroll speed in pixels per second (default 20) */
-  speed?: number
+  /** Milliseconds per character (default 25) */
+  charDelay?: number
+  /** Pause between events in ms (default 1500) */
+  pauseBetween?: number
 }
 
 const SOURCE_COLORS: Record<string, { bg: string; text: string }> = {
@@ -25,37 +27,6 @@ const SOURCE_COLORS: Record<string, { bg: string; text: string }> = {
   zoom:    { bg: "#e3f2fd", text: "#2d8cff" },
   system:  { bg: "#e8eaf6", text: "#5c6bc0" },
   manual:  { bg: "#f5f5f5", text: "#666" },
-}
-
-/** Simple markdown -> HTML for small screen context */
-function renderMarkdown(md: string): string {
-  let html = md
-    .replace(/^## (.+)$/gm, '<div style="font-weight:700;font-size:10px;margin:4px 0 2px">$1</div>')
-    .replace(/^# (.+)$/gm, '<div style="font-weight:700;font-size:11px;margin:4px 0 2px">$1</div>')
-    .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
-    .replace(/\*(.+?)\*/g, '<em>$1</em>')
-    .replace(/^- (.+)$/gm, '<div style="padding-left:8px">&bull; $1</div>')
-    .replace(/\n/g, '<br/>')
-
-  if (html.includes('|')) {
-    html = html.replace(
-      /(<br\/>)?\|(.+)\|(<br\/>)\|[-| ]+\|(<br\/>)((?:\|.+\|(?:<br\/>)?)+)/g,
-      (_match, _br1, headerRow, _br2, _sep, bodyRows) => {
-        const headers = headerRow.split('|').map((h: string) => h.trim()).filter(Boolean)
-        const rows = bodyRows.split('<br/>').filter((r: string) => r.includes('|'))
-        let table = '<table style="font-size:8px;border-collapse:collapse;width:100%;margin:4px 0">'
-        table += '<tr>' + headers.map((h: string) => `<th style="text-align:left;padding:1px 4px;border-bottom:1px solid #ddd;font-weight:600">${h}</th>`).join('') + '</tr>'
-        for (const row of rows) {
-          const cells = row.split('|').map((c: string) => c.trim()).filter(Boolean)
-          table += '<tr>' + cells.map((c: string) => `<td style="padding:1px 4px;border-bottom:1px solid #eee">${c}</td>`).join('') + '</tr>'
-        }
-        table += '</table>'
-        return table
-      }
-    )
-  }
-
-  return html
 }
 
 /** Relative time display */
@@ -72,121 +43,138 @@ function timeAgo(ts: string): string {
   return new Date(ts).toLocaleDateString("en-US", { month: "short", day: "numeric" })
 }
 
-/** Render a single event block */
-function EventBlock({ event }: { event: ActivityEvent }) {
-  const sourceStyle = SOURCE_COLORS[event.source || ""] || SOURCE_COLORS.manual
-
-  return (
-    <div className="flex flex-col gap-1 py-2">
-      {/* Headline */}
-      <span className="text-[10px] font-semibold leading-snug text-[#222]">
-        {event.headline}
-      </span>
-
-      {/* Meta row: source badge + timestamp */}
-      <div className="flex items-center gap-1.5">
-        {event.source && (
-          <span
-            className="text-[7px] font-bold uppercase tracking-wider rounded-full px-1.5 py-[1px] leading-none"
-            style={{ backgroundColor: sourceStyle.bg, color: sourceStyle.text }}
-          >
-            {event.source}
-          </span>
-        )}
-        <span className="text-[8px] text-[#aaa]">
-          {timeAgo(event.timestamp)}
-        </span>
-      </div>
-
-      {/* Body (markdown rendered) */}
-      {event.body && (
-        <div
-          className="text-[9px] leading-snug text-[#555] mt-0.5 overflow-hidden"
-          dangerouslySetInnerHTML={{ __html: renderMarkdown(event.body) }}
-        />
-      )}
-    </div>
-  )
+/**
+ * Build the full text sequence for an event:
+ * HEADLINE\n[SOURCE] timestamp\nbody
+ */
+function buildEventText(event: ActivityEvent): string {
+  let text = event.headline
+  const meta: string[] = []
+  if (event.source) meta.push(`[${event.source.toUpperCase()}]`)
+  meta.push(timeAgo(event.timestamp))
+  text += "\n" + meta.join(" ")
+  if (event.body) {
+    text += "\n" + event.body
+  }
+  return text
 }
 
-/** Divider between events */
-function EventDivider() {
-  return (
-    <div
-      className="w-full"
-      style={{ height: "1px", background: "linear-gradient(90deg, transparent, #e0ddd8 30%, #e0ddd8 70%, transparent)" }}
-    />
-  )
-}
-
-export function ActivityFeed({ events, speed = 20 }: ActivityFeedProps) {
+export function ActivityFeed({
+  events,
+  charDelay = 25,
+  pauseBetween = 1500,
+}: ActivityFeedProps) {
   const containerRef = useRef<HTMLDivElement>(null)
-  const innerRef = useRef<HTMLDivElement>(null)
-  const animRef = useRef<number>(0)
+  const [displayedBlocks, setDisplayedBlocks] = useState<
+    { eventIndex: number; text: string; done: boolean }[]
+  >([])
   const isPaused = useRef(false)
-  const resumeTimer = useRef<NodeJS.Timeout | null>(null)
-  const lastFrame = useRef<number>(0)
-  const manualScrolling = useRef(false)
-  const manualTimer = useRef<NodeJS.Timeout | null>(null)
+  const timerRef = useRef<NodeJS.Timeout | null>(null)
+  const stateRef = useRef({
+    eventIdx: 0,
+    charIdx: 0,
+    fullText: "",
+    phase: "idle" as "streaming" | "pausing" | "idle",
+  })
 
-  // Scroll animation loop
-  const animate = useCallback((time: number) => {
-    const container = containerRef.current
-    const inner = innerRef.current
-    if (!container || !inner) {
-      animRef.current = requestAnimationFrame(animate)
-      return
+  // Cleanup
+  useEffect(() => {
+    return () => {
+      if (timerRef.current) clearInterval(timerRef.current)
     }
+  }, [])
 
-    if (!isPaused.current && !manualScrolling.current) {
-      const dt = lastFrame.current ? (time - lastFrame.current) / 1000 : 0
-      const delta = speed * Math.min(dt, 0.1) // cap to avoid jumps on tab-switch
+  // Main streaming engine
+  useEffect(() => {
+    if (events.length === 0) return
 
-      container.scrollTop += delta
+    // Initialize first event
+    const s = stateRef.current
+    s.eventIdx = 0
+    s.charIdx = 0
+    s.fullText = buildEventText(events[0])
+    s.phase = "streaming"
+    setDisplayedBlocks([{ eventIndex: 0, text: "", done: false }])
 
-      // Seamless loop: content is duplicated, so when we scroll past the first copy, jump back
-      const halfHeight = inner.scrollHeight / 2
-      if (halfHeight > 0 && container.scrollTop >= halfHeight) {
-        container.scrollTop -= halfHeight
+    const tick = () => {
+      if (isPaused.current) return
+
+      const st = stateRef.current
+
+      if (st.phase === "streaming") {
+        if (st.charIdx < st.fullText.length) {
+          st.charIdx++
+          const partial = st.fullText.slice(0, st.charIdx)
+
+          setDisplayedBlocks((prev) => {
+            const updated = [...prev]
+            const last = updated[updated.length - 1]
+            if (last) {
+              updated[updated.length - 1] = { ...last, text: partial }
+            }
+            return updated
+          })
+
+          // Auto-scroll to bottom
+          requestAnimationFrame(() => {
+            const el = containerRef.current
+            if (el) el.scrollTop = el.scrollHeight
+          })
+        } else {
+          // Event done streaming — mark done, start pause
+          setDisplayedBlocks((prev) => {
+            const updated = [...prev]
+            const last = updated[updated.length - 1]
+            if (last) updated[updated.length - 1] = { ...last, done: true }
+            return updated
+          })
+          st.phase = "pausing"
+          // Pause before next event
+          if (timerRef.current) clearInterval(timerRef.current)
+          timerRef.current = setTimeout(() => {
+            const next = (st.eventIdx + 1) % events.length
+            if (next === 0) {
+              // Loop: clear screen and restart
+              st.eventIdx = 0
+              st.charIdx = 0
+              st.fullText = buildEventText(events[0])
+              st.phase = "streaming"
+              setDisplayedBlocks([{ eventIndex: 0, text: "", done: false }])
+            } else {
+              st.eventIdx = next
+              st.charIdx = 0
+              st.fullText = buildEventText(events[next])
+              st.phase = "streaming"
+              setDisplayedBlocks((prev) => [
+                ...prev,
+                { eventIndex: next, text: "", done: false },
+              ])
+            }
+            // Restart interval
+            timerRef.current = setInterval(tick, charDelay)
+          }, pauseBetween)
+          return
+        }
       }
     }
 
-    lastFrame.current = time
-    animRef.current = requestAnimationFrame(animate)
-  }, [speed])
+    timerRef.current = setInterval(tick, charDelay)
 
-  useEffect(() => {
-    if (events.length === 0) return
-    animRef.current = requestAnimationFrame(animate)
     return () => {
-      cancelAnimationFrame(animRef.current)
-      if (resumeTimer.current) clearTimeout(resumeTimer.current)
-      if (manualTimer.current) clearTimeout(manualTimer.current)
+      if (timerRef.current) {
+        clearInterval(timerRef.current)
+        clearTimeout(timerRef.current)
+      }
     }
-  }, [events.length, animate])
+  }, [events, charDelay, pauseBetween])
 
-  // Hover: pause / resume after 2s
+  // Hover pause
   const handleMouseEnter = useCallback(() => {
     isPaused.current = true
-    if (resumeTimer.current) clearTimeout(resumeTimer.current)
   }, [])
 
   const handleMouseLeave = useCallback(() => {
-    resumeTimer.current = setTimeout(() => {
-      isPaused.current = false
-      lastFrame.current = 0 // reset dt to avoid jump
-    }, 2000)
-  }, [])
-
-  // Manual scroll detection: pause auto-scroll, resume after 2s of inactivity
-  const handleScroll = useCallback(() => {
-    if (isPaused.current) return // hovering, ignore
-    manualScrolling.current = true
-    if (manualTimer.current) clearTimeout(manualTimer.current)
-    manualTimer.current = setTimeout(() => {
-      manualScrolling.current = false
-      lastFrame.current = 0
-    }, 2000)
+    isPaused.current = false
   }, [])
 
   if (events.length === 0) {
@@ -197,34 +185,83 @@ export function ActivityFeed({ events, speed = 20 }: ActivityFeedProps) {
     )
   }
 
-  // Render events twice for seamless infinite scroll
-  const renderEvents = () =>
-    events.map((event, i) => (
-      <div key={event.id + "-" + i}>
-        <EventBlock event={event} />
-        {i < events.length - 1 && <EventDivider />}
-      </div>
-    ))
-
   return (
     <div
       ref={containerRef}
       className="flex-1 overflow-y-auto scroll-feed"
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
-      onScroll={handleScroll}
       style={{ scrollbarGutter: "stable" }}
     >
-      <div ref={innerRef}>
-        {/* First copy */}
-        {renderEvents()}
-        {/* Spacer between copies */}
-        <div style={{ height: "20px" }} />
-        <EventDivider />
-        <div style={{ height: "20px" }} />
-        {/* Second copy for seamless loop */}
-        {renderEvents()}
-      </div>
+      {displayedBlocks.map((block, i) => {
+        const event = events[block.eventIndex]
+        if (!event) return null
+        const sourceStyle =
+          SOURCE_COLORS[event.source || ""] || SOURCE_COLORS.manual
+
+        // Split the streamed text into lines
+        const lines = block.text.split("\n")
+        const headlineLine = lines[0] || ""
+        const metaLine = lines[1] || ""
+        const bodyLines = lines.slice(2).join("\n")
+
+        return (
+          <div key={`${block.eventIndex}-${i}`}>
+            {i > 0 && (
+              <div
+                className="w-full my-2"
+                style={{
+                  height: "1px",
+                  background:
+                    "linear-gradient(90deg, transparent, #e0ddd8 30%, #e0ddd8 70%, transparent)",
+                }}
+              />
+            )}
+            <div className="flex flex-col gap-0.5 py-1">
+              {/* Headline — streams in bold */}
+              <span className="text-[10px] font-semibold leading-snug text-[#222]">
+                {headlineLine}
+                {!block.done && lines.length <= 1 && (
+                  <span className="inline-block w-[1px] h-[10px] bg-[#d7403a] ml-[1px] animate-pulse" />
+                )}
+              </span>
+
+              {/* Meta line: source badge + timestamp */}
+              {metaLine && (
+                <div className="flex items-center gap-1.5">
+                  {event.source && metaLine.includes(`[${event.source.toUpperCase()}]`) && (
+                    <span
+                      className="text-[7px] font-bold uppercase tracking-wider rounded-full px-1.5 py-[1px] leading-none"
+                      style={{
+                        backgroundColor: sourceStyle.bg,
+                        color: sourceStyle.text,
+                      }}
+                    >
+                      {event.source}
+                    </span>
+                  )}
+                  <span className="text-[8px] text-[#aaa]">
+                    {timeAgo(event.timestamp)}
+                  </span>
+                  {!block.done && lines.length === 2 && (
+                    <span className="inline-block w-[1px] h-[8px] bg-[#d7403a] ml-[1px] animate-pulse" />
+                  )}
+                </div>
+              )}
+
+              {/* Body — streams character by character */}
+              {bodyLines && (
+                <div className="text-[9px] leading-snug text-[#555] mt-0.5 whitespace-pre-wrap">
+                  {bodyLines}
+                  {!block.done && lines.length > 2 && (
+                    <span className="inline-block w-[1px] h-[9px] bg-[#d7403a] ml-[1px] animate-pulse" />
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+        )
+      })}
     </div>
   )
 }
