@@ -58,7 +58,28 @@ export async function GET(request, { params }) {
       }
     }
 
-    return NextResponse.json({ folders })
+    // Discover custom subfolders (any folder NOT one of the 5 defaults)
+    const CANONICAL_NAMES = ['Drawings', 'Bluebeam', 'Takeoff', 'Markups', 'Proposals']
+    const customFolders = []
+    try {
+      const listRes = await fetch(
+        `https://www.googleapis.com/drive/v3/files?q='${driveFolderId}'+in+parents+and+mimeType='application/vnd.google-apps.folder'+and+trashed=false&fields=files(id,name)&orderBy=name`,
+        { headers: { 'Authorization': `Bearer ${accessToken}` } }
+      )
+      if (listRes.ok) {
+        const listData = await listRes.json()
+        for (const folder of (listData.files || [])) {
+          if (!CANONICAL_NAMES.includes(folder.name)) {
+            const files = await listFilesInFolder(accessToken, folder.id)
+            customFolders.push({ id: folder.id, name: folder.name, files })
+          }
+        }
+      }
+    } catch (customErr) {
+      console.warn('[Folders API] Custom folder scan failed (non-fatal):', customErr.message)
+    }
+
+    return NextResponse.json({ folders, customFolders })
   } catch (err) {
     console.error('[Folders API] Error:', err)
     return NextResponse.json({ error: err.message }, { status: 500 })
