@@ -87,7 +87,7 @@ export function FolderCard({
       {/* ===== FOLDER TAB ===== */}
       <div
         className="relative w-[45%] max-w-[200px] overflow-hidden"
-        style={{ clipPath: "polygon(4% 100%, 4% 27%, 7.5% 3%, 82.5% 3%, 87.5% 27%, 97.5% 100%)" }}
+        style={{ clipPath: "polygon(2% 100%, 2% 0%, 84% 0%, 89% 27%, 99% 100%)" }}
       >
         <svg
           viewBox="0 0 200 30"
