@@ -19,6 +19,7 @@ export default function ProjectFoldersScreen({ onNavigateToProject }) {
   const [showCreateModal, setShowCreateModal] = useState(false)
   const [folderStatus, setFolderStatus] = useState({}) // projectId → { drawings: bool, ... }
   const [folderFiles, setFolderFiles] = useState({})   // projectId → { drawings: { files: [...] }, ... }
+  const [activityEvents, setActivityEvents] = useState({}) // projectId → ActivityEvent[]
   const [menuOpen, setMenuOpen] = useState(null)        // projectId of open menu
   const [deleteConfirm, setDeleteConfirm] = useState(null) // project to confirm delete
   const [deleting, setDeleting] = useState(false)
@@ -83,6 +84,20 @@ export default function ProjectFoldersScreen({ onNavigateToProject }) {
       // Silently fail
     }
   }, [folderFiles])
+
+  // Lazy-load activity events when a card becomes visible
+  const loadActivityEvents = useCallback(async (projectId) => {
+    if (activityEvents[projectId] !== undefined) return
+    try {
+      const res = await fetch(`/api/ko/project/${projectId}/activity?limit=10`)
+      if (res.ok) {
+        const data = await res.json()
+        setActivityEvents(prev => ({ ...prev, [projectId]: data.events || [] }))
+      }
+    } catch {
+      // Silently fail — card will show "No recent activity"
+    }
+  }, [activityEvents])
 
   // Build folder categories array for a project card
   const buildFolderCategories = (projectId) => {
@@ -255,10 +270,12 @@ export default function ProjectFoldersScreen({ onNavigateToProject }) {
                     key={project.id}
                     project={project}
                     folders={buildFolderCategories(project.id)}
+                    activityEvents={activityEvents[project.id] || []}
                     onVisible={() => {
                       if (project.driveFolderId) {
                         loadFolderStatus(project.id)
                       }
+                      loadActivityEvents(project.id)
                     }}
                     onHoverIcons={() => {
                       if (project.driveFolderId && !folderFiles[project.id]) {
@@ -356,7 +373,7 @@ export default function ProjectFoldersScreen({ onNavigateToProject }) {
 /**
  * Wrapper that uses IntersectionObserver to lazy-load folder status
  */
-function LazyFolderCard({ project, folders, onVisible, onHoverIcons, onFileClick, onCardClick }) {
+function LazyFolderCard({ project, folders, activityEvents, onVisible, onHoverIcons, onFileClick, onCardClick }) {
   const cardRef = useRef(null)
   const hasTriggered = useRef(false)
 
@@ -385,6 +402,7 @@ function LazyFolderCard({ project, folders, onVisible, onHoverIcons, onFileClick
         projectName={project.name}
         clientName={project.companyName}
         folders={folders}
+        activityEvents={activityEvents}
         onFileClick={onFileClick}
         onClick={onCardClick}
       />

@@ -18,7 +18,7 @@ export function FolderCardGrid({ projects, onFileClick, onCardClick }: FolderCar
           projectName={project.projectName}
           clientName={project.clientName}
           folders={project.folders}
-          activity={project.activity}
+          activityEvents={project.activityEvents}
           onFileClick={onFileClick}
           onClick={() => onCardClick?.(project.projectName)}
         />

@@ -8,6 +8,7 @@ import {
   getFileTagColor,
   type CategoryKey,
 } from "./folder-status-icon"
+import { ActivityFeed, type ActivityEvent } from "./activity-feed"
 
 const CATEGORY_ORDER: CategoryKey[] = [
   "drawings",
@@ -22,16 +23,11 @@ export interface FolderCategory {
   files: string[]
 }
 
-export interface ActivityItem {
-  text: string
-  time: string
-}
-
 export interface FolderCardProps {
   projectName: string
   clientName: string
   folders: FolderCategory[]
-  activity?: ActivityItem[]
+  activityEvents?: ActivityEvent[]
   onFileClick?: (category: CategoryKey, fileName: string) => void
   onClick?: () => void
 }
@@ -43,7 +39,7 @@ export function FolderCard({
   projectName,
   clientName,
   folders,
-  activity = [],
+  activityEvents = [],
   onFileClick,
   onClick,
 }: FolderCardProps) {
@@ -51,8 +47,6 @@ export function FolderCard({
     folders.some((f) => f.category === cat)
   ).map((cat) => folders.find((f) => f.category === cat)!)
 
-  const scrollRef = useRef<HTMLDivElement>(null)
-  const [shouldScroll, setShouldScroll] = useState(false)
   const [selectedCategory, setSelectedCategory] = useState<CategoryKey | null>(null)
   const cardRef = useRef<HTMLDivElement>(null)
 
@@ -63,12 +57,6 @@ export function FolderCard({
   const selectedConfig = selectedCategory
     ? CATEGORY_CONFIG[selectedCategory]
     : null
-
-  useEffect(() => {
-    const el = scrollRef.current
-    if (!el) return
-    setShouldScroll(el.scrollHeight > el.clientHeight)
-  }, [activity, selectedCategory])
 
   // Click away to deselect
   useEffect(() => {
@@ -169,10 +157,7 @@ export function FolderCard({
         >
           {/* Scrollable content area */}
           <div
-            ref={scrollRef}
-            className={`flex-1 overflow-y-auto p-3 flex flex-col gap-1 min-h-[60px] max-h-[120px] scroll-feed ${
-              shouldScroll ? "" : ""
-            }`}
+            className="flex-1 overflow-y-auto p-3 flex flex-col gap-1 min-h-[60px] max-h-[120px] scroll-feed"
           >
             {selectedCategory && selectedFolder ? (
               /* ===== CATEGORY FILE LIST VIEW ===== */
@@ -234,20 +219,7 @@ export function FolderCard({
               </>
             ) : (
               /* ===== DEFAULT: ACTIVITY FEED ===== */
-              activity.length > 0 ? (
-                activity.map((item, i) => (
-                  <div key={i} className="flex flex-col">
-                    <span className="text-[9px] leading-snug text-[#444]">
-                      {item.text}
-                    </span>
-                    <span className="text-[8px] text-[#aaa] mt-px">{item.time}</span>
-                  </div>
-                ))
-              ) : (
-                <div className="flex items-center justify-center flex-1">
-                  <span className="text-[10px] text-[#b0ada8]">No recent activity</span>
-                </div>
-              )
+              <ActivityFeed events={activityEvents} />
             )}
           </div>
         </div>
