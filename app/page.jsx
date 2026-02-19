@@ -61,8 +61,9 @@ export default function HomePage() {
   const [showUserAdmin, setShowUserAdmin] = useState(false)
   const [showSales, setShowSales] = useState(false)
   const [showEstimating, setShowEstimating] = useState(false)
+  const [estimatingProjectId, setEstimatingProjectId] = useState(null) // pre-select project in EC
   const [showProjects, setShowProjects] = useState(false)
-  const [selectedFolderProject, setSelectedFolderProject] = useState(null) // { id, name } for detail view
+  const [selectedFolderProject, setSelectedFolderProject] = useState(null) // { id, name, folder?, fileName? } for detail view
   const [showContacts, setShowContacts] = useState(false)
   const [selectedAgent, setSelectedAgent] = useState(null)
   const [showAgentNetwork, setShowAgentNetwork] = useState(false)
@@ -423,15 +424,22 @@ export default function HomePage() {
           ) : showSales ? (
             <SalesDashboard />
           ) : showEstimating ? (
-            <EstimatingCenterScreen />
+            <EstimatingCenterScreen
+              initialProjectId={estimatingProjectId}
+              onProjectLoaded={() => setEstimatingProjectId(null)}
+            />
           ) : showProjects ? (
             selectedFolderProject ? (
               <ProjectFolderDetail
                 projectId={selectedFolderProject.id}
                 projectName={selectedFolderProject.name}
+                initialFolder={selectedFolderProject.folder}
+                initialFileName={selectedFolderProject.fileName}
                 onClose={() => setSelectedFolderProject(null)}
                 onNavigateToEstimating={() => {
+                  const pid = selectedFolderProject?.id
                   setSelectedFolderProject(null)
+                  setEstimatingProjectId(pid || null)
                   handleModeChange('estimating')
                 }}
               />

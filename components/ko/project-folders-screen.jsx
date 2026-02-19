@@ -119,9 +119,9 @@ export default function ProjectFoldersScreen({ onNavigateToProject }) {
     return categories
   }
 
-  const handleFileClick = (category, fileName) => {
-    console.log('Opening file:', category, fileName)
-    // TODO: Navigate to project documents page with file open (Task 6)
+  const handleFileClick = (projectId, projectName, category, fileName) => {
+    // Navigate to project documents page with file pre-selected
+    onNavigateToProject?.({ id: projectId, name: projectName, folder: category, fileName })
   }
 
   const handleDeleteProject = async (project) => {
@@ -282,7 +282,7 @@ export default function ProjectFoldersScreen({ onNavigateToProject }) {
                         loadFolderFiles(project.id)
                       }
                     }}
-                    onFileClick={handleFileClick}
+                    onFileClick={(category, fileName) => handleFileClick(project.id, project.name, category, fileName)}
                     onCardClick={() => onNavigateToProject?.({ id: project.id, name: project.name })}
                   />
                 ))}

@@ -52,7 +52,7 @@ const STATUS_CONFIG = {
   lost: { label: "Lost", color: "bg-red-500", textColor: "text-red-400" }
 }
 
-export function EstimatingCenterScreen() {
+export function EstimatingCenterScreen({ initialProjectId, onProjectLoaded }) {
   // Project state
   const [searchQuery, setSearchQuery] = useState("")
   const [statusFilter, setStatusFilter] = useState("all")
@@ -139,6 +139,17 @@ export function EstimatingCenterScreen() {
   useEffect(() => {
     loadProjects()
   }, [])
+
+  // Auto-select project if initialProjectId is provided
+  useEffect(() => {
+    if (initialProjectId && projects.length > 0 && !selectedProject) {
+      const match = projects.find(p => p.project_id === initialProjectId)
+      if (match) {
+        setSelectedProject(match)
+        onProjectLoaded?.()
+      }
+    }
+  }, [initialProjectId, projects, selectedProject, onProjectLoaded])
 
   // Reset states when project changes
   useEffect(() => {

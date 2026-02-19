@@ -104,7 +104,7 @@ function formatFileSize(bytes) {
  * Project folder detail/expanded view component
  * @param {{projectId: string, projectName: string, onClose: () => void, onNavigateToEstimating?: () => void}} props
  */
-export function ProjectFolderDetail({ projectId, projectName, onClose, onNavigateToEstimating }) {
+export function ProjectFolderDetail({ projectId, projectName, onClose, onNavigateToEstimating, initialFolder, initialFileName }) {
   const { resolvedTheme } = useTheme()
   const isLight = resolvedTheme === "light"
 
@@ -173,6 +173,15 @@ export function ProjectFolderDetail({ projectId, projectName, onClose, onNavigat
         // Auto-expand custom folders with files
         for (const cf of (data.customFolders || [])) {
           if (cf.files?.length > 0) expanded[`custom_${cf.id}`] = true
+        }
+        // Auto-select folder and file if navigated with deep link
+        if (initialFolder && FOLDER_KEYS.includes(initialFolder)) {
+          expanded[initialFolder] = true
+          setSelectedCategory(initialFolder)
+          if (initialFileName && data.folders[initialFolder]?.files) {
+            const matchFile = data.folders[initialFolder].files.find(f => f.name === initialFileName)
+            if (matchFile) setSelectedFile(matchFile)
+          }
         }
         setExpandedFolders(expanded)
         setLoading(false)
