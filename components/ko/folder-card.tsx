@@ -59,7 +59,7 @@ export function FolderCard({
   return (
     <div className="relative group cursor-pointer select-none" onClick={onClick}>
       {/* ===== FOLDER TAB ===== */}
-      <div className="relative w-[45%] max-w-[200px]">
+      <div className="relative w-[45%] max-w-[200px] group-hover:max-w-[90%] group-hover:z-10 transition-[max-width] duration-300 ease-in-out">
         <svg
           viewBox="0 0 200 30"
           className="block w-full h-auto"
@@ -79,7 +79,7 @@ export function FolderCard({
 
         {/* Project name positioned over the tab SVG */}
         <div className="absolute inset-0 flex items-center px-4 pb-[2px]">
-          <span className="text-[12px] font-bold tracking-widest text-[#1a1a1a] font-mono uppercase truncate leading-none">
+          <span className="text-[12px] font-bold tracking-widest text-[#1a1a1a] font-mono uppercase truncate group-hover:whitespace-nowrap leading-none">
             {projectName}
           </span>
         </div>
