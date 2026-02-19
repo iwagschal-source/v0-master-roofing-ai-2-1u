@@ -25,7 +25,7 @@ import {
   Plus,
   FolderPlus,
 } from "lucide-react"
-import { FOLDER_ICON_COLORS, FOLDER_ICONS, FOLDER_ICONS_CLOSED } from "@/lib/brand-colors"
+import { FOLDER_ICON_COLORS, FOLDER_ICONS, FOLDER_ICONS_CLOSED, FOLDER_ICON_CLOSED } from "@/lib/brand-colors"
 
 const FOLDER_KEYS = ['drawings', 'bluebeam', 'takeoff', 'markups', 'proposals']
 const FOLDER_LABELS = { drawings: 'DRAWINGS', bluebeam: 'BLUEBEAM', takeoff: 'TAKEOFF', markups: 'MARKUPS', proposals: 'PROPOSALS' }
@@ -114,7 +114,7 @@ export function ProjectFolderDetail({ projectId, projectName, onClose, onNavigat
   const [error, setError] = useState(null)
   const [needsSetup, setNeedsSetup] = useState(false)
   const [settingUp, setSettingUp] = useState(false)
-  const [expandedFolders, setExpandedFolders] = useState({})
+  const [expandedFolder, setExpandedFolder] = useState(null)
   const [selectedFile, setSelectedFile] = useState(null)
   const [selectedCategory, setSelectedCategory] = useState(null)
   const [uploading, setUploading] = useState(null) // which folder is uploading
@@ -166,24 +166,15 @@ export function ProjectFolderDetail({ projectId, projectName, onClose, onNavigat
         if (!data) return
         setFolders(data.folders)
         setCustomFolders(data.customFolders || [])
-        const expanded = {}
-        for (const key of FOLDER_KEYS) {
-          if (data.folders[key]?.files?.length > 0) expanded[key] = true
-        }
-        // Auto-expand custom folders with files
-        for (const cf of (data.customFolders || [])) {
-          if (cf.files?.length > 0) expanded[`custom_${cf.id}`] = true
-        }
-        // Auto-select folder and file if navigated with deep link
+        // All folders collapsed by default — only expand if deep link provided
         if (initialFolder && FOLDER_KEYS.includes(initialFolder)) {
-          expanded[initialFolder] = true
+          setExpandedFolder(initialFolder)
           setSelectedCategory(initialFolder)
           if (initialFileName && data.folders[initialFolder]?.files) {
             const matchFile = data.folders[initialFolder].files.find(f => f.name === initialFileName)
             if (matchFile) setSelectedFile(matchFile)
           }
         }
-        setExpandedFolders(expanded)
         setLoading(false)
       })
       .catch(err => {
@@ -245,10 +236,10 @@ export function ProjectFolderDetail({ projectId, projectName, onClose, onNavigat
   }
 
   const toggleFolder = (key) => {
-    setExpandedFolders(prev => ({ ...prev, [key]: !prev[key] }))
-    // Clear selected file and update selected category when clicking a folder header
+    // Accordion: clicking same folder collapses it, clicking different opens it (closes others)
+    setExpandedFolder(prev => prev === key ? null : key)
     setSelectedFile(null)
-    setSelectedCategory(key)
+    setSelectedCategory(prev => prev === key ? null : key)
     setPreviewZoom(100)
     setIsPreviewExpanded(false)
   }
@@ -293,8 +284,8 @@ export function ProjectFolderDetail({ projectId, projectName, onClose, onNavigat
           return updated
         })
       }
-      // Auto-expand the folder
-      setExpandedFolders(prev => ({ ...prev, [uploadTarget]: true }))
+      // Auto-expand the folder (accordion — only this one)
+      setExpandedFolder(uploadTarget)
     } catch (err) {
       console.error('[FolderDetail] Upload error:', err)
     } finally {
@@ -641,7 +632,7 @@ export function ProjectFolderDetail({ projectId, projectName, onClose, onNavigat
                     <div className="space-y-0.5">
                       {FOLDER_KEYS.map((key) => {
                         const files = folders?.[key]?.files || []
-                        const isExpanded = expandedFolders[key]
+                        const isExpanded = expandedFolder === key
                         const colors = FOLDER_ICON_COLORS[key]
                         const isUploading = uploading === key
 
@@ -661,7 +652,7 @@ export function ProjectFolderDetail({ projectId, projectName, onClose, onNavigat
                                   : <ChevronRight className="w-3.5 h-3.5 text-muted-foreground flex-shrink-0" />
                                 }
                                 <img
-                                  src={selectedCategory === key ? FOLDER_ICONS[key] : FOLDER_ICONS_CLOSED[key]}
+                                  src={isExpanded ? FOLDER_ICONS[key] : FOLDER_ICON_CLOSED}
                                   alt={key}
                                   className="w-8 h-8 flex-shrink-0 transition-opacity duration-200"
                                   style={{ mixBlendMode: 'multiply' }}
@@ -729,15 +720,15 @@ export function ProjectFolderDetail({ projectId, projectName, onClose, onNavigat
                       {/* Custom Folders */}
                       {customFolders.map((cf) => {
                         const cfKey = `custom_${cf.id}`
-                        const isExpanded = expandedFolders[cfKey]
+                        const isExpanded = expandedFolder === cfKey
                         return (
                           <div key={cf.id}>
                             <div className="flex items-center group">
                               <button
                                 onClick={() => {
-                                  setExpandedFolders(prev => ({ ...prev, [cfKey]: !prev[cfKey] }))
+                                  setExpandedFolder(prev => prev === cfKey ? null : cfKey)
                                   setSelectedFile(null)
-                                  setSelectedCategory(cfKey)
+                                  setSelectedCategory(prev => prev === cfKey ? null : cfKey)
                                   setPreviewZoom(100)
                                 }}
                                 className="flex-1 flex items-center gap-2.5 px-2 py-2 rounded-lg text-left transition-colors hover:bg-secondary/60"
