@@ -15,8 +15,8 @@ export interface ActivityEvent {
 
 interface ActivityFeedProps {
   events: ActivityEvent[]
-  /** Seconds to display each event (default 6) */
-  interval?: number
+  /** Scroll speed in pixels per second (default 20) */
+  speed?: number
 }
 
 const SOURCE_COLORS: Record<string, { bg: string; text: string }> = {
@@ -27,22 +27,16 @@ const SOURCE_COLORS: Record<string, { bg: string; text: string }> = {
   manual:  { bg: "#f5f5f5", text: "#666" },
 }
 
-/** Simple markdown → HTML for small screen context */
+/** Simple markdown -> HTML for small screen context */
 function renderMarkdown(md: string): string {
   let html = md
-    // Headers
     .replace(/^## (.+)$/gm, '<div style="font-weight:700;font-size:10px;margin:4px 0 2px">$1</div>')
     .replace(/^# (.+)$/gm, '<div style="font-weight:700;font-size:11px;margin:4px 0 2px">$1</div>')
-    // Bold
     .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
-    // Italic
     .replace(/\*(.+?)\*/g, '<em>$1</em>')
-    // Bullet lists
-    .replace(/^- (.+)$/gm, '<div style="padding-left:8px">• $1</div>')
-    // Line breaks
+    .replace(/^- (.+)$/gm, '<div style="padding-left:8px">&bull; $1</div>')
     .replace(/\n/g, '<br/>')
 
-  // Simple table support
   if (html.includes('|')) {
     html = html.replace(
       /(<br\/>)?\|(.+)\|(<br\/>)\|[-| ]+\|(<br\/>)((?:\|.+\|(?:<br\/>)?)+)/g,
@@ -78,33 +72,122 @@ function timeAgo(ts: string): string {
   return new Date(ts).toLocaleDateString("en-US", { month: "short", day: "numeric" })
 }
 
-export function ActivityFeed({ events, interval = 6 }: ActivityFeedProps) {
-  const [currentIndex, setCurrentIndex] = useState(0)
-  const [isHovered, setIsHovered] = useState(false)
-  const [fading, setFading] = useState(false)
-  const timerRef = useRef<NodeJS.Timeout | null>(null)
+/** Render a single event block */
+function EventBlock({ event }: { event: ActivityEvent }) {
+  const sourceStyle = SOURCE_COLORS[event.source || ""] || SOURCE_COLORS.manual
 
-  const startTimer = useCallback(() => {
-    if (timerRef.current) clearTimeout(timerRef.current)
-    if (events.length <= 1) return
+  return (
+    <div className="flex flex-col gap-1 py-2">
+      {/* Headline */}
+      <span className="text-[10px] font-semibold leading-snug text-[#222]">
+        {event.headline}
+      </span>
 
-    timerRef.current = setTimeout(() => {
-      setFading(true)
-      setTimeout(() => {
-        setCurrentIndex((prev) => (prev + 1) % events.length)
-        setFading(false)
-      }, 300)
-    }, interval * 1000)
-  }, [events.length, interval])
+      {/* Meta row: source badge + timestamp */}
+      <div className="flex items-center gap-1.5">
+        {event.source && (
+          <span
+            className="text-[7px] font-bold uppercase tracking-wider rounded-full px-1.5 py-[1px] leading-none"
+            style={{ backgroundColor: sourceStyle.bg, color: sourceStyle.text }}
+          >
+            {event.source}
+          </span>
+        )}
+        <span className="text-[8px] text-[#aaa]">
+          {timeAgo(event.timestamp)}
+        </span>
+      </div>
+
+      {/* Body (markdown rendered) */}
+      {event.body && (
+        <div
+          className="text-[9px] leading-snug text-[#555] mt-0.5 overflow-hidden"
+          dangerouslySetInnerHTML={{ __html: renderMarkdown(event.body) }}
+        />
+      )}
+    </div>
+  )
+}
+
+/** Divider between events */
+function EventDivider() {
+  return (
+    <div
+      className="w-full"
+      style={{ height: "1px", background: "linear-gradient(90deg, transparent, #e0ddd8 30%, #e0ddd8 70%, transparent)" }}
+    />
+  )
+}
+
+export function ActivityFeed({ events, speed = 20 }: ActivityFeedProps) {
+  const containerRef = useRef<HTMLDivElement>(null)
+  const innerRef = useRef<HTMLDivElement>(null)
+  const animRef = useRef<number>(0)
+  const isPaused = useRef(false)
+  const resumeTimer = useRef<NodeJS.Timeout | null>(null)
+  const lastFrame = useRef<number>(0)
+  const manualScrolling = useRef(false)
+  const manualTimer = useRef<NodeJS.Timeout | null>(null)
+
+  // Scroll animation loop
+  const animate = useCallback((time: number) => {
+    const container = containerRef.current
+    const inner = innerRef.current
+    if (!container || !inner) {
+      animRef.current = requestAnimationFrame(animate)
+      return
+    }
+
+    if (!isPaused.current && !manualScrolling.current) {
+      const dt = lastFrame.current ? (time - lastFrame.current) / 1000 : 0
+      const delta = speed * Math.min(dt, 0.1) // cap to avoid jumps on tab-switch
+
+      container.scrollTop += delta
+
+      // Seamless loop: content is duplicated, so when we scroll past the first copy, jump back
+      const halfHeight = inner.scrollHeight / 2
+      if (halfHeight > 0 && container.scrollTop >= halfHeight) {
+        container.scrollTop -= halfHeight
+      }
+    }
+
+    lastFrame.current = time
+    animRef.current = requestAnimationFrame(animate)
+  }, [speed])
 
   useEffect(() => {
-    if (!isHovered && events.length > 1) {
-      startTimer()
-    }
+    if (events.length === 0) return
+    animRef.current = requestAnimationFrame(animate)
     return () => {
-      if (timerRef.current) clearTimeout(timerRef.current)
+      cancelAnimationFrame(animRef.current)
+      if (resumeTimer.current) clearTimeout(resumeTimer.current)
+      if (manualTimer.current) clearTimeout(manualTimer.current)
     }
-  }, [currentIndex, isHovered, startTimer, events.length])
+  }, [events.length, animate])
+
+  // Hover: pause / resume after 2s
+  const handleMouseEnter = useCallback(() => {
+    isPaused.current = true
+    if (resumeTimer.current) clearTimeout(resumeTimer.current)
+  }, [])
+
+  const handleMouseLeave = useCallback(() => {
+    resumeTimer.current = setTimeout(() => {
+      isPaused.current = false
+      lastFrame.current = 0 // reset dt to avoid jump
+    }, 2000)
+  }, [])
+
+  // Manual scroll detection: pause auto-scroll, resume after 2s of inactivity
+  const handleScroll = useCallback(() => {
+    if (isPaused.current) return // hovering, ignore
+    manualScrolling.current = true
+    if (manualTimer.current) clearTimeout(manualTimer.current)
+    manualTimer.current = setTimeout(() => {
+      manualScrolling.current = false
+      lastFrame.current = 0
+    }, 2000)
+  }, [])
 
   if (events.length === 0) {
     return (
@@ -114,69 +197,34 @@ export function ActivityFeed({ events, interval = 6 }: ActivityFeedProps) {
     )
   }
 
-  const event = events[currentIndex]
-  const sourceStyle = SOURCE_COLORS[event.source || ""] || SOURCE_COLORS.manual
+  // Render events twice for seamless infinite scroll
+  const renderEvents = () =>
+    events.map((event, i) => (
+      <div key={event.id + "-" + i}>
+        <EventBlock event={event} />
+        {i < events.length - 1 && <EventDivider />}
+      </div>
+    ))
 
   return (
     <div
-      className="flex flex-col gap-1 flex-1"
-      onMouseEnter={() => setIsHovered(true)}
-      onMouseLeave={() => {
-        setIsHovered(false)
-        startTimer()
-      }}
+      ref={containerRef}
+      className="flex-1 overflow-y-auto scroll-feed"
+      onMouseEnter={handleMouseEnter}
+      onMouseLeave={handleMouseLeave}
+      onScroll={handleScroll}
+      style={{ scrollbarGutter: "stable" }}
     >
-      <div
-        className="flex flex-col gap-1 transition-opacity duration-300"
-        style={{ opacity: fading ? 0 : 1 }}
-      >
-        {/* Headline */}
-        <span className="text-[10px] font-semibold leading-snug text-[#222] line-clamp-2">
-          {event.headline}
-        </span>
-
-        {/* Meta row: source badge + timestamp */}
-        <div className="flex items-center gap-1.5">
-          {event.source && (
-            <span
-              className="text-[7px] font-bold uppercase tracking-wider rounded-full px-1.5 py-[1px] leading-none"
-              style={{ backgroundColor: sourceStyle.bg, color: sourceStyle.text }}
-            >
-              {event.source}
-            </span>
-          )}
-          <span className="text-[8px] text-[#aaa]">
-            {timeAgo(event.timestamp)}
-          </span>
-        </div>
-
-        {/* Body (markdown rendered) */}
-        {event.body && (
-          <div
-            className="text-[9px] leading-snug text-[#555] mt-0.5 overflow-hidden"
-            style={{ maxHeight: "60px" }}
-            dangerouslySetInnerHTML={{ __html: renderMarkdown(event.body) }}
-          />
-        )}
+      <div ref={innerRef}>
+        {/* First copy */}
+        {renderEvents()}
+        {/* Spacer between copies */}
+        <div style={{ height: "20px" }} />
+        <EventDivider />
+        <div style={{ height: "20px" }} />
+        {/* Second copy for seamless loop */}
+        {renderEvents()}
       </div>
-
-      {/* Dot indicators */}
-      {events.length > 1 && (
-        <div className="flex items-center justify-center gap-1 mt-auto pt-1">
-          {events.map((_, i) => (
-            <span
-              key={i}
-              className="rounded-full transition-all duration-200"
-              style={{
-                width: i === currentIndex ? 6 : 4,
-                height: 4,
-                backgroundColor: i === currentIndex ? "#d7403a" : "#ddd",
-                borderRadius: i === currentIndex ? 2 : "50%",
-              }}
-            />
-          ))}
-        </div>
-      )}
     </div>
   )
 }

@@ -30,6 +30,7 @@ export interface FolderCardProps {
   activityEvents?: ActivityEvent[]
   onFileClick?: (category: CategoryKey, fileName: string) => void
   onClick?: () => void
+  onDoubleClickScreen?: () => void
 }
 
 const FOLDER_BG = "#faf8f6"
@@ -42,6 +43,7 @@ export function FolderCard({
   activityEvents = [],
   onFileClick,
   onClick,
+  onDoubleClickScreen,
 }: FolderCardProps) {
   const sortedFolders = CATEGORY_ORDER.filter((cat) =>
     folders.some((f) => f.category === cat)
@@ -154,10 +156,14 @@ export function FolderCard({
             boxShadow: "0 2px 8px rgba(0, 0, 0, 0.06)",
             transition: "background-color 250ms ease, border-color 250ms ease",
           }}
+          onDoubleClick={(e) => {
+            e.stopPropagation()
+            onDoubleClickScreen?.()
+          }}
         >
-          {/* Scrollable content area */}
+          {/* Content area */}
           <div
-            className="flex-1 overflow-y-auto p-3 flex flex-col gap-1 min-h-[60px] max-h-[120px] scroll-feed"
+            className={`flex-1 flex flex-col gap-1 min-h-[60px] max-h-[120px] ${selectedCategory ? 'overflow-y-auto scroll-feed p-3' : 'p-3'}`}
           >
             {selectedCategory && selectedFolder ? (
               /* ===== CATEGORY FILE LIST VIEW ===== */
