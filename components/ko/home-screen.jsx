@@ -2,17 +2,21 @@
 
 import * as React from "react"
 
-import { useState, useCallback, useEffect } from "react"
-import Image from "next/image"
+import { useState, useCallback, useEffect, useRef } from "react"
 import { MessageInput } from "./message-input"
 import { VoiceIndicator } from "./voice-indicator"
 import { useVoiceWebSocket } from "@/hooks/useVoiceWebSocket"
 import { ConversationList } from "./conversation-list"
+import { FOLDER_ICONS, FOLDER_ICON_COLORS } from "@/lib/brand-colors"
 
-/** @typedef {Object} HomeScreenProps */
+const CATEGORIES = [
+  { key: "drawings",  label: "Drawings",  bg: "#f0f0f0", border: "#333333" },
+  { key: "bluebeam",  label: "Bluebeam",  bg: "#e8f0fa", border: "#277ed0" },
+  { key: "takeoff",   label: "Takeoff",   bg: "#e8f5e9", border: "#00883e" },
+  { key: "markups",   label: "Markups",   bg: "#fff3e0", border: "#c96500" },
+  { key: "proposals", label: "Proposals", bg: "#fce8e7", border: "#c0352f" },
+]
 
-/** @param {any} props */
-/** @param {any} props */
 export function HomeScreen({
   onSubmit,
   onStartChat,
@@ -22,10 +26,14 @@ export function HomeScreen({
   onNewConversation,
   onDeleteConversation,
   onExportConversation,
+  onNavigateToProject,
 }) {
   const [isVoiceEnabled, setIsVoiceEnabled] = useState(false)
+  const [selectedCategory, setSelectedCategory] = useState(null)
+  const [recentFiles, setRecentFiles] = useState({}) // category → files[]
+  const [loadingFiles, setLoadingFiles] = useState(null)
+  const popupRef = useRef(null)
 
-  // Voice WebSocket hook - same as ConversationPane
   const {
     isConnected: isVoiceConnected,
     isRecording,
@@ -41,34 +49,56 @@ export function HomeScreen({
     stopVoice,
   } = useVoiceWebSocket()
 
-  // Submit transcript as a message when voice ends
   useEffect(() => {
     if (transcript && !isTranscribing && !isRecording) {
       onSubmit?.(transcript)
     }
   }, [transcript, isTranscribing, isRecording, onSubmit])
 
-  const quickActions = [
-    {
-      icon: "/images/whatsapp-1.png",
-      label: "Messages",
-      action: "messages",
-    },
-    {
-      icon: "/images/icons8-email-apple-sf-regular-96.png",
-      label: "Emails",
-      action: "email",
-    },
-    {
-      icon: "/images/zoom.png",
-      label: "Zoom",
-      action: "zoom",
-    },
-  ]
+  // Click away to close popup
+  useEffect(() => {
+    if (!selectedCategory) return
+    function handleClickOutside(e) {
+      if (popupRef.current && !popupRef.current.contains(e.target)) {
+        setSelectedCategory(null)
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside)
+    return () => document.removeEventListener("mousedown", handleClickOutside)
+  }, [selectedCategory])
 
-  const handleActionClick = (action) => {
-    // Handle quick action clicks
-    //onStartChat()
+  const handleCategoryClick = async (key) => {
+    if (selectedCategory === key) {
+      setSelectedCategory(null)
+      return
+    }
+    setSelectedCategory(key)
+
+    // Load recent files if not cached
+    if (!recentFiles[key]) {
+      setLoadingFiles(key)
+      try {
+        const res = await fetch(`/api/ko/folders/recent/${key}`)
+        if (res.ok) {
+          const data = await res.json()
+          setRecentFiles(prev => ({ ...prev, [key]: data.files || [] }))
+        }
+      } catch (err) {
+        console.error('Failed to load recent files:', err)
+      } finally {
+        setLoadingFiles(null)
+      }
+    }
+  }
+
+  const handleFileClick = (file) => {
+    onNavigateToProject?.({
+      id: file.projectId,
+      name: file.projectName,
+      folder: selectedCategory,
+      fileName: file.name,
+    })
+    setSelectedCategory(null)
   }
 
   const handleMicToggle = useCallback(async () => {
@@ -76,13 +106,11 @@ export function HomeScreen({
       if (isRecording) {
         stopVoice()
       } else {
-        // Auto-enable voice mode and connect if needed
         if (!isVoiceEnabled) {
           setIsVoiceEnabled(true)
         }
         if (!isVoiceConnected) {
           connectVoice()
-          // Wait a bit for connection
           await new Promise(resolve => setTimeout(resolve, 500))
         }
         await startVoice()
@@ -92,42 +120,116 @@ export function HomeScreen({
     }
   }, [isRecording, isVoiceEnabled, isVoiceConnected, connectVoice, startVoice, stopVoice])
 
+  const activeCat = selectedCategory
+    ? CATEGORIES.find(c => c.key === selectedCategory)
+    : null
+
   return (
     <div className="flex flex-col h-full bg-background">
-      {/* Voice Recording Indicator */}
       <VoiceIndicator
         isRecording={isRecording}
         audioLevel={audioLevel}
         transcript={transcript}
         isTranscribing={isTranscribing}
       />
-      {/* Main content area */}
       <div className="flex-1 flex flex-col items-center justify-center px-8">
-        {/* Centered Welcome Section */}
         <div className="flex flex-col items-center mb-12">
           <h2 className="text-xl font-medium text-foreground text-center text-balance">
             What impact will you drive today?
           </h2>
         </div>
 
-        {/* Small ChatGPT-style pill buttons with colored icons */}
-        <div className="flex flex-wrap justify-center gap-3 max-w-2xl">
-          {quickActions.map((action, index) => (
-            <button
-              key={index}
-              onClick={() => handleActionClick(action.action)}
-              className="flex items-center gap-2 px-4 py-2.5 bg-card/40 border border-input/40 rounded-full hover:bg-card/60 hover:border-input/60 hover:shadow-md transition-all duration-200"
+        {/* 5 Category Icon Buttons */}
+        <div className="relative flex flex-wrap justify-center gap-4 max-w-2xl" ref={popupRef}>
+          {CATEGORIES.map((cat) => {
+            const isActive = selectedCategory === cat.key
+            return (
+              <button
+                key={cat.key}
+                onClick={() => handleCategoryClick(cat.key)}
+                className="flex flex-col items-center gap-1.5 px-4 py-3 rounded-2xl border transition-all duration-200 hover:shadow-md hover:scale-105"
+                style={{
+                  backgroundColor: isActive ? cat.bg : "transparent",
+                  borderColor: isActive ? cat.border : "rgba(0,0,0,0.1)",
+                  boxShadow: isActive ? `0 0 0 2px ${cat.border}40` : "none",
+                }}
+              >
+                <img
+                  src={FOLDER_ICONS[cat.key]}
+                  alt={cat.label}
+                  width={32}
+                  height={32}
+                  className="block"
+                  style={{ mixBlendMode: 'multiply' }}
+                  draggable={false}
+                />
+                <span className="text-[11px] font-medium text-foreground tracking-wide">
+                  {cat.label}
+                </span>
+              </button>
+            )
+          })}
+
+          {/* Recent Files Popup */}
+          {selectedCategory && activeCat && (
+            <div
+              className="absolute top-full mt-3 left-1/2 -translate-x-1/2 z-50 w-[320px] rounded-xl overflow-hidden"
+              style={{
+                backgroundColor: activeCat.bg,
+                border: `1.5px solid ${activeCat.border}`,
+                boxShadow: "0 8px 24px rgba(0,0,0,0.12), 0 2px 6px rgba(0,0,0,0.06)",
+              }}
             >
-              <Image
-                src={action.icon || "/placeholder.svg"}
-                alt={action.label}
-                width={20}
-                height={20}
-                className="object-contain"
-              />
-              <span className="text-sm text-foreground">{action.label}</span>
-            </button>
-          ))}
+              {/* Header */}
+              <div
+                className="flex items-center gap-2 px-4 py-2.5"
+                style={{ borderBottom: `1px solid ${activeCat.border}33` }}
+              >
+                <img
+                  src={FOLDER_ICONS[activeCat.key]}
+                  alt=""
+                  width={20}
+                  height={20}
+                  style={{ mixBlendMode: 'multiply' }}
+                  draggable={false}
+                />
+                <span
+                  className="text-xs font-bold tracking-wider uppercase"
+                  style={{ color: activeCat.border }}
+                >
+                  Recent {activeCat.label}
+                </span>
+              </div>
+
+              {/* File list */}
+              <div className="py-1.5">
+                {loadingFiles === selectedCategory ? (
+                  <div className="px-4 py-3 text-center">
+                    <span className="text-xs text-muted-foreground">Loading...</span>
+                  </div>
+                ) : (recentFiles[selectedCategory] || []).length > 0 ? (
+                  recentFiles[selectedCategory].map((file) => (
+                    <button
+                      key={file.id}
+                      onClick={() => handleFileClick(file)}
+                      className="w-full flex flex-col gap-0.5 px-4 py-2 text-left transition-colors hover:bg-black/[0.04] cursor-pointer"
+                    >
+                      <span className="text-[13px] text-foreground truncate hover:underline">
+                        {file.name}
+                      </span>
+                      <span className="text-[10px] text-muted-foreground truncate">
+                        {file.projectName}
+                      </span>
+                    </button>
+                  ))
+                ) : (
+                  <div className="px-4 py-3 text-center">
+                    <span className="text-xs text-muted-foreground">No recent files</span>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Recent Conversations */}
@@ -156,7 +258,7 @@ export function HomeScreen({
             isVoiceEnabled={isVoiceEnabled}
             onToggleVoice={() => setIsVoiceEnabled(!isVoiceEnabled)}
             isThinking={isRecording}
-            placeholder="Ask KO…"
+            placeholder="Ask KO..."
           />
         </div>
       </div>

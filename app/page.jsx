@@ -464,6 +464,10 @@ export default function HomePage() {
                   historyItem={selectedHistoryItem}
                   onSourceClick={handleSourceClick}
                   allowHome={activeMode === "home"}
+                  onNavigateToProject={(project) => {
+                    setSelectedFolderProject(project)
+                    handleModeChange('projects')
+                  }}
                 />
               </div>
 
