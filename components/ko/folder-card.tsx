@@ -161,9 +161,10 @@ export function FolderCard({
             onDoubleClickScreen?.()
           }}
         >
-          {/* Content area */}
+          {/* Content area — fixed height, never grows/shrinks */}
           <div
-            className={`flex-1 flex flex-col gap-1 min-h-[60px] max-h-[120px] ${selectedCategory ? 'overflow-y-auto scroll-feed p-3' : 'p-3'}`}
+            className={`flex flex-col gap-1 ${selectedCategory ? 'overflow-y-scroll scroll-feed' : 'overflow-hidden'}`}
+            style={{ height: "100px", padding: selectedCategory ? "12px 0 12px 12px" : "12px" }}
           >
             {selectedCategory && selectedFolder ? (
               /* ===== CATEGORY FILE LIST VIEW ===== */

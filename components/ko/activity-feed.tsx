@@ -188,10 +188,10 @@ export function ActivityFeed({
   return (
     <div
       ref={containerRef}
-      className="flex-1 overflow-y-auto scroll-feed"
+      className="flex-1 overflow-y-scroll scroll-feed"
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
-      style={{ scrollbarGutter: "stable" }}
+      style={{ paddingRight: 0, marginRight: 0 }}
     >
       {displayedBlocks.map((block, i) => {
         const event = events[block.eventIndex]

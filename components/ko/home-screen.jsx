@@ -143,8 +143,8 @@ export function HomeScreen({
           </h2>
         </div>
 
-        {/* 5 Category Icon Buttons — ref to measure width */}
-        <div ref={iconsRowRef} className="inline-flex flex-wrap justify-center gap-4 mb-4">
+        {/* 5 Category Icon Buttons — same width as main screen below */}
+        <div ref={iconsRowRef} className="flex justify-between mb-4" style={{ width: "100%", maxWidth: "calc(5 * 96px + 4 * 16px)" }}>
           {CATEGORIES.map((cat) => {
             const isActive = screenMode === "category" && selectedCategory === cat.key
             return (
