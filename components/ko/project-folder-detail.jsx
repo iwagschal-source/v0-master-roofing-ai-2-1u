@@ -26,6 +26,7 @@ import {
   FolderPlus,
 } from "lucide-react"
 import { FOLDER_ICON_COLORS, FOLDER_ICONS, FOLDER_ICONS_CLOSED, FOLDER_ICON_CLOSED } from "@/lib/brand-colors"
+import { ActivityFeed } from "./activity-feed"
 
 const FOLDER_KEYS = ['drawings', 'bluebeam', 'takeoff', 'markups', 'proposals']
 const FOLDER_LABELS = { drawings: 'DRAWINGS', bluebeam: 'BLUEBEAM', takeoff: 'TAKEOFF', markups: 'MARKUPS', proposals: 'PROPOSALS' }
@@ -147,6 +148,18 @@ export function ProjectFolderDetail({ projectId, projectName, onClose, onNavigat
   const agentPanelRef = useRef(null)
   const [isListening, setIsListening] = useState(false)
   const [chatInput, setChatInput] = useState("")
+  const [activityEvents, setActivityEvents] = useState([])
+
+  // Fetch activity events for the project
+  useEffect(() => {
+    if (!projectId) return
+    fetch(`/api/ko/project/${projectId}/activity?limit=20`)
+      .then(r => r.ok ? r.json() : null)
+      .then(data => {
+        if (data?.events) setActivityEvents(data.events)
+      })
+      .catch(err => console.error('[FolderDetail] Activity load error:', err))
+  }, [projectId])
 
   // Fetch folder data
   useEffect(() => {
@@ -189,7 +202,8 @@ export function ProjectFolderDetail({ projectId, projectName, onClose, onNavigat
     const handleMouseMove = (e) => {
       if (!isDragging || !containerRef.current) return
       const rect = containerRef.current.getBoundingClientRect()
-      setPanelWidth(Math.max(280, Math.min(600, rect.right - e.clientX)))
+      const maxW = Math.floor(rect.width * 0.5) // max 50% of viewport
+      setPanelWidth(Math.max(250, Math.min(maxW, rect.right - e.clientX)))
     }
     const handleMouseUp = () => setIsDragging(false)
     if (isDragging) {
@@ -1086,43 +1100,46 @@ export function ProjectFolderDetail({ projectId, projectName, onClose, onNavigat
               isLight ? "bg-gray-50 border-border" : "bg-folder-bg border-border",
               (isDragging || isSplitDragging) && "select-none"
             )}
-            style={{ width: `${panelWidth}px`, minWidth: "280px", maxWidth: "600px" }}
+            style={{ width: `${panelWidth}px`, minWidth: "250px", maxWidth: "50vw" }}
           >
-            {/* Width Drag Handle */}
+            {/* Width Drag Handle — visible 3-dot indicator */}
             <div
               onMouseDown={(e) => { e.preventDefault(); setIsDragging(true) }}
-              className={cn("absolute left-0 top-0 bottom-0 w-1.5 cursor-ew-resize z-10 group", isDragging && "bg-primary/20")}
+              className={cn("absolute left-0 top-0 bottom-0 w-2 cursor-ew-resize z-10 group flex items-center", isDragging && "bg-primary/10")}
             >
-              <div className={cn("absolute top-1/2 -translate-y-1/2 left-0 w-1 h-12 rounded-full transition-colors", isDragging ? "bg-primary" : "bg-border group-hover:bg-primary/50")} />
+              <div className="flex flex-col items-center gap-1 -ml-px">
+                <div className={cn("w-1 h-1 rounded-full transition-colors", isDragging ? "bg-primary" : "bg-border group-hover:bg-primary/50")} />
+                <div className={cn("w-1 h-1 rounded-full transition-colors", isDragging ? "bg-primary" : "bg-border group-hover:bg-primary/50")} />
+                <div className={cn("w-1 h-1 rounded-full transition-colors", isDragging ? "bg-primary" : "bg-border group-hover:bg-primary/50")} />
+              </div>
             </div>
 
-            {/* Upper Section - Agent Preview */}
+            {/* Upper Section - Activity Feed */}
             <div className="shrink-0 flex flex-col overflow-hidden bg-surface-elevated" style={{ height: `${previewHeight}px`, minHeight: "100px", maxHeight: "400px" }}>
               <div className="shrink-0 px-3 py-2 flex items-center justify-between border-b border-border">
                 <div className="flex items-center gap-2">
                   <div className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
-                  <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">Agent View</span>
+                  <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">Activity Feed</span>
                 </div>
                 <button className="p-1 rounded transition-colors text-muted-foreground hover:text-foreground">
                   <Maximize2 className="w-3 h-3" />
                 </button>
               </div>
-              <div className="flex-1 flex items-center justify-center p-3 overflow-hidden">
-                <div className="w-full h-full rounded-lg flex items-center justify-center border bg-card border-border">
-                  <div className="text-center">
-                    <ImageIcon className="w-8 h-8 mx-auto mb-2 text-border" />
-                    <p className="text-[10px] text-muted-foreground">Agent Preview</p>
-                  </div>
-                </div>
+              <div className="flex-1 p-3 overflow-hidden">
+                <ActivityFeed events={activityEvents} speed={18} />
               </div>
             </div>
 
-            {/* Split Drag Handle */}
+            {/* Split Drag Handle — visible 3-dot indicator */}
             <div
               onMouseDown={(e) => { e.preventDefault(); setIsSplitDragging(true) }}
-              className={cn("shrink-0 h-2 cursor-ns-resize group flex items-center justify-center border-y border-border", isSplitDragging && "bg-primary/10")}
+              className={cn("shrink-0 h-3 cursor-ns-resize group flex items-center justify-center border-y border-border", isSplitDragging && "bg-primary/10")}
             >
-              <div className={cn("w-12 h-0.5 rounded-full transition-colors", isSplitDragging ? "bg-primary" : "bg-border group-hover:bg-primary/50")} />
+              <div className="flex items-center gap-1">
+                <div className={cn("w-1 h-1 rounded-full transition-colors", isSplitDragging ? "bg-primary" : "bg-border group-hover:bg-primary/50")} />
+                <div className={cn("w-1 h-1 rounded-full transition-colors", isSplitDragging ? "bg-primary" : "bg-border group-hover:bg-primary/50")} />
+                <div className={cn("w-1 h-1 rounded-full transition-colors", isSplitDragging ? "bg-primary" : "bg-border group-hover:bg-primary/50")} />
+              </div>
             </div>
 
             {/* Lower Section - Chat */}

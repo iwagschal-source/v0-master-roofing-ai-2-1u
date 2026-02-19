@@ -405,6 +405,7 @@ function LazyFolderCard({ project, folders, activityEvents, onVisible, onHoverIc
         activityEvents={activityEvents}
         onFileClick={onFileClick}
         onClick={onCardClick}
+        onDoubleClickScreen={onCardClick}
       />
     </div>
   )
