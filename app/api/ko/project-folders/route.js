@@ -40,6 +40,7 @@ export async function GET() {
         ON p.company_id = c.id
       LEFT JOIN \`master-roofing-intelligence.mr_main.contacts_people\` ct
         ON p.contact_id = ct.id
+      WHERE COALESCE(p.status, 'active') != 'deleted'
       ORDER BY p.updated_at DESC
     `
 
@@ -94,7 +95,7 @@ export async function POST(request) {
     }
 
     const duplicateCheck = await runQuery(
-      'SELECT id FROM \`master-roofing-intelligence.mr_main.project_folders\` WHERE LOWER(project_name) = LOWER(@projectName)',
+      'SELECT id FROM \`master-roofing-intelligence.mr_main.project_folders\` WHERE LOWER(project_name) = LOWER(@projectName) AND COALESCE(status, \'active\') != \'deleted\'',
       { projectName },
       { location: 'US' }
     )

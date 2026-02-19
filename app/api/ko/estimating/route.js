@@ -40,7 +40,7 @@ export async function GET(request) {
       FROM \`master-roofing-intelligence.mr_main.project_folders\` pf
       LEFT JOIN \`master-roofing-intelligence.mr_main.contacts_companies\` c
         ON pf.company_id = c.id
-      WHERE 1=1
+      WHERE COALESCE(pf.status, 'active') != 'deleted'
     `
     const params = {}
 
