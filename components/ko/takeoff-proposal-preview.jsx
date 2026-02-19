@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useMemo } from "react"
 import {
-  X,
+  ArrowLeft,
   Loader2,
   FileText,
   Edit3,
@@ -167,9 +167,19 @@ export function TakeoffProposalPreview({ projectId, sheetName, onClose, onGenera
 
       setPreviewData(data)
 
-      // Initialize ordered arrays from loaded data
-      setOrderedSections(data.sections || [])
-      setOrderedStandalones(data.standaloneItems || [])
+      // Initialize ordered arrays from loaded data, filtering out zero-quantity items
+      const filteredSections = (data.sections || []).map(section => ({
+        ...section,
+        items: (section.items || []).filter(item =>
+          (item.totalCost && item.totalCost !== 0) || (item.totalMeasurements && item.totalMeasurements > 0)
+        )
+      })).filter(section => section.items.length > 0 || (section.subtotal && section.subtotal !== 0))
+      setOrderedSections(filteredSections)
+      setOrderedStandalones(
+        (data.standaloneItems || []).filter(item =>
+          (item.totalCost && item.totalCost !== 0) || (item.totalMeasurements && item.totalMeasurements > 0)
+        )
+      )
 
       // Initialize edited descriptions from loaded data
       const initialEdits = {}
@@ -305,32 +315,15 @@ export function TakeoffProposalPreview({ projectId, sheetName, onClose, onGenera
         throw new Error(errData.error || 'Failed to generate document')
       }
 
-      // Get the file as a blob and trigger download
-      const blob = await res.blob()
-      const contentDisposition = res.headers.get('Content-Disposition')
+      // Document saved to Drive (no browser download)
       const driveFileId = res.headers.get('X-Drive-File-Id')
       const driveFileUrl = res.headers.get('X-Drive-File-Url')
-
-      // Extract filename from header or generate one
-      let filename = 'Proposal.docx'
-      if (contentDisposition) {
-        const match = contentDisposition.match(/filename="?([^"]+)"?/)
-        if (match) filename = match[1]
-      }
-
-      // Create download link
-      const url = window.URL.createObjectURL(blob)
-      const a = document.createElement('a')
-      a.href = url
-      a.download = filename
-      document.body.appendChild(a)
-      a.click()
-      window.URL.revokeObjectURL(url)
-      document.body.removeChild(a)
+      // Consume the blob to complete the response
+      await res.blob()
 
       setGenerateResult({
         success: true,
-        message: 'Document generated and downloaded!',
+        message: 'Document saved to Proposals folder!',
         driveFileId,
         driveFileUrl
       })
@@ -438,7 +431,7 @@ export function TakeoffProposalPreview({ projectId, sheetName, onClose, onGenera
             onClick={onClose}
             className="p-2 hover:bg-secondary rounded-lg transition-colors"
           >
-            <X className="w-5 h-5" />
+            <ArrowLeft className="w-5 h-5" />
           </button>
           <div>
             <h1 className="font-semibold flex items-center gap-2">
@@ -495,7 +488,7 @@ export function TakeoffProposalPreview({ projectId, sheetName, onClose, onGenera
             ) : (
               <Download className="w-4 h-4" />
             )}
-            {generating ? 'Generating...' : 'Generate Document'}
+            {generating ? 'Generating...' : 'Generate to Drive'}
           </button>
           {generateResult?.success && generateResult?.driveFileId && (
             <button
@@ -622,7 +615,7 @@ export function TakeoffProposalPreview({ projectId, sheetName, onClose, onGenera
                                       return (
                                         <SortableItem key={itemSortId} id={itemSortId}>
                                           {({ dragHandleProps: itemDragProps }) => (
-                                            <div className="p-4">
+                                            <div className="p-4 bg-amber-50/40 dark:bg-amber-900/10">
                                               <div className="flex items-start gap-2 mb-2">
                                                 <div
                                                   {...itemDragProps}
@@ -635,6 +628,9 @@ export function TakeoffProposalPreview({ projectId, sheetName, onClose, onGenera
                                                   <div className="flex items-center gap-2 mb-1 flex-wrap">
                                                     <span className="font-medium text-foreground">
                                                       {item.name || item.itemId}
+                                                    </span>
+                                                    <span className="text-[10px] px-1.5 py-0.5 bg-yellow-200 dark:bg-yellow-800/50 text-yellow-700 dark:text-yellow-300 rounded font-medium">
+                                                      Bundled
                                                     </span>
                                                     {item.rValue && (
                                                       <span className="text-xs px-2 py-0.5 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded">
