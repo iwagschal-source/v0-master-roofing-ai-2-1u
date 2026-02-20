@@ -383,6 +383,39 @@ function EmailPreviewPanel({ selectedMessage, onReply, onReplyAll, onForward, us
   )
 }
 
+// ─── Helper: format chat list timestamp ─────────────────────
+function formatChatListTime(dateString) {
+  if (!dateString) return ''
+  const date = new Date(dateString)
+  const now = new Date()
+  const diffMs = now - date
+  const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24))
+  if (diffDays === 0) return date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })
+  if (diffDays === 1) return 'Yesterday'
+  if (diffDays < 7) return date.toLocaleDateString('en-US', { weekday: 'short' })
+  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+}
+
+// ─── Helper: format message timestamp ────────────────────────
+function formatMsgTimestamp(dateString) {
+  if (!dateString) return ''
+  const date = new Date(dateString)
+  return date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }) +
+    ', ' + date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })
+}
+
+// ─── Helper: date separator label ────────────────────────────
+function getDateLabel(dateString) {
+  const date = new Date(dateString)
+  const now = new Date()
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+  const msgDate = new Date(date.getFullYear(), date.getMonth(), date.getDate())
+  const diffDays = Math.round((today - msgDate) / (1000 * 60 * 60 * 24))
+  if (diffDays === 0) return 'Today'
+  if (diffDays === 1) return 'Yesterday'
+  return date.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })
+}
+
 // ─── RIGHT PANEL: Chat ───────────────────────────────────────
 function ChatPanel({ isConnected, authUrl, user }) {
   const { spaces, loading, selectedSpace, messages, messagesLoading, selectSpace, sendMessage, refresh } = useChatSpaces({ autoFetch: isConnected })
@@ -402,9 +435,9 @@ function ChatPanel({ isConnected, authUrl, user }) {
   // Per-sender colors
   const senderColorMap = useRef(new Map())
   const SENDER_COLORS = [
-    'bg-blue-100 text-blue-900', 'bg-emerald-100 text-emerald-900',
-    'bg-purple-100 text-purple-900', 'bg-amber-100 text-amber-900',
-    'bg-rose-100 text-rose-900', 'bg-cyan-100 text-cyan-900',
+    'bg-blue-50 text-blue-900', 'bg-emerald-50 text-emerald-900',
+    'bg-purple-50 text-purple-900', 'bg-amber-50 text-amber-900',
+    'bg-rose-50 text-rose-900', 'bg-cyan-50 text-cyan-900',
   ]
   const SENDER_AVATAR = [
     'bg-blue-500 text-white', 'bg-emerald-500 text-white',
@@ -426,8 +459,32 @@ function ChatPanel({ isConnected, authUrl, user }) {
     setSending(false)
   }
 
-  const rooms = spaces.filter(s => s.type === 'ROOM')
-  const dms = spaces.filter(s => s.type === 'DM' || s.type === 'GROUP_DM' || s.type === 'DIRECT_MESSAGE')
+  // Sort all spaces together by last activity (most recent first)
+  const allSpaces = [...spaces].sort((a, b) => {
+    const aTime = a.lastMessage?.createTime || a.lastActiveTime || ''
+    const bTime = b.lastMessage?.createTime || b.lastActiveTime || ''
+    return bTime.localeCompare(aTime)
+  })
+
+  const filteredSpaces = allSpaces.filter(s =>
+    !searchQuery || s.displayName?.toLowerCase().includes(searchQuery.toLowerCase())
+  )
+
+  // Check if two messages are in the same "group" (same sender, within 2 min)
+  const isSameGroup = (prev, curr) => {
+    if (!prev) return false
+    if ((prev.sender?.email || prev.sender?.name) !== (curr.sender?.email || curr.sender?.name)) return false
+    const diff = new Date(curr.createTime) - new Date(prev.createTime)
+    return diff < 2 * 60 * 1000 // 2 minutes
+  }
+
+  // Check if date separator needed between two messages
+  const needsDateSeparator = (prev, curr) => {
+    if (!prev) return true
+    const prevDate = new Date(prev.createTime).toDateString()
+    const currDate = new Date(curr.createTime).toDateString()
+    return prevDate !== currDate
+  }
 
   return (
     <PanelGroup direction="vertical">
@@ -443,7 +500,9 @@ function ChatPanel({ isConnected, authUrl, user }) {
                     <Hash className="w-3.5 h-3.5 text-primary" />
                   </div>
                 ) : (
-                  <div className="w-7 h-7 rounded-full bg-muted flex items-center justify-center text-[10px] font-medium">
+                  <div className={`w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-medium ${
+                    SENDER_AVATAR[getSenderColor(selectedSpace.displayName || '')] || 'bg-muted text-foreground'
+                  }`}>
                     {getInitials(selectedSpace.displayName || 'DM')}
                   </div>
                 )}
@@ -457,7 +516,7 @@ function ChatPanel({ isConnected, authUrl, user }) {
               </div>
 
               {/* Messages */}
-              <div className="flex-1 overflow-y-auto p-3">
+              <div className="flex-1 overflow-y-auto px-3 py-2">
                 {messagesLoading ? (
                   <div className="flex items-center justify-center h-full">
                     <Loader2 className="w-5 h-5 animate-spin text-primary" />
@@ -465,29 +524,73 @@ function ChatPanel({ isConnected, authUrl, user }) {
                 ) : sortedMessages.length === 0 ? (
                   <div className="flex items-center justify-center h-full text-muted-foreground text-xs">No messages yet</div>
                 ) : (
-                  <div className="space-y-3">
+                  <div className="space-y-1">
                     {sortedMessages.map((message, index) => {
+                      const prev = index > 0 ? sortedMessages[index - 1] : null
                       const isOwn = message.sender.email === user?.email
-                      const showAvatar = index === 0 || sortedMessages[index - 1].sender.email !== message.sender.email
+                      const showDateSep = needsDateSeparator(prev, message)
+                      const isGrouped = !showDateSep && isSameGroup(prev, message)
                       const colorIdx = isOwn ? -1 : getSenderColor(message.sender.email || message.sender.name)
+
                       return (
-                        <div key={message.id} className={`flex gap-2 ${isOwn ? 'flex-row-reverse' : ''}`}>
-                          {showAvatar ? (
-                            <div className={`w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 text-[9px] font-medium ${
-                              isOwn ? 'bg-primary text-primary-foreground' : SENDER_AVATAR[colorIdx] || 'bg-muted'
-                            }`}>{getInitials(message.sender.name)}</div>
-                          ) : <div className="w-6" />}
-                          <div className={`flex-1 ${isOwn ? 'text-right' : ''}`}>
-                            {showAvatar && (
-                              <div className={`flex items-center gap-1 mb-0.5 ${isOwn ? 'flex-row-reverse' : ''}`}>
-                                <span className="text-[10px] font-medium text-foreground">{message.sender.name}</span>
-                                <span className="text-[9px] text-muted-foreground">{formatMessageTime(message.createTime)}</span>
+                        <div key={message.id}>
+                          {/* Date separator */}
+                          {showDateSep && (
+                            <div className="flex items-center gap-2 my-3">
+                              <div className="flex-1 h-px bg-border/50" />
+                              <span className="text-[9px] text-muted-foreground font-medium px-2">
+                                {getDateLabel(message.createTime)}
+                              </span>
+                              <div className="flex-1 h-px bg-border/50" />
+                            </div>
+                          )}
+
+                          {/* Message */}
+                          <div className={`flex gap-2 ${isOwn ? 'flex-row-reverse' : ''} ${isGrouped ? 'mt-0.5' : 'mt-2'}`}>
+                            {/* Avatar */}
+                            {!isGrouped ? (
+                              <div className={`w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 text-[9px] font-medium ${
+                                isOwn ? 'bg-primary text-primary-foreground' : SENDER_AVATAR[colorIdx] || 'bg-muted'
+                              }`}>{getInitials(message.sender.name)}</div>
+                            ) : <div className="w-6" />}
+
+                            <div className={`flex-1 min-w-0 ${isOwn ? 'text-right' : ''}`}>
+                              {/* Sender name + timestamp (only on first in group) */}
+                              {!isGrouped && (
+                                <div className={`flex items-center gap-1.5 mb-0.5 ${isOwn ? 'flex-row-reverse' : ''}`}>
+                                  <span className="text-[10px] font-semibold text-foreground">{isOwn ? 'You' : message.sender.name}</span>
+                                  <span className="text-[9px] text-muted-foreground">{formatMsgTimestamp(message.createTime)}</span>
+                                </div>
+                              )}
+
+                              {/* Quoted message */}
+                              {message.quotedMessageMetadata && (
+                                <div className={`mb-1 ${isOwn ? 'ml-auto' : ''} max-w-[85%]`}>
+                                  <div className="border-l-2 border-muted-foreground/30 pl-2 py-0.5 text-[10px] text-muted-foreground italic bg-muted/30 rounded-r">
+                                    Quoted message
+                                  </div>
+                                </div>
+                              )}
+
+                              {/* Message bubble */}
+                              <div className={`inline-block px-3 py-1.5 rounded-2xl max-w-[85%] text-xs leading-relaxed ${
+                                isOwn
+                                  ? 'bg-primary text-primary-foreground rounded-br-md'
+                                  : `${SENDER_COLORS[colorIdx] || 'bg-card border border-border'} rounded-bl-md`
+                              }`}>
+                                <p className="whitespace-pre-wrap break-words">{message.text}</p>
                               </div>
-                            )}
-                            <div className={`inline-block px-3 py-1.5 rounded-2xl max-w-[85%] text-xs ${
-                              isOwn ? 'bg-primary text-primary-foreground rounded-br-md' : `${SENDER_COLORS[colorIdx] || 'bg-card border border-border'} rounded-bl-md`
-                            }`}>
-                              <p className="whitespace-pre-wrap">{message.text}</p>
+
+                              {/* Reactions */}
+                              {message.emojiReactionSummaries?.length > 0 && (
+                                <div className={`flex gap-1 mt-0.5 ${isOwn ? 'justify-end' : ''}`}>
+                                  {message.emojiReactionSummaries.map((r, ri) => (
+                                    <span key={ri} className="inline-flex items-center gap-0.5 px-1.5 py-0.5 bg-muted/50 border border-border/50 rounded-full text-[10px]">
+                                      {r.emoji?.unicode || '👍'} <span className="text-muted-foreground">{r.reactionCount || 1}</span>
+                                    </span>
+                                  ))}
+                                </div>
+                              )}
                             </div>
                           </div>
                         </div>
@@ -529,7 +632,7 @@ function ChatPanel({ isConnected, authUrl, user }) {
 
       <ResizeHandle direction="horizontal" />
 
-      {/* Lower: Chat Spaces List */}
+      {/* Lower: Chat List (sorted by recency, unified) */}
       <Panel defaultSize={40} minSize={15}>
         <div className="flex flex-col h-full overflow-hidden bg-card">
           {/* Header */}
@@ -549,13 +652,13 @@ function ChatPanel({ isConnected, authUrl, user }) {
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search spaces..."
+                placeholder="Search chats..."
                 className="w-full pl-6 pr-2 py-1 bg-secondary/30 border border-border/50 rounded text-[10px] placeholder:text-muted-foreground/50 focus:outline-none focus:border-primary/50"
               />
             </div>
           </div>
 
-          {/* Spaces list */}
+          {/* Spaces list — unified, sorted by recency */}
           <div className="flex-1 overflow-y-auto">
             {!isConnected ? (
               <div className="p-3 text-center text-xs text-muted-foreground">
@@ -566,37 +669,56 @@ function ChatPanel({ isConnected, authUrl, user }) {
               <div className="flex items-center justify-center py-6">
                 <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />
               </div>
+            ) : filteredSpaces.length === 0 ? (
+              <div className="p-3 text-center text-[10px] text-muted-foreground">No chats found</div>
             ) : (
-              <>
-                {rooms.filter(s => !searchQuery || s.displayName?.toLowerCase().includes(searchQuery.toLowerCase())).map(space => (
+              filteredSpaces.map(space => {
+                const isDm = space.type === 'DM' || space.type === 'GROUP_DM' || space.type === 'DIRECT_MESSAGE'
+                const isSelected = selectedSpace?.id === space.id
+                const lastMsg = space.lastMessage
+                const lastTime = lastMsg?.createTime || space.lastActiveTime
+                // Determine if last message was from current user
+                const isOwnLastMsg = lastMsg?.senderEmail === user?.email
+                const previewText = lastMsg ? (isOwnLastMsg ? `You: ${lastMsg.text}` : lastMsg.text) : ''
+
+                return (
                   <button
                     key={space.id}
                     onClick={() => selectSpace(space)}
                     className={`w-full flex items-center gap-2 px-3 py-2 text-left transition-colors ${
-                      selectedSpace?.id === space.id ? 'bg-primary/10' : 'hover:bg-muted/50'
+                      isSelected ? 'bg-primary/10' : 'hover:bg-muted/50'
                     }`}
                   >
-                    <div className="w-6 h-6 rounded-lg bg-primary/20 flex items-center justify-center flex-shrink-0">
-                      <Hash className="w-3 h-3 text-primary" />
+                    {/* Avatar */}
+                    {isDm ? (
+                      <div className={`w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 text-[9px] font-bold ${
+                        SENDER_AVATAR[getSenderColor(space.displayName || '')] || 'bg-muted text-foreground'
+                      }`}>
+                        {getInitials(space.displayName || 'DM')}
+                      </div>
+                    ) : (
+                      <div className="w-7 h-7 rounded-lg bg-primary/20 flex items-center justify-center flex-shrink-0">
+                        <Hash className="w-3 h-3 text-primary" />
+                      </div>
+                    )}
+
+                    {/* Name + preview */}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center justify-between gap-1">
+                        <span className="text-[11px] font-medium text-foreground truncate">{space.displayName}</span>
+                        {lastTime && (
+                          <span className="text-[9px] text-muted-foreground whitespace-nowrap flex-shrink-0">
+                            {formatChatListTime(lastTime)}
+                          </span>
+                        )}
+                      </div>
+                      {previewText && (
+                        <p className="text-[10px] text-muted-foreground truncate mt-0.5">{previewText}</p>
+                      )}
                     </div>
-                    <span className="text-xs font-medium text-foreground truncate">{space.displayName}</span>
                   </button>
-                ))}
-                {dms.filter(s => !searchQuery || s.displayName?.toLowerCase().includes(searchQuery.toLowerCase())).map(space => (
-                  <button
-                    key={space.id}
-                    onClick={() => selectSpace(space)}
-                    className={`w-full flex items-center gap-2 px-3 py-2 text-left transition-colors ${
-                      selectedSpace?.id === space.id ? 'bg-primary/10' : 'hover:bg-muted/50'
-                    }`}
-                  >
-                    <div className="w-6 h-6 rounded-full bg-muted flex items-center justify-center flex-shrink-0 text-[9px] font-medium">
-                      {getInitials(space.displayName || 'DM')}
-                    </div>
-                    <span className="text-xs font-medium text-foreground truncate">{space.displayName}</span>
-                  </button>
-                ))}
-              </>
+                )
+              })
             )}
           </div>
         </div>

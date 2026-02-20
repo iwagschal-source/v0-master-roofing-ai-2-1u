@@ -167,6 +167,17 @@ export function ChatScreen() {
     return senderColorMap.current.get(email)
   }
 
+  // Sort all spaces by last activity (most recent first)
+  const allSpaces = [...spaces].sort((a, b) => {
+    const aTime = a.lastMessage?.createTime || a.lastActiveTime || a.lastMessageTime || ''
+    const bTime = b.lastMessage?.createTime || b.lastActiveTime || b.lastMessageTime || ''
+    return bTime.localeCompare(aTime)
+  })
+
+  const filteredSpaces = allSpaces.filter(s =>
+    !searchQuery || s.displayName?.toLowerCase().includes(searchQuery.toLowerCase())
+  )
+
   const rooms = spaces.filter(s => s.type === 'ROOM')
   const dms = spaces.filter(s => s.type === 'DM' || s.type === 'GROUP_DM' || s.type === 'DIRECT_MESSAGE')
 
@@ -281,29 +292,43 @@ export function ChatScreen() {
                   <div className="px-3 py-2 text-xs font-medium text-foreground-secondary uppercase tracking-wide">
                     Direct Messages
                   </div>
-                  {filteredDms.map((space) => (
-                    <button
-                      key={space.id}
-                      onClick={() => selectSpace(space)}
-                      className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors ${
-                        selectedSpace?.id === space.id
-                          ? 'bg-primary/10 text-foreground'
-                          : 'text-foreground-secondary hover:bg-muted hover:text-foreground'
-                      }`}
-                    >
-                      <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center flex-shrink-0 text-xs font-medium">
-                        {getInitials(space.displayName || 'DM')}
-                      </div>
-                      <div className="flex-1 text-left overflow-hidden">
-                        <div className="text-sm font-medium truncate">{space.displayName}</div>
-                        {space.lastMessageTime && (
-                          <div className="text-xs text-foreground-secondary">
-                            {formatMessageTime(space.lastMessageTime)}
+                  {filteredDms.map((space) => {
+                    const lastMsg = space.lastMessage
+                    const lastTime = lastMsg?.createTime || space.lastMessageTime || space.lastActiveTime
+                    const isOwnLastMsg = lastMsg?.senderEmail === user?.email
+                    const previewText = lastMsg ? (isOwnLastMsg ? `You: ${lastMsg.text}` : lastMsg.text) : ''
+
+                    return (
+                      <button
+                        key={space.id}
+                        onClick={() => selectSpace(space)}
+                        className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors ${
+                          selectedSpace?.id === space.id
+                            ? 'bg-primary/10 text-foreground'
+                            : 'text-foreground-secondary hover:bg-muted hover:text-foreground'
+                        }`}
+                      >
+                        <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 text-xs font-medium ${
+                          SENDER_AVATAR_COLORS[getSenderColor(space.displayName || '')] || 'bg-muted text-foreground'
+                        }`}>
+                          {getInitials(space.displayName || 'DM')}
+                        </div>
+                        <div className="flex-1 text-left overflow-hidden">
+                          <div className="flex items-center justify-between gap-1">
+                            <span className="text-sm font-medium truncate">{space.displayName}</span>
+                            {lastTime && (
+                              <span className="text-[10px] text-foreground-secondary whitespace-nowrap flex-shrink-0">
+                                {formatMessageTime(lastTime)}
+                              </span>
+                            )}
                           </div>
-                        )}
-                      </div>
-                    </button>
-                  ))}
+                          {previewText && (
+                            <div className="text-xs text-foreground-secondary truncate mt-0.5">{previewText}</div>
+                          )}
+                        </div>
+                      </button>
+                    )
+                  })}
                 </div>
               )}
 
@@ -453,41 +478,98 @@ export function ChatScreen() {
                   </div>
                 </div>
               ) : (
-                <div className="space-y-4 max-w-3xl">
+                <div className="space-y-1 max-w-3xl">
                   {sortedMessages.map((message, index) => {
+                    const prev = index > 0 ? sortedMessages[index - 1] : null
                     const isOwn = message.sender.email === user?.email || message.sender.email === 'iwagschal@masterroofingus.com'
-                    const showAvatar = index === 0 || sortedMessages[index - 1].sender.email !== message.sender.email
                     const colorIdx = isOwn ? -1 : getSenderColor(message.sender.email || message.sender.name)
 
+                    // Date separator check
+                    const prevDate = prev ? new Date(prev.createTime).toDateString() : null
+                    const currDate = new Date(message.createTime).toDateString()
+                    const showDateSep = !prev || prevDate !== currDate
+
+                    // Group messages from same sender within 2 min
+                    const isGrouped = !showDateSep && prev &&
+                      (prev.sender?.email || prev.sender?.name) === (message.sender?.email || message.sender?.name) &&
+                      (new Date(message.createTime) - new Date(prev.createTime)) < 2 * 60 * 1000
+
+                    // Date label
+                    const getDateLabel = () => {
+                      const date = new Date(message.createTime)
+                      const now = new Date()
+                      const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+                      const msgDate = new Date(date.getFullYear(), date.getMonth(), date.getDate())
+                      const diffDays = Math.round((today - msgDate) / (1000 * 60 * 60 * 24))
+                      if (diffDays === 0) return 'Today'
+                      if (diffDays === 1) return 'Yesterday'
+                      return date.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })
+                    }
+
+                    const msgTimestamp = new Date(message.createTime).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }) +
+                      ', ' + new Date(message.createTime).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })
+
                     return (
-                      <div key={message.id} className={`flex gap-3 ${isOwn ? 'flex-row-reverse' : ''}`}>
-                        {showAvatar ? (
-                          <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 text-xs font-medium ${
-                            isOwn ? 'bg-primary text-primary-foreground' : SENDER_AVATAR_COLORS[colorIdx] || 'bg-muted text-foreground'
-                          }`}>
-                            {getInitials(message.sender.name)}
+                      <div key={message.id}>
+                        {/* Date separator */}
+                        {showDateSep && (
+                          <div className="flex items-center gap-3 my-4">
+                            <div className="flex-1 h-px bg-border" />
+                            <span className="text-xs text-foreground-secondary font-medium px-2">{getDateLabel()}</span>
+                            <div className="flex-1 h-px bg-border" />
                           </div>
-                        ) : (
-                          <div className="w-8 flex-shrink-0" />
                         )}
 
-                        <div className={`flex-1 ${isOwn ? 'text-right' : ''}`}>
-                          {showAvatar && (
-                            <div className={`flex items-center gap-2 mb-1 ${isOwn ? 'flex-row-reverse' : ''}`}>
-                              <span className="text-sm font-medium text-foreground">
-                                {message.sender.name}
-                              </span>
-                              <span className="text-xs text-foreground-secondary">
-                                {formatMessageTime(message.createTime)}
-                              </span>
+                        <div className={`flex gap-3 ${isOwn ? 'flex-row-reverse' : ''} ${isGrouped ? 'mt-0.5' : 'mt-3'}`}>
+                          {!isGrouped ? (
+                            <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 text-xs font-medium ${
+                              isOwn ? 'bg-primary text-primary-foreground' : SENDER_AVATAR_COLORS[colorIdx] || 'bg-muted text-foreground'
+                            }`}>
+                              {getInitials(message.sender.name)}
                             </div>
+                          ) : (
+                            <div className="w-8 flex-shrink-0" />
                           )}
-                          <div className={`inline-block px-4 py-2 rounded-2xl max-w-[80%] ${
-                            isOwn
-                              ? 'bg-primary text-primary-foreground rounded-br-md'
-                              : `${SENDER_COLORS[colorIdx] || 'bg-card border border-border text-foreground'} rounded-bl-md`
-                          }`}>
-                            <p className="text-sm whitespace-pre-wrap">{message.text}</p>
+
+                          <div className={`flex-1 min-w-0 ${isOwn ? 'text-right' : ''}`}>
+                            {!isGrouped && (
+                              <div className={`flex items-center gap-2 mb-1 ${isOwn ? 'flex-row-reverse' : ''}`}>
+                                <span className="text-sm font-semibold text-foreground">
+                                  {isOwn ? 'You' : message.sender.name}
+                                </span>
+                                <span className="text-xs text-foreground-secondary">
+                                  {msgTimestamp}
+                                </span>
+                              </div>
+                            )}
+
+                            {/* Quoted message */}
+                            {message.quotedMessageMetadata && (
+                              <div className={`mb-1 ${isOwn ? 'ml-auto' : ''} max-w-[80%]`}>
+                                <div className="border-l-2 border-foreground-secondary/30 pl-2 py-0.5 text-xs text-foreground-secondary italic bg-muted/30 rounded-r">
+                                  Quoted message
+                                </div>
+                              </div>
+                            )}
+
+                            <div className={`inline-block px-4 py-2 rounded-2xl max-w-[80%] ${
+                              isOwn
+                                ? 'bg-primary text-primary-foreground rounded-br-md'
+                                : `${SENDER_COLORS[colorIdx] || 'bg-card border border-border text-foreground'} rounded-bl-md`
+                            }`}>
+                              <p className="text-sm whitespace-pre-wrap break-words">{message.text}</p>
+                            </div>
+
+                            {/* Reactions */}
+                            {message.emojiReactionSummaries?.length > 0 && (
+                              <div className={`flex gap-1 mt-1 ${isOwn ? 'justify-end' : ''}`}>
+                                {message.emojiReactionSummaries.map((r, ri) => (
+                                  <span key={ri} className="inline-flex items-center gap-1 px-2 py-0.5 bg-muted/50 border border-border/50 rounded-full text-xs">
+                                    {r.emoji?.unicode || '👍'} <span className="text-foreground-secondary">{r.reactionCount || 1}</span>
+                                  </span>
+                                ))}
+                              </div>
+                            )}
                           </div>
                         </div>
                       </div>
