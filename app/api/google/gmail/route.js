@@ -225,7 +225,7 @@ export async function POST(request) {
     }
 
     const body = await request.json()
-    const { to, cc, bcc, subject, message, threadId, replyToMessageId } = body
+    const { to, cc, bcc, subject, message, threadId, replyToMessageId, attachments } = body
 
     if (!to || !message) {
       return NextResponse.json(
@@ -239,39 +239,91 @@ export async function POST(request) {
     const tokenData = await readJSON(`auth/google/${userId}.json`)
     const fromEmail = tokenData?.user?.email
 
-    // Build the email in RFC 2822 format
-    let emailLines = [
-      `From: ${fromEmail}`,
-      `To: ${Array.isArray(to) ? to.join(', ') : to}`,
-    ]
+    let rawEmail
 
-    // Add CC if provided
-    if (cc && (Array.isArray(cc) ? cc.length > 0 : cc.trim())) {
-      emailLines.push(`Cc: ${Array.isArray(cc) ? cc.join(', ') : cc}`)
+    if (attachments && attachments.length > 0) {
+      // Build multipart/mixed MIME for emails with attachments
+      const boundary = `boundary_${Date.now()}_${Math.random().toString(36).slice(2)}`
+
+      let headerLines = [
+        `From: ${fromEmail}`,
+        `To: ${Array.isArray(to) ? to.join(', ') : to}`,
+      ]
+
+      if (cc && (Array.isArray(cc) ? cc.length > 0 : cc.trim())) {
+        headerLines.push(`Cc: ${Array.isArray(cc) ? cc.join(', ') : cc}`)
+      }
+      if (bcc && (Array.isArray(bcc) ? bcc.length > 0 : bcc.trim())) {
+        headerLines.push(`Bcc: ${Array.isArray(bcc) ? bcc.join(', ') : bcc}`)
+      }
+
+      headerLines.push(
+        `Subject: ${subject || '(No Subject)'}`,
+        'MIME-Version: 1.0',
+        `Content-Type: multipart/mixed; boundary="${boundary}"`,
+      )
+
+      if (replyToMessageId) {
+        headerLines.push(`In-Reply-To: ${replyToMessageId}`)
+        headerLines.push(`References: ${replyToMessageId}`)
+      }
+
+      // Build MIME body
+      let mimeParts = []
+      mimeParts.push(headerLines.join('\r\n'))
+      mimeParts.push('')
+      mimeParts.push(`--${boundary}`)
+      mimeParts.push('Content-Type: text/plain; charset=utf-8')
+      mimeParts.push('Content-Transfer-Encoding: 7bit')
+      mimeParts.push('')
+      mimeParts.push(message)
+
+      for (const att of attachments) {
+        mimeParts.push(`--${boundary}`)
+        mimeParts.push(`Content-Type: ${att.mimeType}; name="${att.filename}"`)
+        mimeParts.push('Content-Transfer-Encoding: base64')
+        mimeParts.push(`Content-Disposition: attachment; filename="${att.filename}"`)
+        mimeParts.push('')
+        // Split base64 into 76-char lines per RFC 2045
+        const b64 = att.data
+        const lines = []
+        for (let i = 0; i < b64.length; i += 76) {
+          lines.push(b64.slice(i, i + 76))
+        }
+        mimeParts.push(lines.join('\r\n'))
+      }
+
+      mimeParts.push(`--${boundary}--`)
+      rawEmail = mimeParts.join('\r\n')
+    } else {
+      // Simple text email (no attachments)
+      let emailLines = [
+        `From: ${fromEmail}`,
+        `To: ${Array.isArray(to) ? to.join(', ') : to}`,
+      ]
+
+      if (cc && (Array.isArray(cc) ? cc.length > 0 : cc.trim())) {
+        emailLines.push(`Cc: ${Array.isArray(cc) ? cc.join(', ') : cc}`)
+      }
+      if (bcc && (Array.isArray(bcc) ? bcc.length > 0 : bcc.trim())) {
+        emailLines.push(`Bcc: ${Array.isArray(bcc) ? bcc.join(', ') : bcc}`)
+      }
+
+      emailLines.push(
+        `Subject: ${subject || '(No Subject)'}`,
+        'Content-Type: text/plain; charset=utf-8',
+        'MIME-Version: 1.0',
+      )
+
+      if (replyToMessageId) {
+        emailLines.push(`In-Reply-To: ${replyToMessageId}`)
+        emailLines.push(`References: ${replyToMessageId}`)
+      }
+
+      emailLines.push('')
+      emailLines.push(message)
+      rawEmail = emailLines.join('\r\n')
     }
-
-    // Add BCC if provided
-    if (bcc && (Array.isArray(bcc) ? bcc.length > 0 : bcc.trim())) {
-      emailLines.push(`Bcc: ${Array.isArray(bcc) ? bcc.join(', ') : bcc}`)
-    }
-
-    emailLines.push(
-      `Subject: ${subject || '(No Subject)'}`,
-      'Content-Type: text/plain; charset=utf-8',
-      'MIME-Version: 1.0',
-    )
-
-    // Add threading headers if replying
-    if (replyToMessageId) {
-      emailLines.push(`In-Reply-To: ${replyToMessageId}`)
-      emailLines.push(`References: ${replyToMessageId}`)
-    }
-
-    // Add blank line then body
-    emailLines.push('')
-    emailLines.push(message)
-
-    const rawEmail = emailLines.join('\r\n')
 
     // Encode to base64url
     const encodedEmail = Buffer.from(rawEmail)

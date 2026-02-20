@@ -1183,9 +1183,11 @@ function ComposeModal({ isOpen, onClose, onSend, sending, error }) {
   const [subject, setSubject] = useState("")
   const [body, setBody] = useState("")
   const [showCcBcc, setShowCcBcc] = useState(false)
+  const [attachments, setAttachments] = useState([])
+  const fileInputRef = useRef(null)
 
   const handleSend = () => {
-    onSend({ to, cc, bcc, subject, body })
+    onSend({ to, cc, bcc, subject, body, attachments })
   }
 
   const handleClose = () => {
@@ -1195,7 +1197,18 @@ function ComposeModal({ isOpen, onClose, onSend, sending, error }) {
     setSubject("")
     setBody("")
     setShowCcBcc(false)
+    setAttachments([])
     onClose()
+  }
+
+  const handleFileSelect = (e) => {
+    const files = Array.from(e.target.files || [])
+    setAttachments(prev => [...prev, ...files])
+    e.target.value = '' // Reset input so same file can be re-selected
+  }
+
+  const removeAttachment = (index) => {
+    setAttachments(prev => prev.filter((_, i) => i !== index))
   }
 
   if (!isOpen) return null
@@ -1278,6 +1291,45 @@ function ComposeModal({ isOpen, onClose, onSend, sending, error }) {
               rows={10}
               className="w-full px-3 py-2 bg-secondary/30 border border-border/50 rounded-lg text-sm placeholder:text-muted-foreground/50 focus:outline-none focus:border-primary/50 resize-none"
             />
+          </div>
+
+          {/* Attachments */}
+          <div>
+            <input
+              ref={fileInputRef}
+              type="file"
+              multiple
+              onChange={handleFileSelect}
+              className="hidden"
+            />
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              className="flex items-center gap-2 px-3 py-1.5 text-sm text-muted-foreground hover:text-foreground hover:bg-muted/50 rounded-lg transition-colors"
+            >
+              <Paperclip className="w-4 h-4" />
+              Attach files
+            </button>
+            {attachments.length > 0 && (
+              <div className="flex flex-wrap gap-2 mt-2">
+                {attachments.map((file, i) => (
+                  <div
+                    key={i}
+                    className="flex items-center gap-2 px-3 py-1.5 bg-secondary/40 border border-border/50 rounded-lg text-sm"
+                  >
+                    <Paperclip className="w-3.5 h-3.5 text-muted-foreground" />
+                    <span className="truncate max-w-[150px]">{file.name}</span>
+                    <span className="text-xs text-muted-foreground">{formatFileSize(file.size)}</span>
+                    <button
+                      onClick={() => removeAttachment(i)}
+                      className="text-muted-foreground hover:text-destructive transition-colors ml-1"
+                    >
+                      &times;
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
 
           {error && (
@@ -1453,7 +1505,7 @@ export function GmailScreen() {
     }
   }
 
-  const handleComposeSend = async ({ to, cc, bcc, subject, body }) => {
+  const handleComposeSend = async ({ to, cc, bcc, subject, body, attachments = [] }) => {
     if (!to.trim() || !body.trim()) {
       setComposeError("Please enter a recipient and message")
       return
@@ -1467,6 +1519,21 @@ export function GmailScreen() {
       const ccRecipients = cc.split(',').map(e => e.trim()).filter(Boolean)
       const bccRecipients = bcc.split(',').map(e => e.trim()).filter(Boolean)
 
+      // Convert file attachments to base64
+      const attachmentData = await Promise.all(
+        attachments.map(async (file) => {
+          const arrayBuffer = await file.arrayBuffer()
+          const base64 = btoa(
+            new Uint8Array(arrayBuffer).reduce((data, byte) => data + String.fromCharCode(byte), '')
+          )
+          return {
+            filename: file.name,
+            mimeType: file.type || 'application/octet-stream',
+            data: base64,
+          }
+        })
+      )
+
       const res = await fetch('/api/google/gmail', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -1476,6 +1543,7 @@ export function GmailScreen() {
           bcc: bccRecipients.length > 0 ? bccRecipients : undefined,
           subject: subject || '(No Subject)',
           message: body,
+          attachments: attachmentData.length > 0 ? attachmentData : undefined,
         }),
       })
 
