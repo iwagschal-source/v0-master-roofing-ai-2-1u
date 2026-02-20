@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect, useRef } from "react"
-import { MessageSquare, Send, RefreshCw, Loader2, Search, Hash, User, ExternalLink, LogOut, AlertTriangle, AlertCircle, FolderOpen, ChevronDown, Check, Paperclip } from "lucide-react"
+import { MessageSquare, Send, RefreshCw, Loader2, Search, Hash, User, ExternalLink, LogOut, AlertTriangle, AlertCircle, FolderOpen, ChevronDown, Check, Paperclip, X, FileText, Image as ImageIcon } from "lucide-react"
 import { useChatSpaces, formatMessageTime, getInitials } from "@/hooks/useChatSpaces"
 import { useGoogleAuth } from "@/hooks/useGoogleAuth"
 
@@ -14,6 +14,8 @@ export function ChatScreen() {
   const [sending, setSending] = useState(false)
   const messagesEndRef = useRef(null)
   const textareaRef = useRef(null)
+  const fileInputRef = useRef(null)
+  const [attachedFiles, setAttachedFiles] = useState([])
 
   // Project logging state
   const [projects, setProjects] = useState([])
@@ -119,17 +121,45 @@ export function ChatScreen() {
   )
 
   const handleSend = async () => {
-    if (!inputValue.trim() || sending || !selectedSpace) return
+    if ((!inputValue.trim() && attachedFiles.length === 0) || sending || !selectedSpace) return
 
     setSending(true)
-    const success = await sendMessage(inputValue)
-    if (success) {
-      setInputValue("")
-      // Reset textarea height
-      if (textareaRef.current) {
-        textareaRef.current.style.height = 'auto'
+
+    if (attachedFiles.length > 0) {
+      // Send with attachments via FormData
+      const normalizedSpaceId = selectedSpace.id.startsWith('spaces/')
+        ? selectedSpace.id : `spaces/${selectedSpace.id}`
+      const formData = new FormData()
+      formData.append('spaceId', normalizedSpaceId)
+      if (inputValue.trim()) formData.append('text', inputValue.trim())
+      attachedFiles.forEach(f => formData.append('files', f))
+
+      try {
+        const res = await fetch('/api/google/chat', {
+          method: 'POST',
+          body: formData,
+        })
+        const data = await res.json()
+        if (!data.error && !data.needsAuth) {
+          setInputValue("")
+          setAttachedFiles([])
+          if (textareaRef.current) textareaRef.current.style.height = 'auto'
+          // Refresh messages
+          const { fetchMessages } = await import('@/hooks/useChatSpaces').then(() => ({}))
+          // Simple refresh via selectSpace re-trigger
+          selectSpace(selectedSpace)
+        }
+      } catch (err) {
+        console.error('Failed to send with attachment:', err)
+      }
+    } else {
+      const success = await sendMessage(inputValue)
+      if (success) {
+        setInputValue("")
+        if (textareaRef.current) textareaRef.current.style.height = 'auto'
       }
     }
+
     setSending(false)
   }
 
@@ -138,6 +168,30 @@ export function ChatScreen() {
       e.preventDefault()
       handleSend()
     }
+  }
+
+  const handleFileSelect = (e) => {
+    const files = Array.from(e.target.files || [])
+    if (files.length > 0) {
+      setAttachedFiles(prev => [...prev, ...files])
+    }
+    // Reset input so same file can be re-selected
+    if (fileInputRef.current) fileInputRef.current.value = ''
+  }
+
+  const removeFile = (index) => {
+    setAttachedFiles(prev => prev.filter((_, i) => i !== index))
+  }
+
+  const getFileIcon = (file) => {
+    if (file.type?.startsWith('image/')) return ImageIcon
+    return FileText
+  }
+
+  const formatFileSize = (bytes) => {
+    if (bytes < 1024) return `${bytes} B`
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
   }
 
   // Sort messages chronologically (oldest first, newest at bottom)
@@ -510,7 +564,7 @@ export function ChatScreen() {
                           </div>
                         )}
 
-                        <div className={`group flex gap-3 px-2 py-0.5 hover:bg-muted/40 rounded transition-colors ${isGrouped ? '' : 'mt-3 pt-1'}`}>
+                        <div className={`group flex gap-3 px-2 py-0.5 rounded transition-colors ${isGrouped ? '' : 'mt-3 pt-1'} ${isOwn ? 'hover:bg-muted/30' : 'bg-muted/20 hover:bg-muted/35 dark:bg-muted/10 dark:hover:bg-muted/20'}`}>
                           {/* Avatar or spacer */}
                           {!isGrouped ? (
                             <div className={`w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0 text-xs font-medium mt-0.5 ${
@@ -572,7 +626,44 @@ export function ChatScreen() {
             </div>
 
             <div className="px-4 py-3 border-t border-border bg-card">
+              {/* Attached files preview */}
+              {attachedFiles.length > 0 && (
+                <div className="flex flex-wrap gap-2 mb-2">
+                  {attachedFiles.map((file, i) => {
+                    const Icon = getFileIcon(file)
+                    return (
+                      <div key={i} className="flex items-center gap-2 bg-muted/50 border border-border rounded-lg px-3 py-1.5 text-sm">
+                        <Icon className="w-4 h-4 text-foreground-secondary flex-shrink-0" />
+                        <span className="truncate max-w-[150px] text-foreground">{file.name}</span>
+                        <span className="text-xs text-foreground-secondary">{formatFileSize(file.size)}</span>
+                        <button onClick={() => removeFile(i)} className="p-0.5 hover:bg-muted rounded text-foreground-secondary hover:text-foreground">
+                          <X className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+
               <div className="flex items-end gap-2 bg-background border border-input rounded-xl px-3 py-2 focus-within:ring-2 focus-within:ring-primary/20 focus-within:border-primary transition-colors">
+                {/* Hidden file input */}
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  multiple
+                  onChange={handleFileSelect}
+                  className="hidden"
+                  accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.txt,.csv,.zip"
+                />
+                <button
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={sending}
+                  className="p-1.5 text-foreground-secondary hover:text-foreground hover:bg-muted rounded-lg transition-colors disabled:opacity-30 flex-shrink-0"
+                  title="Attach file"
+                >
+                  <Paperclip className="w-5 h-5" />
+                </button>
+
                 <textarea
                   ref={textareaRef}
                   value={inputValue}
@@ -583,19 +674,17 @@ export function ChatScreen() {
                   rows={1}
                   className="flex-1 bg-transparent resize-none outline-none text-sm text-foreground placeholder:text-foreground-secondary py-1.5 max-h-40 disabled:opacity-50"
                 />
-                <div className="flex items-center gap-1 pb-0.5">
-                  <button
-                    onClick={handleSend}
-                    disabled={!inputValue.trim() || sending}
-                    className="p-1.5 text-primary hover:bg-primary/10 rounded-lg disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
-                  >
-                    {sending ? (
-                      <Loader2 className="w-5 h-5 animate-spin" />
-                    ) : (
-                      <Send className="w-5 h-5" />
-                    )}
-                  </button>
-                </div>
+                <button
+                  onClick={handleSend}
+                  disabled={(!inputValue.trim() && attachedFiles.length === 0) || sending}
+                  className="p-1.5 text-primary hover:bg-primary/10 rounded-lg disabled:opacity-30 disabled:cursor-not-allowed transition-colors flex-shrink-0"
+                >
+                  {sending ? (
+                    <Loader2 className="w-5 h-5 animate-spin" />
+                  ) : (
+                    <Send className="w-5 h-5" />
+                  )}
+                </button>
               </div>
               <p className="text-[10px] text-foreground-secondary/50 mt-1 text-center">Enter to send, Shift+Enter for new line</p>
             </div>

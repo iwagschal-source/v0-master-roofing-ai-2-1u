@@ -197,7 +197,7 @@ export async function GET(request) {
       await resolveSpaceMembers(`spaces/${normalizedSpaceId}`, token, userId)
 
       const messagesRes = await fetch(
-        `${CHAT_API}/spaces/${normalizedSpaceId}/messages?pageSize=50`,
+        `${CHAT_API}/spaces/${normalizedSpaceId}/messages?pageSize=50&orderBy=createTime%20desc`,
         { headers: { 'Authorization': `Bearer ${token}` } }
       )
       const messagesData = await messagesRes.json()
@@ -389,7 +389,49 @@ export async function GET(request) {
   }
 }
 
-// POST - Send a message to a space
+/**
+ * Upload a file attachment to a Google Chat space.
+ * Uses Google's multipart/related upload protocol.
+ */
+async function uploadAttachment(token, spaceName, file) {
+  const boundary = 'chat_upload_' + Date.now()
+  const normalizedSpace = spaceName.startsWith('spaces/') ? spaceName : `spaces/${spaceName}`
+
+  const metadata = JSON.stringify({ filename: file.name })
+  const fileBuffer = Buffer.from(await file.arrayBuffer())
+  const fileType = file.type || 'application/octet-stream'
+
+  // Build multipart/related body
+  const parts = [
+    `--${boundary}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${metadata}\r\n`,
+    `--${boundary}\r\nContent-Type: ${fileType}\r\n\r\n`,
+  ]
+
+  const prefix = Buffer.from(parts[0] + parts[1], 'utf-8')
+  const suffix = Buffer.from(`\r\n--${boundary}--`, 'utf-8')
+  const body = Buffer.concat([prefix, fileBuffer, suffix])
+
+  const res = await fetch(
+    `https://chat.googleapis.com/upload/v1/media/${normalizedSpace}/attachments:upload?uploadType=multipart`,
+    {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': `multipart/related; boundary=${boundary}`,
+      },
+      body,
+    }
+  )
+
+  const data = await res.json()
+  if (data.error) {
+    console.error('[Chat upload] Error:', data.error.message)
+    return null
+  }
+  return data.attachmentDataRef || null
+}
+
+// POST - Send a message to a space (supports JSON or FormData with attachments)
 export async function POST(request) {
   try {
     const cookieStore = await cookies()
@@ -410,17 +452,43 @@ export async function POST(request) {
       )
     }
 
-    const body = await request.json()
-    const { spaceId, text } = body
+    // Detect content type — FormData (with files) or JSON (text only)
+    const contentType = request.headers.get('content-type') || ''
+    let spaceId, text, files = []
 
-    if (!spaceId || !text) {
+    if (contentType.includes('multipart/form-data')) {
+      const formData = await request.formData()
+      spaceId = formData.get('spaceId')
+      text = formData.get('text') || ''
+      files = formData.getAll('files').filter(f => f && f.size > 0)
+    } else {
+      const body = await request.json()
+      spaceId = body.spaceId
+      text = body.text
+    }
+
+    if (!spaceId || (!text && files.length === 0)) {
       return NextResponse.json(
-        { error: 'Missing required fields: spaceId, text' },
+        { error: 'Missing required fields: spaceId and (text or files)' },
         { status: 400 }
       )
     }
 
     const normalizedSpaceId = spaceId.startsWith('spaces/') ? spaceId.replace('spaces/', '') : spaceId
+
+    // Upload attachments if any
+    const attachmentRefs = []
+    for (const file of files) {
+      const ref = await uploadAttachment(token, `spaces/${normalizedSpaceId}`, file)
+      if (ref) {
+        attachmentRefs.push({ attachmentDataRef: ref })
+      }
+    }
+
+    // Build message payload
+    const messagePayload = {}
+    if (text) messagePayload.text = text
+    if (attachmentRefs.length > 0) messagePayload.attachment = attachmentRefs
 
     const sendRes = await fetch(
       `${CHAT_API}/spaces/${normalizedSpaceId}/messages`,
@@ -430,7 +498,7 @@ export async function POST(request) {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ text }),
+        body: JSON.stringify(messagePayload),
       }
     )
 
