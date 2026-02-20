@@ -575,7 +575,7 @@ function EmailPreviewPanel({ selectedMessage, onReply, onReplyAll, onForward, us
       <ResizeHandle direction="horizontal" />
 
       {/* Lower: AI Agent Placeholder */}
-      <Panel defaultSize={25} minSize={10}>
+      <Panel defaultSize={8} minSize={5}>
         <div className="h-full m-2 rounded-[14px] border border-[rgba(215,64,58,0.4)] bg-card flex flex-col overflow-hidden">
           <div className="flex-1 flex items-center justify-center overflow-y-auto p-2">
             <div className="text-center text-muted-foreground">
@@ -1073,7 +1073,7 @@ export function CommunicationsHubScreen() {
   }
 
   return (
-    <div className="flex-1 h-full overflow-hidden">
+    <div className="flex-1 h-0 min-h-0 overflow-hidden">
       <PanelGroup direction="horizontal" autoSaveId="comms-hub-h">
         {/* LEFT: Email List */}
         <Panel defaultSize={22} minSize={15} maxSize={35}>
