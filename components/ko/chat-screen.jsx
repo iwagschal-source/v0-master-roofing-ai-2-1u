@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect, useRef } from "react"
-import { MessageSquare, Send, RefreshCw, Loader2, Search, Hash, User, ExternalLink, LogOut, AlertTriangle, AlertCircle, FolderOpen, ChevronDown, Check, Paperclip, X, FileText, Image as ImageIcon, Plus } from "lucide-react"
+import { MessageSquare, Send, RefreshCw, Loader2, Search, Hash, User, ExternalLink, LogOut, AlertTriangle, AlertCircle, FolderOpen, ChevronDown, Check, Paperclip, X, FileText, Image as ImageIcon } from "lucide-react"
 import { useChatSpaces, formatMessageTime, getInitials } from "@/hooks/useChatSpaces"
 import { useGoogleAuth } from "@/hooks/useGoogleAuth"
 
@@ -16,11 +16,6 @@ export function ChatScreen() {
   const textareaRef = useRef(null)
   const fileInputRef = useRef(null)
   const [attachedFiles, setAttachedFiles] = useState([])
-
-  // New chat state
-  const [showNewChat, setShowNewChat] = useState(false)
-  const [newChatEmail, setNewChatEmail] = useState('')
-  const [creatingChat, setCreatingChat] = useState(false)
 
   // Project logging state
   const [projects, setProjects] = useState([])
@@ -199,39 +194,6 @@ export function ChatScreen() {
     return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
   }
 
-  // Create new DM conversation
-  const handleNewChat = async () => {
-    if (!newChatEmail.trim() || creatingChat) return
-    setCreatingChat(true)
-    try {
-      const res = await fetch('/api/google/chat', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'create_space', email: newChatEmail.trim() }),
-      })
-      const data = await res.json()
-      if (data.space) {
-        // Refresh spaces list and select the new one
-        await refresh()
-        selectSpace({
-          id: data.space.name,
-          name: data.space.name,
-          displayName: data.space.displayName || newChatEmail.trim(),
-          type: 'DM',
-          memberCount: 2,
-        })
-        setShowNewChat(false)
-        setNewChatEmail('')
-      } else {
-        console.error('Failed to create chat:', data.error)
-      }
-    } catch (err) {
-      console.error('Failed to create chat:', err)
-    } finally {
-      setCreatingChat(false)
-    }
-  }
-
   // Sort messages chronologically (oldest first, newest at bottom)
   const sortedMessages = [...messages].sort((a, b) =>
     new Date(a.createTime).getTime() - new Date(b.createTime).getTime()
@@ -279,15 +241,6 @@ export function ChatScreen() {
               <h2 className="text-lg font-semibold text-foreground">Chat</h2>
             </div>
             <div className="flex items-center gap-1">
-              {isConnected && (
-                <button
-                  onClick={() => setShowNewChat(!showNewChat)}
-                  className="p-1.5 hover:bg-muted rounded-lg transition-colors text-foreground-secondary hover:text-primary"
-                  title="New chat"
-                >
-                  <Plus className="w-4 h-4" />
-                </button>
-              )}
               {isConnected && user && (
                 <button
                   onClick={disconnect}
@@ -318,30 +271,6 @@ export function ChatScreen() {
             />
           </div>
 
-          {/* New chat panel */}
-          {showNewChat && (
-            <div className="mt-2 p-2 bg-muted/30 border border-border rounded-lg">
-              <p className="text-xs text-foreground-secondary mb-1.5">Start a new conversation</p>
-              <div className="flex gap-1.5">
-                <input
-                  type="email"
-                  value={newChatEmail}
-                  onChange={(e) => setNewChatEmail(e.target.value)}
-                  onKeyDown={(e) => e.key === 'Enter' && handleNewChat()}
-                  placeholder="Email address..."
-                  className="flex-1 px-2.5 py-1.5 bg-background border border-input rounded text-sm text-foreground placeholder:text-foreground-secondary outline-none focus:border-primary"
-                  autoFocus
-                />
-                <button
-                  onClick={handleNewChat}
-                  disabled={!newChatEmail.trim() || creatingChat}
-                  className="px-2.5 py-1.5 bg-primary text-primary-foreground rounded text-xs font-medium hover:bg-primary/90 disabled:opacity-40 transition-colors"
-                >
-                  {creatingChat ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : 'Go'}
-                </button>
-              </div>
-            </div>
-          )}
         </div>
 
         <div className="flex-1 overflow-y-auto p-2">
