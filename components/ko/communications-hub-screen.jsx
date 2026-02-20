@@ -518,10 +518,18 @@ function EmailPreviewPanel({ selectedMessage, onReply, onReplyAll, onForward, us
                         {msg.htmlBody ? (
                           <iframe
                             srcDoc={`<!DOCTYPE html><html><head><meta charset="utf-8"><style>body{font-family:-apple-system,sans-serif;font-size:13px;line-height:1.4;color:#333;margin:0;padding:0;}img{max-width:100%;}a{color:#2563eb;}</style></head><body>${msg.htmlBody}</body></html>`}
-                            className="w-full border-0 min-h-[80px]"
-                            style={{ height: '150px' }}
+                            className="w-full border-0"
+                            style={{ minHeight: '80px', height: 'auto' }}
                             sandbox="allow-same-origin"
                             title="Email"
+                            onLoad={(e) => {
+                              try {
+                                const doc = e.target.contentDocument || e.target.contentWindow?.document
+                                if (doc?.body) {
+                                  e.target.style.height = doc.body.scrollHeight + 'px'
+                                }
+                              } catch (err) {}
+                            }}
                           />
                         ) : (
                           <div className="whitespace-pre-wrap text-foreground">{msg.body || msg.snippet || 'No content'}</div>
