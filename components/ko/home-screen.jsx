@@ -142,7 +142,7 @@ export function HomeScreen({
             <img
               src="/images/mr-stripes.svg"
               alt=""
-              className="h-[52px] w-auto -mr-[24px] relative z-10 select-none pointer-events-none"
+              className="h-[52px] w-auto -mr-[48px] relative z-10 select-none pointer-events-none"
               draggable={false}
             />
             <h2 className="text-xl font-medium text-foreground text-center text-balance relative">
