@@ -138,15 +138,14 @@ export function HomeScreen({
       <div className="flex-1 flex flex-col items-center justify-center px-8">
         {/* Dynamic Greeting with MR logo stripes */}
         <div className="flex flex-col items-center mb-8">
-          <div className="relative">
+          <div className="flex items-end">
             <img
               src="/images/mr-stripes.svg"
               alt=""
-              className="absolute h-[64px] w-auto select-none pointer-events-none"
-              style={{ bottom: '40%', right: '55%' }}
+              className="h-[52px] w-auto -mr-2 select-none pointer-events-none"
               draggable={false}
             />
-            <h2 className="text-xl font-medium text-foreground text-center text-balance relative">
+            <h2 className="text-xl font-medium text-foreground text-center text-balance">
               {greeting}
             </h2>
           </div>
