@@ -6,7 +6,8 @@ import {
   AlertCircle, ExternalLink, LogOut, Check, Sparkles,
   MessageSquare, FileText, Paperclip, FolderOpen, ChevronDown,
   ChevronRight, Download, File as FileIcon, Image as ImageIcon,
-  Inbox, SendHorizontal, FilePen, AlertOctagon, Trash2, Star
+  Inbox, SendHorizontal, FilePen, AlertOctagon, Trash2, Star,
+  Reply, ReplyAll, Forward
 } from "lucide-react"
 
 // Gmail folder definitions
@@ -519,7 +520,10 @@ function EmailContentPanel({
   sendingReply,
   sendSuccess,
   replyText,
-  onReplyTextChange
+  onReplyTextChange,
+  onReply,
+  onReplyAll,
+  onForward,
 }) {
   // Thread state
   const [threadMessages, setThreadMessages] = useState([])
@@ -709,6 +713,35 @@ function EmailContentPanel({
             {selectedMessage.subject || '(No Subject)'}
           </h1>
 
+          <div className="flex items-center gap-1 flex-shrink-0">
+            {/* Reply / Reply All / Forward */}
+            <button
+              onClick={() => onReply?.(selectedMessage, threadMessages)}
+              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors"
+              title="Reply"
+            >
+              <Reply className="w-3.5 h-3.5" />
+              <span>Reply</span>
+            </button>
+            <button
+              onClick={() => onReplyAll?.(selectedMessage, threadMessages)}
+              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors"
+              title="Reply All"
+            >
+              <ReplyAll className="w-3.5 h-3.5" />
+              <span>All</span>
+            </button>
+            <button
+              onClick={() => onForward?.(selectedMessage, threadMessages)}
+              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors"
+              title="Forward"
+            >
+              <Forward className="w-3.5 h-3.5" />
+              <span>Fwd</span>
+            </button>
+
+            <div className="w-px h-5 bg-border/50 mx-1" />
+
           {/* Log to Project Dropdown */}
           <div className="relative flex-shrink-0" ref={dropdownRef}>
             <button
@@ -797,6 +830,7 @@ function EmailContentPanel({
                 </div>
               </div>
             )}
+          </div>
           </div>
         </div>
         {threadMessages.length > 1 && (
@@ -1176,7 +1210,7 @@ function DraftPanel({ selectedMessage, draftReply, draftLoading, onSelectDraft, 
 }
 
 // Compose Modal
-function ComposeModal({ isOpen, onClose, onSend, sending, error }) {
+function ComposeModal({ isOpen, onClose, onSend, sending, error, initialData }) {
   const [to, setTo] = useState("")
   const [cc, setCc] = useState("")
   const [bcc, setBcc] = useState("")
@@ -1185,6 +1219,18 @@ function ComposeModal({ isOpen, onClose, onSend, sending, error }) {
   const [showCcBcc, setShowCcBcc] = useState(false)
   const [attachments, setAttachments] = useState([])
   const fileInputRef = useRef(null)
+
+  // Pre-fill fields when initialData changes (for reply/replyAll/forward)
+  useEffect(() => {
+    if (!isOpen || !initialData) return
+    setTo(initialData.to || "")
+    setCc(initialData.cc || "")
+    setBcc(initialData.bcc || "")
+    setSubject(initialData.subject || "")
+    setBody("") // Always blank per spec — AI agent will fill later
+    setShowCcBcc(!!(initialData.cc || initialData.bcc))
+    setAttachments([])
+  }, [isOpen, initialData])
 
   // Log to Project state
   const [projects, setProjects] = useState([])
@@ -1225,7 +1271,12 @@ function ComposeModal({ isOpen, onClose, onSend, sending, error }) {
   )
 
   const handleSend = () => {
-    onSend({ to, cc, bcc, subject, body, attachments, logProject })
+    onSend({
+      to, cc, bcc, subject, body, attachments, logProject,
+      threadId: initialData?.threadId,
+      replyToMessageId: initialData?.replyToMessageId,
+      forwardAttachments: initialData?.forwardAttachments,
+    })
   }
 
   const handleClose = () => {
@@ -1258,7 +1309,9 @@ function ComposeModal({ isOpen, onClose, onSend, sending, error }) {
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
       <div className="bg-card border border-border rounded-xl w-full max-w-2xl shadow-2xl flex flex-col max-h-[90vh]">
         <div className="flex items-center justify-between p-4 border-b border-border">
-          <h2 className="text-lg font-semibold text-foreground">New Message</h2>
+          <h2 className="text-lg font-semibold text-foreground">
+            {initialData?.mode === 'reply' ? 'Reply' : initialData?.mode === 'replyAll' ? 'Reply All' : initialData?.mode === 'forward' ? 'Forward' : 'New Message'}
+          </h2>
           <button
             onClick={handleClose}
             className="p-1.5 hover:bg-muted rounded-lg transition-colors text-muted-foreground hover:text-foreground"
@@ -1496,6 +1549,7 @@ export function GmailScreen() {
   const [showCompose, setShowCompose] = useState(false)
   const [composeSending, setComposeSending] = useState(false)
   const [composeError, setComposeError] = useState("")
+  const [composeInitial, setComposeInitial] = useState(null)
   const [replyText, setReplyText] = useState("")
   const [sendingReply, setSendingReply] = useState(false)
   const [sendSuccess, setSendSuccess] = useState(false)
@@ -1609,7 +1663,67 @@ export function GmailScreen() {
     }
   }
 
-  const handleComposeSend = async ({ to, cc, bcc, subject, body, attachments = [], logProject = null }) => {
+  // Reply: To = sender, Subject = "Re: ...", body = BLANK
+  const handleReply = (message, threadMessages) => {
+    const lastMsg = threadMessages?.length > 0 ? threadMessages[threadMessages.length - 1] : message
+    setComposeInitial({
+      mode: 'reply',
+      to: extractSenderEmail(lastMsg.from),
+      cc: '',
+      bcc: '',
+      subject: lastMsg.subject?.startsWith('Re:') ? lastMsg.subject : `Re: ${lastMsg.subject || ''}`,
+      threadId: lastMsg.threadId,
+      replyToMessageId: lastMsg.id,
+    })
+    setShowCompose(true)
+  }
+
+  // Reply All: To = sender, CC = other recipients (excluding current user)
+  const handleReplyAll = (message, threadMessages) => {
+    const lastMsg = threadMessages?.length > 0 ? threadMessages[threadMessages.length - 1] : message
+    const senderEmail = extractSenderEmail(lastMsg.from)
+    const currentUserEmail = user?.email || ''
+
+    // Collect all To and CC recipients, remove sender and current user
+    const allToEmails = (lastMsg.to || '').split(',').map(e => {
+      const match = e.match(/<([^>]+)>/)
+      return match ? match[1].trim() : e.trim()
+    }).filter(e => e && e.toLowerCase() !== currentUserEmail.toLowerCase() && e.toLowerCase() !== senderEmail.toLowerCase())
+
+    const allCcEmails = (lastMsg.cc || '').split(',').map(e => {
+      const match = e.match(/<([^>]+)>/)
+      return match ? match[1].trim() : e.trim()
+    }).filter(e => e && e.toLowerCase() !== currentUserEmail.toLowerCase() && e.toLowerCase() !== senderEmail.toLowerCase())
+
+    setComposeInitial({
+      mode: 'replyAll',
+      to: senderEmail,
+      cc: [...allToEmails, ...allCcEmails].join(', '),
+      bcc: '',
+      subject: lastMsg.subject?.startsWith('Re:') ? lastMsg.subject : `Re: ${lastMsg.subject || ''}`,
+      threadId: lastMsg.threadId,
+      replyToMessageId: lastMsg.id,
+    })
+    setShowCompose(true)
+  }
+
+  // Forward: To = EMPTY, Subject = "Fwd: ...", carry attachments
+  const handleForward = (message, threadMessages) => {
+    const lastMsg = threadMessages?.length > 0 ? threadMessages[threadMessages.length - 1] : message
+    setComposeInitial({
+      mode: 'forward',
+      to: '',
+      cc: '',
+      bcc: '',
+      subject: lastMsg.subject?.startsWith('Fwd:') ? lastMsg.subject : `Fwd: ${lastMsg.subject || ''}`,
+      threadId: lastMsg.threadId,
+      replyToMessageId: lastMsg.id,
+      forwardAttachments: lastMsg.attachments || [],
+    })
+    setShowCompose(true)
+  }
+
+  const handleComposeSend = async ({ to, cc, bcc, subject, body, attachments = [], logProject = null, threadId, replyToMessageId, forwardAttachments }) => {
     if (!to.trim() || !body.trim()) {
       setComposeError("Please enter a recipient and message")
       return
@@ -1638,6 +1752,32 @@ export function GmailScreen() {
         })
       )
 
+      // For forwards, fetch original attachments and include them
+      let allAttachments = [...attachmentData]
+      if (forwardAttachments?.length > 0 && replyToMessageId) {
+        const fwdData = await Promise.all(
+          forwardAttachments.map(async (att) => {
+            try {
+              const res = await fetch(
+                `/api/google/gmail?attachmentId=${encodeURIComponent(att.attachmentId)}&attachmentMessageId=${encodeURIComponent(replyToMessageId)}`
+              )
+              const data = await res.json()
+              if (data.data) {
+                return {
+                  filename: att.filename,
+                  mimeType: att.mimeType || 'application/octet-stream',
+                  data: data.data.replace(/-/g, '+').replace(/_/g, '/'),
+                }
+              }
+            } catch (err) {
+              console.error('Failed to fetch forwarded attachment:', err)
+            }
+            return null
+          })
+        )
+        allAttachments = [...allAttachments, ...fwdData.filter(Boolean)]
+      }
+
       const res = await fetch('/api/google/gmail', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -1647,7 +1787,9 @@ export function GmailScreen() {
           bcc: bccRecipients.length > 0 ? bccRecipients : undefined,
           subject: subject || '(No Subject)',
           message: body,
-          attachments: attachmentData.length > 0 ? attachmentData : undefined,
+          attachments: allAttachments.length > 0 ? allAttachments : undefined,
+          threadId: threadId || undefined,
+          replyToMessageId: replyToMessageId || undefined,
         }),
       })
 
@@ -1689,6 +1831,7 @@ export function GmailScreen() {
         }
         setShowCompose(false)
         setComposeError("")
+        setComposeInitial(null)
         refresh()
       } else {
         setComposeError("Failed to send email. Please try again.")
@@ -1712,7 +1855,7 @@ export function GmailScreen() {
         searchQuery={searchQuery}
         onSearchChange={setSearchQuery}
         onRefresh={refresh}
-        onCompose={() => setShowCompose(true)}
+        onCompose={() => { setComposeInitial(null); setShowCompose(true) }}
         isConnected={isConnected}
         authLoading={authLoading}
         authUrl={authUrl}
@@ -1738,6 +1881,9 @@ export function GmailScreen() {
         sendSuccess={sendSuccess}
         replyText={replyText}
         onReplyTextChange={setReplyText}
+        onReply={handleReply}
+        onReplyAll={handleReplyAll}
+        onForward={handleForward}
       />
 
       {/* Center/Right Divider */}
@@ -1760,10 +1906,12 @@ export function GmailScreen() {
         onClose={() => {
           setShowCompose(false)
           setComposeError("")
+          setComposeInitial(null)
         }}
         onSend={handleComposeSend}
         sending={composeSending}
         error={composeError}
+        initialData={composeInitial}
       />
     </div>
   )
