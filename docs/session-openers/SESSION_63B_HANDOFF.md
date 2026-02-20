@@ -2,7 +2,7 @@
 
 ## Date: 2026-02-20
 ## Branch: main (committed + pushed)
-## Commit: 518ac33
+## Commits: 518ac33, 6dc2446, 2ac525d, f36eaae
 
 ---
 
@@ -27,24 +27,43 @@ Changes made:
 1. **`components/ko/navigation-rail.jsx`** — Removed "Email" and "Messages" nav items. Only "Comms Hub" remains as the single entry point for communications.
 2. **`app/page.jsx`** — Made `mode === "email"` and `mode === "messages"` redirect to `"communications"` mode instead of opening separate screens.
 
+### Bug Fixes (Continuation)
+
+**Bug 1: Email Attachments (13C.3)**
+- Added `AttachmentPreviewModal` component (PDF iframe viewer, image lightbox)
+- Added `fetchAttachmentBlob` to fetch attachment data from Gmail API + base64→blob
+- Added `handleAttachmentClick` with preview for PDF/images, download for other types
+- Replaced static attachment spans with clickable buttons (file icon, size, hover action icons)
+- Added file attachment support to ComposeOverlay (file picker, remove, base64 encode on send)
+
+**Bug 2: Log to Project (13C.4)**
+- Added shared `LogToProjectDropdown` component (project search, logging status, click-outside close)
+- Placed in email preview header, chat window header, and compose overlay header
+- Uses `POST /api/ko/project-communications` and `GET /api/ko/project-folders`
+
+**Bug 3: Chat Bubble Colors (13C.5)**
+- Own messages: light MR red `rgba(215,64,58,0.08)` background, right-aligned
+- Other messages: light gray `rgba(0,0,0,0.05)` background, left-aligned
+- Avatar letter circles KEEP per-user generated colors (only bubbles changed)
+
 ### Test Results
-- Build passes cleanly (`npx next build` — success)
-- Production server starts and responds (HTTP 307 redirect to login as expected)
-- Three-panel layout structure verified in code: horizontal PanelGroup with 3 Panels, each with nested vertical PanelGroups
+- All 4 commits build cleanly (`npx next build` — success)
+- All pushed to main
 
 ---
 
-## WHAT WAS NOT DONE
+## WHAT NEEDS BROWSER VERIFICATION
 
-- **Live browser testing** — Could not test in browser (headless VM). Isaac should verify:
-  1. Navigate to Comms Hub via sidebar
-  2. Email list loads in left panel
-  3. Chat list loads in right lower panel WITH REAL NAMES
-  4. Click email -> preview in center
-  5. Click chat -> conversation in right upper
-  6. All draggable dividers work
-  7. Compose/Reply/Forward work
-  8. No "Email" or "Messages" separate nav items in sidebar
+Isaac should verify:
+1. Navigate to Comms Hub via sidebar — three panels visible
+2. Email list with folders, chat list with real names
+3. Click email → preview; click chat → conversation
+4. **Attachments**: click attachment → PDF opens in modal, images in lightbox, others download
+5. **Compose**: can attach files, files show in list with remove button
+6. **Log to Project**: visible on email preview, chat header, compose — dropdown works
+7. **Chat bubbles**: own = light red right, other = light gray left, no rainbow
+8. All draggable dividers work
+9. No "Email" or "Messages" separate nav items
 
 ---
 
@@ -54,6 +73,9 @@ Changes made:
 |-------|------|-------------|--------|
 | 13C | 13C.1 | Communications Hub three-panel layout with nav integration | DONE |
 | 13C | 13C.2 | Remove separate email/messages nav — single Comms Hub entry | DONE |
+| 13C | 13C.3 | Fix email attachment handling (preview modal, clickable, compose picker) | DONE |
+| 13C | 13C.4 | Restore Log to Project dropdown (email, chat, compose) | DONE |
+| 13C | 13C.5 | Chat bubbles two-tone colors (light red own, light gray other) | DONE |
 
 ---
 
