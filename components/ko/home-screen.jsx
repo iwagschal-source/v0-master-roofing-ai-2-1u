@@ -138,11 +138,11 @@ export function HomeScreen({
       <div className="flex-1 flex flex-col items-center justify-center px-8">
         {/* Dynamic Greeting with MR logo stripes */}
         <div className="flex flex-col items-center mb-8">
-          <div className="flex items-end gap-1">
+          <div className="flex items-end gap-0">
             <img
               src="/images/mr-stripes.svg"
               alt=""
-              className="h-[52px] w-auto -mt-2 select-none pointer-events-none"
+              className="h-[48px] w-auto -mr-1 select-none pointer-events-none"
               draggable={false}
             />
             <h2 className="text-xl font-medium text-foreground text-center text-balance">
