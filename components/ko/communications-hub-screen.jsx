@@ -456,7 +456,7 @@ function EmailPreviewPanel({ selectedMessage, onReply, onReplyAll, onForward, us
   }
 
   return (
-    <div className="h-full overflow-hidden">
+    <div style={{ height: '100%', overflow: 'hidden' }}>
     <PanelGroup direction="vertical">
       {/* Upper: Email Preview */}
       <Panel defaultSize={92} minSize={30}>
@@ -715,7 +715,7 @@ function ChatPanel({ isConnected, authUrl, user }) {
   }
 
   return (
-    <div className="h-full overflow-hidden">
+    <div style={{ height: '100%', overflow: 'hidden' }}>
     <PanelGroup direction="vertical">
       {/* Upper: Chat Messages */}
       <Panel defaultSize={60} minSize={20}>
