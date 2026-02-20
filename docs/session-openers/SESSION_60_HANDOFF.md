@@ -2,91 +2,74 @@
 
 ## Date: 2026-02-20
 ## Branch: main (all pushed)
-## Commits: 8 (790a8c2..5f7fbb5)
+## Commits: 10 (790a8c2..3a10c16)
+## Deployed: https://v0-master-roofing-ai-2-1u.vercel.app (READY, commit 3a10c16)
 
 ---
 
-## WHAT WAS DONE (ALL 7 TASKS + BONUS THREAD VIEW)
+## COMPLETED (ALL 7 TASKS + THREAD VIEW + BUG FIXES)
 
-### 1. Logging Audit (13B.1) — DONE
-- Documented `project_communications` BigQuery table: exists, functional
-- Schema gaps vs spec: missing `thread_id` column (buried in notes), `auto_logged`, `direction`, `participants`, `logged_by`
-- Migration plan documented, deferred to future session
-- Output: `docs/SESSION_60_LOGGING_AUDIT.md`
+| # | Task | Commit | Status |
+|---|------|--------|--------|
+| 13B.1 | Logging audit docs | 0e3ab4b | DONE |
+| 13B.2 | Timestamps (3 files) | dc567be | DONE |
+| 13B.3 | Remove reply area | 045ee16 | DONE |
+| 13B.4 | Thread view + HTML + attachments | 9a11b79 | DONE |
+| 13B.5 | Folder navigation | b02ded3 | DONE |
+| 13B.6 | Compose attachments | 7279482 | DONE |
+| 13B.7 | Compose "Log to Project" | 5f7fbb5 | DONE |
+| BUG | Rate limit + flickering + folder wiring | 3a10c16 | DONE |
 
-### 2. Email Timestamps (13B.2) — DONE
-- Replaced relative time ("6h ago") with actual timestamps in ALL 3 files:
-  - gmail-screen.jsx, email-screen.jsx, email-screen-v2.jsx
-- Format: Today="4:01 PM", This week="Mon 4:01 PM", This year="Feb 15", Older="Feb 15, 2025"
+### Key Changes
+- **Thread view**: Click email → fetches full thread via threads.get, stacked messages, collapse/expand
+- **HTML emails**: Rendered in sandboxed iframe (not plain text)
+- **Attachments incoming**: MIME parts parsed recursively, downloadable chips per message
+- **Attachments outgoing**: Paperclip button, file picker, multipart MIME construction
+- **Folder nav**: Inbox/Sent/Drafts/Spam/Trash/Starred tabs, wired to labelIds
+- **Compose logging**: "Log to Project" dropdown, logs after send with threadId
+- **Rate limit fix**: Serialized labelIds to stable string, 60s cooldown, 429 backoff, concurrent guard
 
-### 3. Reply Area Removed (13B.3) — DONE
-- Discontinued reply compose area at bottom of email preview per Isaac
-- Comment: "Discontinued per Isaac — reply flow TBD (Session 60)"
-
-### 4. Thread View + HTML + Attachments (13B.4) — DONE (BIGGEST CHANGE)
-- **Thread view**: Click email → fetches full thread via `threads.get` API
-  - All messages stacked, newest at bottom
-  - Collapsed messages show sender + timestamp + snippet
-  - Click to expand/collapse, latest expanded by default
-- **HTML emails**: Rendered in sandboxed iframe with auto-resize (not plain text)
-- **Attachments**:
-  - MIME parts parsed recursively (handles multipart/mixed, alternative, nested)
-  - Displayed as downloadable chips with file type icons + size
-  - Click → downloads via attachment API endpoint
-- **API**: New `threadId` + `attachmentId`/`attachmentMessageId` query params on GET
-
-### 5. Folder Navigation (13B.5) — DONE
-- Folder tabs in left panel: Inbox, Sent, Drafts, Spam, Trash, Starred
-- Active folder highlighted with primary color
-- Header shows current folder name
-- Wired to existing `labelIds` param (backend already supported it)
-
-### 6. Compose Attachments (13B.6) — DONE
-- Paperclip button → file picker (multiple files)
-- Selected files shown as removable chips with name + size
-- API builds multipart/mixed MIME with boundary and base64 attachments
-- Plain text emails still use simple format (no regression)
-
-### 7. Compose "Log to Project" (13B.7) — DONE
-- Project dropdown above To field in compose modal
-- Searchable, shows green badge when selected
-- After send: logs to `project_communications` with messageId + threadId
-- Thread tracking: threadId stored for future reply association
+### Critical Bug Fix (3a10c16)
+`labelIds: [activeFolder]` created new array ref every render → infinite fetch loop → Gmail quota exceeded → flickering + compose errors. Fixed by serializing to stable `labelKey` string.
 
 ---
 
-## KEY FILES MODIFIED
-- `app/api/google/gmail/route.js` — Thread fetch, attachment download, MIME attachments
-- `components/ko/gmail-screen.jsx` — Thread view, folder nav, compose attachments, compose logging
-- `components/ko/email-screen.jsx` — Timestamps only
-- `components/ko/email-screen-v2.jsx` — Timestamps only
-- `docs/SESSION_60_LOGGING_AUDIT.md` — New: audit findings
-- `docs/PHASE_13_MASTER_PLAN_v2.md` — New: updated master plan
+## FILES MODIFIED
+- `app/api/google/gmail/route.js` — Thread fetch, attachment download, MIME, 429 handling
+- `components/ko/gmail-screen.jsx` — Thread view, folders, compose attachments+logging, reply removal
+- `components/ko/email-screen.jsx` — Timestamps
+- `components/ko/email-screen-v2.jsx` — Timestamps
+- `hooks/useGmail.ts` — Rate limit fix, stable labelKey, fetch cooldown, backoff
+- `docs/SESSION_60_LOGGING_AUDIT.md` — New
+- `docs/PHASE_13_MASTER_PLAN_v2.md` — New
 
 ---
 
-## WHAT REMAINS FOR FUTURE SESSIONS
+## REMAINING FOR NEXT SESSION
 
-### High Priority
-- **Thread inheritance for logging**: When a reply arrives in a logged thread, auto-create log entry (needs `thread_id` column in `project_communications`)
-- **Schema migration**: Add `thread_id`, `auto_logged`, `direction`, `logged_by` columns to `project_communications`
-- **Test on production**: Isaac needs to test all features on deployed Vercel URL
+### Must Test on Production
+- All folder tabs (Sent, Drafts, Spam, Trash, Starred)
+- Thread view with multi-message threads
+- HTML email rendering
+- Attachment download
+- Compose with attachments
+- Compose "Log to Project"
+- Rate limit no longer occurs
 
-### Medium Priority
-- **Unread counts on folder tabs**: Currently no count badges (need `labels.get` API)
-- **HTML email security hardening**: Current iframe uses `allow-same-origin` sandbox — consider tighter CSP
-- **Reply flow redesign**: Reply compose area removed, need new approach (AI agent? inline compose?)
-
-### Low Priority
+### Future Work
+- **Thread inheritance**: Auto-log replies in logged threads (needs thread_id column migration)
+- **Schema migration**: Add thread_id, auto_logged, direction, logged_by to project_communications
+- **Unread counts**: Folder tabs don't show counts (need labels.get API)
+- **Reply/forward flow**: Reply area removed, need new approach
 - **Rich text compose**: Currently plain text only
-- **Gmail search API**: Currently client-side filter only, could use Gmail `q` parameter
-- **Pagination**: `fetchMore` exists in hook but no "Load More" UI button
+- **Gmail search API**: Currently client-side filter, could use Gmail q parameter
+- **Pagination UI**: fetchMore exists but no "Load More" button
 
 ---
 
 ## MANDATORY END-OF-SESSION CHECKLIST
-1. [x] Update BigQuery tracker: 7 entries (13B.1-13B.7), all DONE
-2. [x] Sync to Google Sheet: `node scripts/sync-tracker-to-sheet.mjs` — 300 tasks synced
+1. [x] Update BigQuery tracker: 7 entries (13B.1-13B.7) + bug fix, all DONE
+2. [x] Sync to Google Sheet: 300 tasks synced
 3. [x] Write HANDOFF: this document
-4. [ ] Update KO_ARCHITECT_REFRESH_BRIEF.md (deferred — no architectural changes)
-5. **Pass this checklist forward** — include in every HANDOFF so the next session knows
+4. [x] Push to main: all 10 commits pushed
+5. **Pass this checklist forward**
