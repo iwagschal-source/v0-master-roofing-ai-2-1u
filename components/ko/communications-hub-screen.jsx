@@ -81,6 +81,132 @@ function ResizeHandle({ direction = 'vertical' }) {
   )
 }
 
+// ─── Log to Project Dropdown ─────────────────────────────────
+function LogToProjectDropdown({ type, sourceData }) {
+  const [projects, setProjects] = useState([])
+  const [projectsLoading, setProjectsLoading] = useState(false)
+  const [selectedProject, setSelectedProject] = useState(null)
+  const [dropdownOpen, setDropdownOpen] = useState(false)
+  const [projectSearch, setProjectSearch] = useState('')
+  const [loggingStatus, setLoggingStatus] = useState(null)
+  const dropdownRef = useRef(null)
+
+  useEffect(() => {
+    const fetchProjects = async () => {
+      setProjectsLoading(true)
+      try {
+        const res = await fetch('/api/ko/project-folders')
+        const data = await res.json()
+        setProjects(data.projects || [])
+      } catch (err) { console.error('Failed to fetch projects:', err) }
+      finally { setProjectsLoading(false) }
+    }
+    fetchProjects()
+  }, [])
+
+  useEffect(() => {
+    setSelectedProject(null)
+    setLoggingStatus(null)
+  }, [sourceData?.sourceId])
+
+  useEffect(() => {
+    if (!dropdownOpen) return
+    const handleClickOutside = (e) => { if (dropdownRef.current && !dropdownRef.current.contains(e.target)) setDropdownOpen(false) }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [dropdownOpen])
+
+  const handleSelectProject = async (project) => {
+    setSelectedProject(project)
+    setDropdownOpen(false)
+    setProjectSearch('')
+    setLoggingStatus('logging')
+    try {
+      const res = await fetch('/api/ko/project-communications', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          projectId: project.id,
+          type: type || 'email',
+          sourceId: sourceData?.sourceId,
+          threadId: sourceData?.threadId,
+          from: sourceData?.from,
+          to: sourceData?.to,
+          subject: sourceData?.subject,
+          snippet: sourceData?.snippet,
+        }),
+      })
+      const data = await res.json()
+      if (data.error) { setLoggingStatus('error'); setTimeout(() => setLoggingStatus(null), 3000) }
+      else setLoggingStatus('success')
+    } catch (err) {
+      console.error('Failed to log:', err)
+      setLoggingStatus('error')
+      setTimeout(() => setLoggingStatus(null), 3000)
+    }
+  }
+
+  const filteredProjects = projects.filter(p =>
+    !projectSearch || p.name?.toLowerCase().includes(projectSearch.toLowerCase()) || p.companyName?.toLowerCase().includes(projectSearch.toLowerCase())
+  )
+
+  return (
+    <div className="relative flex-shrink-0" ref={dropdownRef}>
+      <button
+        onClick={() => setDropdownOpen(!dropdownOpen)}
+        disabled={loggingStatus === 'logging'}
+        className={`flex items-center gap-1 px-2 py-1 rounded text-[10px] transition-colors ${
+          loggingStatus === 'success' || selectedProject
+            ? 'bg-green-500/10 text-green-600 border border-green-500/30'
+            : loggingStatus === 'error'
+            ? 'bg-red-500/10 text-red-600 border border-red-500/30'
+            : 'text-muted-foreground hover:text-foreground hover:bg-muted/50 border border-transparent'
+        } disabled:opacity-50`}
+      >
+        {loggingStatus === 'logging' ? <Loader2 className="w-3 h-3 animate-spin" />
+          : loggingStatus === 'error' ? <AlertCircle className="w-3 h-3" />
+          : selectedProject ? <Check className="w-3 h-3" />
+          : <FolderOpen className="w-3 h-3" />}
+        <span>{loggingStatus === 'logging' ? 'Logging...' : loggingStatus === 'error' ? 'Failed' : selectedProject ? `Logged` : 'Log to Project'}</span>
+        <ChevronDown className={`w-3 h-3 transition-transform ${dropdownOpen ? 'rotate-180' : ''}`} />
+      </button>
+      {dropdownOpen && (
+        <div className="absolute right-0 top-full mt-1 w-60 bg-card border border-border rounded-lg shadow-lg z-50 overflow-hidden">
+          <div className="p-1.5 border-b border-border">
+            <div className="relative">
+              <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-3 h-3 text-muted-foreground" />
+              <input type="text" value={projectSearch} onChange={(e) => setProjectSearch(e.target.value)}
+                placeholder="Search projects..." autoFocus
+                className="w-full pl-6 pr-2 py-1 bg-secondary/30 border border-border/50 rounded text-[10px] placeholder:text-muted-foreground/50 focus:outline-none focus:border-primary/50" />
+            </div>
+          </div>
+          <div className="max-h-48 overflow-y-auto">
+            {projectsLoading ? (
+              <div className="flex items-center justify-center py-3"><Loader2 className="w-4 h-4 animate-spin text-muted-foreground" /></div>
+            ) : filteredProjects.length === 0 ? (
+              <div className="py-3 text-center text-[10px] text-muted-foreground">{projectSearch ? 'No matching projects' : 'No projects'}</div>
+            ) : (
+              filteredProjects.map((project) => (
+                <button key={project.id} onClick={() => handleSelectProject(project)}
+                  className={`w-full text-left px-2.5 py-1.5 hover:bg-muted/50 transition-colors text-[10px] ${selectedProject?.id === project.id ? 'bg-primary/5' : ''}`}>
+                  <div className="flex items-center gap-1.5">
+                    <FolderOpen className="w-3 h-3 text-muted-foreground flex-shrink-0" />
+                    <div className="min-w-0">
+                      <p className="font-medium text-foreground truncate">{project.name}</p>
+                      {project.companyName && <p className="text-muted-foreground truncate">{project.companyName}</p>}
+                    </div>
+                    {selectedProject?.id === project.id && <Check className="w-3 h-3 text-primary ml-auto flex-shrink-0" />}
+                  </div>
+                </button>
+              ))
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
 // ─── Attachment Preview Modal ────────────────────────────────
 function AttachmentPreviewModal({ attachment, blobUrl, onClose }) {
   if (!attachment || !blobUrl) return null
@@ -351,6 +477,11 @@ function EmailPreviewPanel({ selectedMessage, onReply, onReplyAll, onForward, us
                 <button onClick={() => onForward?.(selectedMessage, threadMessages)} className="flex items-center gap-1 px-2 py-1 rounded text-[10px] text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors" title="Forward">
                   <Forward className="w-3 h-3" /><span>Fwd</span>
                 </button>
+                <LogToProjectDropdown type="email" sourceData={{
+                  sourceId: selectedMessage?.id, threadId: selectedMessage?.threadId,
+                  from: selectedMessage?.from, to: Array.isArray(selectedMessage?.to) ? selectedMessage.to[0] : selectedMessage?.to,
+                  subject: selectedMessage?.subject, snippet: selectedMessage?.snippet,
+                }} />
               </div>
             </div>
             {threadMessages.length > 1 && (
@@ -610,6 +741,11 @@ function ChatPanel({ isConnected, authUrl, user }) {
                 <button onClick={refresh} disabled={loading} className="p-1 hover:bg-muted rounded transition-colors">
                   <RefreshCw className={`w-3 h-3 text-muted-foreground ${loading ? 'animate-spin' : ''}`} />
                 </button>
+                <LogToProjectDropdown type="chat" sourceData={{
+                  sourceId: selectedSpace?.name || selectedSpace?.id,
+                  subject: selectedSpace?.displayName,
+                  snippet: messages?.[messages.length - 1]?.text?.slice(0, 200),
+                }} />
               </div>
 
               {/* Messages */}
@@ -1019,9 +1155,15 @@ function ComposeOverlay({ initialData, sending, error, onSend, onClose }) {
       <div className="bg-card border border-border rounded-xl w-full max-w-xl shadow-2xl flex flex-col max-h-[80vh]">
         <div className="flex items-center justify-between p-3 border-b border-border">
           <h2 className="text-sm font-semibold text-foreground">{title}</h2>
-          <button onClick={onClose} className="p-1 hover:bg-muted rounded transition-colors text-muted-foreground">
-            <ArrowLeft className="w-4 h-4" />
-          </button>
+          <div className="flex items-center gap-2 ml-auto">
+            <LogToProjectDropdown type="email" sourceData={{
+              sourceId: initialData?.replyToMessageId, threadId: initialData?.threadId,
+              subject: subject, from: 'me', to: to, snippet: body?.slice(0, 200),
+            }} />
+            <button onClick={onClose} className="p-1 hover:bg-muted rounded transition-colors text-muted-foreground">
+              <ArrowLeft className="w-4 h-4" />
+            </button>
+          </div>
         </div>
         <div className="flex-1 overflow-y-auto p-3 space-y-2">
           <div>
