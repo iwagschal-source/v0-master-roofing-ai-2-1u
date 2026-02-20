@@ -463,6 +463,45 @@ export async function POST(request) {
       files = formData.getAll('files').filter(f => f && f.size > 0)
     } else {
       const body = await request.json()
+
+      // Handle create_space action — create or find a DM with a user
+      if (body.action === 'create_space') {
+        const email = body.email
+        if (!email) {
+          return NextResponse.json({ error: 'Missing email for create_space' }, { status: 400 })
+        }
+        try {
+          const setupRes = await fetch(`${CHAT_API}/spaces:setup`, {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              spaceType: 'DIRECT_MESSAGE',
+              memberships: [
+                { member: { name: `users/${email}`, type: 'HUMAN' } }
+              ],
+            }),
+          })
+          const setupData = await setupRes.json()
+          if (setupData.error) {
+            return NextResponse.json({ error: setupData.error.message }, { status: 400 })
+          }
+          // Resolve display name for the new space
+          let displayName = email
+          if (setupData.name) {
+            const { otherNames } = await resolveSpaceMembers(setupData.name, token, userId)
+            if (otherNames.length > 0) displayName = otherNames.join(', ')
+          }
+          return NextResponse.json({
+            space: { ...setupData, displayName },
+          })
+        } catch (e) {
+          return NextResponse.json({ error: 'Failed to create space: ' + e.message }, { status: 500 })
+        }
+      }
+
       spaceId = body.spaceId
       text = body.text
     }

@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect, useRef } from "react"
-import { MessageSquare, Send, RefreshCw, Loader2, Search, Hash, User, ExternalLink, LogOut, AlertTriangle, AlertCircle, FolderOpen, ChevronDown, Check, Paperclip, X, FileText, Image as ImageIcon } from "lucide-react"
+import { MessageSquare, Send, RefreshCw, Loader2, Search, Hash, User, ExternalLink, LogOut, AlertTriangle, AlertCircle, FolderOpen, ChevronDown, Check, Paperclip, X, FileText, Image as ImageIcon, Plus } from "lucide-react"
 import { useChatSpaces, formatMessageTime, getInitials } from "@/hooks/useChatSpaces"
 import { useGoogleAuth } from "@/hooks/useGoogleAuth"
 
@@ -16,6 +16,11 @@ export function ChatScreen() {
   const textareaRef = useRef(null)
   const fileInputRef = useRef(null)
   const [attachedFiles, setAttachedFiles] = useState([])
+
+  // New chat state
+  const [showNewChat, setShowNewChat] = useState(false)
+  const [newChatEmail, setNewChatEmail] = useState('')
+  const [creatingChat, setCreatingChat] = useState(false)
 
   // Project logging state
   const [projects, setProjects] = useState([])
@@ -194,6 +199,39 @@ export function ChatScreen() {
     return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
   }
 
+  // Create new DM conversation
+  const handleNewChat = async () => {
+    if (!newChatEmail.trim() || creatingChat) return
+    setCreatingChat(true)
+    try {
+      const res = await fetch('/api/google/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'create_space', email: newChatEmail.trim() }),
+      })
+      const data = await res.json()
+      if (data.space) {
+        // Refresh spaces list and select the new one
+        await refresh()
+        selectSpace({
+          id: data.space.name,
+          name: data.space.name,
+          displayName: data.space.displayName || newChatEmail.trim(),
+          type: 'DM',
+          memberCount: 2,
+        })
+        setShowNewChat(false)
+        setNewChatEmail('')
+      } else {
+        console.error('Failed to create chat:', data.error)
+      }
+    } catch (err) {
+      console.error('Failed to create chat:', err)
+    } finally {
+      setCreatingChat(false)
+    }
+  }
+
   // Sort messages chronologically (oldest first, newest at bottom)
   const sortedMessages = [...messages].sort((a, b) =>
     new Date(a.createTime).getTime() - new Date(b.createTime).getTime()
@@ -240,7 +278,16 @@ export function ChatScreen() {
               <MessageSquare className="w-5 h-5 text-primary" />
               <h2 className="text-lg font-semibold text-foreground">Chat</h2>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1">
+              {isConnected && (
+                <button
+                  onClick={() => setShowNewChat(!showNewChat)}
+                  className="p-1.5 hover:bg-muted rounded-lg transition-colors text-foreground-secondary hover:text-primary"
+                  title="New chat"
+                >
+                  <Plus className="w-4 h-4" />
+                </button>
+              )}
               {isConnected && user && (
                 <button
                   onClick={disconnect}
@@ -253,7 +300,7 @@ export function ChatScreen() {
               <button
                 onClick={refresh}
                 disabled={loading || !isConnected}
-                className="p-2 hover:bg-muted rounded-lg transition-colors disabled:opacity-50"
+                className="p-1.5 hover:bg-muted rounded-lg transition-colors disabled:opacity-50"
                 title="Refresh"
               >
                 <RefreshCw className={`w-4 h-4 text-foreground-secondary ${loading ? 'animate-spin' : ''}`} />
@@ -270,6 +317,31 @@ export function ChatScreen() {
               className="w-full pl-10 pr-4 py-2 bg-background border border-input rounded-lg text-sm text-foreground placeholder:text-foreground-secondary outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
             />
           </div>
+
+          {/* New chat panel */}
+          {showNewChat && (
+            <div className="mt-2 p-2 bg-muted/30 border border-border rounded-lg">
+              <p className="text-xs text-foreground-secondary mb-1.5">Start a new conversation</p>
+              <div className="flex gap-1.5">
+                <input
+                  type="email"
+                  value={newChatEmail}
+                  onChange={(e) => setNewChatEmail(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && handleNewChat()}
+                  placeholder="Email address..."
+                  className="flex-1 px-2.5 py-1.5 bg-background border border-input rounded text-sm text-foreground placeholder:text-foreground-secondary outline-none focus:border-primary"
+                  autoFocus
+                />
+                <button
+                  onClick={handleNewChat}
+                  disabled={!newChatEmail.trim() || creatingChat}
+                  className="px-2.5 py-1.5 bg-primary text-primary-foreground rounded text-xs font-medium hover:bg-primary/90 disabled:opacity-40 transition-colors"
+                >
+                  {creatingChat ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : 'Go'}
+                </button>
+              </div>
+            </div>
+          )}
         </div>
 
         <div className="flex-1 overflow-y-auto p-2">
@@ -518,28 +590,24 @@ export function ChatScreen() {
                   </div>
                 </div>
               ) : (
-                <div className="space-y-0">
+                <div className="space-y-1 max-w-4xl mx-auto">
                   {sortedMessages.map((message, index) => {
                     const prev = index > 0 ? sortedMessages[index - 1] : null
-                    // Detect own messages by email OR by raw user ID
                     const cookieUserId = document.cookie.match(/google_user_id=([^;]+)/)?.[1]
                     const isOwn = (message.sender.email && message.sender.email === user?.email) ||
                       message.sender.email === 'iwagschal@masterroofingus.com' ||
                       (message.sender.rawId && cookieUserId && message.sender.rawId === `users/${cookieUserId}`)
 
-                    // Date separator check
                     const prevDate = prev ? new Date(prev.createTime).toDateString() : null
                     const currDate = new Date(message.createTime).toDateString()
                     const showDateSep = !prev || prevDate !== currDate
 
-                    // Group messages from same sender within 2 min
                     const senderKey = message.sender?.rawId || message.sender?.email || message.sender?.name
                     const prevSenderKey = prev?.sender?.rawId || prev?.sender?.email || prev?.sender?.name
                     const isGrouped = !showDateSep && prev &&
                       prevSenderKey === senderKey &&
                       (new Date(message.createTime) - new Date(prev.createTime)) < 2 * 60 * 1000
 
-                    // Date label
                     const getDateLabel = () => {
                       const date = new Date(message.createTime)
                       const now = new Date()
@@ -555,7 +623,6 @@ export function ChatScreen() {
 
                     return (
                       <div key={message.id}>
-                        {/* Date separator */}
                         {showDateSep && (
                           <div className="flex items-center gap-3 my-4 first:mt-0">
                             <div className="flex-1 h-px bg-border" />
@@ -564,59 +631,73 @@ export function ChatScreen() {
                           </div>
                         )}
 
-                        <div className={`group flex gap-3 px-2 py-0.5 rounded transition-colors ${isGrouped ? '' : 'mt-3 pt-1'} ${isOwn ? 'hover:bg-muted/30' : 'bg-muted/20 hover:bg-muted/35 dark:bg-muted/10 dark:hover:bg-muted/20'}`}>
-                          {/* Avatar or spacer */}
-                          {!isGrouped ? (
-                            <div className={`w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0 text-xs font-medium mt-0.5 ${
-                              isOwn ? 'bg-primary text-primary-foreground' : 'bg-zinc-200 text-zinc-600 dark:bg-zinc-700 dark:text-zinc-300'
-                            }`}>
-                              {getInitials(message.sender.name)}
-                            </div>
-                          ) : (
-                            <div className="w-9 flex-shrink-0 flex items-center justify-center">
-                              <span className="text-[10px] text-foreground-secondary/0 group-hover:text-foreground-secondary/60 transition-colors">
-                                {timeOnly}
-                              </span>
-                            </div>
-                          )}
-
-                          <div className="flex-1 min-w-0">
-                            {/* Sender name + timestamp header (only on first message in group) */}
-                            {!isGrouped && (
-                              <div className="flex items-baseline gap-2 mb-0.5">
-                                <span className={`text-sm font-semibold ${isOwn ? 'text-primary' : 'text-foreground'}`}>
-                                  {isOwn ? 'You' : message.sender.name}
-                                </span>
-                                <span className="text-xs text-foreground-secondary">
-                                  {timeOnly}
-                                </span>
-                              </div>
-                            )}
-
-                            {/* Quoted message */}
-                            {message.quotedMessageMetadata && (
-                              <div className="mb-1 max-w-[80%]">
-                                <div className="border-l-2 border-foreground-secondary/30 pl-2 py-0.5 text-xs text-foreground-secondary italic">
-                                  Quoted message
+                        {isOwn ? (
+                          /* ── Own message — right-aligned bubble ── */
+                          <div className={`flex justify-end ${isGrouped ? 'mt-0.5' : 'mt-3'}`}>
+                            <div className="max-w-[75%]">
+                              {!isGrouped && (
+                                <div className="flex items-baseline justify-end gap-2 mb-1">
+                                  <span className="text-xs text-foreground-secondary">{timeOnly}</span>
+                                  <span className="text-sm font-semibold text-primary">You</span>
                                 </div>
+                              )}
+                              {message.quotedMessageMetadata && (
+                                <div className="mb-1 ml-auto max-w-full">
+                                  <div className="border-l-2 border-primary/30 pl-2 py-0.5 text-xs text-foreground-secondary italic">Quoted message</div>
+                                </div>
+                              )}
+                              <div className="inline-block float-right bg-primary/10 border border-primary/15 rounded-2xl rounded-br-sm px-4 py-2">
+                                <p className="text-sm text-foreground whitespace-pre-wrap break-words">{message.text}</p>
                               </div>
-                            )}
-
-                            {/* Message text — clean, no bubble */}
-                            <p className="text-sm text-foreground whitespace-pre-wrap break-words leading-relaxed">{message.text}</p>
-
-                            {/* Reactions */}
-                            {message.emojiReactionSummaries?.length > 0 && (
-                              <div className="flex gap-1 mt-1">
-                                {message.emojiReactionSummaries.map((r, ri) => (
-                                  <span key={ri} className="inline-flex items-center gap-1 px-2 py-0.5 bg-muted/50 border border-border/50 rounded-full text-xs">
-                                    {r.emoji?.unicode} <span className="text-foreground-secondary">{r.reactionCount || 1}</span>
-                                  </span>
-                                ))}
-                              </div>
-                            )}
+                              <div className="clear-both" />
+                              {message.emojiReactionSummaries?.length > 0 && (
+                                <div className="flex gap-1 mt-1 justify-end">
+                                  {message.emojiReactionSummaries.map((r, ri) => (
+                                    <span key={ri} className="inline-flex items-center gap-1 px-2 py-0.5 bg-muted/50 border border-border/50 rounded-full text-xs">
+                                      {r.emoji?.unicode} <span className="text-foreground-secondary">{r.reactionCount || 1}</span>
+                                    </span>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
                           </div>
-                        </div>
+                        ) : (
+                          /* ── Other's message — left-aligned with avatar ── */
+                          <div className={`flex gap-2.5 ${isGrouped ? 'mt-0.5' : 'mt-3'}`}>
+                            {!isGrouped ? (
+                              <div className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 text-xs font-medium bg-zinc-200 text-zinc-600 dark:bg-zinc-700 dark:text-zinc-300 mt-0.5">
+                                {getInitials(message.sender.name)}
+                              </div>
+                            ) : (
+                              <div className="w-8 flex-shrink-0" />
+                            )}
+                            <div className="max-w-[75%]">
+                              {!isGrouped && (
+                                <div className="flex items-baseline gap-2 mb-1">
+                                  <span className="text-sm font-semibold text-foreground">{message.sender.name}</span>
+                                  <span className="text-xs text-foreground-secondary">{timeOnly}</span>
+                                </div>
+                              )}
+                              {message.quotedMessageMetadata && (
+                                <div className="mb-1 max-w-full">
+                                  <div className="border-l-2 border-foreground-secondary/30 pl-2 py-0.5 text-xs text-foreground-secondary italic">Quoted message</div>
+                                </div>
+                              )}
+                              <div className="inline-block bg-zinc-100 dark:bg-zinc-800 border border-zinc-200/60 dark:border-zinc-700/60 rounded-2xl rounded-bl-sm px-4 py-2">
+                                <p className="text-sm text-foreground whitespace-pre-wrap break-words">{message.text}</p>
+                              </div>
+                              {message.emojiReactionSummaries?.length > 0 && (
+                                <div className="flex gap-1 mt-1">
+                                  {message.emojiReactionSummaries.map((r, ri) => (
+                                    <span key={ri} className="inline-flex items-center gap-1 px-2 py-0.5 bg-muted/50 border border-border/50 rounded-full text-xs">
+                                      {r.emoji?.unicode} <span className="text-foreground-secondary">{r.reactionCount || 1}</span>
+                                    </span>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        )}
                       </div>
                     )
                   })}
