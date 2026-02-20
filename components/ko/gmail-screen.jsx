@@ -566,48 +566,7 @@ function EmailContentPanel({
         </div>
       </div>
 
-      {/* Reply Section */}
-      <div className="border-t border-border bg-card p-4">
-        <div className="max-w-3xl">
-          <div className="mb-3">
-            <label className="text-sm font-medium text-foreground mb-2 block">Reply</label>
-            <textarea
-              value={replyText}
-              onChange={(e) => onReplyTextChange(e.target.value)}
-              className="w-full min-h-[120px] px-4 py-3 bg-secondary/30 border border-border/50 rounded-lg text-sm placeholder:text-muted-foreground/50 focus:outline-none focus:border-primary/50 resize-none transition-colors"
-              placeholder={draftLoading ? "Generating draft..." : "Write your reply..."}
-            />
-          </div>
-          <div className="flex items-center justify-end">
-            <button
-              onClick={onSendReply}
-              disabled={!replyText.trim() || sendingReply || sendSuccess}
-              className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors disabled:opacity-50 flex items-center gap-2 ${
-                sendSuccess
-                  ? 'bg-green-600 text-white'
-                  : 'bg-primary text-primary-foreground hover:bg-primary/90'
-              }`}
-            >
-              {sendingReply ? (
-                <>
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                  Sending...
-                </>
-              ) : sendSuccess ? (
-                <>
-                  <Check className="w-4 h-4" />
-                  Sent!
-                </>
-              ) : (
-                <>
-                  <Send className="w-4 h-4" />
-                  Send Reply
-                </>
-              )}
-            </button>
-          </div>
-        </div>
-      </div>
+      {/* Reply Section — Discontinued per Isaac, reply flow TBD (Session 60) */}
 
       {/* Attachment Preview Placeholder - hidden by default */}
       {/* Will be shown when attachment is clicked in future step */}
