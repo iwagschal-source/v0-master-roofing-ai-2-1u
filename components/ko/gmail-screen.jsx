@@ -5,8 +5,19 @@ import {
   Mail, Send, Plus, RefreshCw, Search, Loader2, ArrowLeft,
   AlertCircle, ExternalLink, LogOut, Check, Sparkles,
   MessageSquare, FileText, Paperclip, FolderOpen, ChevronDown,
-  ChevronRight, Download, File as FileIcon, Image as ImageIcon
+  ChevronRight, Download, File as FileIcon, Image as ImageIcon,
+  Inbox, SendHorizontal, FilePen, AlertOctagon, Trash2, Star
 } from "lucide-react"
+
+// Gmail folder definitions
+const GMAIL_FOLDERS = [
+  { id: 'INBOX', label: 'Inbox', icon: Inbox },
+  { id: 'SENT', label: 'Sent', icon: SendHorizontal },
+  { id: 'DRAFT', label: 'Drafts', icon: FilePen },
+  { id: 'SPAM', label: 'Spam', icon: AlertOctagon },
+  { id: 'TRASH', label: 'Trash', icon: Trash2 },
+  { id: 'STARRED', label: 'Starred', icon: Star },
+]
 import { useGmail } from "@/hooks/useGmail"
 import { useGoogleAuth } from "@/hooks/useGoogleAuth"
 
@@ -170,7 +181,9 @@ function EmailListPanel({
   authUrl,
   onDisconnect,
   user,
-  width
+  width,
+  activeFolder,
+  onFolderChange
 }) {
   const filteredMessages = messages.filter(email => {
     if (!searchQuery) return true
@@ -192,7 +205,9 @@ function EmailListPanel({
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-2">
             <Mail className="w-5 h-5 text-primary" />
-            <h2 className="text-lg font-semibold text-foreground">Inbox</h2>
+            <h2 className="text-lg font-semibold text-foreground">
+              {GMAIL_FOLDERS.find(f => f.id === activeFolder)?.label || 'Inbox'}
+            </h2>
           </div>
           <div className="flex items-center gap-1">
             {isConnected && user && (
@@ -223,6 +238,30 @@ function EmailListPanel({
           <Plus className="w-4 h-4" />
           Compose
         </button>
+
+        {/* Folder Navigation */}
+        {isConnected && (
+          <div className="flex flex-wrap gap-1 mb-3">
+            {GMAIL_FOLDERS.map((folder) => {
+              const Icon = folder.icon
+              const isActive = activeFolder === folder.id
+              return (
+                <button
+                  key={folder.id}
+                  onClick={() => onFolderChange(folder.id)}
+                  className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium transition-colors ${
+                    isActive
+                      ? 'bg-primary/10 text-primary border border-primary/30'
+                      : 'text-muted-foreground hover:bg-muted/50 hover:text-foreground'
+                  }`}
+                >
+                  <Icon className="w-3.5 h-3.5" />
+                  {folder.label}
+                </button>
+              )
+            })}
+          </div>
+        )}
 
         <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
@@ -1282,6 +1321,8 @@ function ComposeModal({ isOpen, onClose, onSend, sending, error }) {
 // Main Gmail Screen
 export function GmailScreen() {
   const { isConnected, user, loading: authLoading, authUrl, disconnect } = useGoogleAuth()
+  const [activeFolder, setActiveFolder] = useState('INBOX')
+
   const {
     messages,
     loading,
@@ -1293,7 +1334,7 @@ export function GmailScreen() {
     generateDraft,
     sendReply,
     refresh
-  } = useGmail({ autoFetch: isConnected, maxResults: 25 })
+  } = useGmail({ autoFetch: isConnected, maxResults: 25, labelIds: [activeFolder] })
 
   const [searchQuery, setSearchQuery] = useState("")
   const [showCompose, setShowCompose] = useState(false)
@@ -1485,6 +1526,8 @@ export function GmailScreen() {
         onDisconnect={disconnect}
         user={user}
         width={leftPanelWidth}
+        activeFolder={activeFolder}
+        onFolderChange={setActiveFolder}
       />
 
       {/* Left/Center Divider */}
