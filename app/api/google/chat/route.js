@@ -84,14 +84,50 @@ export async function GET(request) {
       return NextResponse.json({ error: spacesData.error.message }, { status: 400 })
     }
 
-    const spaces = (spacesData.spaces || []).map(space => ({
-      id: space.name, // space.name is already in "spaces/XXXXX" format
-      name: space.name, // Full resource name
-      displayName: space.displayName || space.name.replace('spaces/', ''),
-      type: space.type, // ROOM, DM, etc
-      singleUserBotDm: space.singleUserBotDm,
-      spaceThreadingState: space.spaceThreadingState,
-    }))
+    // Map spaces and resolve DM names from members
+    const spaces = await Promise.all(
+      (spacesData.spaces || []).map(async (space) => {
+        let displayName = space.displayName
+        const spaceType = space.spaceType || space.type // Google Chat v1 uses spaceType, fallback to type
+        const isDm = spaceType === 'DIRECT_MESSAGE' || space.type === 'DM' || space.type === 'GROUP_DM'
+
+        // For DMs without displayName, try to get the other person's name from members
+        if ((!displayName || displayName === space.name) && isDm) {
+          try {
+            const membersRes = await fetch(
+              `${CHAT_API}/${space.name}/members?pageSize=10`,
+              { headers: { 'Authorization': `Bearer ${token}` } }
+            )
+            const membersData = await membersRes.json()
+            if (membersData.memberships) {
+              const memberNames = membersData.memberships
+                .filter(m => m.member?.type === 'HUMAN')
+                .map(m => m.member?.displayName)
+                .filter(Boolean)
+              if (memberNames.length > 0) {
+                displayName = memberNames.join(', ')
+              }
+            }
+          } catch (e) {
+            // Silently fail — will use fallback
+          }
+        }
+
+        // Final fallback
+        if (!displayName || displayName === space.name || displayName.startsWith('spaces/')) {
+          displayName = isDm ? 'Direct Message' : `Chat Space`
+        }
+
+        return {
+          id: space.name,
+          name: space.name,
+          displayName,
+          type: space.type,
+          singleUserBotDm: space.singleUserBotDm,
+          spaceThreadingState: space.spaceThreadingState,
+        }
+      })
+    )
 
     return NextResponse.json({ spaces })
   } catch (err) {
