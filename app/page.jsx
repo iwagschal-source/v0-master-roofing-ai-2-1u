@@ -220,12 +220,9 @@ export default function HomePage() {
       setShowAgents(false)
       setHasStartedChat(true)
     } else if (mode === "email") {
-      setShowEmail(true)
-      setShowSettings(false)
-      setShowZoom(false)
-      setShowArena(false)
-      setShowAgents(false)
-      setHasStartedChat(true)
+      // Redirect to Communications Hub
+      handleModeChange("communications")
+      return
     } else if (mode === "settings") {
       setShowSettings(true)
       setShowEmail(false)
@@ -241,14 +238,9 @@ export default function HomePage() {
       setShowAgents(false)
       setHasStartedChat(true)
     } else if (mode === "messages") {
-      setShowMessages(true)
-      setShowEmail(false)
-      setShowSettings(false)
-      setShowZoom(false)
-      setShowArena(false)
-      setShowAsana(false)
-      setShowAgents(false)
-      setHasStartedChat(true)
+      // Redirect to Communications Hub
+      handleModeChange("communications")
+      return
     } else if (mode === "asana") {
       setShowAsana(true)
       setShowMessages(false)
