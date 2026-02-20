@@ -2,7 +2,7 @@
 
 import * as React from "react"
 
-import { Home, Settings, Mail, Sparkles, MessageSquare, Bot, Shield, TrendingUp, Calculator, FolderKanban, Building2 } from "lucide-react"
+import { Home, Settings, Mail, Sparkles, MessageSquare, Bot, Shield, TrendingUp, Calculator, FolderKanban, Building2, Inbox } from "lucide-react"
 import Image from "next/image"
 
 /** @typedef {Object} NavigationRailProps */
@@ -19,6 +19,7 @@ export function NavigationRail({ activeMode, onModeChange, visible }) {
     { id: "agents", icon: Bot, label: "Agent Control", type: "lucide" },
     { id: "admin", icon: Shield, label: "User Admin", type: "lucide" },
     { id: "sales", icon: TrendingUp, label: "Sales Intel", type: "lucide" },
+    { id: "communications", icon: Inbox, label: "Comms Hub", type: "lucide" },
 
     { id: "messages", icon: MessageSquare, label: "Messages", type: "lucide" },
     {

@@ -30,6 +30,7 @@ import { EstimatingCenterScreen } from "@/components/ko/estimating-center-screen
 import ProjectFoldersScreen from "@/components/ko/project-folders-screen"
 import { ProjectFolderDetail } from "@/components/ko/project-folder-detail"
 import { ContactsScreen } from "@/components/ko/contacts-screen"
+import { CommunicationsHubScreen } from "@/components/ko/communications-hub-screen"
 import { agents as fallbackAgents } from "@/data/agent-data"
 
 export default function HomePage() {
@@ -65,6 +66,7 @@ export default function HomePage() {
   const [showProjects, setShowProjects] = useState(false)
   const [selectedFolderProject, setSelectedFolderProject] = useState(null) // { id, name, folder?, fileName? } for detail view
   const [showContacts, setShowContacts] = useState(false)
+  const [showCommsHub, setShowCommsHub] = useState(false)
   const [selectedAgent, setSelectedAgent] = useState(null)
   const [showAgentNetwork, setShowAgentNetwork] = useState(false)
   const [showAddAgent, setShowAddAgent] = useState(false)
@@ -164,6 +166,7 @@ export default function HomePage() {
       setShowProjects(false)
       setSelectedFolderProject(null)
       setShowContacts(false)
+      setShowCommsHub(false)
       setSelectedAgent(null)
       setShowAgentNetwork(false)
       setShowAddAgent(false)
@@ -291,6 +294,21 @@ export default function HomePage() {
       setShowZoom(false)
       setShowArena(false)
       setHasStartedChat(true)
+    } else if (mode === "communications") {
+      setShowCommsHub(true)
+      setShowEmail(false)
+      setShowMessages(false)
+      setShowSettings(false)
+      setShowZoom(false)
+      setShowArena(false)
+      setShowAsana(false)
+      setShowAgents(false)
+      setShowUserAdmin(false)
+      setShowSales(false)
+      setShowEstimating(false)
+      setShowProjects(false)
+      setShowContacts(false)
+      setHasStartedChat(true)
     } else {
       setActiveMode(mode)
       setShowEmail(false)
@@ -298,6 +316,7 @@ export default function HomePage() {
       setShowZoom(false)
       setShowArena(false)
       setShowAgents(false)
+      setShowCommsHub(false)
       if (!hasStartedChat) {
         setHasStartedChat(true)
       }
@@ -345,7 +364,7 @@ export default function HomePage() {
       <div className={`${isMobileMenuOpen ? "fixed left-0 top-0 bottom-0 z-50" : "hidden"} md:block`}>
         <NavigationRail
           activeMode={
-            showEmail ? "email" : showSettings ? "settings" : showZoom ? "zoom" : showArena ? "arena" : showMessages ? "messages" : showAsana ? "asana" : showAgents ? "agents" : showUserAdmin ? "admin" : showSales ? "sales" : showEstimating ? "estimating" : showProjects ? "projects" : showContacts ? "contacts" : activeMode
+            showCommsHub ? "communications" : showEmail ? "email" : showSettings ? "settings" : showZoom ? "zoom" : showArena ? "arena" : showMessages ? "messages" : showAsana ? "asana" : showAgents ? "agents" : showUserAdmin ? "admin" : showSales ? "sales" : showEstimating ? "estimating" : showProjects ? "projects" : showContacts ? "contacts" : activeMode
           }
           onModeChange={handleModeChange}
           visible={true}
@@ -452,6 +471,8 @@ export default function HomePage() {
             )
           ) : showContacts ? (
             <ContactsScreen />
+          ) : showCommsHub ? (
+            <CommunicationsHubScreen />
           ) : (
             <div className="flex-1 flex flex-col md:flex-row overflow-hidden">
               <div className={`flex-1 ${isWorkspaceVisible ? 'md:w-[40%]' : ''} flex flex-col`}>
