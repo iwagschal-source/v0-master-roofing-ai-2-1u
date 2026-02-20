@@ -19,14 +19,17 @@ function getRedirectUri(request) {
   return `${url.origin}/api/auth/google/callback`
 }
 
-// Scopes for Gmail, Calendar, and Chat
+// Scopes for Gmail, Calendar, Chat, and Meet — request all upfront (Phase 13)
 const SCOPES = [
   'https://www.googleapis.com/auth/gmail.readonly',
   'https://www.googleapis.com/auth/gmail.send',
+  'https://www.googleapis.com/auth/gmail.modify',
+  'https://www.googleapis.com/auth/gmail.compose',
   'https://www.googleapis.com/auth/calendar.readonly',
-  'https://www.googleapis.com/auth/calendar.events.readonly',
+  'https://www.googleapis.com/auth/calendar.events',
   'https://www.googleapis.com/auth/chat.spaces.readonly',
   'https://www.googleapis.com/auth/chat.messages.readonly',
+  'https://www.googleapis.com/auth/chat.messages',
   'https://www.googleapis.com/auth/userinfo.email',
   'https://www.googleapis.com/auth/userinfo.profile',
 ].join(' ')
