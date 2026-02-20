@@ -6,19 +6,23 @@ import { useGmail } from "@/hooks/useGmail"
 import { useGoogleAuth } from "@/hooks/useGoogleAuth"
 
 function formatDate(dateString) {
+  if (!dateString) return ''
   const date = new Date(dateString)
   const now = new Date()
-  const diff = now.getTime() - date.getTime()
-  const days = Math.floor(diff / (1000 * 60 * 60 * 24))
-  const hours = Math.floor(diff / (1000 * 60 * 60))
-  const minutes = Math.floor(diff / (1000 * 60))
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+  const emailDay = new Date(date.getFullYear(), date.getMonth(), date.getDate())
+  const diffDays = Math.floor((today - emailDay) / (1000 * 60 * 60 * 24))
+  const timeStr = date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })
 
-  if (minutes < 1) return 'Just now'
-  if (minutes < 60) return `${minutes}m ago`
-  if (hours < 24) return `${hours}h ago`
-  if (days === 1) return 'Yesterday'
-  if (days < 7) return date.toLocaleDateString('en-US', { weekday: 'short' })
-  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+  if (diffDays === 0) return timeStr
+  if (diffDays > 0 && diffDays < 7) {
+    const dayName = date.toLocaleDateString('en-US', { weekday: 'short' })
+    return `${dayName} ${timeStr}`
+  }
+  if (date.getFullYear() === now.getFullYear()) {
+    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+  }
+  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
 }
 
 function extractSenderName(from) {
