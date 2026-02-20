@@ -57,10 +57,20 @@ export async function GET(request) {
 
       const messages = (messagesData.messages || []).map(msg => ({
         id: msg.name,
-        text: msg.text,
-        sender: msg.sender,
+        text: msg.text || '',
+        formattedText: msg.formattedText || '',
+        sender: {
+          name: msg.sender?.name || '',
+          displayName: msg.sender?.displayName || '',
+          email: msg.sender?.email || '',
+          avatarUrl: msg.sender?.avatarUrl || '',
+          type: msg.sender?.type || 'HUMAN',
+        },
         createTime: msg.createTime,
         space: msg.space,
+        quotedMessageMetadata: msg.quotedMessageMetadata || null,
+        emojiReactionSummaries: msg.emojiReactionSummaries || [],
+        annotations: msg.annotations || [],
       }))
 
       return NextResponse.json({ messages })
@@ -84,15 +94,17 @@ export async function GET(request) {
       return NextResponse.json({ error: spacesData.error.message }, { status: 400 })
     }
 
-    // Map spaces and resolve DM names from members
+    // Map spaces: resolve DM names from members + fetch last message preview
     const spaces = await Promise.all(
       (spacesData.spaces || []).map(async (space) => {
         let displayName = space.displayName
-        const spaceType = space.spaceType || space.type // Google Chat v1 uses spaceType, fallback to type
+        const spaceType = space.spaceType || space.type
         const isDm = spaceType === 'DIRECT_MESSAGE' || space.type === 'DM' || space.type === 'GROUP_DM'
+        let lastMessage = null
+        let memberCount = 0
 
-        // For DMs without displayName, try to get the other person's name from members
-        if ((!displayName || displayName === space.name) && isDm) {
+        // For DMs: get OTHER person's name (filter out current user)
+        if (isDm) {
           try {
             const membersRes = await fetch(
               `${CHAT_API}/${space.name}/members?pageSize=10`,
@@ -100,12 +112,14 @@ export async function GET(request) {
             )
             const membersData = await membersRes.json()
             if (membersData.memberships) {
-              const memberNames = membersData.memberships
-                .filter(m => m.member?.type === 'HUMAN')
+              // Filter out current user by matching users/{userId}
+              const otherMembers = membersData.memberships
+                .filter(m => m.member?.type === 'HUMAN' && m.member?.name !== `users/${userId}`)
                 .map(m => m.member?.displayName)
                 .filter(Boolean)
-              if (memberNames.length > 0) {
-                displayName = memberNames.join(', ')
+              memberCount = membersData.memberships.filter(m => m.member?.type === 'HUMAN').length
+              if (otherMembers.length > 0) {
+                displayName = otherMembers.join(', ')
               }
             }
           } catch (e) {
@@ -113,9 +127,29 @@ export async function GET(request) {
           }
         }
 
-        // Final fallback
+        // Fetch last message for preview (1 message, newest first)
+        try {
+          const msgRes = await fetch(
+            `${CHAT_API}/${space.name}/messages?pageSize=1&orderBy=createTime%20desc`,
+            { headers: { 'Authorization': `Bearer ${token}` } }
+          )
+          const msgData = await msgRes.json()
+          if (msgData.messages?.[0]) {
+            const msg = msgData.messages[0]
+            lastMessage = {
+              text: (msg.text || '').substring(0, 120),
+              senderName: msg.sender?.displayName || 'Unknown',
+              senderEmail: msg.sender?.email || '',
+              createTime: msg.createTime,
+            }
+          }
+        } catch (e) {
+          // Silently fail
+        }
+
+        // Final fallback for displayName
         if (!displayName || displayName === space.name || displayName.startsWith('spaces/')) {
-          displayName = isDm ? 'Direct Message' : `Chat Space`
+          displayName = isDm ? 'Direct Message' : 'Chat Space'
         }
 
         return {
@@ -123,6 +157,9 @@ export async function GET(request) {
           name: space.name,
           displayName,
           type: space.type,
+          lastActiveTime: space.lastActiveTime || null,
+          lastMessage,
+          memberCount,
           singleUserBotDm: space.singleUserBotDm,
           spaceThreadingState: space.spaceThreadingState,
         }

@@ -25,29 +25,23 @@ async function fetchFromGoogleChatAPI(): Promise<{ spaces: ChatSpace[], needsWor
   }
 
   // Map API response to ChatSpace format
-  // Google Chat API returns space.name as "spaces/XXXXX" format
+  // API route already resolves DM names from members — trust it
   const spaces = (data.spaces || []).map((space: any) => {
     const spaceId = space.id || space.name || ''
-    // Ensure space ID is in correct format (spaces/XXXXX)
     const normalizedId = spaceId.startsWith('spaces/') ? spaceId : `spaces/${spaceId}`
-
-    // For display name: prefer displayName from API, fall back to friendly name
-    // API route now resolves DM member names, so this is mostly a safety net
-    let displayName = space.displayName
-    if (!displayName || displayName.startsWith('spaces/') || displayName === space.name) {
-      if (space.type === 'DM' || space.type === 'GROUP_DM' || space.type === 'DIRECT_MESSAGE') {
-        displayName = 'Direct Message'
-      } else {
-        displayName = 'Chat Space'
-      }
-    }
 
     return {
       id: normalizedId,
       name: normalizedId,
       type: space.type || 'ROOM',
-      displayName,
-      memberCount: 0
+      displayName: space.displayName || (
+        (space.type === 'DM' || space.type === 'GROUP_DM' || space.type === 'DIRECT_MESSAGE')
+          ? 'Direct Message' : 'Chat Space'
+      ),
+      memberCount: space.memberCount || 0,
+      lastActiveTime: space.lastActiveTime || undefined,
+      lastMessageTime: space.lastMessage?.createTime || space.lastActiveTime || undefined,
+      lastMessage: space.lastMessage || null,
     }
   })
 
@@ -69,10 +63,13 @@ async function fetchGoogleChatMessages(spaceId: string): Promise<ChatMessage[]> 
     spaceId: normalizedSpaceId,
     sender: {
       name: msg.sender?.displayName || msg.sender?.name || 'Unknown',
-      email: msg.sender?.email || ''
+      email: msg.sender?.email || '',
+      avatarUrl: msg.sender?.avatarUrl || undefined,
     },
     text: msg.text || '',
-    createTime: msg.createTime || new Date().toISOString()
+    createTime: msg.createTime || new Date().toISOString(),
+    quotedMessageMetadata: msg.quotedMessageMetadata || null,
+    emojiReactionSummaries: msg.emojiReactionSummaries || [],
   }))
 }
 

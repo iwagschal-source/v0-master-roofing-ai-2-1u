@@ -386,10 +386,17 @@ export const calendarAPI = {
 export interface ChatSpace {
   id: string;
   name: string;
-  type: 'ROOM' | 'DM' | 'GROUP_DM';
+  type: 'ROOM' | 'DM' | 'GROUP_DM' | 'DIRECT_MESSAGE';
   displayName?: string;
   memberCount?: number;
   lastMessageTime?: string;
+  lastActiveTime?: string;
+  lastMessage?: {
+    text: string;
+    senderName: string;
+    senderEmail: string;
+    createTime: string;
+  } | null;
 }
 
 export interface ChatMessage {
@@ -400,6 +407,8 @@ export interface ChatMessage {
   createTime: string;
   threadId?: string;
   attachments?: Array<{ name: string; downloadUrl: string }>;
+  quotedMessageMetadata?: { name: string; lastUpdateTime?: string } | null;
+  emojiReactionSummaries?: Array<{ emoji: { unicode: string }; reactionCount: number }>;
 }
 
 export const chatSpacesAPI = {
