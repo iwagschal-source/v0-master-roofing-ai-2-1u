@@ -165,7 +165,8 @@ export async function GET(request) {
     const listData = await listRes.json()
 
     if (listData.error) {
-      return NextResponse.json({ error: listData.error.message }, { status: 400 })
+      const status = listData.error.code === 429 ? 429 : 400
+      return NextResponse.json({ error: listData.error.message }, { status })
     }
 
     // Fetch details for each message (basic info only)

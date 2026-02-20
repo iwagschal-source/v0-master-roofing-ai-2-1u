@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { gmailAPI, GmailMessage, GmailListResponse } from '@/lib/api/endpoints'
 
 interface UseGmailOptions {
@@ -9,6 +9,9 @@ interface UseGmailOptions {
   query?: string
   labelIds?: string[]
 }
+
+// Minimum seconds between API fetches (prevents rate limiting)
+const FETCH_COOLDOWN_MS = 60_000
 
 // Fetch from our internal Google API route
 async function fetchFromGoogleAPI(maxResults: number, labelIds?: string[]): Promise<GmailMessage[]> {
@@ -22,6 +25,10 @@ async function fetchFromGoogleAPI(maxResults: number, labelIds?: string[]): Prom
 
   if (data.needsAuth) {
     throw new Error('NOT_CONNECTED')
+  }
+
+  if (res.status === 429) {
+    throw new Error('RATE_LIMITED')
   }
 
   if (data.error) {
@@ -255,6 +262,9 @@ const MOCK_ANALYSIS = {
 export function useGmail(options: UseGmailOptions = {}): UseGmailReturn {
   const { maxResults = 20, autoFetch = true, query, labelIds } = options
 
+  // Serialize labelIds to a stable string to prevent reference-change re-renders
+  const labelKey = labelIds?.join(',') || ''
+
   const [messages, setMessages] = useState<GmailMessage[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -266,46 +276,89 @@ export function useGmail(options: UseGmailOptions = {}): UseGmailReturn {
   const [draftLoading, setDraftLoading] = useState(false)
   const [useMock, setUseMock] = useState(false)
 
-  const fetchMessages = useCallback(async () => {
+  // Cache: track last fetch time per label to prevent rapid re-fetching
+  const lastFetchRef = useRef<Record<string, number>>({})
+  // Backoff state for rate limiting
+  const backoffRef = useRef<number>(0)
+  // Track if a fetch is already in progress
+  const fetchingRef = useRef(false)
+
+  const fetchMessages = useCallback(async (force = false) => {
+    // Prevent concurrent fetches
+    if (fetchingRef.current) return
+
+    const cacheKey = labelKey
+    const now = Date.now()
+    const lastFetch = lastFetchRef.current[cacheKey] || 0
+
+    // Respect cooldown unless forced (manual refresh or folder change)
+    if (!force && (now - lastFetch) < FETCH_COOLDOWN_MS) {
+      return
+    }
+
+    // Respect rate-limit backoff
+    if (backoffRef.current > now) {
+      setError('Rate limited by Gmail. Please wait a moment before refreshing.')
+      return
+    }
+
+    fetchingRef.current = true
     setLoading(true)
-    setError(null)
+    // Don't clear error or messages here — keep existing data visible during fetch
 
     try {
-      // First try our internal Google API route (uses user's OAuth token)
-      const googleMessages = await fetchFromGoogleAPI(maxResults, labelIds)
+      const parsedLabels = labelKey ? labelKey.split(',') : undefined
+      const googleMessages = await fetchFromGoogleAPI(maxResults, parsedLabels)
       setMessages(googleMessages)
       setNextPageToken(undefined)
       setUseMock(false)
+      setError(null)
+      lastFetchRef.current[cacheKey] = Date.now()
+      backoffRef.current = 0 // Reset backoff on success
     } catch (googleErr: any) {
-      // If not connected to Google, try the backend API
+      if (googleErr.message === 'RATE_LIMITED') {
+        // Exponential backoff: 30s, 60s, 120s...
+        const backoffTime = Math.min(30_000 * Math.pow(2, backoffRef.current > 0 ? 1 : 0), 120_000)
+        backoffRef.current = Date.now() + backoffTime
+        setError(`Gmail rate limit hit. Retrying in ${Math.round(backoffTime / 1000)}s...`)
+        // Don't clear existing messages — keep them visible
+        return
+      }
+
       if (googleErr.message !== 'NOT_CONNECTED') {
         console.warn('Google API error:', googleErr)
       }
 
       try {
-        const response = await gmailAPI.listMessages({ maxResults, q: query, labelIds })
+        const parsedLabels = labelKey ? labelKey.split(',') : undefined
+        const response = await gmailAPI.listMessages({ maxResults, q: query, labelIds: parsedLabels })
         setMessages(response.messages)
         setNextPageToken(response.nextPageToken)
         setUseMock(false)
+        setError(null)
       } catch (err) {
         console.warn('Gmail API unavailable, using mock data:', err)
-        // Use mock data when backend is unavailable
-        setMessages(MOCK_MESSAGES)
+        // Only use mock if we have no existing messages
+        if (messages.length === 0) {
+          setMessages(MOCK_MESSAGES)
+          setUseMock(true)
+        }
         setNextPageToken(undefined)
-        setUseMock(true)
-        setError(null) // Clear error since we have mock data
+        setError(null)
       }
     } finally {
       setLoading(false)
+      fetchingRef.current = false
     }
-  }, [maxResults, query, labelIds])
+  }, [maxResults, query, labelKey]) // labelKey is a stable string, not array reference
 
   const fetchMore = useCallback(async () => {
     if (!nextPageToken || loading || useMock) return
 
     setLoading(true)
     try {
-      const response = await gmailAPI.listMessages({ maxResults, pageToken: nextPageToken, q: query, labelIds })
+      const parsedLabels = labelKey ? labelKey.split(',') : undefined
+      const response = await gmailAPI.listMessages({ maxResults, pageToken: nextPageToken, q: query, labelIds: parsedLabels })
       setMessages(prev => [...prev, ...response.messages])
       setNextPageToken(response.nextPageToken)
     } catch (err) {
@@ -313,7 +366,7 @@ export function useGmail(options: UseGmailOptions = {}): UseGmailReturn {
     } finally {
       setLoading(false)
     }
-  }, [nextPageToken, loading, maxResults, query, labelIds, useMock])
+  }, [nextPageToken, loading, maxResults, query, labelKey, useMock])
 
   const selectMessage = useCallback((message: GmailMessage | null) => {
     setSelectedMessage(message)
@@ -446,15 +499,16 @@ Isaac`)
 
   const refresh = useCallback(async () => {
     setNextPageToken(undefined)
-    await fetchMessages()
+    await fetchMessages(true) // force=true bypasses cooldown
   }, [fetchMessages])
 
-  // Auto-fetch on mount
+  // Auto-fetch on mount and when labelKey changes (folder switch)
   useEffect(() => {
     if (autoFetch) {
-      fetchMessages()
+      // Force fetch on label change (folder switch), respect cooldown otherwise
+      fetchMessages(true)
     }
-  }, [autoFetch, fetchMessages])
+  }, [autoFetch, labelKey]) // Only re-run when labelKey actually changes, NOT fetchMessages
 
   // Auto-analyze when message is selected
   useEffect(() => {
