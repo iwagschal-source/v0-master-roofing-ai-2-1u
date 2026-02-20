@@ -808,11 +808,11 @@ function ChatPanel({ isConnected, authUrl, user }) {
                                 </div>
                               )}
 
-                              {/* Message bubble */}
+                              {/* Message bubble — two-tone: light red (me) / light gray (them) */}
                               <div className={`inline-block px-3 py-1.5 rounded-2xl max-w-[85%] text-xs leading-relaxed ${
                                 isOwn
-                                  ? 'bg-primary text-primary-foreground rounded-br-md'
-                                  : `${SENDER_COLORS[colorIdx] || 'bg-card border border-border'} rounded-bl-md`
+                                  ? 'bg-[rgba(215,64,58,0.08)] text-foreground rounded-br-md'
+                                  : 'bg-[rgba(0,0,0,0.05)] text-foreground rounded-bl-md'
                               }`}>
                                 <p className="whitespace-pre-wrap break-words">{message.text}</p>
                               </div>
