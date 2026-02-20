@@ -136,11 +136,19 @@ export function HomeScreen({
   return (
     <div className="flex flex-col h-full bg-background">
       <div className="flex-1 flex flex-col items-center justify-center px-8">
-        {/* Dynamic Greeting */}
+        {/* Dynamic Greeting with MR logo stripes */}
         <div className="flex flex-col items-center mb-8">
-          <h2 className="text-xl font-medium text-foreground text-center text-balance">
-            {greeting}
-          </h2>
+          <div className="flex items-end gap-1">
+            <img
+              src="/images/mr-stripes.svg"
+              alt=""
+              className="h-[52px] w-auto -mt-2 select-none pointer-events-none"
+              draggable={false}
+            />
+            <h2 className="text-xl font-medium text-foreground text-center text-balance">
+              {greeting}
+            </h2>
+          </div>
         </div>
 
         {/* 5 Category Icon Buttons — same width as main screen below */}
