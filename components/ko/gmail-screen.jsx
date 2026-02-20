@@ -1186,8 +1186,46 @@ function ComposeModal({ isOpen, onClose, onSend, sending, error }) {
   const [attachments, setAttachments] = useState([])
   const fileInputRef = useRef(null)
 
+  // Log to Project state
+  const [projects, setProjects] = useState([])
+  const [logProject, setLogProject] = useState(null)
+  const [projectDropdownOpen, setProjectDropdownOpen] = useState(false)
+  const [projectFilter, setProjectFilter] = useState('')
+  const projectDropdownRef = useRef(null)
+
+  // Fetch projects when modal opens
+  useEffect(() => {
+    if (!isOpen) return
+    const fetchProjects = async () => {
+      try {
+        const res = await fetch('/api/ko/project-folders')
+        const data = await res.json()
+        setProjects(data.projects || [])
+      } catch (err) {
+        console.error('Failed to fetch projects:', err)
+      }
+    }
+    fetchProjects()
+  }, [isOpen])
+
+  // Close project dropdown on outside click
+  useEffect(() => {
+    const handleClick = (e) => {
+      if (projectDropdownRef.current && !projectDropdownRef.current.contains(e.target)) {
+        setProjectDropdownOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClick)
+    return () => document.removeEventListener('mousedown', handleClick)
+  }, [])
+
+  const filteredComposeProjects = projects.filter(p =>
+    p.name?.toLowerCase().includes(projectFilter.toLowerCase()) ||
+    p.companyName?.toLowerCase().includes(projectFilter.toLowerCase())
+  )
+
   const handleSend = () => {
-    onSend({ to, cc, bcc, subject, body, attachments })
+    onSend({ to, cc, bcc, subject, body, attachments, logProject })
   }
 
   const handleClose = () => {
@@ -1198,6 +1236,9 @@ function ComposeModal({ isOpen, onClose, onSend, sending, error }) {
     setBody("")
     setShowCcBcc(false)
     setAttachments([])
+    setLogProject(null)
+    setProjectDropdownOpen(false)
+    setProjectFilter('')
     onClose()
   }
 
@@ -1227,6 +1268,69 @@ function ComposeModal({ isOpen, onClose, onSend, sending, error }) {
         </div>
 
         <div className="flex-1 overflow-y-auto p-4 space-y-3">
+          {/* Log to Project */}
+          <div className="relative" ref={projectDropdownRef}>
+            {logProject ? (
+              <div className="flex items-center gap-2 px-3 py-2 bg-green-500/10 border border-green-500/30 rounded-lg">
+                <Check className="w-4 h-4 text-green-600" />
+                <span className="text-sm text-green-700 font-medium">Logging to: {logProject.name}</span>
+                <button
+                  onClick={() => setLogProject(null)}
+                  className="ml-auto text-green-600 hover:text-red-500 transition-colors text-sm"
+                >
+                  &times;
+                </button>
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setProjectDropdownOpen(!projectDropdownOpen)}
+                className="flex items-center gap-2 px-3 py-1.5 text-sm text-muted-foreground hover:text-foreground hover:bg-muted/50 rounded-lg transition-colors border border-border/50"
+              >
+                <FolderOpen className="w-4 h-4" />
+                Log to Project
+                <ChevronDown className={`w-3.5 h-3.5 transition-transform ${projectDropdownOpen ? 'rotate-180' : ''}`} />
+              </button>
+            )}
+            {projectDropdownOpen && (
+              <div className="absolute left-0 top-full mt-1 w-72 bg-card border border-border rounded-lg shadow-lg z-50 overflow-hidden">
+                <div className="p-2 border-b border-border">
+                  <div className="relative">
+                    <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                    <input
+                      type="text"
+                      value={projectFilter}
+                      onChange={(e) => setProjectFilter(e.target.value)}
+                      placeholder="Search projects..."
+                      className="w-full pl-8 pr-3 py-1.5 bg-secondary/30 border border-border/50 rounded text-sm placeholder:text-muted-foreground/50 focus:outline-none focus:border-primary/50"
+                      autoFocus
+                    />
+                  </div>
+                </div>
+                <div className="max-h-48 overflow-y-auto">
+                  {filteredComposeProjects.length === 0 ? (
+                    <div className="py-3 text-center text-sm text-muted-foreground">No projects found</div>
+                  ) : (
+                    filteredComposeProjects.map((project) => (
+                      <button
+                        key={project.id}
+                        onClick={() => {
+                          setLogProject(project)
+                          setProjectDropdownOpen(false)
+                          setProjectFilter('')
+                        }}
+                        className="w-full text-left px-3 py-2 hover:bg-muted/50 transition-colors"
+                      >
+                        <p className="text-sm font-medium text-foreground truncate">{project.name}</p>
+                        <p className="text-xs text-muted-foreground truncate">{project.companyName}</p>
+                      </button>
+                    ))
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+
           <div>
             <label className="block text-xs text-muted-foreground mb-1">To *</label>
             <input
@@ -1505,7 +1609,7 @@ export function GmailScreen() {
     }
   }
 
-  const handleComposeSend = async ({ to, cc, bcc, subject, body, attachments = [] }) => {
+  const handleComposeSend = async ({ to, cc, bcc, subject, body, attachments = [], logProject = null }) => {
     if (!to.trim() || !body.trim()) {
       setComposeError("Please enter a recipient and message")
       return
@@ -1562,6 +1666,27 @@ export function GmailScreen() {
       }
 
       if (data.success) {
+        // Log to project if selected
+        if (logProject) {
+          try {
+            await fetch('/api/ko/project-communications', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                projectId: logProject.id,
+                type: 'email',
+                sourceId: data.messageId,
+                threadId: data.threadId,
+                from: 'me',
+                to: to,
+                subject: subject || '(No Subject)',
+                snippet: body.substring(0, 200),
+              }),
+            })
+          } catch (logErr) {
+            console.error('Failed to log sent email to project:', logErr)
+          }
+        }
         setShowCompose(false)
         setComposeError("")
         refresh()
