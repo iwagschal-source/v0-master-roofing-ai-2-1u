@@ -135,8 +135,40 @@ export function ChatScreen() {
     }
   }
 
+  // Sort messages chronologically (oldest first, newest at bottom)
+  const sortedMessages = [...messages].sort((a, b) =>
+    new Date(a.createTime).getTime() - new Date(b.createTime).getTime()
+  )
+
+  // Per-sender color palette for non-own messages
+  const senderColorMap = useRef(new Map())
+  const SENDER_COLORS = [
+    'bg-blue-100 text-blue-900 border-blue-200',
+    'bg-emerald-100 text-emerald-900 border-emerald-200',
+    'bg-purple-100 text-purple-900 border-purple-200',
+    'bg-amber-100 text-amber-900 border-amber-200',
+    'bg-rose-100 text-rose-900 border-rose-200',
+    'bg-cyan-100 text-cyan-900 border-cyan-200',
+    'bg-orange-100 text-orange-900 border-orange-200',
+  ]
+  const SENDER_AVATAR_COLORS = [
+    'bg-blue-500 text-white',
+    'bg-emerald-500 text-white',
+    'bg-purple-500 text-white',
+    'bg-amber-500 text-white',
+    'bg-rose-500 text-white',
+    'bg-cyan-500 text-white',
+    'bg-orange-500 text-white',
+  ]
+  const getSenderColor = (email) => {
+    if (!senderColorMap.current.has(email)) {
+      senderColorMap.current.set(email, senderColorMap.current.size % SENDER_COLORS.length)
+    }
+    return senderColorMap.current.get(email)
+  }
+
   const rooms = spaces.filter(s => s.type === 'ROOM')
-  const dms = spaces.filter(s => s.type === 'DM' || s.type === 'GROUP_DM')
+  const dms = spaces.filter(s => s.type === 'DM' || s.type === 'GROUP_DM' || s.type === 'DIRECT_MESSAGE')
 
   const filteredRooms = rooms.filter(s =>
     !searchQuery || s.displayName?.toLowerCase().includes(searchQuery.toLowerCase())
@@ -422,15 +454,16 @@ export function ChatScreen() {
                 </div>
               ) : (
                 <div className="space-y-4 max-w-3xl">
-                  {messages.map((message, index) => {
+                  {sortedMessages.map((message, index) => {
                     const isOwn = message.sender.email === user?.email || message.sender.email === 'iwagschal@masterroofingus.com'
-                    const showAvatar = index === 0 || messages[index - 1].sender.email !== message.sender.email
+                    const showAvatar = index === 0 || sortedMessages[index - 1].sender.email !== message.sender.email
+                    const colorIdx = isOwn ? -1 : getSenderColor(message.sender.email || message.sender.name)
 
                     return (
                       <div key={message.id} className={`flex gap-3 ${isOwn ? 'flex-row-reverse' : ''}`}>
                         {showAvatar ? (
                           <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 text-xs font-medium ${
-                            isOwn ? 'bg-primary text-primary-foreground' : 'bg-muted text-foreground'
+                            isOwn ? 'bg-primary text-primary-foreground' : SENDER_AVATAR_COLORS[colorIdx] || 'bg-muted text-foreground'
                           }`}>
                             {getInitials(message.sender.name)}
                           </div>
@@ -452,7 +485,7 @@ export function ChatScreen() {
                           <div className={`inline-block px-4 py-2 rounded-2xl max-w-[80%] ${
                             isOwn
                               ? 'bg-primary text-primary-foreground rounded-br-md'
-                              : 'bg-card border border-border text-foreground rounded-bl-md'
+                              : `${SENDER_COLORS[colorIdx] || 'bg-card border border-border text-foreground'} rounded-bl-md`
                           }`}>
                             <p className="text-sm whitespace-pre-wrap">{message.text}</p>
                           </div>
