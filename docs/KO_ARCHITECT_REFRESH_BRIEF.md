@@ -1,7 +1,7 @@
 # KO PLATFORM — ARCHITECT REFRESH BRIEF
 # If you are reading this, you were probably just compacted. Read EVERYTHING.
 
-## Last Updated: 2026-02-20 (Session 58 era, entering Phase 13)
+## Last Updated: 2026-02-20 (Session 63B — Communications Hub nav merge)
 ## Keep this file updated at the end of EVERY session.
 
 ---
@@ -243,6 +243,8 @@ FOLDER_ICON_COLORS = {
 | 57 | 12F | Card redesign, activity feed, home page, gray icons | Home page, activity-feed.tsx |
 | 58 | 12G | Feed streaming fix, home redesign, accordion, agent panel | Home page, documents page |
 | 59 | 13A | (NEXT) OAuth fix + Google auth | TBD |
+| 63 | 13C | Google Chat real names fix (directory API resolution) | chat/route.js |
+| 63B | 13C | Nav merge — single Comms Hub entry, remove email/messages nav | navigation-rail.jsx, page.jsx |
 
 ---
 
