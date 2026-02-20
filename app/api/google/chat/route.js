@@ -242,26 +242,50 @@ export async function GET(request) {
       return NextResponse.json({ messages })
     }
 
-    // ─── Fetch list of spaces ───
-    const spacesRes = await fetch(
-      `${CHAT_API}/spaces?pageSize=50`,
-      { headers: { 'Authorization': `Bearer ${token}` } }
-    )
-    const spacesData = await spacesRes.json()
+    // ─── Fetch ALL spaces (paginate through every page) ───
+    let allRawSpaces = []
+    let spacesPageToken = null
+    do {
+      const sparams = new URLSearchParams({ pageSize: '200' })
+      if (spacesPageToken) sparams.set('pageToken', spacesPageToken)
 
-    if (spacesData.error) {
-      if (spacesData.error.code === 403) {
-        return NextResponse.json({
-          error: 'Google Chat requires a Google Workspace account',
-          needsWorkspace: true
-        }, { status: 403 })
+      const spacesRes = await fetch(
+        `${CHAT_API}/spaces?${sparams}`,
+        { headers: { 'Authorization': `Bearer ${token}` } }
+      )
+      const spacesData = await spacesRes.json()
+
+      if (spacesData.error) {
+        if (spacesData.error.code === 403) {
+          return NextResponse.json({
+            error: 'Google Chat requires a Google Workspace account',
+            needsWorkspace: true
+          }, { status: 403 })
+        }
+        // If we already have some spaces, stop paginating; otherwise return error
+        if (allRawSpaces.length === 0) {
+          return NextResponse.json({ error: spacesData.error.message }, { status: 400 })
+        }
+        break
       }
-      return NextResponse.json({ error: spacesData.error.message }, { status: 400 })
-    }
+
+      allRawSpaces.push(...(spacesData.spaces || []))
+      spacesPageToken = spacesData.nextPageToken
+    } while (spacesPageToken)
+
+    // Sort ALL spaces by lastActiveTime descending — most recent first
+    allRawSpaces.sort((a, b) => {
+      const aTime = a.lastActiveTime || ''
+      const bTime = b.lastActiveTime || ''
+      return bTime.localeCompare(aTime)
+    })
+
+    // Only process the top 50 most recently active spaces for previews
+    const topSpaces = allRawSpaces.slice(0, 50)
 
     // Map spaces: resolve DM names + fetch last message preview
     const spaces = await Promise.all(
-      (spacesData.spaces || []).map(async (space) => {
+      topSpaces.map(async (space) => {
         let displayName = space.displayName
         const spaceType = space.spaceType || space.type
         const isDm = spaceType === 'DIRECT_MESSAGE' || spaceType === 'GROUP_CHAT'

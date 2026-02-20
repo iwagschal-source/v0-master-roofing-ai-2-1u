@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect, useRef } from "react"
-import { MessageSquare, Send, RefreshCw, Loader2, Search, Hash, User, ExternalLink, LogOut, AlertTriangle, AlertCircle, FolderOpen, ChevronDown, Check } from "lucide-react"
+import { MessageSquare, Send, RefreshCw, Loader2, Search, Hash, User, ExternalLink, LogOut, AlertTriangle, AlertCircle, FolderOpen, ChevronDown, Check, Paperclip } from "lucide-react"
 import { useChatSpaces, formatMessageTime, getInitials } from "@/hooks/useChatSpaces"
 import { useGoogleAuth } from "@/hooks/useGoogleAuth"
 
@@ -13,6 +13,7 @@ export function ChatScreen() {
   const [searchQuery, setSearchQuery] = useState("")
   const [sending, setSending] = useState(false)
   const messagesEndRef = useRef(null)
+  const textareaRef = useRef(null)
 
   // Project logging state
   const [projects, setProjects] = useState([])
@@ -124,6 +125,10 @@ export function ChatScreen() {
     const success = await sendMessage(inputValue)
     if (success) {
       setInputValue("")
+      // Reset textarea height
+      if (textareaRef.current) {
+        textareaRef.current.style.height = 'auto'
+      }
     }
     setSending(false)
   }
@@ -140,31 +145,14 @@ export function ChatScreen() {
     new Date(a.createTime).getTime() - new Date(b.createTime).getTime()
   )
 
-  // Per-sender color palette for non-own messages
-  const senderColorMap = useRef(new Map())
-  const SENDER_COLORS = [
-    'bg-blue-100 text-blue-900 border-blue-200',
-    'bg-emerald-100 text-emerald-900 border-emerald-200',
-    'bg-purple-100 text-purple-900 border-purple-200',
-    'bg-amber-100 text-amber-900 border-amber-200',
-    'bg-rose-100 text-rose-900 border-rose-200',
-    'bg-cyan-100 text-cyan-900 border-cyan-200',
-    'bg-orange-100 text-orange-900 border-orange-200',
-  ]
-  const SENDER_AVATAR_COLORS = [
-    'bg-blue-500 text-white',
-    'bg-emerald-500 text-white',
-    'bg-purple-500 text-white',
-    'bg-amber-500 text-white',
-    'bg-rose-500 text-white',
-    'bg-cyan-500 text-white',
-    'bg-orange-500 text-white',
-  ]
-  const getSenderColor = (email) => {
-    if (!senderColorMap.current.has(email)) {
-      senderColorMap.current.set(email, senderColorMap.current.size % SENDER_COLORS.length)
+  // Auto-resize textarea
+  const handleInputChange = (e) => {
+    setInputValue(e.target.value)
+    const textarea = textareaRef.current
+    if (textarea) {
+      textarea.style.height = 'auto'
+      textarea.style.height = Math.min(textarea.scrollHeight, 160) + 'px'
     }
-    return senderColorMap.current.get(email)
   }
 
   // Sort all spaces by last activity (most recent first)
@@ -308,9 +296,7 @@ export function ChatScreen() {
                             : 'text-foreground-secondary hover:bg-muted hover:text-foreground'
                         }`}
                       >
-                        <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 text-xs font-medium ${
-                          SENDER_AVATAR_COLORS[getSenderColor(space.displayName || '')] || 'bg-muted text-foreground'
-                        }`}>
+                        <div className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 text-xs font-medium bg-zinc-200 text-zinc-600 dark:bg-zinc-700 dark:text-zinc-300">
                           {getInitials(space.displayName || 'DM')}
                         </div>
                         <div className="flex-1 text-left overflow-hidden">
@@ -354,9 +340,7 @@ export function ChatScreen() {
                       <Hash className="w-5 h-5 text-primary" />
                     </div>
                   ) : (
-                    <div className={`w-10 h-10 rounded-full flex items-center justify-center text-sm font-medium ${
-                      SENDER_AVATAR_COLORS[getSenderColor(selectedSpace.displayName || '')] || 'bg-muted text-foreground'
-                    }`}>
+                    <div className="w-10 h-10 rounded-full flex items-center justify-center text-sm font-medium bg-zinc-200 text-zinc-600 dark:bg-zinc-700 dark:text-zinc-300">
                       {getInitials(selectedSpace.displayName || 'DM')}
                     </div>
                   )}
@@ -480,7 +464,7 @@ export function ChatScreen() {
                   </div>
                 </div>
               ) : (
-                <div className="space-y-1 max-w-3xl">
+                <div className="space-y-0">
                   {sortedMessages.map((message, index) => {
                     const prev = index > 0 ? sortedMessages[index - 1] : null
                     // Detect own messages by email OR by raw user ID
@@ -488,7 +472,6 @@ export function ChatScreen() {
                     const isOwn = (message.sender.email && message.sender.email === user?.email) ||
                       message.sender.email === 'iwagschal@masterroofingus.com' ||
                       (message.sender.rawId && cookieUserId && message.sender.rawId === `users/${cookieUserId}`)
-                    const colorIdx = isOwn ? -1 : getSenderColor(message.sender.email || message.sender.name)
 
                     // Date separator check
                     const prevDate = prev ? new Date(prev.createTime).toDateString() : null
@@ -514,66 +497,66 @@ export function ChatScreen() {
                       return date.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })
                     }
 
-                    const msgTimestamp = new Date(message.createTime).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }) +
-                      ', ' + new Date(message.createTime).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })
+                    const timeOnly = new Date(message.createTime).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })
 
                     return (
                       <div key={message.id}>
                         {/* Date separator */}
                         {showDateSep && (
-                          <div className="flex items-center gap-3 my-4">
+                          <div className="flex items-center gap-3 my-4 first:mt-0">
                             <div className="flex-1 h-px bg-border" />
                             <span className="text-xs text-foreground-secondary font-medium px-2">{getDateLabel()}</span>
                             <div className="flex-1 h-px bg-border" />
                           </div>
                         )}
 
-                        <div className={`flex gap-3 ${isOwn ? 'flex-row-reverse' : ''} ${isGrouped ? 'mt-0.5' : 'mt-3'}`}>
+                        <div className={`group flex gap-3 px-2 py-0.5 hover:bg-muted/40 rounded transition-colors ${isGrouped ? '' : 'mt-3 pt-1'}`}>
+                          {/* Avatar or spacer */}
                           {!isGrouped ? (
-                            <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 text-xs font-medium ${
-                              isOwn ? 'bg-primary text-primary-foreground' : SENDER_AVATAR_COLORS[colorIdx] || 'bg-muted text-foreground'
+                            <div className={`w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0 text-xs font-medium mt-0.5 ${
+                              isOwn ? 'bg-primary text-primary-foreground' : 'bg-zinc-200 text-zinc-600 dark:bg-zinc-700 dark:text-zinc-300'
                             }`}>
                               {getInitials(message.sender.name)}
                             </div>
                           ) : (
-                            <div className="w-8 flex-shrink-0" />
+                            <div className="w-9 flex-shrink-0 flex items-center justify-center">
+                              <span className="text-[10px] text-foreground-secondary/0 group-hover:text-foreground-secondary/60 transition-colors">
+                                {timeOnly}
+                              </span>
+                            </div>
                           )}
 
-                          <div className={`flex-1 min-w-0 ${isOwn ? 'text-right' : ''}`}>
+                          <div className="flex-1 min-w-0">
+                            {/* Sender name + timestamp header (only on first message in group) */}
                             {!isGrouped && (
-                              <div className={`flex items-center gap-2 mb-1 ${isOwn ? 'flex-row-reverse' : ''}`}>
-                                <span className="text-sm font-semibold text-foreground">
+                              <div className="flex items-baseline gap-2 mb-0.5">
+                                <span className={`text-sm font-semibold ${isOwn ? 'text-primary' : 'text-foreground'}`}>
                                   {isOwn ? 'You' : message.sender.name}
                                 </span>
                                 <span className="text-xs text-foreground-secondary">
-                                  {msgTimestamp}
+                                  {timeOnly}
                                 </span>
                               </div>
                             )}
 
                             {/* Quoted message */}
                             {message.quotedMessageMetadata && (
-                              <div className={`mb-1 ${isOwn ? 'ml-auto' : ''} max-w-[80%]`}>
-                                <div className="border-l-2 border-foreground-secondary/30 pl-2 py-0.5 text-xs text-foreground-secondary italic bg-muted/30 rounded-r">
+                              <div className="mb-1 max-w-[80%]">
+                                <div className="border-l-2 border-foreground-secondary/30 pl-2 py-0.5 text-xs text-foreground-secondary italic">
                                   Quoted message
                                 </div>
                               </div>
                             )}
 
-                            <div className={`inline-block px-4 py-2 rounded-2xl max-w-[80%] ${
-                              isOwn
-                                ? 'bg-primary text-primary-foreground rounded-br-md'
-                                : `${SENDER_COLORS[colorIdx] || 'bg-card border border-border text-foreground'} rounded-bl-md`
-                            }`}>
-                              <p className="text-sm whitespace-pre-wrap break-words">{message.text}</p>
-                            </div>
+                            {/* Message text — clean, no bubble */}
+                            <p className="text-sm text-foreground whitespace-pre-wrap break-words leading-relaxed">{message.text}</p>
 
                             {/* Reactions */}
                             {message.emojiReactionSummaries?.length > 0 && (
-                              <div className={`flex gap-1 mt-1 ${isOwn ? 'justify-end' : ''}`}>
+                              <div className="flex gap-1 mt-1">
                                 {message.emojiReactionSummaries.map((r, ri) => (
                                   <span key={ri} className="inline-flex items-center gap-1 px-2 py-0.5 bg-muted/50 border border-border/50 rounded-full text-xs">
-                                    {r.emoji?.unicode || '👍'} <span className="text-foreground-secondary">{r.reactionCount || 1}</span>
+                                    {r.emoji?.unicode} <span className="text-foreground-secondary">{r.reactionCount || 1}</span>
                                   </span>
                                 ))}
                               </div>
@@ -588,29 +571,33 @@ export function ChatScreen() {
               )}
             </div>
 
-            <div className="p-4 border-t border-border bg-card">
-              <div className="flex items-center gap-3 max-w-3xl">
-                <input
-                  type="text"
+            <div className="px-4 py-3 border-t border-border bg-card">
+              <div className="flex items-end gap-2 bg-background border border-input rounded-xl px-3 py-2 focus-within:ring-2 focus-within:ring-primary/20 focus-within:border-primary transition-colors">
+                <textarea
+                  ref={textareaRef}
                   value={inputValue}
-                  onChange={(e) => setInputValue(e.target.value)}
+                  onChange={handleInputChange}
                   onKeyDown={handleKeyDown}
                   placeholder={`Message ${selectedSpace.displayName}...`}
                   disabled={sending}
-                  className="flex-1 px-4 py-3 bg-background border border-input rounded-xl text-foreground placeholder:text-foreground-secondary outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-colors disabled:opacity-50"
+                  rows={1}
+                  className="flex-1 bg-transparent resize-none outline-none text-sm text-foreground placeholder:text-foreground-secondary py-1.5 max-h-40 disabled:opacity-50"
                 />
-                <button
-                  onClick={handleSend}
-                  disabled={!inputValue.trim() || sending}
-                  className="p-3 bg-primary text-primary-foreground rounded-xl hover:bg-primary/90 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-                >
-                  {sending ? (
-                    <Loader2 className="w-5 h-5 animate-spin" />
-                  ) : (
-                    <Send className="w-5 h-5" />
-                  )}
-                </button>
+                <div className="flex items-center gap-1 pb-0.5">
+                  <button
+                    onClick={handleSend}
+                    disabled={!inputValue.trim() || sending}
+                    className="p-1.5 text-primary hover:bg-primary/10 rounded-lg disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                  >
+                    {sending ? (
+                      <Loader2 className="w-5 h-5 animate-spin" />
+                    ) : (
+                      <Send className="w-5 h-5" />
+                    )}
+                  </button>
+                </div>
               </div>
+              <p className="text-[10px] text-foreground-secondary/50 mt-1 text-center">Enter to send, Shift+Enter for new line</p>
             </div>
           </>
         ) : !isConnected ? (
