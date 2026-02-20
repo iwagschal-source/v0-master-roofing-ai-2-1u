@@ -112,38 +112,44 @@ function resolveUser(userIdStr) {
 }
 
 /**
- * Resolve members of a space and return the "other" person's names for DMs
+ * Resolve members of a space and return the "other" person's names for DMs.
+ * Also populates nameCache with Chat user ID → displayName from member listings.
  */
 async function resolveSpaceMembers(spaceName, token, currentUserId) {
   try {
-    const res = await fetch(`${CHAT_API}/${spaceName}/members?pageSize=20`, {
+    const res = await fetch(`${CHAT_API}/${spaceName}/members?pageSize=100`, {
       headers: { Authorization: `Bearer ${token}` }
     })
     const data = await res.json()
 
     if (data.error) {
-      // Might fail if scope not yet granted — graceful fallback
+      console.warn('[Chat members]', spaceName, data.error.message)
       return { otherNames: [], memberCount: 0, memberIds: [] }
     }
 
     const memberships = data.memberships || []
     const humanMembers = memberships.filter(m => m.member?.type === 'HUMAN')
     const memberCount = humanMembers.length
-
-    // Collect all member IDs
     const memberIds = humanMembers.map(m => m.member?.name).filter(Boolean)
 
-    // For name resolution: try member.displayName first (might be populated with
-    // chat.memberships.readonly scope), then fall back to directory cache
     const otherNames = []
     for (const m of humanMembers) {
-      if (m.member?.name === `users/${currentUserId}`) continue // skip self
+      const memberUserId = m.member?.name // e.g. "users/123456"
+      const displayName = m.member?.displayName
 
-      // Try displayName from member object (populated with proper scopes)
-      let name = m.member?.displayName
+      // Cache every member's displayName against their Chat user ID
+      if (memberUserId && displayName) {
+        if (!nameCache.has(memberUserId)) {
+          nameCache.set(memberUserId, { name: displayName, email: '', photoUrl: '' })
+        }
+      }
+
+      if (memberUserId === `users/${currentUserId}`) continue // skip self
+
+      // Use displayName from member, then directory cache, then fallback
+      let name = displayName
       if (!name) {
-        // Fall back to directory cache
-        const resolved = resolveUser(m.member?.name || '')
+        const resolved = resolveUser(memberUserId || '')
         name = resolved.name
       }
       if (name) otherNames.push(name)
@@ -151,6 +157,7 @@ async function resolveSpaceMembers(spaceName, token, currentUserId) {
 
     return { otherNames, memberCount, memberIds }
   } catch (e) {
+    console.warn('[Chat members] fetch failed:', e.message)
     return { otherNames: [], memberCount: 0, memberIds: [] }
   }
 }
@@ -185,6 +192,10 @@ export async function GET(request) {
     // ─── Fetch messages from a specific space ───
     if (spaceId) {
       const normalizedSpaceId = spaceId.startsWith('spaces/') ? spaceId.replace('spaces/', '') : spaceId
+
+      // Resolve members first so nameCache has Chat user ID → displayName
+      await resolveSpaceMembers(`spaces/${normalizedSpaceId}`, token, userId)
+
       const messagesRes = await fetch(
         `${CHAT_API}/spaces/${normalizedSpaceId}/messages?pageSize=50`,
         { headers: { 'Authorization': `Bearer ${token}` } }
