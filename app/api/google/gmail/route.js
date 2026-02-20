@@ -1,6 +1,6 @@
 /**
  * Gmail API
- * Fetches user's emails from Gmail
+ * Fetches user's emails from Gmail — supports threads, attachments, HTML
  */
 
 import { NextResponse } from 'next/server'
@@ -9,13 +9,81 @@ import { getValidGoogleToken } from '@/lib/google-token'
 
 const GMAIL_API = 'https://gmail.googleapis.com/gmail/v1'
 
-// GET - Fetch emails
+// Recursively find body and attachments from MIME parts
+function parseMessageParts(parts, result = { textBody: '', htmlBody: '', attachments: [] }) {
+  for (const part of parts || []) {
+    // Attachment: has filename and attachmentId
+    if (part.filename && part.filename.length > 0 && part.body?.attachmentId) {
+      result.attachments.push({
+        filename: part.filename,
+        mimeType: part.mimeType,
+        size: part.body.size || 0,
+        attachmentId: part.body.attachmentId,
+      })
+    } else if (part.mimeType === 'text/plain' && part.body?.data && !result.textBody) {
+      result.textBody = Buffer.from(part.body.data, 'base64').toString('utf-8')
+    } else if (part.mimeType === 'text/html' && part.body?.data && !result.htmlBody) {
+      result.htmlBody = Buffer.from(part.body.data, 'base64').toString('utf-8')
+    }
+    // Recurse into nested parts (multipart/alternative, multipart/mixed, etc.)
+    if (part.parts) {
+      parseMessageParts(part.parts, result)
+    }
+  }
+  return result
+}
+
+// Parse a single Gmail message payload into our format
+function parseGmailMessage(msgData) {
+  const headers = msgData.payload?.headers || []
+  const getHeader = (name) => headers.find(h => h.name.toLowerCase() === name.toLowerCase())?.value
+
+  // Parse body and attachments from MIME structure
+  let textBody = ''
+  let htmlBody = ''
+  let attachments = []
+
+  if (msgData.payload?.parts) {
+    const parsed = parseMessageParts(msgData.payload.parts)
+    textBody = parsed.textBody
+    htmlBody = parsed.htmlBody
+    attachments = parsed.attachments
+  } else if (msgData.payload?.body?.data) {
+    // Simple message with no parts
+    const decoded = Buffer.from(msgData.payload.body.data, 'base64').toString('utf-8')
+    if (msgData.payload.mimeType === 'text/html') {
+      htmlBody = decoded
+    } else {
+      textBody = decoded
+    }
+  }
+
+  return {
+    id: msgData.id,
+    threadId: msgData.threadId,
+    subject: getHeader('Subject') || '(No Subject)',
+    from: getHeader('From'),
+    to: getHeader('To'),
+    cc: getHeader('Cc'),
+    date: getHeader('Date'),
+    snippet: msgData.snippet,
+    body: textBody,
+    htmlBody: htmlBody,
+    attachments: attachments,
+    labelIds: msgData.labelIds,
+  }
+}
+
+// GET - Fetch emails, threads, or attachments
 export async function GET(request) {
   try {
     const { searchParams } = new URL(request.url)
     const maxResults = searchParams.get('maxResults') || '20'
     const labelIds = searchParams.get('labelIds') || 'INBOX'
-    const messageId = searchParams.get('id') // For fetching single message
+    const messageId = searchParams.get('id')
+    const threadId = searchParams.get('threadId')
+    const attachmentId = searchParams.get('attachmentId')
+    const attachmentMessageId = searchParams.get('attachmentMessageId')
 
     const cookieStore = await cookies()
     const userId = cookieStore.get('google_user_id')?.value
@@ -35,7 +103,46 @@ export async function GET(request) {
       )
     }
 
-    // If messageId provided, fetch single message
+    // Download attachment
+    if (attachmentId && attachmentMessageId) {
+      const attRes = await fetch(
+        `${GMAIL_API}/users/me/messages/${attachmentMessageId}/attachments/${attachmentId}`,
+        { headers: { 'Authorization': `Bearer ${token}` } }
+      )
+      const attData = await attRes.json()
+
+      if (attData.error) {
+        return NextResponse.json({ error: attData.error.message }, { status: 400 })
+      }
+
+      // Return base64 data (client will decode or create blob)
+      return NextResponse.json({
+        data: attData.data, // base64url encoded
+        size: attData.size,
+      })
+    }
+
+    // Fetch full thread (all messages)
+    if (threadId) {
+      const threadRes = await fetch(
+        `${GMAIL_API}/users/me/threads/${threadId}?format=full`,
+        { headers: { 'Authorization': `Bearer ${token}` } }
+      )
+      const threadData = await threadRes.json()
+
+      if (threadData.error) {
+        return NextResponse.json({ error: threadData.error.message }, { status: 400 })
+      }
+
+      const messages = (threadData.messages || []).map(parseGmailMessage)
+
+      return NextResponse.json({
+        threadId: threadData.id,
+        messages: messages,
+      })
+    }
+
+    // Fetch single message (legacy support)
     if (messageId) {
       const msgRes = await fetch(
         `${GMAIL_API}/users/me/messages/${messageId}?format=full`,
@@ -47,32 +154,7 @@ export async function GET(request) {
         return NextResponse.json({ error: msgData.error.message }, { status: 400 })
       }
 
-      // Parse message
-      const headers = msgData.payload?.headers || []
-      const getHeader = (name) => headers.find(h => h.name.toLowerCase() === name.toLowerCase())?.value
-
-      // Get body
-      let body = ''
-      if (msgData.payload?.body?.data) {
-        body = Buffer.from(msgData.payload.body.data, 'base64').toString('utf-8')
-      } else if (msgData.payload?.parts) {
-        const textPart = msgData.payload.parts.find(p => p.mimeType === 'text/plain')
-        if (textPart?.body?.data) {
-          body = Buffer.from(textPart.body.data, 'base64').toString('utf-8')
-        }
-      }
-
-      return NextResponse.json({
-        id: msgData.id,
-        threadId: msgData.threadId,
-        subject: getHeader('Subject') || '(No Subject)',
-        from: getHeader('From'),
-        to: getHeader('To'),
-        date: getHeader('Date'),
-        snippet: msgData.snippet,
-        body: body,
-        labelIds: msgData.labelIds,
-      })
+      return NextResponse.json(parseGmailMessage(msgData))
     }
 
     // Fetch message list
@@ -199,11 +281,7 @@ export async function POST(request) {
       .replace(/=+$/, '')
 
     // Send via Gmail API
-    const sendUrl = threadId
-      ? `${GMAIL_API}/users/me/messages/send`
-      : `${GMAIL_API}/users/me/messages/send`
-
-    const sendRes = await fetch(sendUrl, {
+    const sendRes = await fetch(`${GMAIL_API}/users/me/messages/send`, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${token}`,
