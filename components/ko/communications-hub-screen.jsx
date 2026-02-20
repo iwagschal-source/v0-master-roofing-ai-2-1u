@@ -456,10 +456,10 @@ function EmailPreviewPanel({ selectedMessage, onReply, onReplyAll, onForward, us
   }
 
   return (
-    <>
+    <div className="h-full overflow-hidden">
     <PanelGroup direction="vertical">
       {/* Upper: Email Preview */}
-      <Panel defaultSize={75} minSize={30}>
+      <Panel defaultSize={92} minSize={30}>
         <div className="flex flex-col h-full overflow-hidden">
           {/* Header */}
           <div className="px-4 pt-3 pb-2 border-b border-border/50">
@@ -605,7 +605,7 @@ function EmailPreviewPanel({ selectedMessage, onReply, onReplyAll, onForward, us
       blobUrl={previewBlobUrl}
       onClose={() => { setPreviewAttachment(null); if (previewBlobUrl) URL.revokeObjectURL(previewBlobUrl); setPreviewBlobUrl(null) }}
     />
-  </>
+  </div>
   )
 }
 
@@ -715,6 +715,7 @@ function ChatPanel({ isConnected, authUrl, user }) {
   }
 
   return (
+    <div className="h-full overflow-hidden">
     <PanelGroup direction="vertical">
       {/* Upper: Chat Messages */}
       <Panel defaultSize={60} minSize={20}>
@@ -960,6 +961,7 @@ function ChatPanel({ isConnected, authUrl, user }) {
         </div>
       </Panel>
     </PanelGroup>
+    </div>
   )
 }
 
@@ -1099,7 +1101,7 @@ export function CommunicationsHubScreen() {
         <ResizeHandle direction="vertical" />
 
         {/* CENTER: Email Preview + Agent */}
-        <Panel defaultSize={48} minSize={25}>
+        <Panel defaultSize={48} minSize={25} maxSize={60}>
           <EmailPreviewPanel
             selectedMessage={selectedMessage}
             onReply={handleReply}
