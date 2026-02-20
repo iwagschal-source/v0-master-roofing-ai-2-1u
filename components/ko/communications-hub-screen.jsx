@@ -460,7 +460,6 @@ function EmailPreviewPanel({ selectedMessage, onReply, onReplyAll, onForward, us
     <PanelGroup direction="vertical">
       {/* Upper: Email Preview */}
       <Panel defaultSize={75} minSize={30}>
-        <div className="flex flex-col h-full overflow-hidden" style={{ height: '100%' }}>
           {/* Header */}
           <div className="px-4 pt-3 pb-2 border-b border-border/50">
             <div className="flex items-center justify-between mb-0.5">
@@ -569,7 +568,6 @@ function EmailPreviewPanel({ selectedMessage, onReply, onReplyAll, onForward, us
               )}
             </div>
           </div>
-        </div>
       </Panel>
 
       <ResizeHandle direction="horizontal" />
@@ -715,7 +713,7 @@ function ChatPanel({ isConnected, authUrl, user }) {
   }
 
   return (
-    <div className="h-full overflow-hidden flex flex-col" style={{ minHeight: 0 }}>
+    <div className="h-full">
     <PanelGroup direction="vertical" style={{ flex: 1, minHeight: 0 }}>
       {/* Upper: Chat Messages */}
       <Panel defaultSize={60} minSize={20}>
