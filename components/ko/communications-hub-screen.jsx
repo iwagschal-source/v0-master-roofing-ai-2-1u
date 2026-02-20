@@ -81,6 +81,35 @@ function ResizeHandle({ direction = 'vertical' }) {
   )
 }
 
+// ─── Attachment Preview Modal ────────────────────────────────
+function AttachmentPreviewModal({ attachment, blobUrl, onClose }) {
+  if (!attachment || !blobUrl) return null
+  const isPdf = attachment.mimeType === 'application/pdf' || attachment.filename?.toLowerCase().endsWith('.pdf')
+  const isImage = attachment.mimeType?.startsWith('image/')
+
+  return (
+    <div className="fixed inset-0 bg-black/70 z-50 flex flex-col" onClick={onClose}>
+      <div className="flex items-center gap-3 px-4 py-3 bg-card/95 backdrop-blur border-b border-border" onClick={e => e.stopPropagation()}>
+        <button onClick={onClose} className="p-1.5 hover:bg-muted rounded-lg transition-colors text-muted-foreground hover:text-foreground">
+          <ArrowLeft className="w-5 h-5" />
+        </button>
+        <div className="flex items-center gap-2 min-w-0">
+          {isPdf ? <FileText className="w-4 h-4 text-red-500 flex-shrink-0" /> : <ImageIcon className="w-4 h-4 text-blue-500 flex-shrink-0" />}
+          <span className="text-sm font-medium text-foreground truncate">{attachment.filename}</span>
+          {attachment.size && <span className="text-xs text-muted-foreground flex-shrink-0">{formatFileSize(attachment.size)}</span>}
+        </div>
+      </div>
+      <div className="flex-1 flex items-center justify-center p-4 overflow-auto" onClick={e => e.stopPropagation()}>
+        {isPdf ? (
+          <iframe src={blobUrl} className="w-full h-full bg-white rounded-lg" style={{ maxWidth: '900px', minHeight: '80vh' }} title={attachment.filename} />
+        ) : isImage ? (
+          <img src={blobUrl} alt={attachment.filename} className="max-w-full max-h-[85vh] object-contain rounded-lg shadow-lg" />
+        ) : null}
+      </div>
+    </div>
+  )
+}
+
 // ─── LEFT PANEL: Email List ──────────────────────────────────
 function EmailListPanel({
   messages, loading, error, selectedMessage, onSelectMessage,
@@ -213,7 +242,49 @@ function EmailPreviewPanel({ selectedMessage, onReply, onReplyAll, onForward, us
   const [threadLoading, setThreadLoading] = useState(false)
   const [expandedMessages, setExpandedMessages] = useState(new Set())
   const [agentInput, setAgentInput] = useState('')
+  const [previewAttachment, setPreviewAttachment] = useState(null)
+  const [previewBlobUrl, setPreviewBlobUrl] = useState(null)
+  const [attachmentLoading, setAttachmentLoading] = useState(null)
   const scrollRef = useRef(null)
+
+  const fetchAttachmentBlob = async (attachment, messageId) => {
+    const res = await fetch(`/api/google/gmail?attachmentId=${encodeURIComponent(attachment.attachmentId)}&attachmentMessageId=${encodeURIComponent(messageId)}`)
+    const data = await res.json()
+    if (data.error) throw new Error(data.error)
+    const base64 = data.data.replace(/-/g, '+').replace(/_/g, '/')
+    const byteChars = atob(base64)
+    const byteArrays = []
+    for (let i = 0; i < byteChars.length; i += 512) {
+      const slice = byteChars.slice(i, i + 512)
+      const byteNumbers = new Array(slice.length)
+      for (let j = 0; j < slice.length; j++) byteNumbers[j] = slice.charCodeAt(j)
+      byteArrays.push(new Uint8Array(byteNumbers))
+    }
+    const blob = new Blob(byteArrays, { type: attachment.mimeType })
+    return URL.createObjectURL(blob)
+  }
+
+  const handleAttachmentClick = async (attachment, messageId) => {
+    const isPdf = attachment.mimeType === 'application/pdf' || attachment.filename?.toLowerCase().endsWith('.pdf')
+    const isImage = attachment.mimeType?.startsWith('image/')
+    if (isPdf || isImage) {
+      setAttachmentLoading(attachment.attachmentId)
+      try {
+        const url = await fetchAttachmentBlob(attachment, messageId)
+        setPreviewBlobUrl(url)
+        setPreviewAttachment(attachment)
+      } catch (err) { console.error('Failed to load attachment preview:', err) }
+      finally { setAttachmentLoading(null) }
+    } else {
+      try {
+        const url = await fetchAttachmentBlob(attachment, messageId)
+        const a = document.createElement('a')
+        a.href = url; a.download = attachment.filename
+        document.body.appendChild(a); a.click(); document.body.removeChild(a)
+        URL.revokeObjectURL(url)
+      } catch (err) { console.error('Failed to download attachment:', err) }
+    }
+  }
 
   useEffect(() => {
     if (!selectedMessage?.threadId) { setThreadMessages([]); return }
@@ -259,6 +330,7 @@ function EmailPreviewPanel({ selectedMessage, onReply, onReplyAll, onForward, us
   }
 
   return (
+    <>
     <PanelGroup direction="vertical">
       {/* Upper: Email Preview */}
       <Panel defaultSize={75} minSize={30}>
@@ -328,12 +400,27 @@ function EmailPreviewPanel({ selectedMessage, onReply, onReplyAll, onForward, us
                       {msg.attachments?.length > 0 && (
                         <div className="px-3 pb-2 border-t border-border/30 pt-2">
                           <div className="flex flex-wrap gap-1.5">
-                            {msg.attachments.map((att, i) => (
-                              <span key={i} className="flex items-center gap-1 px-2 py-1 bg-secondary/40 border border-border/50 rounded text-[10px]">
-                                <Paperclip className="w-3 h-3 text-muted-foreground" />
-                                <span className="truncate max-w-[120px]">{att.filename}</span>
-                              </span>
-                            ))}
+                            {msg.attachments.map((att, i) => {
+                              const Icon = getFileIcon(att.mimeType)
+                              const isPreviewable = att.mimeType === 'application/pdf' || att.filename?.toLowerCase().endsWith('.pdf') || att.mimeType?.startsWith('image/')
+                              const isLoading = attachmentLoading === att.attachmentId
+                              return (
+                                <button
+                                  key={i}
+                                  onClick={() => handleAttachmentClick(att, msg.id)}
+                                  disabled={isLoading}
+                                  className="flex items-center gap-1 px-2 py-1 bg-secondary/40 hover:bg-secondary/70 border border-border/50 rounded text-[10px] transition-colors group disabled:opacity-50"
+                                >
+                                  {isLoading ? <Loader2 className="w-3 h-3 animate-spin text-muted-foreground" /> : <Icon className="w-3 h-3 text-muted-foreground" />}
+                                  <span className="truncate max-w-[120px]">{att.filename}</span>
+                                  {att.size && <span className="text-muted-foreground">{formatFileSize(att.size)}</span>}
+                                  {isPreviewable
+                                    ? <ExternalLink className="w-2.5 h-2.5 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
+                                    : <Download className="w-2.5 h-2.5 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
+                                  }
+                                </button>
+                              )
+                            })}
                           </div>
                         </div>
                       )}
@@ -380,6 +467,14 @@ function EmailPreviewPanel({ selectedMessage, onReply, onReplyAll, onForward, us
         </div>
       </Panel>
     </PanelGroup>
+
+    {/* Attachment Preview Modal */}
+    <AttachmentPreviewModal
+      attachment={previewAttachment}
+      blobUrl={previewBlobUrl}
+      onClose={() => { setPreviewAttachment(null); if (previewBlobUrl) URL.revokeObjectURL(previewBlobUrl); setPreviewBlobUrl(null) }}
+    />
+  </>
   )
 }
 
@@ -793,7 +888,7 @@ export function CommunicationsHubScreen() {
     setShowCompose(true)
   }
 
-  const handleComposeSend = async ({ to, cc, bcc, subject, body, threadId, replyToMessageId }) => {
+  const handleComposeSend = async ({ to, cc, bcc, subject, body, attachments, threadId, replyToMessageId }) => {
     if (!to?.trim() || !body?.trim()) { setComposeError("Please enter a recipient and message"); return }
     setComposeSending(true)
     setComposeError("")
@@ -801,6 +896,15 @@ export function CommunicationsHubScreen() {
       const recipients = to.split(',').map(e => e.trim()).filter(Boolean)
       const ccList = cc ? cc.split(',').map(e => e.trim()).filter(Boolean) : []
       const bccList = bcc ? bcc.split(',').map(e => e.trim()).filter(Boolean) : []
+
+      let attachmentData
+      if (attachments?.length > 0) {
+        attachmentData = await Promise.all(attachments.map(async (file) => {
+          const arrayBuffer = await file.arrayBuffer()
+          const base64 = btoa(new Uint8Array(arrayBuffer).reduce((data, byte) => data + String.fromCharCode(byte), ''))
+          return { filename: file.name, mimeType: file.type || 'application/octet-stream', data: base64 }
+        }))
+      }
 
       const res = await fetch('/api/google/gmail', {
         method: 'POST',
@@ -811,6 +915,7 @@ export function CommunicationsHubScreen() {
           bcc: bccList.length > 0 ? bccList : undefined,
           subject: subject || '(No Subject)',
           message: body,
+          attachments: attachmentData || undefined,
           threadId: threadId || undefined,
           replyToMessageId: replyToMessageId || undefined,
         }),
@@ -897,6 +1002,15 @@ function ComposeOverlay({ initialData, sending, error, onSend, onClose }) {
   const [bcc, setBcc] = useState(initialData?.bcc || "")
   const [subject, setSubject] = useState(initialData?.subject || "")
   const [body, setBody] = useState("")
+  const [attachments, setAttachments] = useState([])
+  const fileInputRef = useRef(null)
+
+  const handleFileSelect = (e) => {
+    const files = Array.from(e.target.files || [])
+    setAttachments(prev => [...prev, ...files])
+    e.target.value = ''
+  }
+  const removeAttachment = (index) => setAttachments(prev => prev.filter((_, i) => i !== index))
 
   const title = initialData?.mode === 'reply' ? 'Reply' : initialData?.mode === 'replyAll' ? 'Reply All' : initialData?.mode === 'forward' ? 'Forward' : 'New Message'
 
@@ -932,6 +1046,25 @@ function ComposeOverlay({ initialData, sending, error, onSend, onClose }) {
             <textarea value={body} onChange={(e) => setBody(e.target.value)} placeholder="Write your message..." rows={8}
               className="w-full px-2.5 py-1.5 bg-secondary/30 border border-border/50 rounded text-xs focus:outline-none focus:border-primary/50 resize-none" />
           </div>
+          <div>
+            <input ref={fileInputRef} type="file" multiple onChange={handleFileSelect} className="hidden" />
+            <button type="button" onClick={() => fileInputRef.current?.click()}
+              className="flex items-center gap-1 px-2 py-1 text-[10px] text-muted-foreground hover:text-foreground hover:bg-muted/50 rounded transition-colors">
+              <Paperclip className="w-3 h-3" /> Attach files
+            </button>
+            {attachments.length > 0 && (
+              <div className="flex flex-wrap gap-1.5 mt-1">
+                {attachments.map((file, i) => (
+                  <div key={i} className="flex items-center gap-1 px-2 py-1 bg-secondary/40 border border-border/50 rounded text-[10px]">
+                    <Paperclip className="w-3 h-3 text-muted-foreground" />
+                    <span className="truncate max-w-[120px]">{file.name}</span>
+                    <span className="text-muted-foreground">{formatFileSize(file.size)}</span>
+                    <button onClick={() => removeAttachment(i)} className="text-muted-foreground hover:text-destructive ml-0.5">&times;</button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
           {error && (
             <div className="flex items-center gap-1 text-destructive text-xs">
               <AlertCircle className="w-3 h-3" />{error}
@@ -941,7 +1074,7 @@ function ComposeOverlay({ initialData, sending, error, onSend, onClose }) {
         <div className="flex items-center justify-end gap-2 p-3 border-t border-border">
           <button onClick={onClose} className="px-3 py-1.5 text-xs text-muted-foreground hover:text-foreground">Cancel</button>
           <button
-            onClick={() => onSend({ to, cc, bcc, subject, body, threadId: initialData?.threadId, replyToMessageId: initialData?.replyToMessageId })}
+            onClick={() => onSend({ to, cc, bcc, subject, body, attachments, threadId: initialData?.threadId, replyToMessageId: initialData?.replyToMessageId })}
             disabled={!to.trim() || !body.trim() || sending}
             className="flex items-center gap-1.5 px-4 py-1.5 bg-primary text-primary-foreground rounded text-xs font-medium disabled:opacity-50"
           >
