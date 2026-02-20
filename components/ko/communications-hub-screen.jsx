@@ -456,10 +456,10 @@ function EmailPreviewPanel({ selectedMessage, onReply, onReplyAll, onForward, us
   }
 
   return (
-    <div style={{ height: '100%', overflow: 'hidden' }}>
+    <>
     <PanelGroup direction="vertical">
       {/* Upper: Email Preview */}
-      <Panel defaultSize={92} minSize={30}>
+      <Panel defaultSize={75} minSize={30}>
         <div className="flex flex-col h-full overflow-hidden">
           {/* Header */}
           <div className="px-4 pt-3 pb-2 border-b border-border/50">
@@ -575,7 +575,7 @@ function EmailPreviewPanel({ selectedMessage, onReply, onReplyAll, onForward, us
       <ResizeHandle direction="horizontal" />
 
       {/* Lower: AI Agent Placeholder */}
-      <Panel defaultSize={8} minSize={5}>
+      <Panel defaultSize={25} minSize={10}>
         <div className="h-full m-2 rounded-[14px] border border-[rgba(215,64,58,0.4)] bg-card flex flex-col overflow-hidden">
           <div className="flex-1 flex items-center justify-center overflow-y-auto p-2">
             <div className="text-center text-muted-foreground">
@@ -605,7 +605,7 @@ function EmailPreviewPanel({ selectedMessage, onReply, onReplyAll, onForward, us
       blobUrl={previewBlobUrl}
       onClose={() => { setPreviewAttachment(null); if (previewBlobUrl) URL.revokeObjectURL(previewBlobUrl); setPreviewBlobUrl(null) }}
     />
-  </div>
+  </>
   )
 }
 
@@ -715,8 +715,8 @@ function ChatPanel({ isConnected, authUrl, user }) {
   }
 
   return (
-    <div style={{ height: '100%', overflow: 'hidden' }}>
-    <PanelGroup direction="vertical">
+    <div className="h-full overflow-hidden flex flex-col" style={{ minHeight: 0 }}>
+    <PanelGroup direction="vertical" style={{ flex: 1, minHeight: 0 }}>
       {/* Upper: Chat Messages */}
       <Panel defaultSize={60} minSize={20}>
         <div className="flex flex-col h-full overflow-hidden">
