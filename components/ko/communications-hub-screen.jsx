@@ -460,7 +460,7 @@ function EmailPreviewPanel({ selectedMessage, onReply, onReplyAll, onForward, us
     <PanelGroup direction="vertical">
       {/* Upper: Email Preview */}
       <Panel defaultSize={75} minSize={30}>
-        <div className="flex flex-col h-full overflow-hidden">
+        <div className="flex flex-col h-full overflow-hidden" style={{ height: '100%' }}>
           {/* Header */}
           <div className="px-4 pt-3 pb-2 border-b border-border/50">
             <div className="flex items-center justify-between mb-0.5">
