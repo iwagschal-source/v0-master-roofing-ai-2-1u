@@ -631,6 +631,37 @@ function EmailContentPanel({
   const [expandedMessages, setExpandedMessages] = useState(new Set())
   const scrollRef = useRef(null)
 
+  // Center split state (agent panel height)
+  const AGENT_PANEL_MIN = 80
+  const AGENT_PANEL_DEFAULT = 180
+  const [agentPanelHeight, setAgentPanelHeight] = useState(AGENT_PANEL_DEFAULT)
+  const [agentInput, setAgentInput] = useState('')
+  const centerPanelRef = useRef(null)
+
+  // Load saved agent panel height
+  useEffect(() => {
+    const saved = localStorage.getItem(STORAGE_CENTER_SPLIT_HEIGHT)
+    if (saved) {
+      const h = parseInt(saved, 10)
+      if (h >= AGENT_PANEL_MIN) setAgentPanelHeight(h)
+    }
+  }, [])
+
+  const handleCenterSplitDrag = useCallback((clientY) => {
+    if (!centerPanelRef.current) return
+    const rect = centerPanelRef.current.getBoundingClientRect()
+    const newHeight = rect.bottom - clientY
+    const clamped = Math.max(AGENT_PANEL_MIN, Math.min(newHeight, rect.height - 200))
+    setAgentPanelHeight(clamped)
+    localStorage.setItem(STORAGE_CENTER_SPLIT_HEIGHT, clamped.toString())
+  }, [])
+
+  // Placeholder function for future AI agent → compose integration
+  const pushToWorkingWindow = useCallback((content) => {
+    // Future: inject AI-suggested content into the compose area
+    console.log('[KO Agent] pushToWorkingWindow:', content)
+  }, [])
+
   // Project logging state
   const [projects, setProjects] = useState([])
   const [projectsLoading, setProjectsLoading] = useState(false)
@@ -805,7 +836,9 @@ function EmailContentPanel({
   }
 
   return (
-    <div className="flex-1 flex flex-col bg-background overflow-hidden">
+    <div ref={centerPanelRef} className="flex-1 flex flex-col bg-background overflow-hidden">
+      {/* UPPER: Email Preview */}
+      <div className="flex-1 flex flex-col overflow-hidden" style={{ minHeight: '200px' }}>
       {/* Thread Header */}
       <div className="px-6 pt-5 pb-3 border-b border-border/50">
         <div className="flex items-center justify-between mb-1">
@@ -969,6 +1002,41 @@ function EmailContentPanel({
               </div>
             </div>
           )}
+        </div>
+      </div>
+      </div>
+
+      {/* Draggable Divider */}
+      <HorizontalDivider onDrag={handleCenterSplitDrag} />
+
+      {/* LOWER: AI Agent Placeholder */}
+      <div
+        className="flex-shrink-0 flex flex-col bg-background overflow-hidden"
+        style={{ height: agentPanelHeight }}
+      >
+        <div className="flex-1 m-3 rounded-[14px] border border-[rgba(215,64,58,0.4)] bg-card flex flex-col overflow-hidden">
+          {/* Agent content area */}
+          <div className="flex-1 overflow-y-auto p-3">
+            <div className="flex items-center justify-center h-full text-muted-foreground">
+              <Sparkles className="w-5 h-5 mr-2 opacity-40" />
+              <span className="text-sm opacity-60">
+                {selectedMessage ? 'KO will help you with this email' : 'Select an email to get started'}
+              </span>
+            </div>
+          </div>
+          {/* Agent input */}
+          <div className="flex items-center gap-2 px-3 pb-3">
+            <button className="flex-shrink-0 w-8 h-8 rounded-full bg-secondary/50 hover:bg-secondary flex items-center justify-center transition-colors text-muted-foreground hover:text-foreground">
+              <Plus className="w-4 h-4" />
+            </button>
+            <input
+              type="text"
+              value={agentInput}
+              onChange={(e) => setAgentInput(e.target.value)}
+              placeholder={selectedMessage ? "Ask KO about this email..." : "Ask KO to help draft..."}
+              className="flex-1 px-3 py-2 bg-secondary/30 border border-border/50 rounded-full text-sm placeholder:text-muted-foreground/50 focus:outline-none focus:border-primary/50"
+            />
+          </div>
         </div>
       </div>
     </div>
