@@ -6,6 +6,7 @@
 import { NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
 import { writeJSON } from '@/lib/gcs-storage'
+import { runQuery } from '@/lib/bigquery'
 
 const GOOGLE_TOKEN_URL = 'https://oauth2.googleapis.com/token'
 
@@ -95,6 +96,39 @@ export async function GET(request) {
         picture: userData.picture,
       },
     })
+
+    // Write token record to BigQuery (secondary/queryable store)
+    try {
+      const tokenExpiry = new Date(Date.now() + (tokenData.expires_in || 3600) * 1000).toISOString()
+      const scopesGranted = tokenData.scope || ''
+      await runQuery(`
+        MERGE \`master-roofing-intelligence.mr_main.user_google_tokens\` T
+        USING (SELECT @user_id AS user_id) S
+        ON T.user_id = S.user_id
+        WHEN MATCHED THEN
+          UPDATE SET
+            access_token = @access_token,
+            refresh_token = COALESCE(@refresh_token, T.refresh_token),
+            token_expiry = @token_expiry,
+            scopes = @scopes,
+            connected_at = CURRENT_TIMESTAMP(),
+            is_active = TRUE
+        WHEN NOT MATCHED THEN
+          INSERT (user_id, email, access_token, refresh_token, token_expiry, scopes, connected_at, is_active)
+          VALUES (@user_id, @email, @access_token, @refresh_token, @token_expiry, @scopes, CURRENT_TIMESTAMP(), TRUE)
+      `, {
+        user_id: userId,
+        email: userData.email,
+        access_token: tokenData.access_token,
+        refresh_token: tokenData.refresh_token || null,
+        token_expiry: tokenExpiry,
+        scopes: scopesGranted,
+      })
+      console.log('[OAuth] Token record written to BigQuery for:', userData.email)
+    } catch (bqErr) {
+      // Non-fatal — GCS is the primary store, BigQuery is secondary
+      console.error('[OAuth] BigQuery token write failed (non-fatal):', bqErr.message)
+    }
 
     // Set cookie to identify connected user
     const response = NextResponse.redirect(`${baseUrl}/?google_connected=true`)
