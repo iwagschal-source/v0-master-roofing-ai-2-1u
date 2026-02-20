@@ -360,9 +360,64 @@ function getFileIcon(mimeType) {
   return FileIcon
 }
 
+// Attachment Preview Modal — PDF viewer or image lightbox
+function AttachmentPreviewModal({ attachment, blobUrl, onClose }) {
+  if (!attachment || !blobUrl) return null
+
+  const isPdf = attachment.mimeType === 'application/pdf' || attachment.filename?.toLowerCase().endsWith('.pdf')
+  const isImage = attachment.mimeType?.startsWith('image/')
+
+  return (
+    <div className="fixed inset-0 bg-black/70 z-50 flex flex-col" onClick={onClose}>
+      {/* Header */}
+      <div className="flex items-center gap-3 px-4 py-3 bg-card/95 backdrop-blur border-b border-border" onClick={e => e.stopPropagation()}>
+        <button
+          onClick={onClose}
+          className="p-1.5 hover:bg-muted rounded-lg transition-colors text-muted-foreground hover:text-foreground"
+        >
+          <ArrowLeft className="w-5 h-5" />
+        </button>
+        <div className="flex items-center gap-2 min-w-0">
+          {isPdf ? <FileText className="w-4 h-4 text-red-500 flex-shrink-0" /> : <ImageIcon className="w-4 h-4 text-blue-500 flex-shrink-0" />}
+          <span className="text-sm font-medium text-foreground truncate">{attachment.filename}</span>
+          {attachment.size && <span className="text-xs text-muted-foreground flex-shrink-0">{formatFileSize(attachment.size)}</span>}
+        </div>
+      </div>
+
+      {/* Content */}
+      <div className="flex-1 flex items-center justify-center p-4 overflow-auto" onClick={e => e.stopPropagation()}>
+        {isPdf ? (
+          <iframe
+            src={blobUrl}
+            className="w-full h-full bg-white rounded-lg"
+            style={{ maxWidth: '900px', minHeight: '80vh' }}
+            title={attachment.filename}
+          />
+        ) : isImage ? (
+          <img
+            src={blobUrl}
+            alt={attachment.filename}
+            className="max-w-full max-h-[85vh] object-contain rounded-lg shadow-lg"
+          />
+        ) : null}
+      </div>
+    </div>
+  )
+}
+
 // Single message in a thread
 function ThreadMessage({ message, isExpanded, onToggle, isLast }) {
   const iframeRef = useRef(null)
+  const [previewAttachment, setPreviewAttachment] = useState(null)
+  const [previewBlobUrl, setPreviewBlobUrl] = useState(null)
+  const [attachmentLoading, setAttachmentLoading] = useState(null)
+
+  // Clean up blob URL on unmount or when preview changes
+  useEffect(() => {
+    return () => {
+      if (previewBlobUrl) URL.revokeObjectURL(previewBlobUrl)
+    }
+  }, [previewBlobUrl])
 
   // Auto-resize iframe when HTML content loads
   useEffect(() => {
@@ -381,40 +436,65 @@ function ThreadMessage({ message, isExpanded, onToggle, isLast }) {
     return () => iframe.removeEventListener('load', handleLoad)
   }, [isExpanded, message.htmlBody])
 
-  const handleAttachmentDownload = async (attachment) => {
-    try {
-      const res = await fetch(
-        `/api/google/gmail?attachmentId=${encodeURIComponent(attachment.attachmentId)}&attachmentMessageId=${encodeURIComponent(message.id)}`
-      )
-      const data = await res.json()
-      if (data.error) {
-        console.error('Attachment download error:', data.error)
-        return
+  // Fetch attachment data and create blob
+  const fetchAttachmentBlob = async (attachment) => {
+    const res = await fetch(
+      `/api/google/gmail?attachmentId=${encodeURIComponent(attachment.attachmentId)}&attachmentMessageId=${encodeURIComponent(message.id)}`
+    )
+    const data = await res.json()
+    if (data.error) throw new Error(data.error)
+    const base64 = data.data.replace(/-/g, '+').replace(/_/g, '/')
+    const byteChars = atob(base64)
+    const byteArrays = []
+    for (let i = 0; i < byteChars.length; i += 512) {
+      const slice = byteChars.slice(i, i + 512)
+      const byteNumbers = new Array(slice.length)
+      for (let j = 0; j < slice.length; j++) {
+        byteNumbers[j] = slice.charCodeAt(j)
       }
-      // Convert base64url to base64
-      const base64 = data.data.replace(/-/g, '+').replace(/_/g, '/')
-      const byteChars = atob(base64)
-      const byteArrays = []
-      for (let i = 0; i < byteChars.length; i += 512) {
-        const slice = byteChars.slice(i, i + 512)
-        const byteNumbers = new Array(slice.length)
-        for (let j = 0; j < slice.length; j++) {
-          byteNumbers[j] = slice.charCodeAt(j)
-        }
-        byteArrays.push(new Uint8Array(byteNumbers))
-      }
-      const blob = new Blob(byteArrays, { type: attachment.mimeType })
-      const url = URL.createObjectURL(blob)
-      const a = document.createElement('a')
-      a.href = url
-      a.download = attachment.filename
-      document.body.appendChild(a)
-      a.click()
-      document.body.removeChild(a)
-      URL.revokeObjectURL(url)
-    } catch (err) {
-      console.error('Failed to download attachment:', err)
+      byteArrays.push(new Uint8Array(byteNumbers))
     }
+    const blob = new Blob(byteArrays, { type: attachment.mimeType })
+    return URL.createObjectURL(blob)
+  }
+
+  const handleAttachmentClick = async (attachment) => {
+    const isPdf = attachment.mimeType === 'application/pdf' || attachment.filename?.toLowerCase().endsWith('.pdf')
+    const isImage = attachment.mimeType?.startsWith('image/')
+
+    if (isPdf || isImage) {
+      // Preview in modal
+      setAttachmentLoading(attachment.attachmentId)
+      try {
+        const url = await fetchAttachmentBlob(attachment)
+        setPreviewBlobUrl(url)
+        setPreviewAttachment(attachment)
+      } catch (err) {
+        console.error('Failed to load attachment preview:', err)
+      } finally {
+        setAttachmentLoading(null)
+      }
+    } else {
+      // Download fallback for other types
+      try {
+        const url = await fetchAttachmentBlob(attachment)
+        const a = document.createElement('a')
+        a.href = url
+        a.download = attachment.filename
+        document.body.appendChild(a)
+        a.click()
+        document.body.removeChild(a)
+        URL.revokeObjectURL(url)
+      } catch (err) {
+        console.error('Failed to download attachment:', err)
+      }
+    }
+  }
+
+  const closePreview = () => {
+    if (previewBlobUrl) URL.revokeObjectURL(previewBlobUrl)
+    setPreviewBlobUrl(null)
+    setPreviewAttachment(null)
   }
 
   if (!isExpanded) {
@@ -489,21 +569,41 @@ function ThreadMessage({ message, isExpanded, onToggle, isLast }) {
           <div className="flex flex-wrap gap-2">
             {message.attachments.map((att, i) => {
               const Icon = getFileIcon(att.mimeType)
+              const isPreviewable = att.mimeType === 'application/pdf' || att.filename?.toLowerCase().endsWith('.pdf') || att.mimeType?.startsWith('image/')
+              const isLoading = attachmentLoading === att.attachmentId
               return (
                 <button
                   key={i}
-                  onClick={() => handleAttachmentDownload(att)}
-                  className="flex items-center gap-2 px-3 py-2 bg-secondary/40 hover:bg-secondary/70 border border-border/50 rounded-lg text-sm transition-colors group"
+                  onClick={() => handleAttachmentClick(att)}
+                  disabled={isLoading}
+                  className="flex items-center gap-2 px-3 py-2 bg-secondary/40 hover:bg-secondary/70 border border-border/50 rounded-lg text-sm transition-colors group disabled:opacity-50"
                 >
-                  <Icon className="w-4 h-4 text-muted-foreground" />
+                  {isLoading ? (
+                    <Loader2 className="w-4 h-4 text-muted-foreground animate-spin" />
+                  ) : (
+                    <Icon className="w-4 h-4 text-muted-foreground" />
+                  )}
                   <span className="text-foreground truncate max-w-[200px]">{att.filename}</span>
                   <span className="text-xs text-muted-foreground">{formatFileSize(att.size)}</span>
-                  <Download className="w-3.5 h-3.5 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
+                  {isPreviewable ? (
+                    <ExternalLink className="w-3.5 h-3.5 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
+                  ) : (
+                    <Download className="w-3.5 h-3.5 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
+                  )}
                 </button>
               )
             })}
           </div>
         </div>
+      )}
+
+      {/* Attachment Preview Modal */}
+      {previewAttachment && previewBlobUrl && (
+        <AttachmentPreviewModal
+          attachment={previewAttachment}
+          blobUrl={previewBlobUrl}
+          onClose={closePreview}
+        />
       )}
     </div>
   )
