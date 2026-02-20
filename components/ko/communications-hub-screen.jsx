@@ -473,7 +473,9 @@ function ChatPanel({ isConnected, authUrl, user }) {
   // Check if two messages are in the same "group" (same sender, within 2 min)
   const isSameGroup = (prev, curr) => {
     if (!prev) return false
-    if ((prev.sender?.email || prev.sender?.name) !== (curr.sender?.email || curr.sender?.name)) return false
+    const prevKey = prev.sender?.rawId || prev.sender?.email || prev.sender?.name
+    const currKey = curr.sender?.rawId || curr.sender?.email || curr.sender?.name
+    if (prevKey !== currKey) return false
     const diff = new Date(curr.createTime) - new Date(prev.createTime)
     return diff < 2 * 60 * 1000 // 2 minutes
   }
@@ -527,7 +529,10 @@ function ChatPanel({ isConnected, authUrl, user }) {
                   <div className="space-y-1">
                     {sortedMessages.map((message, index) => {
                       const prev = index > 0 ? sortedMessages[index - 1] : null
-                      const isOwn = message.sender.email === user?.email
+                      // Detect own messages by email OR raw user ID
+                      const cookieUserId = typeof document !== 'undefined' ? document.cookie.match(/google_user_id=([^;]+)/)?.[1] : null
+                      const isOwn = (message.sender.email && message.sender.email === user?.email) ||
+                        (message.sender.rawId && cookieUserId && message.sender.rawId === `users/${cookieUserId}`)
                       const showDateSep = needsDateSeparator(prev, message)
                       const isGrouped = !showDateSep && isSameGroup(prev, message)
                       const colorIdx = isOwn ? -1 : getSenderColor(message.sender.email || message.sender.name)

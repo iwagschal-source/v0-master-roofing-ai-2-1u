@@ -30,14 +30,19 @@ async function fetchFromGoogleChatAPI(): Promise<{ spaces: ChatSpace[], needsWor
     const spaceId = space.id || space.name || ''
     const normalizedId = spaceId.startsWith('spaces/') ? spaceId : `spaces/${spaceId}`
 
+    // API route now resolves names server-side — trust displayName from route
+    let displayName = space.displayName
+    // Never show raw space IDs or user IDs as display names
+    if (!displayName || displayName.startsWith('spaces/') || displayName.startsWith('users/')) {
+      const isDm = space.type === 'DM' || space.type === 'GROUP_DM' || space.type === 'DIRECT_MESSAGE'
+      displayName = isDm ? 'Direct Message' : 'Chat Space'
+    }
+
     return {
       id: normalizedId,
       name: normalizedId,
       type: space.type || 'ROOM',
-      displayName: space.displayName || (
-        (space.type === 'DM' || space.type === 'GROUP_DM' || space.type === 'DIRECT_MESSAGE')
-          ? 'Direct Message' : 'Chat Space'
-      ),
+      displayName,
       memberCount: space.memberCount || 0,
       lastActiveTime: space.lastActiveTime || undefined,
       lastMessageTime: space.lastMessage?.createTime || space.lastActiveTime || undefined,
@@ -58,19 +63,30 @@ async function fetchGoogleChatMessages(spaceId: string): Promise<ChatMessage[]> 
     throw new Error(data.error || 'NOT_CONNECTED')
   }
 
-  return (data.messages || []).map((msg: any) => ({
-    id: msg.id,
-    spaceId: normalizedSpaceId,
-    sender: {
-      name: msg.sender?.displayName || msg.sender?.name || 'Unknown',
-      email: msg.sender?.email || '',
-      avatarUrl: msg.sender?.avatarUrl || undefined,
-    },
-    text: msg.text || '',
-    createTime: msg.createTime || new Date().toISOString(),
-    quotedMessageMetadata: msg.quotedMessageMetadata || null,
-    emojiReactionSummaries: msg.emojiReactionSummaries || [],
-  }))
+  return (data.messages || []).map((msg: any) => {
+    // The API route now resolves names server-side via People API + directory
+    // Prefer displayName (resolved), then fall back to name field
+    let senderName = msg.sender?.displayName || msg.sender?.name || 'Unknown'
+    // Never show raw user IDs like "users/123456789"
+    if (senderName.startsWith('users/')) {
+      senderName = `User #${senderName.slice(-4)}`
+    }
+
+    return {
+      id: msg.id,
+      spaceId: normalizedSpaceId,
+      sender: {
+        name: senderName,
+        rawId: msg.sender?.name || '', // users/xxx for ownership detection
+        email: msg.sender?.email || '',
+        avatarUrl: msg.sender?.avatarUrl || undefined,
+      },
+      text: msg.text || '',
+      createTime: msg.createTime || new Date().toISOString(),
+      quotedMessageMetadata: msg.quotedMessageMetadata || null,
+      emojiReactionSummaries: msg.emojiReactionSummaries || [],
+    }
+  })
 }
 
 interface UseChatSpacesReturn {
@@ -382,8 +398,13 @@ export function formatMessageTime(dateString: string): string {
 }
 
 export function getInitials(name: string): string {
-  return name
+  if (!name) return '?'
+  // Skip prefixes like "User #" for cleaner initials
+  const cleaned = name.replace(/^User\s*#?\s*/, '')
+  if (!cleaned || /^\d+$/.test(cleaned)) return name.charAt(0).toUpperCase()
+  return cleaned
     .split(' ')
+    .filter(n => n.length > 0)
     .map(n => n[0])
     .join('')
     .toUpperCase()

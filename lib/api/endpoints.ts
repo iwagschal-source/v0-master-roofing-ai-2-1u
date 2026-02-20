@@ -402,7 +402,7 @@ export interface ChatSpace {
 export interface ChatMessage {
   id: string;
   spaceId: string;
-  sender: { name: string; email: string; avatarUrl?: string };
+  sender: { name: string; rawId?: string; email: string; avatarUrl?: string };
   text: string;
   createTime: string;
   threadId?: string;

@@ -1,6 +1,7 @@
 /**
  * Google Chat API
  * Fetches user's Chat spaces and messages
+ * Resolves user IDs to display names via People API directory + member lists
  * Note: Google Chat API requires a Google Workspace account
  */
 
@@ -9,12 +10,156 @@ import { cookies } from 'next/headers'
 import { getValidGoogleToken } from '@/lib/google-token'
 
 const CHAT_API = 'https://chat.googleapis.com/v1'
+const PEOPLE_API = 'https://people.googleapis.com/v1'
+
+// ─── Name Resolution Cache ──────────────────────────────────
+// In-memory cache shared across requests within the same server instance
+const nameCache = new Map() // key: "users/{id}" → value: { name, email, photoUrl }
+let nameCacheExpiry = 0
+const CACHE_TTL = 30 * 60 * 1000 // 30 minutes
+
+/**
+ * Build a name resolution cache from:
+ * 1. People API directory (domain profiles) — maps source IDs to names
+ * 2. Chat space members — gets user IDs for matching
+ * 3. Current user's own profile
+ */
+async function buildNameCache(token, currentUserId) {
+  if (Date.now() < nameCacheExpiry && nameCache.size > 1) return
+
+  // Strategy 1: People API listDirectoryPeople
+  // Returns all users in the Google Workspace domain with names, emails, photos
+  try {
+    let nextPageToken = null
+    do {
+      const params = new URLSearchParams({
+        readMask: 'names,emailAddresses,photos,metadata',
+        sources: 'DIRECTORY_SOURCE_TYPE_DOMAIN_PROFILE',
+        pageSize: '200',
+      })
+      if (nextPageToken) params.set('pageToken', nextPageToken)
+
+      const res = await fetch(`${PEOPLE_API}/people:listDirectoryPeople?${params}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      })
+      const data = await res.json()
+
+      if (data.error) {
+        console.warn('[Chat nameCache] Directory API error:', data.error.message)
+        break
+      }
+
+      for (const person of data.people || []) {
+        const name = person.names?.[0]?.displayName || ''
+        const email = person.emailAddresses?.[0]?.value || ''
+        const photoUrl = person.photos?.[0]?.url || ''
+
+        if (!name) continue
+
+        // Index by all available source IDs (may include Google account ID)
+        for (const source of person.metadata?.sources || []) {
+          if (source.id) {
+            nameCache.set(`users/${source.id}`, { name, email, photoUrl })
+          }
+        }
+        // Also index by email for cross-referencing
+        if (email) {
+          nameCache.set(`email:${email.toLowerCase()}`, { name, email, photoUrl })
+        }
+      }
+
+      nextPageToken = data.nextPageToken
+    } while (nextPageToken)
+  } catch (e) {
+    console.warn('[Chat nameCache] Directory fetch failed:', e.message)
+  }
+
+  // Strategy 2: Current user's profile via People API /people/me
+  try {
+    const meRes = await fetch(`${PEOPLE_API}/people/me?personFields=names,emailAddresses,photos`, {
+      headers: { Authorization: `Bearer ${token}` }
+    })
+    const meData = await meRes.json()
+    if (!meData.error) {
+      const myName = meData.names?.[0]?.displayName || ''
+      const myEmail = meData.emailAddresses?.[0]?.value || ''
+      const myPhoto = meData.photos?.[0]?.url || ''
+      if (myName) {
+        nameCache.set(`users/${currentUserId}`, { name: myName, email: myEmail, photoUrl: myPhoto })
+        if (myEmail) {
+          nameCache.set(`email:${myEmail.toLowerCase()}`, { name: myName, email: myEmail, photoUrl: myPhoto })
+        }
+      }
+    }
+  } catch (e) {
+    // Non-fatal
+  }
+
+  nameCacheExpiry = Date.now() + CACHE_TTL
+  console.log(`[Chat nameCache] Cached ${nameCache.size} entries`)
+}
+
+/**
+ * Resolve a Chat user ID (users/xxxxx) to a display name
+ */
+function resolveUser(userIdStr) {
+  const cached = nameCache.get(userIdStr)
+  if (cached) return cached
+
+  // Fallback: clean identifier, never show raw "users/xxxxxxxxxxxx"
+  const id = (userIdStr || '').replace('users/', '')
+  return { name: `User #${id.slice(-4)}`, email: '', photoUrl: '' }
+}
+
+/**
+ * Resolve members of a space and return the "other" person's names for DMs
+ */
+async function resolveSpaceMembers(spaceName, token, currentUserId) {
+  try {
+    const res = await fetch(`${CHAT_API}/${spaceName}/members?pageSize=20`, {
+      headers: { Authorization: `Bearer ${token}` }
+    })
+    const data = await res.json()
+
+    if (data.error) {
+      // Might fail if scope not yet granted — graceful fallback
+      return { otherNames: [], memberCount: 0, memberIds: [] }
+    }
+
+    const memberships = data.memberships || []
+    const humanMembers = memberships.filter(m => m.member?.type === 'HUMAN')
+    const memberCount = humanMembers.length
+
+    // Collect all member IDs
+    const memberIds = humanMembers.map(m => m.member?.name).filter(Boolean)
+
+    // For name resolution: try member.displayName first (might be populated with
+    // chat.memberships.readonly scope), then fall back to directory cache
+    const otherNames = []
+    for (const m of humanMembers) {
+      if (m.member?.name === `users/${currentUserId}`) continue // skip self
+
+      // Try displayName from member object (populated with proper scopes)
+      let name = m.member?.displayName
+      if (!name) {
+        // Fall back to directory cache
+        const resolved = resolveUser(m.member?.name || '')
+        name = resolved.name
+      }
+      if (name) otherNames.push(name)
+    }
+
+    return { otherNames, memberCount, memberIds }
+  } catch (e) {
+    return { otherNames: [], memberCount: 0, memberIds: [] }
+  }
+}
 
 // GET - Fetch spaces or messages
 export async function GET(request) {
   try {
     const { searchParams } = new URL(request.url)
-    const spaceId = searchParams.get('space') // If provided, fetch messages from this space
+    const spaceId = searchParams.get('space')
 
     const cookieStore = await cookies()
     const userId = cookieStore.get('google_user_id')?.value
@@ -34,9 +179,11 @@ export async function GET(request) {
       )
     }
 
-    // If spaceId provided, fetch messages from that space
+    // Build name cache (cached, only refreshes after TTL)
+    await buildNameCache(token, userId)
+
+    // ─── Fetch messages from a specific space ───
     if (spaceId) {
-      // Normalize spaceId - remove "spaces/" prefix if present to avoid double path
       const normalizedSpaceId = spaceId.startsWith('spaces/') ? spaceId.replace('spaces/', '') : spaceId
       const messagesRes = await fetch(
         `${CHAT_API}/spaces/${normalizedSpaceId}/messages?pageSize=50`,
@@ -45,7 +192,6 @@ export async function GET(request) {
       const messagesData = await messagesRes.json()
 
       if (messagesData.error) {
-        // Google Chat API may not be available for personal accounts
         if (messagesData.error.code === 403) {
           return NextResponse.json({
             error: 'Google Chat requires a Google Workspace account',
@@ -55,28 +201,37 @@ export async function GET(request) {
         return NextResponse.json({ error: messagesData.error.message }, { status: 400 })
       }
 
-      const messages = (messagesData.messages || []).map(msg => ({
-        id: msg.name,
-        text: msg.text || '',
-        formattedText: msg.formattedText || '',
-        sender: {
-          name: msg.sender?.name || '',
-          displayName: msg.sender?.displayName || '',
-          email: msg.sender?.email || '',
-          avatarUrl: msg.sender?.avatarUrl || '',
-          type: msg.sender?.type || 'HUMAN',
-        },
-        createTime: msg.createTime,
-        space: msg.space,
-        quotedMessageMetadata: msg.quotedMessageMetadata || null,
-        emojiReactionSummaries: msg.emojiReactionSummaries || [],
-        annotations: msg.annotations || [],
-      }))
+      // Resolve sender names for all messages
+      const messages = (messagesData.messages || []).map(msg => {
+        const senderInfo = resolveUser(msg.sender?.name || '')
+        // Prefer API-provided displayName if available (future-proof)
+        const displayName = msg.sender?.displayName || senderInfo.name
+        const email = msg.sender?.email || senderInfo.email
+        const avatarUrl = msg.sender?.avatarUrl || senderInfo.photoUrl
+
+        return {
+          id: msg.name,
+          text: msg.text || '',
+          formattedText: msg.formattedText || '',
+          sender: {
+            name: msg.sender?.name || '',
+            displayName,
+            email,
+            avatarUrl,
+            type: msg.sender?.type || 'HUMAN',
+          },
+          createTime: msg.createTime,
+          space: msg.space,
+          quotedMessageMetadata: msg.quotedMessageMetadata || null,
+          emojiReactionSummaries: msg.emojiReactionSummaries || [],
+          annotations: msg.annotations || [],
+        }
+      })
 
       return NextResponse.json({ messages })
     }
 
-    // Fetch list of spaces
+    // ─── Fetch list of spaces ───
     const spacesRes = await fetch(
       `${CHAT_API}/spaces?pageSize=50`,
       { headers: { 'Authorization': `Bearer ${token}` } }
@@ -84,7 +239,6 @@ export async function GET(request) {
     const spacesData = await spacesRes.json()
 
     if (spacesData.error) {
-      // Google Chat API may not be available for personal accounts
       if (spacesData.error.code === 403) {
         return NextResponse.json({
           error: 'Google Chat requires a Google Workspace account',
@@ -94,69 +248,93 @@ export async function GET(request) {
       return NextResponse.json({ error: spacesData.error.message }, { status: 400 })
     }
 
-    // Map spaces: resolve DM names from members + fetch last message preview
+    // Map spaces: resolve DM names + fetch last message preview
     const spaces = await Promise.all(
       (spacesData.spaces || []).map(async (space) => {
         let displayName = space.displayName
         const spaceType = space.spaceType || space.type
-        const isDm = spaceType === 'DIRECT_MESSAGE' || space.type === 'DM' || space.type === 'GROUP_DM'
+        const isDm = spaceType === 'DIRECT_MESSAGE' || spaceType === 'GROUP_CHAT'
         let lastMessage = null
         let memberCount = 0
 
-        // For DMs: get OTHER person's name (filter out current user)
-        if (isDm) {
-          try {
-            const membersRes = await fetch(
-              `${CHAT_API}/${space.name}/members?pageSize=10`,
-              { headers: { 'Authorization': `Bearer ${token}` } }
-            )
-            const membersData = await membersRes.json()
-            if (membersData.memberships) {
-              // Filter out current user by matching users/{userId}
-              const otherMembers = membersData.memberships
-                .filter(m => m.member?.type === 'HUMAN' && m.member?.name !== `users/${userId}`)
-                .map(m => m.member?.displayName)
-                .filter(Boolean)
-              memberCount = membersData.memberships.filter(m => m.member?.type === 'HUMAN').length
-              if (otherMembers.length > 0) {
-                displayName = otherMembers.join(', ')
-              }
-            }
-          } catch (e) {
-            // Silently fail — will use fallback
+        // For DMs and group chats: resolve member names
+        if (isDm || !displayName) {
+          const { otherNames, memberCount: mc } = await resolveSpaceMembers(
+            space.name, token, userId
+          )
+          memberCount = mc
+          if (otherNames.length > 0) {
+            displayName = otherNames.join(', ')
           }
         }
 
-        // Fetch last message for preview (1 message, newest first)
+        // Fetch recent messages for preview + name resolution
+        let otherSenderName = null
         try {
           const msgRes = await fetch(
-            `${CHAT_API}/${space.name}/messages?pageSize=1&orderBy=createTime%20desc`,
+            `${CHAT_API}/${space.name}/messages?pageSize=5&orderBy=createTime%20desc`,
             { headers: { 'Authorization': `Bearer ${token}` } }
           )
           const msgData = await msgRes.json()
-          if (msgData.messages?.[0]) {
-            const msg = msgData.messages[0]
+          const msgs = msgData.messages || []
+
+          if (msgs[0]) {
+            const msg = msgs[0]
+            const senderInfo = resolveUser(msg.sender?.name || '')
+            const senderName = msg.sender?.displayName || senderInfo.name
+
             lastMessage = {
               text: (msg.text || '').substring(0, 120),
-              senderName: msg.sender?.displayName || 'Unknown',
-              senderEmail: msg.sender?.email || '',
+              senderName,
+              senderEmail: msg.sender?.email || senderInfo.email || '',
               createTime: msg.createTime,
+            }
+          }
+
+          // For DMs: scan messages to find the OTHER person's name
+          // (skip current user and bots)
+          if (isDm && (!displayName || displayName.startsWith('spaces/'))) {
+            for (const msg of msgs) {
+              if (msg.sender?.name === `users/${userId}`) continue
+              if (msg.sender?.type === 'BOT') continue
+              const info = resolveUser(msg.sender?.name || '')
+              const name = msg.sender?.displayName || info.name
+              if (name && !name.startsWith('User #') && name !== 'Unknown') {
+                otherSenderName = name
+                break
+              }
             }
           }
         } catch (e) {
           // Silently fail
         }
 
-        // Final fallback for displayName
+        // Final fallback for displayName — never show raw space IDs
         if (!displayName || displayName === space.name || displayName.startsWith('spaces/')) {
-          displayName = isDm ? 'Direct Message' : 'Chat Space'
+          if (isDm) {
+            // Use other person's name found from messages, excluding self
+            if (otherSenderName) {
+              displayName = otherSenderName
+            } else if (lastMessage?.senderName &&
+              lastMessage.senderName !== 'Unknown' &&
+              !lastMessage.senderName.startsWith('User #') &&
+              lastMessage.senderEmail !== nameCache.get(`users/${userId}`)?.email) {
+              displayName = lastMessage.senderName
+            } else {
+              displayName = 'Direct Message'
+            }
+          } else {
+            displayName = 'Chat Space'
+          }
         }
 
         return {
           id: space.name,
           name: space.name,
           displayName,
-          type: space.type,
+          type: spaceType === 'DIRECT_MESSAGE' ? 'DM'
+            : spaceType === 'GROUP_CHAT' ? 'GROUP_DM'
+            : 'ROOM',
           lastActiveTime: space.lastActiveTime || null,
           lastMessage,
           memberCount,
@@ -207,10 +385,8 @@ export async function POST(request) {
       )
     }
 
-    // Normalize spaceId - remove "spaces/" prefix if present to avoid double path
     const normalizedSpaceId = spaceId.startsWith('spaces/') ? spaceId.replace('spaces/', '') : spaceId
 
-    // Send message via Google Chat API
     const sendRes = await fetch(
       `${CHAT_API}/spaces/${normalizedSpaceId}/messages`,
       {
@@ -219,9 +395,7 @@ export async function POST(request) {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          text: text,
-        }),
+        body: JSON.stringify({ text }),
       }
     )
 

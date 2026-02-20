@@ -354,7 +354,9 @@ export function ChatScreen() {
                       <Hash className="w-5 h-5 text-primary" />
                     </div>
                   ) : (
-                    <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center text-sm font-medium">
+                    <div className={`w-10 h-10 rounded-full flex items-center justify-center text-sm font-medium ${
+                      SENDER_AVATAR_COLORS[getSenderColor(selectedSpace.displayName || '')] || 'bg-muted text-foreground'
+                    }`}>
                       {getInitials(selectedSpace.displayName || 'DM')}
                     </div>
                   )}
@@ -481,7 +483,11 @@ export function ChatScreen() {
                 <div className="space-y-1 max-w-3xl">
                   {sortedMessages.map((message, index) => {
                     const prev = index > 0 ? sortedMessages[index - 1] : null
-                    const isOwn = message.sender.email === user?.email || message.sender.email === 'iwagschal@masterroofingus.com'
+                    // Detect own messages by email OR by raw user ID
+                    const cookieUserId = document.cookie.match(/google_user_id=([^;]+)/)?.[1]
+                    const isOwn = (message.sender.email && message.sender.email === user?.email) ||
+                      message.sender.email === 'iwagschal@masterroofingus.com' ||
+                      (message.sender.rawId && cookieUserId && message.sender.rawId === `users/${cookieUserId}`)
                     const colorIdx = isOwn ? -1 : getSenderColor(message.sender.email || message.sender.name)
 
                     // Date separator check
@@ -490,8 +496,10 @@ export function ChatScreen() {
                     const showDateSep = !prev || prevDate !== currDate
 
                     // Group messages from same sender within 2 min
+                    const senderKey = message.sender?.rawId || message.sender?.email || message.sender?.name
+                    const prevSenderKey = prev?.sender?.rawId || prev?.sender?.email || prev?.sender?.name
                     const isGrouped = !showDateSep && prev &&
-                      (prev.sender?.email || prev.sender?.name) === (message.sender?.email || message.sender?.name) &&
+                      prevSenderKey === senderKey &&
                       (new Date(message.createTime) - new Date(prev.createTime)) < 2 * 60 * 1000
 
                     // Date label
